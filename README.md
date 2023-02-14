@@ -6,6 +6,7 @@ Getting Started
 https://github.com/networkspore/Netnotes/blob/main/Getting-started.md
 
 White Paper
+----
 
 "From the point of view of an application, the most ideal solution is to not rely on variables which are outside of the applications scope of control."
 (https://github.com/networkspore/Netnotes/blob/main/Netnotes%20-%20ergohack%20VI.pdf)
