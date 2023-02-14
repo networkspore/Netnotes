@@ -5,7 +5,7 @@ If your new to the Java environment there are a lot of things that need to be se
 
 If your a complete beginner in java, the first hurdle to cross is the development directory. Java has a directory structure which it requires, rather than suggests, and for a barebones setup you can basically have everything tree off of the src folder:
 
-<appdirectory> -> <src> -> <main> -> <java> -> <groupID eg="com"> -> <artifactID eg: netnotes>
+appdirectory -> src -> main -> java -> groupID eg="com" -> artifactID eg: netnotes
 
 Before we go much further I guess I should discuss the dev environment. I used VScode so that's what I will explain. Using VScode you can install the maven, or gradle package extension, which is needed to install build plugins (which are also needed). You can also install the graalvm, and java language exensions using vscode. 
 
@@ -64,7 +64,7 @@ public class App extends Application {
 
 If you wanted to include any sesources in your app (like images, or css files) you can then place them in the src/main/resources folder
 
-<appdirectory> -> <src> -> <main> -> <resources> 
+appdirectory -> src -> main -> resources 
 
 Note:
 
@@ -72,7 +72,7 @@ When you create a .java file the package declartion at the top will correspond t
 
 package groupID.artifactID
 
-imports (another) <groupID>.<artifactID>.<className>;
+imports (another) groupID.artifactID.ClassName;
 
 Probably the step in the process that can be the most frustrating is figuring out the maven or gradle java build system. Using maven you will want to create a pom.xml file which contains the following (I'm targeting java 17, because of the gluonfx plugin which will be discussed later:
 
