@@ -301,7 +301,7 @@ However, you can't just build gluonfx files.... (sorry)
 
 You'll need to install visual studio, (community edition) and the .net developent package, in order to make sure you have cli so that gluon can use graalvm to change the jar into an exe.
 
-You'll also need the gluonfx version of graalvm (you don't need to change your other graalvm), but rather just download and install the <a href="https://github.com/gluonhq/graal/releases">gluon graalvm</> into a new directory. You'll have to then use the x64 Native Tools Command Prompt and set a GRAALVM_HOME variable to the directory (type: set GRAALVM_HOME=C:/dev/gluongraal). You can check out <a href="https://docs.gluonhq.com/#_create_run_a_native_image_of_the_application"> this page </a> for more info. There are also tutorials online for this if you run into snags. 
+You'll also need the gluonfx version of graalvm (you don't need to change your other graalvm), but rather just download and install the <a href="https://github.com/gluonhq/graal/releases">gluon graalvm</a> into a new directory. You'll have to then use the x64 Native Tools Command Prompt and set a GRAALVM_HOME variable to the directory (type: set GRAALVM_HOME=C:/dev/gluongraal). You can check out <a href="https://docs.gluonhq.com/#_create_run_a_native_image_of_the_application"> this page </a> for more info. There are also tutorials online for this if you run into snags. 
 
 You may also alter the settings in VSCode to set the terminal to use the native tools one. (File→Settings…→Tools→Terminal, and change Shell path from cmd.exe to cmd.exe /k "<path to VS2019>\VC\Auxiliary\Build\vcvars64.bat
   
