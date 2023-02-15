@@ -80,7 +80,7 @@ imports (another) groupID.artifactID.ClassName;
 
 Probably the step in the process that can be the most frustrating is figuring out the maven or gradle java build system. Using maven you will want to create a pom.xml file which contains the following (I'm targeting java 17, because of the gluonfx plugin which will be discussed later:
 
--------
+```
 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -232,7 +232,7 @@ Probably the step in the process that can be the most frustrating is figuring ou
     </dependencyManagement>
 </project>
 
-------
+```
 
 This pom file covers a lot of things at once. 
 
