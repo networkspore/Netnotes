@@ -56,7 +56,10 @@ public class App extends Application {
         Label mneumonicText = new Label(mneumonicString);
         mneumonicText.setWrapText(true);
         layout.getChildren().add(mneumonicText);
-        stage.getIcons().add(new Image("/icon.png"));
+        
+        //Use this to set the icon that windows uses when the program is running
+        //place icon.png beneath the /src/main/resources folder 
+        //stage.getIcons().add(new Image("/icon.png"));
         
         stage.setScene(scene);
         stage.show();
@@ -64,11 +67,6 @@ public class App extends Application {
 }
 ```
 
-If you wanted to include any sesources in your app (like images, or css files) you can then place them in the src/main/resources folder
-
-appdirectory -> src -> main -> resources 
-
-for example in the above code you would want to place "icon.png" in the /src/main/resources folder.
 
 Note:
 
