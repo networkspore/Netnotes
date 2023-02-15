@@ -308,8 +308,10 @@ You'll need to install visual studio, (community edition) and the .net developen
 
 You'll also need the gluonfx version of graalvm (you don't need to change your other graalvm), but rather just download and install the <a href="https://github.com/gluonhq/graal/releases">gluon graalvm</a> into a new directory. You'll have to then use the x64 Native Tools Command Prompt and set a GRAALVM_HOME variable to the directory (type: set GRAALVM_HOME=C:/dev/gluongraal). You can check out <a href="https://docs.gluonhq.com/#_create_run_a_native_image_of_the_application"> this page </a> for more info. There are also tutorials online for this if you run into snags. 
 
-You may also alter the settings in VSCode to set the terminal to use the native tools one. change Shell path from cmd.exe to cmd.exe /k "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
-  
+You may also alter the settings in VSCode to set the terminal to use the native tools one. change Shell path from 
+```
+cmd.exe to cmd.exe /k "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
+```
 If all goes well you now have a launcher exe that will open your ergo-appkit enabled jar file!
   
 And now you can get started making your ergo-appkit project!
