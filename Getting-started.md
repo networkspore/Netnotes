@@ -56,6 +56,7 @@ public class App extends Application {
         Label mneumonicText = new Label(mneumonicString);
         mneumonicText.setWrapText(true);
         layout.getChildren().add(mneumonicText);
+        stage.getIcons().add(new Image("/icon.png"));
         
         stage.setScene(scene);
         stage.show();
@@ -65,6 +66,8 @@ public class App extends Application {
 If you wanted to include any sesources in your app (like images, or css files) you can then place them in the src/main/resources folder
 
 appdirectory -> src -> main -> resources 
+
+for example in the above code you would want to place "icon.png" in the /src/main/resources folder.
 
 Note:
 
@@ -232,9 +235,11 @@ Probably the step in the process that can be the most frustrating is figuring ou
 
 This pom file covers a lot of things at once. 
 
-You need the openFx dependancies to show window frames, then there's the javafx-maven-plugin, which is also required, (if you go with gradle you'll need that plugin). You'll also need the maven-shade-plugin. (gradle uses a shadow plugin) Maven installs all of these dependancies, and plugins when you save the pom file, so no further downloading is required.
+You need the openFx dependancies to show window frames and then there's the javafx-maven-plugin, which is also required, (if you go with gradle you'll need that plugin). You'll also need the maven-shade-plugin. (gradle uses a shadowJar plugin) Maven installs all of these dependancies, and plugins when you save the pom file (if you have the VS code extension installed), so no further downloading is required.
 
-If you don't install the shade plugin, you'll need to add all those dependancies to the 'dependancy managment' section, in order to get maven to say that everything is ok. The shade plugin is designed to package all the dependancies into one executable jar, but it can't package certain secure files, so you need to add those dependancies to the 'excludes' section. Someone on stack overflow suggested the:
+All those dependancies in the 'dependancy managment' section, are their because of the differences between your environment and the environment that the app-kit was compiled with. To make sure you have the right dependencies look in the dependencies section of maven in vscode. You might have to expand the appkit icon, in that section to see any dependency conflicts. 
+
+The shade plugin is designed to package all the dependancies into one executable jar, but it can't package certain secure files, so you need to add those dependancies to the 'excludes' section. Someone on stack overflow suggested the:
  <excludes>
     <exclude>META-INF/*.SF</exclude>
     <exclude>META-INF/*.DSA</exclude>
@@ -243,11 +248,11 @@ If you don't install the shade plugin, you'll need to add all those dependancies
 
 So that the shade plugin will skip all of the secure files. 
 
-In order to build your jar you should now be able to run from the command line, 
+You should now be able to run:
 
 mvn package
-
-when you are at the root of your project directory.
+    
+From a terminal, that's in your projects root directory. 
 
 This will build a .jar file and place it in a target folder at the root of your project. (if all goes well)
 
@@ -256,9 +261,11 @@ To run this jar, you can execute the line:
 java -jar filename.jar
 
 
-However, for myself this doesn't seem like the right way to be launching this application. So, in order to make a launcher, using javaFX, you'll want to get the <a href="https://github.com/gluonhq/graal/releases">graalvm from Gluon</a> which is meant for building javaFX into an exe and then you'll need a new plugin <a href="https://github.com/gluonhq/gluonfx-maven-plugin">gluonfx plugin</a> can then be installed in maven.
+However, for myself this doesn't seem like the right way to be launching an application. So, in order to make a launcher, I chose to get the <a href="https://github.com/gluonhq/graal/releases">graalvm from Gluon</a> which is meant for building javaFX into an exe using graalvm's native-image function. To do that you'll need a new plugin <a href="https://github.com/gluonhq/gluonfx-maven-plugin">gluonfx plugin</a> can then be installed in maven.
+    
+I haven't been able to get the gluonfx to build an app-kit project, and I assume that it might be possible, after you use the shade program, to make a jar, but I don't mind having a laucher application, because this can always help for updating the jar file to new versions later.
 
-To do this create a different folder, called launcher in your groupID folder and then copy the main class you created ealier into it and change the code to this:
+The bare bones of a launcher class would be: 
 
 package com.launcher;
 
@@ -276,15 +283,10 @@ public class Main {
     }
 }
 
-And then in your perviously created App.java add:
 
-stage.getIcons().add(new Image("/icon.png"));
+You could now convert the icon.png file from a png into an ico (using an online file converter, or your app of choice)
 
-And place "icon.png" in the /src/main/resources folder.
-
-You can also convert the icon.png to icon.ico (using an online file converter, or your app of choice)
-
- Then place icon.ico file in a new /src/Windows/ directory.
+ Then place icon.ico file in a new /src/Windows/ directory for the gluonfx plugin to catch.
  
  Now you can add the gluonfx plugin to the plugins section of your pom file:
 
@@ -297,14 +299,16 @@ You can also convert the icon.png to icon.ico (using an online file converter, o
    </configuration>
 </plugin>
 
-However, you can't just build gluonfx files.... (sorry)
+However, you can't just build gluonfx files.... (sorry)... It's hard to get gluon to actually work, it might keep giving you errors that it can't find the cl.exe
 
-You'll need to install visual studio, (community edition) and the .net developent package, in order to make sure you have cli so that gluon can use graalvm to change the jar into an exe.
+cl.exe is the name of the C compiler that it wants to use and can't find.
+
+You'll need to install visual studio, (community edition) and the .net developent package, in order to make sure you have the windows compiler, so that you change the jar into an exe.
 
 You'll also need the gluonfx version of graalvm (you don't need to change your other graalvm), but rather just download and install the <a href="https://github.com/gluonhq/graal/releases">gluon graalvm</a> into a new directory. You'll have to then use the x64 Native Tools Command Prompt and set a GRAALVM_HOME variable to the directory (type: set GRAALVM_HOME=C:/dev/gluongraal). You can check out <a href="https://docs.gluonhq.com/#_create_run_a_native_image_of_the_application"> this page </a> for more info. There are also tutorials online for this if you run into snags. 
 
 You may also alter the settings in VSCode to set the terminal to use the native tools one. (File→Settings…→Tools→Terminal, and change Shell path from cmd.exe to cmd.exe /k "<path to VS2019>\VC\Auxiliary\Build\vcvars64.bat
   
-If all goes well (and it probably won't) you now have a launcher exe that will open your ergo-appkit enabled jar file!
+If all goes well you now have a launcher exe that will open your ergo-appkit enabled jar file!
   
 And now you can get started making your ergo-appkit project!
