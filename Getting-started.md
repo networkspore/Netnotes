@@ -16,7 +16,7 @@ You will want to place a main class in the artifactID folder if you intend to bu
 First your 'Main.java' class:
 
 ```
-package groupID.artifactID;
+package groupid.artifactid;
 
 import javafx.application.Application;
 
@@ -29,7 +29,7 @@ public class Main {
 ```
 Then your App.java class:
 ```
-package yourgroupid.yourartifactid;
+package groupid.artifactid;
 
 import org.ergoplatform.appkit.Mnemonic;
 
@@ -72,9 +72,9 @@ Note:
 
 When you create a .java file the package declartion at the top will correspond to this directory path, starting after the java directory:
 
-package groupID.artifactID
+package groupid.artifactid
 
-imports (another) groupID.artifactID.ClassName;
+imports (another) groupid.artifactid.ClassName;
 
 Probably the step in the process that can be the most frustrating is figuring out the maven or gradle java build system. Using maven you will want to create a pom.xml file which contains the following (I'm targeting java 17, because of the gluonfx plugin which will be discussed later:
 
@@ -236,36 +236,31 @@ This pom file covers a lot of things at once.
 
 You need the openFx dependancies to show window frames and then there's the javafx-maven-plugin, which is also required, (if you go with gradle you'll need that plugin). You'll also need the maven-shade-plugin. (gradle uses a shadowJar plugin) Maven installs all of these dependancies, and plugins when you save the pom file (if you have the VS code extension installed), so no further downloading is required.
 
-All those dependancies in the 'dependancy managment' section, are their because of the differences between your environment and the environment that the app-kit was compiled with. To make sure you have the right dependencies look in the dependencies section of maven in vscode. You might have to expand the appkit icon, in that section to see any dependency conflicts. 
+All those dependancies in the 'dependancy managment' section, are their because of the differences between the environment and the environment that the app-kit was compiled with. To make sure you have the right dependencies look in the dependencies section of maven in vscode. You might have to expand the appkit icon, in the maven dependencies section to see any dependency conflicts. 
 
-The shade plugin is designed to package all the dependancies into one executable jar, but it can't package certain secure files, so you need to add those dependancies to the 'excludes' section. Someone on stack overflow suggested the:
- <excludes>
-    <exclude>META-INF/*.SF</exclude>
-    <exclude>META-INF/*.DSA</exclude>
-    <exclude>META-INF/*.RSA</exclude>
-</excludes>
-
-So that the shade plugin will skip all of the secure files. 
-
-You should now be able to run:
+If the shade plugin is working you should now be able to compile a jar using:
 
 mvn package
     
-From a terminal, that's in your projects root directory. 
+you can use a terminal, that's in your projects root directory.
 
-This will build a .jar file and place it in a target folder at the root of your project. (if all goes well)
+This will create a target folder at your project root and than build a .jar file and place it in that target folder. (if all goes well)
 
-To run this jar, you can execute the line:
+To run this jar, you will need to use the absolute path (C:\project\target\filename.jar), or be in the target directory with the terminal. You can execute the line:
 
 java -jar filename.jar
 
+To run your app!
 
-However, for myself this doesn't seem like the right way to be launching an application. So, in order to make a launcher, I chose to get the <a href="https://github.com/gluonhq/graal/releases">graalvm from Gluon</a> which is meant for building javaFX into an exe using graalvm's native-image function. To do that you'll need a new plugin <a href="https://github.com/gluonhq/gluonfx-maven-plugin">gluonfx plugin</a> can then be installed in maven.
-    
+Making a Launcher
+----
+For myself using a command line doesn't seem like the right way to be launching an application. So, in order to make a launcher, I chose to get the <a href="https://github.com/gluonhq/graal/releases">graalvm from Gluon</a> which is meant for building javaFX into an exe using graalvm's native-image function. To do that you'll need a new plugin <a href="https://github.com/gluonhq/gluonfx-maven-plugin">gluonfx plugin</a> which can be installed in maven. (they also have a gradle plugin if that's what your into).
+
 I haven't been able to get the gluonfx to build an app-kit project, and I assume that it might be possible, after you use the shade program, to make a jar, but I don't mind having a laucher application, because this can always help for updating the jar file to new versions later.
 
-The bare bones of a launcher class would be: 
+The bare bones of a launcher class would be : 
 
+````
 package com.launcher;
 
 import java.io.IOException;
@@ -274,20 +269,22 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-            Runtime.getRuntime().exec("cmd.exe /C  javaw -jar artifactID.jar");
+            Runtime.getRuntime().exec("cmd.exe /C  javaw -jar filename.jar");
         } catch (IOException e) {
 
         }
 
     }
 }
+````
 
+You will see that I created a side folder called launcher and placed the Main.java class in it, with my launcher code.
 
-You could now convert the icon.png file from a png into an ico (using an online file converter, or your app of choice)
+If you want your application to use a custom icon, rather than the gluon icon,
 
- Then place icon.ico file in a new /src/Windows/ directory for the gluonfx plugin to catch.
+create an icon.ico file and place it in the yourproject/src/Windows/ directory for the gluonfx plugin to catch.
  
- Now you can add the gluonfx plugin to the plugins section of your pom file:
+ Now you can add the gluonfx plugin to your your pom file:
 
 <plugin>
   <groupId>com.gluonhq</groupId>
@@ -297,6 +294,8 @@ You could now convert the icon.png file from a png into an ico (using an online 
     <mainClass>com.launcher.Main</mainClass>
    </configuration>
 </plugin>
+
+When you run mvn gluonfx:build it will then build an exe of the mainClass that you set.
 
 However, you can't just build gluonfx files.... (sorry)... It's hard to get gluon to actually work, it might keep giving you errors that it can't find the cl.exe
 
