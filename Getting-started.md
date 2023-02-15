@@ -15,7 +15,7 @@ You will want to place a main class in the artifactID folder if you intend to bu
 
 First your 'Main.java' class:
 
-
+```
 package groupID.artifactID;
 
 import javafx.application.Application;
@@ -28,8 +28,7 @@ public class Main {
 }
 
 Then your App.java class:
-`
-package yourgroupid.yourartifactid;
+`package yourgroupid.yourartifactid;
 
 import org.ergoplatform.appkit.Mnemonic;
 
@@ -61,8 +60,8 @@ public class App extends Application {
         stage.setScene(scene);
         stage.show();
     }
-}`
-
+}
+```
 
 If you wanted to include any sesources in your app (like images, or css files) you can then place them in the src/main/resources folder
 
