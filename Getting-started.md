@@ -26,9 +26,10 @@ public class Main {
         Application.launch(App.class, args);
     }
 }
-
+```
 Then your App.java class:
-`package yourgroupid.yourartifactid;
+```
+package yourgroupid.yourartifactid;
 
 import org.ergoplatform.appkit.Mnemonic;
 
