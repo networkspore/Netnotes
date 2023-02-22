@@ -1,0 +1,125 @@
+.root {
+    -fx-background-color: #111111;
+    -fx-border-color: #222222;
+    -fx-border-width: 0 3px 2px 3px;
+    fx-border-style: solid;
+}
+
+.progress-bar>.track {
+    -fx-text-box-border: white;
+    -fx-control-inner-background: black;
+    -fx-background-insets: 1 1 2 1;
+    -fx-padding: 0.20em;
+}
+
+.progress-bar>.bar {
+    -fx-background-color: white;
+    
+    -fx-background-radius: 2;
+-fx-background-insets: 1 1 2 1;
+    -fx-padding: 0.20em;
+}
+
+#topBar {
+    -fx-background-color: linear-gradient(to bottom, #ffffff15 0%, #000000EE 50%, #11111110 90%);
+   
+}
+#menuBox {
+    -fx-background-color: linear-gradient(to top, #ffffff05 0%, #111111 50%, #ffffff02 98%);
+}
+
+#toolBtn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3px, 3px, 2px, 1px;
+    -fx-text-fill: #cdd4da;
+    -fx-font-size: 14px;
+    
+    -fx-opacity: .6;
+}
+
+#toolBtn:hover {
+    -fx-background-color: #33333380;
+    -fx-opacity: 1;
+    -fx-text-fill: white;
+    -fx-underline: true;
+}
+
+#closeBtn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3px, 3px, 2px, 1px;
+    -fx-opacity: .4;
+}
+
+#closeBtn:hover {
+    -fx-background-color: red;
+    -fx-opacity: 1;
+}
+
+#passField {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+}
+
+#textField {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+}
+
+#formField {
+    -fx-background-color: transparent;
+    -fx-text-fill: #777777;
+}
+#formField:focused{
+    -fx-text-fill: white;
+}
+
+#formField:focused:hover {
+    -fx-text-fill: white;
+}
+
+#testColor {
+    -fx-background-color: green;
+}
+#transparentColor {
+    -fx-background-color: transparent;
+}
+
+#gridPane {
+    -fx-background-color: red;
+}
+
+#menuVBox {
+    -fx-background-color: linear-gradient(to bottom,
+        #000000,
+        #20232570);
+}
+
+#startImageBtn {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-background-radius: 30px;
+}
+
+#mainImageBtn {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-background-radius: 30px;
+}
+
+#mainImageBtn:hover {
+    -fx-background-color: #33333380;
+    -fx-text-fill: white;
+
+}
+
+#inactiveMainImageBtn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #777777;
+    -fx-background-radius: 30px;
+}
+
+#inactiveMainImageBtn:hover {
+    -fx-background-color: #33333380;
+    -fx-text-fill: white;
+   
+}
