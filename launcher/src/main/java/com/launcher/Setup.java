@@ -13,6 +13,7 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.Key;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
@@ -22,6 +23,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
 
 import org.reactfx.util.FxTimer;
 
@@ -54,11 +57,15 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.application.HostServices;
 
 public class Setup extends Application {
+
+    private static Setup mInstance;
 
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public static Font txtFont = Font.font("OCR A Extended", 15);
@@ -74,23 +81,149 @@ public class Setup extends Application {
     public static String javaURL = "https://download.oracle.com/java/19/latest/jdk-19_windows-x64_bin.exe";
 
     public static String downloadsDir = System.getProperty("user.home") + "\\Downloads";
+    public static boolean isJava = true;
+
+    public static Setup getInstance() {
+        return mInstance;
+    }
 
     @Override
     public void start(Stage appStage) {
+        // HostServices hostServices;
         Platform.setImplicitExit(false);
 
         Parameters params = getParameters();
         List<String> list = params.getRaw();
-
-        boolean isJava = true;
+        boolean noInternetAndJar = false;
 
         for (String each : list) {
+            if (each.startsWith("noInternetAndJar")) {
+                noInternetAndJar = true;
+            }
             if (each.startsWith("noJava")) {
                 isJava = false;
             }
         }
+
         VBox bodyVBox = new VBox();
 
+        if (noInternetAndJar) {
+
+        } else {
+            beginSetup(bodyVBox, appStage);
+        }
+
+    }
+
+    private static void visitGitHub(VBox bodyVBox, Stage appStage) {
+        setSetupStage(appStage, "Net Notes - Get latest release", "Get the latest release...", bodyVBox);
+        appStage.show();
+
+        Text getJarTxt = new Text("> URL:");
+        getJarTxt.setFill(txtColor);
+        getJarTxt.setFont(txtFont);
+
+        TextField latestURLField = new TextField(Main.latestReleaseURLstring);
+        latestURLField.setFont(txtFont);
+        latestURLField.setId("formField");
+        latestURLField.setDisable(true);
+
+        HBox getJarBox = new HBox(getJarTxt, latestURLField);
+        getJarBox.setAlignment(Pos.CENTER);
+
+        HostServices hostServices = Setup.getInstance().getHostServices();
+
+        Button latestBtn = new Button("Go to GitHub");
+        latestBtn.setPadding(new Insets(10, 10, 10, 10));
+        latestBtn.setFont(txtFont);
+        latestBtn.setId("toolBtn");
+        latestBtn.setOnAction(btnEvent -> {
+            hostServices.showDocument(Main.latestReleaseURLstring);
+        });
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Select 'netnotes-x.x.x.jar'");
+        chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Net Notes", "*.jar"));
+
+        Button selectBtn = new Button("Select 'netnotes-x.x.x.jar");
+        selectBtn.setPadding(new Insets(10, 10, 10, 10));
+        selectBtn.setFont(txtFont);
+        selectBtn.setId("toolBtn");
+        selectBtn.setOnAction(btnEvent -> handleChooser(appStage, chooser));
+
+        HBox handleJarBox = new HBox(latestBtn, selectBtn);
+        handleJarBox.setAlignment(Pos.CENTER);
+        handleJarBox.setPadding(new Insets(30, 0, 0, 0));
+        HBox.setHgrow(handleJarBox, Priority.ALWAYS);
+
+        bodyVBox.getChildren().addAll(getJarBox, handleJarBox);
+    }
+
+    private static void handleChooser(Stage appStage, FileChooser chooser) {
+
+        File chosenFile = chooser.showOpenDialog(appStage);
+
+        boolean isException = false;
+        try {
+            new ZipFile(chosenFile);
+        } catch (Exception zipException) {
+            isException = true;
+        }
+
+        if (isException) {
+            Alert a = new Alert(AlertType.NONE, "Invalid file.\n\nPlease visit gitHub for the latest release.");
+            a.showAndWait();
+        } else {
+            String chosenFileName = chosenFile.getName();
+            Version jarVersion = AppJar.getVersionFromFileName(chosenFileName);
+            String unknownName = "netnotes-0.0.0.jar";
+
+            Path newJarPath;
+
+            int versionTest = jarVersion.compareTo(new Version("0.0.0"));
+
+            if (versionTest > 0) {
+                newJarPath = Paths.get(Main.appDataDirectory + "\\" + chosenFileName);
+            } else {
+                newJarPath = Paths.get(Main.appDataDirectory + "\\" + unknownName);
+            }
+
+            boolean moveException = false;
+            try {
+                Files.move(chosenFile.toPath(), newJarPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                moveException = true;
+            }
+
+            if (moveException) {
+                if (versionTest > 0) {
+                    newJarPath = Paths.get(Main.currentDirectory + "\\" + chosenFileName);
+                } else {
+                    newJarPath = Paths.get(Main.currentDirectory + "\\" + unknownName);
+                }
+
+                try {
+                    Files.move(chosenFile.toPath(), newJarPath, StandardCopyOption.REPLACE_EXISTING);
+                    moveException = false;
+                } catch (IOException e) {
+                    moveException = true;
+                }
+
+                if (moveException) {
+                    Alert a = new Alert(AlertType.NONE, "No file access. Please ensure you are an authorized user.");
+                    a.showAndWait();
+                    shutdownNow();
+                } else {
+                    Main.launch();
+                }
+            } else {
+                Main.launch();
+            }
+        }
+
+    }
+
+    private static void beginSetup(VBox bodyVBox, Stage appStage) {
         setSetupStage(appStage, "Net Notes - Setup", "Setup...", bodyVBox);
 
         appStage.show();
@@ -150,7 +283,6 @@ public class Setup extends Application {
         } else {
 
         }
-
     }
 
     private static void setupJava(VBox bodyVBox) {

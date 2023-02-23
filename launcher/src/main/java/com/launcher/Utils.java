@@ -15,30 +15,36 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.rfksystems.blake2b.Blake2b;
+
 import java.io.FilenameFilter;
 
 public class Utils {
-    // Security.addProvider(new Blake2bProvider());
 
-    public static String digestFileToHex(File file, String instance) throws Exception, FileNotFoundException, IOException {
+    public static String digestFileToHex(File file, String instance) {
+        try {
+            final MessageDigest digest = MessageDigest.getInstance(instance);
 
-        final MessageDigest digest = MessageDigest.getInstance(instance);
+            FileInputStream fis = new FileInputStream(file);
 
-        FileInputStream fis = new FileInputStream(file);
+            byte[] byteArray = new byte[1024];
+            int bytesCount = 0;
 
-        byte[] byteArray = new byte[1024];
-        int bytesCount = 0;
+            while ((bytesCount = fis.read(byteArray)) != -1) {
+                digest.update(byteArray, 0, bytesCount);
+            };
 
-        while ((bytesCount = fis.read(byteArray)) != -1) {
-            digest.update(byteArray, 0, bytesCount);
-        };
+            fis.close();
 
-        fis.close();
+            byte[] hashBytes = digest.digest();
 
-        byte[] hashBytes = digest.digest();
+            return bytesToHex(hashBytes);
+        } catch (Exception exception) {
 
-        return bytesToHex(hashBytes);
+        }
 
+        return null;
     }
 
     public static final byte[] HEX_ARRAY = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
@@ -253,5 +259,34 @@ public class Utils {
         }
 
         return latestString;
+    }
+
+    public static AppJar getLatestAppJar(String directoryString, String latestHash, Version version) {
+
+        if (!Files.isDirectory(Paths.get(directoryString))) {
+            return null;
+        }
+
+        File f = new File(directoryString);
+
+        File[] matchingFiles = f.listFiles(new FilenameFilter() {
+            public boolean accept(File dir, String name) {
+                return name.startsWith("netnotes") && name.endsWith(".jar");
+            }
+        });
+
+        if (matchingFiles == null) {
+            return null;
+        }
+
+        for (File file : matchingFiles) {
+
+            String hash = Utils.digestFileToHex(file, Blake2b.BLAKE2_B_256);
+
+            if (hash.equals(latestHash)) {
+                return new AppJar(file.getAbsolutePath(), version, hash);
+            }
+        }
+        return null;
     }
 }
