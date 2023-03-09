@@ -16,47 +16,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
+
 import com.rfksystems.blake2b.Blake2b;
 
 import java.io.FilenameFilter;
 
 public class Utils {
 
-    public static String digestFileToHex(File file, String instance) {
-        try {
-            final MessageDigest digest = MessageDigest.getInstance(instance);
+    public static String digestFileToHex(File file) throws Exception, FileNotFoundException, IOException {
 
-            FileInputStream fis = new FileInputStream(file);
+        final MessageDigest digest = MessageDigest.getInstance(Blake2b.BLAKE2_B_256);
 
-            byte[] byteArray = new byte[1024];
-            int bytesCount = 0;
+        FileInputStream fis = new FileInputStream(file);
 
-            while ((bytesCount = fis.read(byteArray)) != -1) {
-                digest.update(byteArray, 0, bytesCount);
-            };
+        byte[] byteArray = new byte[1024];
+        int bytesCount = 0;
 
-            fis.close();
+        while ((bytesCount = fis.read(byteArray)) != -1) {
+            digest.update(byteArray, 0, bytesCount);
+        };
 
-            byte[] hashBytes = digest.digest();
+        fis.close();
 
-            return bytesToHex(hashBytes);
-        } catch (Exception exception) {
+        byte[] hashBytes = digest.digest();
 
-        }
+        return Hex.encodeHexString(hashBytes);
 
-        return null;
-    }
-
-    public static final byte[] HEX_ARRAY = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
-
-    public static String bytesToHex(byte[] bytes) {
-        byte[] hexChars = new byte[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
-            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
-        }
-        return new String(hexChars, StandardCharsets.UTF_8);
     }
 
     public static URL getLocation(final Class<?> c) {
@@ -211,15 +197,20 @@ public class Utils {
         int start = 7;
 
         String latestString = "";
+        Version versionA = null;
 
-        String versionA = "0.0.0";
+        try {
+            versionA = new Version("0.0.0");
+        } catch (Exception e) {
+
+        }
 
         for (File file : matchingFiles) {
 
             String fileName = file.getName();
 
             if (fileName.equals("netnotes.jar")) {
-                if (versionA.equals("0.0.0")) {
+                if (versionA.get().equals("0.0.0")) {
                     latestString = "netnotes.jar";
                 }
             } else if (fileName.length() == fileLength) {
@@ -239,14 +230,16 @@ public class Utils {
 
                 }
 
-                String versionB = fileName.substring(i + 1, end);
+                String subString = fileName.substring(i + 1, end);
 
-                if (versionB.matches("[0-9]+(\\.[0-9]+)*")) {
+                if (subString.matches("[0-9]+(\\.[0-9]+)*")) {
+                    Version versionB = null;
+                    try {
+                        versionB = new Version(subString);
+                    } catch (Exception e) {
 
-                    Version vA = new Version(versionA);
-                    Version vB = new Version(versionB);
-
-                    if (vA.compareTo(vB) == -1) {
+                    }
+                    if (versionB != null && versionA.compareTo(versionB) == -1) {
                         versionA = versionB;
                         latestString = fileName;
                     } else if (latestString.equals("")) {
@@ -261,32 +254,37 @@ public class Utils {
         return latestString;
     }
 
-    public static AppJar getLatestAppJar(String directoryString, String latestHash, Version version) {
+    public static String getLatestHashJar(String directoryString, String latestHash) {
 
         if (!Files.isDirectory(Paths.get(directoryString))) {
-            return null;
+            return "";
         }
 
         File f = new File(directoryString);
 
         File[] matchingFiles = f.listFiles(new FilenameFilter() {
             public boolean accept(File dir, String name) {
-                return name.startsWith("netnotes") && name.endsWith(".jar");
+                return name.endsWith(".jar");
             }
         });
 
         if (matchingFiles == null) {
-            return null;
+            return "";
         }
 
         for (File file : matchingFiles) {
 
-            String hash = Utils.digestFileToHex(file, Blake2b.BLAKE2_B_256);
+            String hash = "";
+            try {
+                hash = Utils.digestFileToHex(file);
+            } catch (Exception e) {
+
+            }
 
             if (hash.equals(latestHash)) {
-                return new AppJar(file.getAbsolutePath(), version, hash);
+                return file.getAbsolutePath();
             }
         }
-        return null;
+        return "";
     }
 }

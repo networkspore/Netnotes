@@ -3,8 +3,23 @@
     -fx-border-color: #222222;
     -fx-border-width: 0 3px 2px 3px;
     fx-border-style: solid;
+
 }
 
+.root * {
+    -fx-text-fill: #cdd4da;
+    -fx-background-color: transparent;
+}
+
+.button {
+    -fx-text-fill: #777777;
+    -fx-background-color: #33333350;
+}
+
+.button:hover {
+    -fx-text-fill: white;
+    -fx-background-color: #77777750;
+}
 #topBar {
     -fx-background-color: linear-gradient(to bottom, #ffffff15 0%, #000000EE 50%, #11111110 90%);
    
@@ -15,7 +30,6 @@
 
 #toolBtn {
     -fx-background-color: transparent;
-    -fx-background-radius: 3px, 3px, 2px, 1px;
     -fx-text-fill: #cdd4da;
     -fx-font-size: 14px;
     
@@ -26,7 +40,6 @@
     -fx-background-color: #33333380;
     -fx-opacity: 1;
     -fx-text-fill: white;
-    -fx-underline: true;
 }
 
 #closeBtn {

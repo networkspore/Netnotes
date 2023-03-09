@@ -2,6 +2,7 @@ package com.launcher;
 
 import javafx.event.EventHandler;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -10,11 +11,16 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.time.Duration;
@@ -26,8 +32,15 @@ import java.util.concurrent.Future;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
+import org.apache.commons.codec.binary.Hex;
 import org.reactfx.util.FxTimer;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -40,6 +53,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.DialogEvent;
 import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Alert.AlertType;
@@ -65,10 +79,17 @@ import javafx.application.HostServices;
 
 public class Setup extends Application {
 
-    private static Setup mInstance;
+    public static String javaName = "Java 19 (x64)";
+    public static String javaURL = "https://download.oracle.com/java/19/latest/jdk-19_windows-x64_bin.exe";
+
+    public static String updateUrl = "https://github.com/networkspore/Netnotes/releases/latest/download";
+    public static String javaUrl = "https://www.java.com/en/download/";
+
+    public static final String programFilesDir = System.getenv("LOCALAPPDATA");
 
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public static Font txtFont = Font.font("OCR A Extended", 15);
+    public static Font smallFont = Font.font("OCR A Extended", 11);
     public static Font titleFont = Font.font("OCR A Extended", FontWeight.BOLD, 12);
     public static Color txtColor = Color.web("#cdd4da");
 
@@ -78,282 +99,590 @@ public class Setup extends Application {
     public static Image waitingImage = new Image("/assets/spinning.gif");
 
     public static String javaFileName = "jdk-19_windows-x64_bin.exe";
-    public static String javaURL = "https://download.oracle.com/java/19/latest/jdk-19_windows-x64_bin.exe";
 
-    public static String downloadsDir = System.getProperty("user.home") + "\\Downloads";
-    public static boolean isJava = true;
-
-    public static Setup getInstance() {
-        return mInstance;
-    }
+    private HostServices services = getHostServices();
 
     @Override
     public void start(Stage appStage) {
         // HostServices hostServices;
         Platform.setImplicitExit(false);
-
+        appStage.initStyle(StageStyle.UNDECORATED);
         Parameters params = getParameters();
         List<String> list = params.getRaw();
-        boolean noInternetAndJar = false;
+
+        Version javaVersion = null;
+        JsonObject launcherData = null;
+
+        String currentAppJar = "";
+
+        boolean firstRun = false;
+        boolean doUpdates = false;
 
         for (String each : list) {
-            if (each.startsWith("noInternetAndJar")) {
-                noInternetAndJar = true;
+
+            if (each.startsWith(Main.firstRun)) {
+
+                firstRun = true;
             }
-            if (each.startsWith("noJava")) {
-                isJava = false;
+            if (each.startsWith(Main.setupUpdates)) {
+                doUpdates = true;
             }
+
+            if (each.startsWith(Main.currentJavaVersionEquals)) {
+
+                if (each.length() > Main.currentJavaVersionEquals.length()) {
+
+                    javaVersion = new Version(each.substring(Main.currentJavaVersionEquals.length(), each.length()));
+                } else {
+                    javaVersion = null;
+                }
+            }
+
+            if (each.startsWith(Main.currentAppJarEquals)) {
+
+                if (each.length() > Main.currentAppJarEquals.length()) {
+                    currentAppJar = each.substring(Main.currentAppJarEquals.length(), each.length());
+                } else {
+                    currentAppJar = "";
+                }
+
+            }
+
         }
 
         VBox bodyVBox = new VBox();
-
-        if (noInternetAndJar) {
-
+        if (firstRun) {
+            firstRun(appStage, javaVersion, currentAppJar, bodyVBox);
         } else {
-            beginSetup(bodyVBox, appStage);
+            if (doUpdates) {
+                try {
+                    //  getReleaseInfo(javaVersion, currentAppJar);
+                } catch (Exception e) {
+
+                }
+            } else {
+
+            }
         }
 
     }
 
-    private static void visitGitHub(VBox bodyVBox, Stage appStage) {
-        setSetupStage(appStage, "Net Notes - Get latest release", "Get the latest release...", bodyVBox);
+    private void firstRun(Stage appStage, Version javaVersion, String currentAppJar, VBox bodyVBox) {
+        bodyVBox.getChildren().clear();
+        setSetupStage(appStage, "Netnotes - Setup", "Setup...", bodyVBox);
+
+        Text directoryTxt = new Text("> Install location:");
+        directoryTxt.setFill(txtColor);
+        directoryTxt.setFont(txtFont);
+
+        Button directoryBtn = new Button(programFilesDir);
+        directoryBtn.setFont(txtFont);
+
+        // directoryBtn.setPadding(new Insets(10, 10, 10, 10));
+        directoryBtn.setId("toolBtn");
+
+        directoryBtn.setOnAction(btnEvent -> {
+
+            DirectoryChooser dirChooser = new DirectoryChooser();
+
+            File chosenDir = dirChooser.showDialog(appStage);
+            if (chosenDir != null) {
+                directoryBtn.setText(chosenDir.getAbsolutePath());
+            }
+        });
+
+        HBox.setHgrow(directoryBtn, Priority.ALWAYS);
+
+        HBox directoryBox = new HBox(directoryTxt, directoryBtn);
+        directoryBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text updatesTxt = new Text("> Updates:");
+        updatesTxt.setFill(txtColor);
+        updatesTxt.setFont(txtFont);
+
+        Button updatesBtn = new Button("Enabled");
+        updatesBtn.setId("inactiveMainImageBtn");
+        updatesBtn.setFont(txtFont);
+        updatesBtn.setOnAction(btnEvent -> {
+            if (updatesBtn.getText().equals("Enabled")) {
+                updatesBtn.setText("Disabled");
+            } else {
+                updatesBtn.setText("Enabled");
+            }
+        });
+
+        HBox updatesBox = new HBox(updatesTxt, updatesBtn);
+        updatesBox.setAlignment(Pos.CENTER_LEFT);
+        updatesBox.setPadding(new Insets(3, 0, 0, 0));
+
+        Button nextBtn = new Button("Next");
+        nextBtn.setId("toolSelected");
+        nextBtn.setFont(txtFont);
+
+        Region hBar = new Region();
+        hBar.setPrefWidth(400);
+        hBar.setPrefHeight(2);
+        hBar.setId("hGradient");
+
+        HBox gBox = new HBox(hBar);
+        gBox.setAlignment(Pos.CENTER);
+        gBox.setPadding(new Insets(45, 0, 0, 0));
+
+        HBox nextBox = new HBox(nextBtn);
+        nextBox.setAlignment(Pos.CENTER);
+        nextBox.setPadding(new Insets(25, 0, 0, 0));
+
+        bodyVBox.getChildren().addAll(directoryBox, updatesBox, gBox, nextBox);
+
+        nextBtn.setOnAction(btnEvent -> {
+
+            boolean updates = updatesBtn.getText().equals("Enabled");
+            String directoryString = directoryBtn.getText() + "\\Net Notes";
+            File directoryFile = new File(directoryString);
+
+            if (!directoryFile.isDirectory()) {
+
+                Alert a = new Alert(AlertType.NONE, "This will create the directory:\n\n" + directoryString + "\n\n ", ButtonType.OK, ButtonType.CANCEL);
+                a.initOwner(appStage);
+
+                Optional<ButtonType> result = a.showAndWait();
+                if (result.isPresent() && result.get() == ButtonType.OK) {
+
+                    if (directoryFile.mkdir()) {
+                        createPassword(javaVersion, currentAppJar, updates, directoryFile, bodyVBox, appStage);
+                    }
+
+                }
+            } else {
+                createPassword(javaVersion, currentAppJar, updates, directoryFile, bodyVBox, appStage);
+            }
+
+        });
+
+        appStage.show();
+    }
+
+    private void createPassword(Version javaVersion, String appJar, boolean updates, File installDir, VBox bodyVBox, Stage appStage) {
+        bodyVBox.getChildren().clear();
+        setSetupStage(appStage, "Netnotes - Security", "Security...", bodyVBox);
+
+        Text passwordTxt = new Text("> Create password:");
+        passwordTxt.setFill(txtColor);
+        passwordTxt.setFont(txtFont);
+
+        PasswordField passwordField = new PasswordField();
+
+        passwordField.setFont(txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+
+        PasswordField createPassField2 = new PasswordField();
+        HBox.setHgrow(createPassField2, Priority.ALWAYS);
+        createPassField2.setId("passField");
+
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button clickRegion = new Button();
+        clickRegion.setMaxWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(Double.MAX_VALUE);
+
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
+        });
+
+        bodyVBox.getChildren().addAll(passwordBox, clickRegion);
+
+        Platform.runLater(() -> passwordField.requestFocus());
+
+        passwordField.setOnKeyPressed(e1 -> {
+
+            KeyCode keyCode = e1.getCode();
+
+            if ((keyCode == KeyCode.ENTER || keyCode == KeyCode.TAB)) {
+
+                if (passwordField.getText().length() > 6) {
+
+                    String passStr = passwordField.getText();
+                    // createPassField.setText("");
+                    bodyVBox.getChildren().remove(clickRegion);
+
+                    passwordField.setVisible(false);
+
+                    Text reenterTxt = new Text("> Re-enter password:");
+                    reenterTxt.setFill(txtColor);
+                    reenterTxt.setFont(txtFont);
+
+                    Platform.runLater(() -> createPassField2.requestFocus());
+
+                    HBox secondPassBox = new HBox(reenterTxt, createPassField2);
+                    secondPassBox.setAlignment(Pos.CENTER_LEFT);
+
+                    bodyVBox.getChildren().addAll(secondPassBox, clickRegion);
+
+                    clickRegion.setOnAction(regionEvent -> {
+                        createPassField2.requestFocus();
+                    });
+
+                    createPassField2.setOnKeyPressed(pressEvent -> {
+
+                        KeyCode keyCode2 = pressEvent.getCode();
+
+                        if ((keyCode2 == KeyCode.ENTER)) {
+
+                            if (passStr.equals(createPassField2.getText())) {
+                                bodyVBox.getChildren().clear();
+                                setSetupStage(appStage, "Netnotes - Saving Settings", "Saving...", bodyVBox);
+                                Text savingFileTxt = new Text("> Creating:  " + installDir.getAbsolutePath());
+                                savingFileTxt.setFill(txtColor);
+                                savingFileTxt.setFont(txtFont);
+
+                                bodyVBox.getChildren().add(savingFileTxt);
+                                FxTimer.runLater(Duration.ofMillis(100), () -> {
+                                    try {
+                                        createSettings(javaVersion, appJar, updates, installDir, passStr, bodyVBox, appStage);
+                                    } catch (Exception e) {
+                                        Alert err = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                                        err.initOwner(appStage);
+                                        err.show();
+                                        firstRun(appStage, javaVersion, appJar, bodyVBox);
+                                    }
+                                });
+                            } else {
+                                bodyVBox.getChildren().remove(secondPassBox);
+                                createPassField2.setText("");
+                                passwordField.setText("");
+                                passwordField.setVisible(true);
+                                secondPassBox.getChildren().clear();
+                                Platform.runLater(() -> passwordField.requestFocus());
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+    }
+
+    private void createSettings(Version javaVersion, String appJar, boolean updates, File installDir, String password, VBox bodyVBox, Stage appStage) throws IOException {
+
+        String installDirString = installDir.getAbsolutePath();
+        File settingsFile = new File(installDirString + "\\" + Main.settingsFileName);
+
+        String hash = getBcryptHashString(password);
+
+        JsonObject jsonObj = new JsonObject();
+        jsonObj.addProperty("appKey", hash);
+        jsonObj.addProperty("updates", updates);
+        jsonObj.addProperty("networks", "");
+        String jsonString = jsonObj.toString();
+
+        Files.writeString(settingsFile.toPath(), jsonString);
+
+        Path newPath = null;
+        boolean validJar = appJar != "";
+        File jarFile = null;
+
+        if (validJar) {
+            jarFile = new File(appJar);
+            validJar = checkJar(jarFile);
+            if (validJar) {
+                newPath = Paths.get(installDirString + "\\" + jarFile.getName());
+            }
+        }
+
+        boolean validJava = javaVersion != null && (javaVersion.compareTo(new Version("17.0.3")) > -1);
+
+        if (validJar && validJava) {
+
+            File launcherFile = null;
+
+            try {
+                URL classLocation = Utils.getLocation(getClass());
+                launcherFile = Utils.urlToFile(classLocation);
+
+                Files.move(jarFile.toPath(), newPath, StandardCopyOption.REPLACE_EXISTING);
+                openJar(installDirString + "\\" + jarFile.getName(), launcherFile);
+                shutdownNow();
+            } catch (Exception e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
+                a.initOwner(appStage);
+                a.showAndWait();
+                shutdownNow();
+            }
+
+        } else {
+            if (validJar) {
+
+                Files.move(jarFile.toPath(), newPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            getSetupFiles(validJar, validJava, jarFile, installDir, bodyVBox, appStage);
+
+        }
+
+    }
+
+    public void openJar(String jarFilePathString, File launcher) throws IOException {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("jarFilePath", jarFilePathString);
+        obj.addProperty("launcher", launcher.getAbsolutePath());
+
+        byte[] byteString = obj.toString().getBytes(StandardCharsets.UTF_8);
+
+        String hexJson = Hex.encodeHexString(byteString);
+
+        String[] cmdString;
+
+        cmdString = new String[]{"cmd", "/c", "javaw", "-jar", jarFilePathString, hexJson};
+
+        Runtime.getRuntime().exec(cmdString);
+    }
+
+    public static String getBcryptHashString(String password) {
+        SecureRandom sr;
+
+        try {
+            sr = SecureRandom.getInstanceStrong();
+        } catch (NoSuchAlgorithmException e) {
+
+            sr = new SecureRandom();
+        }
+
+        return BCrypt.with(BCrypt.Version.VERSION_2A, sr, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).hashToString(15, password.toCharArray());
+    }
+
+    private void getSetupFiles(boolean validJar, boolean validJava, File jarFile, File installDir, VBox bodyVBox, Stage appStage) {
+        bodyVBox.getChildren().clear();
+        setSetupStage(appStage, "Netnotes - Download files", "Download files...", bodyVBox);
+
         appStage.show();
 
-        Text getJarTxt = new Text("> URL:");
+        Text getJavaTxt = new Text("> Setup files required, would you like to download? (Y/n):");
+        getJavaTxt.setFill(txtColor);
+        getJavaTxt.setFont(txtFont);
+
+        TextField getJavaField = new TextField();
+        getJavaField.setFont(txtFont);
+        getJavaField.setId("formField");
+
+        Platform.runLater(() -> getJavaField.requestFocus());
+
+        HBox getJavaBox = new HBox(getJavaTxt, getJavaField);
+        getJavaBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button clickRegion = new Button();
+        clickRegion.setMaxWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(Double.MAX_VALUE);
+
+        clickRegion.setOnAction(e -> {
+            getJavaField.requestFocus();
+        });
+
+        bodyVBox.getChildren().addAll(getJavaBox, clickRegion);
+
+        getJavaField.setOnKeyPressed(e -> {
+
+            KeyCode keyCode = e.getCode();
+            if (keyCode == KeyCode.Y || keyCode == KeyCode.ENTER) {
+                getJavaField.setDisable(true);
+
+                ProgressBar progressBar = new ProgressBar(0);
+
+                setupDownloadField(bodyVBox, progressBar);
+                FxTimer.runLater(Duration.ofMillis(100), () -> {
+                    try {
+
+                        if (!validJar) {
+                            //To do: update name
+                            String jarFileName = "netnotes.jar";
+                            File file = new File(installDir + "\\" + javaFileName);
+                            String jarURL = "";
+                            downloadJar(validJava, installDir, file, jarURL, progressBar, bodyVBox);
+                        } else {
+                            File file = new File(installDir.getAbsolutePath() + "\\" + javaFileName);
+
+                            if (!validJava) {
+                                downloadJava(jarFile, file, installDir, javaURL, progressBar, bodyVBox);
+                            }
+                        }
+
+                    } catch (Exception dlException) {
+                        Alert a = new Alert(AlertType.NONE, dlException.toString(), ButtonType.OK);
+                        a.initOwner(appStage);
+                        a.show();
+                        visitWebsites(validJava, validJar, installDir, bodyVBox, appStage);
+                    }
+                });
+            } else {
+                visitWebsites(validJava, validJar, installDir, bodyVBox, appStage);
+            }
+        }
+        );
+
+    }
+
+    private void visitWebsites(boolean validJava, boolean validJar, File installDir, VBox bodyVBox, Stage appStage) {
+        bodyVBox.getChildren().clear();
+        setSetupStage(appStage, "Netnotes - Get latest release", "Get the latest release...", bodyVBox);
+        appStage.show();
+
+        Text getJavaTxt = new Text("> Java URL:");
+        getJavaTxt.setFill(txtColor);
+        getJavaTxt.setFont(txtFont);
+
+        TextField javaURLField = new TextField(javaUrl);
+        javaURLField.setFont(txtFont);
+        javaURLField.setId("formField");
+        javaURLField.setEditable(false);
+        HBox.setHgrow(javaURLField, Priority.ALWAYS);
+
+        HBox javaUrlHbox = new HBox(getJavaTxt, javaURLField);
+        javaUrlHbox.setAlignment(Pos.CENTER_LEFT);
+
+        bodyVBox.getChildren().addAll(javaUrlHbox);
+
+        Text getJarTxt = new Text("> Update URL:");
         getJarTxt.setFill(txtColor);
         getJarTxt.setFont(txtFont);
 
-        TextField latestURLField = new TextField(Main.latestReleaseURLstring);
+        TextField latestURLField = new TextField(updateUrl);
         latestURLField.setFont(txtFont);
         latestURLField.setId("formField");
-        latestURLField.setDisable(true);
+        latestURLField.setEditable(false);
+        HBox.setHgrow(latestURLField, Priority.ALWAYS);
 
         HBox getJarBox = new HBox(getJarTxt, latestURLField);
-        getJarBox.setAlignment(Pos.CENTER);
+        getJarBox.setAlignment(Pos.CENTER_LEFT);
 
-        HostServices hostServices = Setup.getInstance().getHostServices();
-
-        Button latestBtn = new Button("Go to GitHub");
-        latestBtn.setPadding(new Insets(10, 10, 10, 10));
+        Button latestBtn = new Button("Get program files");
+        latestBtn.setPadding(new Insets(10, 40, 10, 40));
         latestBtn.setFont(txtFont);
         latestBtn.setId("toolBtn");
         latestBtn.setOnAction(btnEvent -> {
-            hostServices.showDocument(Main.latestReleaseURLstring);
+            services.showDocument(updateUrl);
         });
 
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select 'netnotes-x.x.x.jar'");
-        chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Net Notes", "*.jar"));
+        chooser.setTitle("Select 'Jar'");
+        chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Netnotes", "*.jar"));
 
-        Button selectBtn = new Button("Select 'netnotes-x.x.x.jar");
+        Button selectBtn = new Button("Select 'netnotes-x.x.x.jar'");
         selectBtn.setPadding(new Insets(10, 10, 10, 10));
         selectBtn.setFont(txtFont);
         selectBtn.setId("toolBtn");
-        selectBtn.setOnAction(btnEvent -> handleChooser(appStage, chooser));
+        selectBtn.setOnAction(btnEvent -> handleChooser(installDir, appStage, chooser));
 
-        HBox handleJarBox = new HBox(latestBtn, selectBtn);
+        Region spacer = new Region();
+
+        spacer.setPrefWidth(20);
+
+        HBox handleJarBox = new HBox(latestBtn, spacer, selectBtn);
         handleJarBox.setAlignment(Pos.CENTER);
-        handleJarBox.setPadding(new Insets(30, 0, 0, 0));
         HBox.setHgrow(handleJarBox, Priority.ALWAYS);
+        handleJarBox.setPadding(new Insets(15, 0, 0, 0));
 
         bodyVBox.getChildren().addAll(getJarBox, handleJarBox);
+
+        Button javaBtn = new Button("Get Java");
+        javaBtn.setPadding(new Insets(10, 10, 10, 10));
+        javaBtn.setFont(txtFont);
+        javaBtn.setId("toolBtn");
+        javaBtn.setOnAction(btnEvent -> {
+            services.showDocument(javaUrl);
+        });
+        HBox javaBtnBox = new HBox(javaBtn);
+        javaBtnBox.setAlignment(Pos.CENTER);
+        javaBtnBox.setPadding(new Insets(5, 0, 0, 0));
+        bodyVBox.getChildren().add(javaBtnBox);
+
+        appStage.setWidth(1000);
+        appStage.setHeight(500);
     }
 
-    private static void handleChooser(Stage appStage, FileChooser chooser) {
+    public static boolean checkJar(File jarFile) {
+        ZipFile zip = null;
+        boolean isJar = false;
+        try {
+            zip = new ZipFile(jarFile);
+            isJar = true;
+        } catch (Exception zipException) {
+
+        } finally {
+            try {
+                zip.close();
+            } catch (IOException e) {
+
+            }
+        }
+
+        return isJar;
+    }
+
+    private void handleChooser(File installDir, Stage appStage, FileChooser chooser) {
 
         File chosenFile = chooser.showOpenDialog(appStage);
 
-        boolean isException = false;
-        try {
-            new ZipFile(chosenFile);
-        } catch (Exception zipException) {
-            isException = true;
-        }
+        boolean isJar = checkJar(chosenFile);
 
-        if (isException) {
-            Alert a = new Alert(AlertType.NONE, "Invalid file.\n\nPlease visit gitHub for the latest release.");
-            a.showAndWait();
+        if (!isJar) {
+            Alert a = new Alert(AlertType.NONE, "Invalid file.\n\nPlease visit gitHub for the latest release.", ButtonType.CLOSE);
+            a.initOwner(appStage);
+            a.show();
         } else {
             String chosenFileName = chosenFile.getName();
             Version jarVersion = AppJar.getVersionFromFileName(chosenFileName);
             String unknownName = "netnotes-0.0.0.jar";
 
-            Path newJarPath;
+            String fileName = "";
 
             int versionTest = jarVersion.compareTo(new Version("0.0.0"));
 
             if (versionTest > 0) {
-                newJarPath = Paths.get(Main.appDataDirectory + "\\" + chosenFileName);
+                fileName = chosenFileName;
             } else {
-                newJarPath = Paths.get(Main.appDataDirectory + "\\" + unknownName);
+                fileName = unknownName;
             }
 
-            boolean moveException = false;
+            String newJarString = installDir.getAbsolutePath() + "\\" + fileName;
+
             try {
+                Path newJarPath = Paths.get(newJarString);
                 Files.move(chosenFile.toPath(), newJarPath, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                moveException = true;
-            }
+            } catch (Exception e) {
 
-            if (moveException) {
-                if (versionTest > 0) {
-                    newJarPath = Paths.get(Main.currentDirectory + "\\" + chosenFileName);
-                } else {
-                    newJarPath = Paths.get(Main.currentDirectory + "\\" + unknownName);
-                }
-
-                try {
-                    Files.move(chosenFile.toPath(), newJarPath, StandardCopyOption.REPLACE_EXISTING);
-                    moveException = false;
-                } catch (IOException e) {
-                    moveException = true;
-                }
-
-                if (moveException) {
-                    Alert a = new Alert(AlertType.NONE, "No file access. Please ensure you are an authorized user.");
-                    a.showAndWait();
-                    shutdownNow();
-                } else {
-                    Main.launch();
-                }
-            } else {
-                Main.launch();
-            }
-        }
-
-    }
-
-    private static void beginSetup(VBox bodyVBox, Stage appStage) {
-        setSetupStage(appStage, "Net Notes - Setup", "Setup...", bodyVBox);
-
-        appStage.show();
-
-        if (!isJava) {
-
-            Text getJavaTxt = new Text("> Java is required. Would you like to download? (Y/n):");
-            getJavaTxt.setFill(txtColor);
-            getJavaTxt.setFont(txtFont);
-
-            TextField getJavaField = new TextField();
-            getJavaField.setFont(txtFont);
-            getJavaField.setId("formField");
-
-            Platform.runLater(() -> getJavaField.requestFocus());
-
-            HBox getJavaBox = new HBox(getJavaTxt, getJavaField);
-            getJavaBox.setAlignment(Pos.CENTER_LEFT);
-
-            Button clickRegion = new Button();
-            clickRegion.setMaxWidth(Double.MAX_VALUE);
-            clickRegion.setId("transparentColor");
-            clickRegion.setPrefHeight(Double.MAX_VALUE);
-
-            clickRegion.setOnAction(e -> {
-                getJavaField.requestFocus();
-            });
-
-            bodyVBox.getChildren().addAll(getJavaBox, clickRegion);
-
-            getJavaField.setOnKeyPressed(e -> {
-
-                KeyCode keyCode = e.getCode();
-                if (keyCode == KeyCode.Y || keyCode == KeyCode.ENTER) {
-                    getJavaField.setDisable(true);
-
-                    ProgressBar progressBar = new ProgressBar(0);
-
-                    setupDownloadField(bodyVBox, progressBar);
-                    FxTimer.runLater(Duration.ofMillis(100), () -> {
-                        try {
-                            downloadJava(bodyVBox, progressBar);
-                        } catch (Exception dlException) {
-                            Alert a = new Alert(AlertType.NONE, dlException.toString(), ButtonType.OK);
-                            a.show();
-                        }
-                    });
-                } else {
-                    if (keyCode == KeyCode.N || keyCode == KeyCode.ESCAPE) {
-                        shutdownNow();
-                    } else {
-                        getJavaField.setText("");
-                    }
-                }
-            }
-            );
-        } else {
-
-        }
-    }
-
-    private static void setupJava(VBox bodyVBox) {
-        bodyVBox.getChildren().clear();
-        FxTimer.runLater(Duration.ofMillis(100), () -> runJavaSetup());
-    }
-
-    private static void runJavaSetup() {
-
-        String cmdString = "cmd /c " + downloadsDir + "\\" + javaFileName;
-
-        try {
-            Process p = Runtime.getRuntime().exec(cmdString);
-
-            int exitCode = p.waitFor();
-
-            if (exitCode == 0) {
-
-                Path javaFilePath = Paths.get(downloadsDir + "\\" + javaFileName);
-                Files.deleteIfExists(javaFilePath);
-                Main.launch();
-                shutdownNow();
-            } else {
-                Alert a = new Alert(AlertType.NONE, "The installation did not complete.\n\nTry again?", ButtonType.YES, ButtonType.NO);
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.initOwner(appStage);
                 a.showAndWait();
+                shutdownNow();
+            }
 
-                if (a.getResult() == ButtonType.YES) {
-                    runJavaSetup();
-                } else {
-                    shutdownNow();
-                }
+            try {
+                URL classLocation = Utils.getLocation(getClass());
+                File launcherFile = Utils.urlToFile(classLocation);
+
+                openJar(newJarString, launcherFile);
+                shutdownNow();
+            } catch (Exception e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.initOwner(appStage);
+                a.show();
 
             }
 
-        } catch (Exception e) {
-            Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
-            a.showAndWait();
-            shutdownNow();
         }
 
     }
 
-    private static void setupDownloadField(VBox bodyVBox, ProgressBar progressBar) {
-        bodyVBox.getChildren().clear();
-
-        Text downloadingTxt = new Text("> Downloading Java 19 (x64)...");
-        downloadingTxt.setFill(txtColor);
-        downloadingTxt.setFont(txtFont);
-
-        progressBar.setPrefWidth(400);
-
-        HBox progressBox = new HBox(progressBar);
-        progressBox.setAlignment(Pos.CENTER);
-        progressBox.setPadding(new Insets(50, 0, 0, 0));
-
-        HBox downloadBox = new HBox(downloadingTxt);
-        downloadBox.setAlignment(Pos.CENTER_LEFT);
-
-        bodyVBox.getChildren().addAll(downloadBox, progressBox);
-
-    }
-
-    private static void downloadJava(VBox bodyVBox, ProgressBar progressBar) throws Exception {
+    private static void downloadJar(boolean validJava, File installDir, File file, String urlString, ProgressBar progressBar, VBox bodyVBox) throws Exception {
 
         Task<Void> task = new Task<Void>() {
             @Override
             public Void call() throws Exception {
 
-                File file = new File(downloadsDir + "\\" + javaFileName);
-
-                URI uri = URI.create(javaURL);
+                URI uri = URI.create(urlString);
 
                 InputStream inputStream = null;
                 OutputStream outputStream = null;
@@ -395,7 +724,7 @@ public class Setup extends Application {
         progressBar.progressProperty().bind(task.progressProperty());
 
         task.setOnSucceeded(evt -> {
-            setupJava(bodyVBox);
+
         });
 
         Thread t = new Thread(task);
@@ -403,10 +732,183 @@ public class Setup extends Application {
 
     }
 
-    public static void downloadComplete() {
+    private void downloadJava(File jarFile, File file, File installDir, String urlString, ProgressBar progressBar, VBox bodyVBox) throws Exception {
 
-        Alert a = new Alert(AlertType.NONE, "complete");
-        a.showAndWait();
+        Task<Void> task = new Task<Void>() {
+            @Override
+            public Void call() throws Exception {
+
+                URI uri = URI.create(urlString);
+
+                InputStream inputStream = null;
+                OutputStream outputStream = null;
+
+                URL url = uri.toURL();
+
+                String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+
+                URLConnection con = url.openConnection();
+
+                con.setRequestProperty("User-Agent", USER_AGENT);
+
+                long contentLength = con.getContentLengthLong();
+
+                inputStream = con.getInputStream();
+
+                outputStream = new FileOutputStream(file);
+
+                byte[] buffer = new byte[2048];
+
+                int length;
+                long downloaded = 0;
+
+                while ((length = inputStream.read(buffer)) != -1) {
+
+                    outputStream.write(buffer, 0, length);
+                    downloaded += (long) length;
+
+                    updateProgress(downloaded, contentLength);
+
+                }
+
+                outputStream.close();
+                inputStream.close();
+
+                return null;
+            }
+        };
+        progressBar.progressProperty().bind(task.progressProperty());
+
+        task.setOnSucceeded(evt -> {
+            runJavaSetup(jarFile, file, installDir);
+        });
+
+        Thread t = new Thread(task);
+        t.start();
+
+    }
+
+    private void runJavaSetup(File jarFile, File setupFile, File installDir) {
+
+        String cmdString = "cmd /c " + setupFile.getAbsolutePath();
+
+        try {
+            Process p = Runtime.getRuntime().exec(cmdString);
+
+            int exitCode = p.waitFor();
+
+            if (exitCode == 0) {
+
+                Path javaFilePath = setupFile.toPath();
+                Files.deleteIfExists(javaFilePath);
+
+                //ToDo: Next Setup Step
+            } else {
+                Alert a = new Alert(AlertType.NONE, "The installation did not complete.\n\nTry again?", ButtonType.YES, ButtonType.NO);
+                a.initOwner(null);
+                Optional<ButtonType> result = a.showAndWait();
+
+                if (result.isPresent() && result.get() == ButtonType.YES) {
+                    runJavaSetup(jarFile, setupFile, installDir);
+                } else {
+                    boolean validJar = checkJar(jarFile);
+                    //     visitWebsites(false, validJar, setupFile, null, null);
+                }
+
+            }
+
+        } catch (Exception e) {
+            Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
+
+            a.showAndWait();
+            //  visitWebsites(false, false, setupFile, null, null);
+        }
+
+    }
+
+    public static void getReleaseInfo(Version javaVersion, String currentAppJar) throws Exception {
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        URI uri = new URI(Main.latestReleaseURLstring);
+
+        Task<Void> task = new Task<Void>() {
+            @Override
+            public Void call() throws Exception {
+
+                //File file = new File(appDataDirectory + "\\" + );
+                InputStream inputStream = null;
+
+                URL url = uri.toURL();
+
+                String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+
+                URLConnection con = url.openConnection();
+
+                con.setRequestProperty("User-Agent", USER_AGENT);
+
+                //  long contentLength = con.getContentLengthLong();
+                inputStream = con.getInputStream();
+
+                byte[] buffer = new byte[2048];
+
+                int length;
+                // long downloaded = 0;
+
+                while ((length = inputStream.read(buffer)) != -1) {
+
+                    outputStream.write(buffer, 0, length);
+                    //    downloaded += (long) length;
+
+                    //updateProgress(downloaded, contentLength); for small files
+                }
+
+                inputStream.close();
+
+                return null;
+            }
+        };
+        // progressBar.progressProperty().bind(task.progressProperty());
+
+        task.setOnSucceeded(evt -> {
+            SetupData latestSetup = null;
+            String json = outputStream.toString();
+
+            JsonObject jsonObject = new JsonParser().parse(json).getAsJsonObject();
+
+            try {
+                latestSetup = new SetupData(jsonObject);
+            } catch (Exception e) {
+
+            }
+            if (latestSetup != null) {
+                //checkLatestSetup(latestSetup, javaVersion, launcherData);
+            } else {
+
+            }
+        });
+
+        Thread t = new Thread(task);
+        t.start();
+
+    }
+
+    private static void setupDownloadField(VBox bodyVBox, ProgressBar progressBar) {
+        bodyVBox.getChildren().clear();
+
+        Text downloadingTxt = new Text("> Downloading " + javaName + "...");
+        downloadingTxt.setFill(txtColor);
+        downloadingTxt.setFont(txtFont);
+
+        progressBar.setPrefWidth(400);
+
+        HBox progressBox = new HBox(progressBar);
+        progressBox.setAlignment(Pos.CENTER);
+        progressBox.setPadding(new Insets(50, 0, 0, 0));
+
+        HBox downloadBox = new HBox(downloadingTxt);
+        downloadBox.setAlignment(Pos.CENTER_LEFT);
+
+        bodyVBox.getChildren().addAll(downloadBox, progressBox);
 
     }
 
@@ -448,8 +950,8 @@ public class Setup extends Application {
     public static void setSetupStage(Stage appStage, String title, String setupMessage, VBox bodyVBox) {
 
         appStage.setResizable(false);
-        appStage.initStyle(StageStyle.UNDECORATED);
-        appStage.setTitle("Net Notes - Setup");
+
+        appStage.setTitle(title);
         appStage.getIcons().add(logo);
 
         Button closeBtn = new Button();
@@ -472,17 +974,13 @@ public class Setup extends Application {
         setupTxt.setFill(txtColor);
         setupTxt.setFont(txtFont);
 
-        Text caretTxt = new Text(">");
-        caretTxt.setFill(txtColor);
-        caretTxt.setFont(txtFont);
+        Text spacerTxt = new Text(">");
+        spacerTxt.setFill(txtColor);
+        spacerTxt.setFont(txtFont);
 
-        TextField hiddenField = new TextField();
-        hiddenField.setVisible(false);
-        hiddenField.setFont(txtFont);
-        hiddenField.setId("formField");
-
-        HBox line2 = new HBox(caretTxt, hiddenField);
+        HBox line2 = new HBox(spacerTxt);
         line2.setAlignment(Pos.CENTER_LEFT);
+        line2.setPadding(new Insets(10, 0, 6, 0));
 
         bodyVBox.getChildren().addAll(setupTxt, line2);
 
@@ -491,7 +989,7 @@ public class Setup extends Application {
 
         VBox layoutVBox = new VBox(topBar, imageBox, bodyVBox);
 
-        Scene setupScene = new Scene(layoutVBox, 600, 425);
+        Scene setupScene = new Scene(layoutVBox, 625, 450);
         setupScene.getStylesheets().add("/css/startWindow.css");
 
         appStage.setScene(setupScene);
@@ -526,14 +1024,21 @@ public class Setup extends Application {
         closeImage.setFitWidth(20);
         closeImage.setPreserveRatio(true);
 
-        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer);
+        closeBtn.setGraphic(closeImage);
+        closeBtn.setPadding(new Insets(0, 5, 0, 3));
+        closeBtn.setId("closeBtn");
+        closeBtn.setOnAction(minEvent -> {
+            theStage.close();
+        });
 
-        if (closeBtn != null) {
-            closeBtn.setGraphic(closeImage);
-            closeBtn.setPadding(new Insets(0, 5, 0, 3));
-            closeBtn.setId("closeBtn");
-            newTopBar.getChildren().add(closeBtn);
-        }
+        Button minimizeBtn = new Button("_");
+        minimizeBtn.setId("toolBtn");
+        minimizeBtn.setPadding(new Insets(0, 5, 0, 3));
+        minimizeBtn.setOnAction(minEvent -> {
+            theStage.setIconified(true);
+        });
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, closeBtn);
 
         newTopBar.setAlignment(Pos.CENTER_LEFT);
         newTopBar.setPadding(new Insets(10, 8, 10, 10));
@@ -558,6 +1063,7 @@ public class Setup extends Application {
         });
 
         return newTopBar;
+
     }
 
     static class Delta {

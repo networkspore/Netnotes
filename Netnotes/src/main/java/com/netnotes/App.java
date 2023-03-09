@@ -34,30 +34,29 @@ import javafx.geometry.Pos;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
+import mslinks.ShellLinkException;
 import javafx.scene.input.KeyCode;
 
 import java.io.File;
-
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.time.Duration;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Optional;
 
-import javax.crypto.AEADBadTagException;
-import javax.crypto.SecretKey;
-
+import org.bouncycastle.util.encoders.Hex;
 import org.ergoplatform.appkit.*;
 import org.reactfx.util.FxTimer;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.satergo.Wallet;
 import com.utils.Utils;
 
-import java.nio.file.Path;
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
 public class App extends Application {
 
@@ -72,11 +71,14 @@ public class App extends Application {
     public static Image ergoLogo = new Image("/assets/ergo-black-350.png");
     public static Image waitingImage = new Image("/assets/spinning.gif");
 
-    public static final String homeDirectory = System.getenv("LOCALAPPDATA") + "\\NetNotes";
-    public static final String datFileName = "notes.dat";
-    public static final Path datFilePath = Paths.get(homeDirectory + "/" + datFileName);
+    public static final String settingsFileName = "settings.conf";
+    public static final String homeString = System.getProperty("user.home");
 
-    public static AppData appData;
+    public static JsonObject appData;
+
+    public File currentDir = null;
+    public File launcherFile = null;
+    public File currentJar = null;
 
     @Override
     public void start(Stage appStage) {
@@ -84,84 +86,128 @@ public class App extends Application {
 
         appStage.setResizable(false);
         appStage.initStyle(StageStyle.UNDECORATED);
-        appStage.setTitle("Net Notes");
+        appStage.setTitle("Netnotes");
         appStage.getIcons().add(logo);
 
-        startApp(appStage);
+        Parameters params = getParameters();
+        List<String> list = params.getRaw();
+
+        parseArgs(list, appStage);
+
+        if (currentDir != null) {
+            startApp(appStage);
+        } else {
+            shutdownNow();
+        }
 
     }
 
-    private static void startApp(Stage appStage) {
+    private void parseArgs(List<String> args, Stage appStage) {
 
-        boolean isDatExists = false;
-        boolean appDataException = false;
+        if (args.size() > 0) {
 
-        try {
-            isDatExists = Files.isRegularFile(datFilePath);
-        } catch (Exception noAccessException) {
-            appDataException = true;
+            String argString = args.get(0);
+
+            byte[] bytes = Hex.decode(argString);
+
+            String jsonString = new String(bytes, StandardCharsets.UTF_8);
+
+            JsonObject obj = new JsonParser().parse(jsonString).getAsJsonObject();
+            JsonElement jarFileElement = obj.get("jarFilePath");
+            JsonElement launcherFiElement = obj.get("launcher");
+
+            if (jarFileElement != null && launcherFiElement != null) {
+                String jarFilePathString = jarFileElement.getAsString();
+                String launcherFilePathString = launcherFiElement.getAsString();
+
+                currentJar = new File(jarFilePathString);
+                currentDir = currentJar.getParentFile();
+                launcherFile = new File(launcherFilePathString);
+                File launcherDir = launcherFile.getParentFile();
+                String launcherDirString = launcherDir.getAbsolutePath();
+                File destinationFile = new File(currentDir.getAbsolutePath() + "/" + launcherFile.getName());
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+
+                        }
+
+                        try {
+                            File desktopFile = new File(homeString + "/Desktop");
+
+                            Files.move(launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+                            Utils.createLink(destinationFile, launcherDir, "Net Notes.lnk");
+
+                            Utils.createLink(destinationFile, desktopFile, "Net Notes.lnk");
+
+                        } catch (Exception e) {
+
+                        }
+
+                    }
+                }).start();
+
+            }
+
+        } else {
+            currentDir = new File(System.getProperty("user.dir"));
         }
 
-        final boolean datExists = isDatExists;
+    }
 
-        if (appDataException) {
+    private void startApp(Stage appStage) {
 
-            Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + datFilePath.toString(), ButtonType.CLOSE);
+        File settingsFile = new File(currentDir.getAbsolutePath() + "\\" + settingsFileName);
+
+        if (!settingsFile.isFile()) {
+
+            Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + currentDir.getAbsolutePath() + "\n" + launcherFile.getAbsolutePath(), ButtonType.CLOSE);
+            a.initOwner(appStage);
             a.showAndWait();
             shutdownNow();
 
         } else {
 
-            if (datExists) {
-                boolean exception = true;
-                String password = "";
-                while (exception) {
+            String passwordHash = null;
+            try {
+
+                String jsonString = Files.readString(settingsFile.toPath());
+                appData = new JsonParser().parse(jsonString).getAsJsonObject();
+                passwordHash = appData.get("appKey").getAsString();
+            } catch (Exception e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.initOwner(appStage);
+                a.showAndWait();
+            }
+
+            if (passwordHash != null) {
+                String password = null;
+                byte[] hashBytes = passwordHash.getBytes();
+                boolean tryAgain = true;
+                while (tryAgain) {
                     password = getPasswordStage("Net Notes", logo, "Net Notes");
 
                     if (password == null) {
                         break;
                     }
 
-                    try {
-                        appData = new AppData(datExists, datFilePath, password);
-                        exception = false;
-                    } catch (Exception e) {
-                        exception = true;
-                    }
+                    BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), hashBytes);
+
+                    tryAgain = result.verified;
                 }
 
                 if (password != null) {
                     openNetnotes(appStage);
+                } else {
+                    shutdownNow();
                 }
-
             } else {
-
-                String password = createPassword(appStage, "Net Notes - Setup", logo, "Setup");
-
-                setStatusStage(appStage, "Net Notes - Creating...", "Creating...");
-                appStage.show();
-
-                FxTimer.runLater(Duration.ofMillis(50), () -> {
-
-                    boolean exception = false;
-                    try {
-                        appData = new AppData(datExists, datFilePath, password);
-                    } catch (Exception e) {
-                        exception = true;
-                    }
-
-                    appStage.hide();
-
-                    if (exception) {
-
-                        Alert b = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + datFilePath.toString(), ButtonType.CLOSE);
-                        b.showAndWait();
-                        openNetnotes(appStage);
-                    } else {
-                        openNetnotes(appStage);
-                    }
-
-                });
+                shutdownNow();
             }
 
         }
@@ -219,7 +265,7 @@ public class App extends Application {
 
         VBox layout = new VBox(titleBox, menuBox);
 
-        Scene appScene = new Scene(layout, 600, 425);
+        Scene appScene = new Scene(layout, 800, 450);
         appScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(appScene);
 
@@ -233,8 +279,14 @@ public class App extends Application {
         });
 
         appStage.show();
+        String networksString = "";
+        try {
+            networksString = appData.get("networks").getAsString();
+        } catch (Exception e) {
 
-        if (appData.getNetworks() == null) {
+        }
+
+        if (networksString.equals("")) {
             addNetwork();
         }
     }
@@ -475,7 +527,8 @@ public class App extends Application {
         existingWalletBtn.setOnAction(e -> {
             Wallet existingWallet = selectWallet(networkStage);
 
-            Alert a = new Alert(AlertType.NONE,existingWallet != null ? "not null" : "is null", ButtonType.OK);
+            Alert a = new Alert(AlertType.NONE, existingWallet != null ? "not null" : "is null", ButtonType.OK);
+            a.initOwner(networkStage);
             a.show();
         });
 
@@ -488,6 +541,7 @@ public class App extends Application {
         newWalletBtn.setOnAction(newWalletEvent -> {
             String walletPassword = createPassword(networkStage, "Create password", ergoLogo, "Ergo wallet");
             Alert a = new Alert(AlertType.NONE, walletPassword, ButtonType.OK);
+            a.initOwner(networkStage);
             a.show();
         });
 
@@ -545,15 +599,22 @@ public class App extends Application {
         closeImage.setFitWidth(20);
         closeImage.setPreserveRatio(true);
 
-        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer);
-
-        if (closeBtn != null) {
-            closeBtn.setGraphic(closeImage);
-            closeBtn.setPadding(new Insets(0, 5, 0, 3));
-            closeBtn.setId("closeBtn");
-            newTopBar.getChildren().add(closeBtn);
+        closeBtn.setGraphic(closeImage);
+        closeBtn.setPadding(new Insets(0, 5, 0, 3));
+        closeBtn.setId("closeBtn");
+        closeBtn.setOnAction(e -> {
+            theStage.close();
         }
+        );
 
+        Button minimizeBtn = new Button("_");
+        minimizeBtn.setId("toolBtn");
+        minimizeBtn.setPadding(new Insets(0, 5, 0, 3));
+        minimizeBtn.setOnAction(minEvent -> {
+            theStage.setIconified(true);
+        });
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, closeBtn);
         newTopBar.setAlignment(Pos.CENTER_LEFT);
         newTopBar.setPadding(new Insets(10, 8, 10, 10));
         newTopBar.setId("topBar");

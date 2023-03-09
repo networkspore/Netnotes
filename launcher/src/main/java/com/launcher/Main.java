@@ -1,10 +1,16 @@
 package com.launcher;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,202 +19,131 @@ import java.security.Security;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Hyperlink;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Alert.AlertType;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.rfksystems.blake2b.security.Blake2bProvider;
 
 public class Main {
 
-    public static final String latestReleaseURLstring = "https://github.com/networkspore/Netnotes/releases";
+    public static final String currentAppJarEquals = "currentAppJar=";
 
-    public static final String appDataDirectory = System.getenv("LOCALAPPDATA") + "\\NetNotes";
-    public static final String javaVersion = System.getProperty("java.version");
+    public static final String currentLauncherData = "currentLauncherData=";
+    public static final String currentJavaVersionEquals = "currentJavaVersion=";
+
+    public static final String setupUpdates = "setupUpdates";
+    public static final String visitGitHub = "visitGitHub";
+    public static final String firstRun = "FirstRun";
+
+    public static final String latestReleaseURLstring = "https://github.com/networkspore/Netnotes/releases/latest/download/releaseInfo.json";
+
     public static final String currentDirectory = System.getProperty("user.dir");
-    public static final Path appDataPath = Paths.get(appDataDirectory);
+    public static final String settingsFileName = "settings.conf";
 
-    public static String currentDirectoyJar = Utils.getLatestFileString(currentDirectory);
-    public static String appDataJar = Utils.getLatestFileString(appDataDirectory);
-
-    public static void main(String[] mainArgs) {
-
-        Security.addProvider(new Blake2bProvider());
-
+    public static void main(String[] args) throws IOException {
         launch();
-
     }
 
-    public static void launch() {
-        boolean isAppData = Files.isDirectory(appDataPath);
-        boolean isJar = currentDirectoyJar.equals("") && appDataJar.equals("");
-        boolean isJava = checkJava();
+    public static void launch() throws IOException {
+        Security.addProvider(new Blake2bProvider());
+        JsonObject launcherData = null;
 
-        List<String> launcherList = new ArrayList<String>();
+        Version javaVersion = checkJava();
 
-        if (!isJar) {
-            launcherList.add("noJar");
-        }
+        // Path appDataPath = Paths.get(appDataDirectory);
+        Path settingsPath = Paths.get(currentDirectory + "\\" + settingsFileName);
 
-        if (!isJava) {
-            launcherList.add("noJava");
-        }
+        boolean isSettings = Files.isRegularFile(settingsPath);
 
-        if (!isAppData) {
+        if (isSettings) {
             try {
-                Files.createDirectory(appDataPath);
-            } catch (IOException e) {
+                String jsonString = Files.readString(settingsPath);
+                launcherData = new JsonParser().parse(jsonString).getAsJsonObject();
+            } catch (Exception e) {
 
             }
         }
 
-        AppJar latestAppJar = getLatestJar();
+        String currentDirectoyJar = Utils.getLatestFileString(currentDirectory);
+        String appJarArg = currentAppJarEquals + currentDirectoyJar;
+        String javaVersionArg = currentJavaVersionEquals + (javaVersion == null ? "" : javaVersion.get());
 
-        if (latestAppJar == null) {
-            if (isJar) {
-                if (currentDirectoyJar.equals("")) {
-                    openJar(appDataJar);
-                } else {
-                    if (appDataJar.equals("")) {
-                        File currentDirFile = new File(currentDirectoyJar);
-                        File appDirFile = new File(appDataDirectory + "\\" + currentDirFile.getName());
+        if (launcherData == null) {
 
-                        try {
-                            Files.move(currentDirFile.toPath(), appDirFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                            openJar(appDirFile.getAbsolutePath());
-                        } catch (IOException e) {
+            openSetup(firstRun, appJarArg, javaVersionArg);
 
-                        }
+        } else {
+            boolean checkForUpdates = launcherData.get("checkForUpdates").getAsBoolean();
+            if (checkForUpdates) {
+                openSetup(setupUpdates, javaVersionArg, appJarArg);
+            } else {
 
+                boolean isJar = !currentDirectoyJar.equals("");
+
+                if (javaVersion != null && isJar) {
+
+                    try {
                         openJar(currentDirectoyJar);
-
-                        openSetup("noInternetAndJar");
-                    } else {
-                        AppJar a = new AppJar(new File(currentDirectoyJar));
-                        AppJar b = new AppJar(new File(appDataJar));
-                        int compared = a.getVersion().compareTo(b.getVersion());
-
-                        if (compared == -1 || compared == 0) {
-                            openJar(appDataJar);
-                            openSetup("noInternetAndJar");
-                        } else {
-                            String newAppDirFile = appDataDirectory + "\\" + a.getFile().getName();
-                            try {
-                                Files.move(a.getFile().toPath(), Paths.get(newAppDirFile), StandardCopyOption.REPLACE_EXISTING);
-                                openJar(newAppDirFile);
-                            } catch (IOException e) {
-
-                            }
-                            openJar(currentDirectoyJar);
-                            openSetup("noInternetAndJar");
-                        }
-
+                    } catch (IOException e) {
+                        openSetup(visitGitHub, javaVersionArg, appJarArg);
                     }
+
+                } else {
+                    openSetup(visitGitHub, javaVersionArg, appJarArg);
                 }
-
-            } else {
-                openSetup("noInternetAndJar");
             }
-        } else {
-
         }
+
     }
 
-    public static AppJar getLatestJar() {
-
-        return null;
-    }
-
-    /*  public static void checkJar() {
-        if (currentDirectoyJar.equals("")) {
-            if (isAppData) {
-
-                if (appDataJar.equals("")) {
-                    // openSetup("noJar");
-                } else {
-                    openJar(appDataDirectory + "\\" + appDataJar);
-                }
-            } else {
-                // openSetup("noJar");
-            }
-        } else {
-            openJar(currentDirectory + "\\" + currentDirectoyJar);
-        }
-
-        if (currentDirectoyJar.equals("")) {
-            if (isAppData) {
-                String appDataJar = Utils.getLatestFileString(appDataDirectory);
-
-                if (appDataJar.equals("")) {
-                    // openSetup("noJar");
-                } else {
-                    openJar(appDataDirectory + "\\" + appDataJar);
-                }
-            } else {
-                // openSetup("noJar");
-            }
-        } else {
-            openJar(currentDirectory + "\\" + currentDirectoyJar);
-        }
-
-    }*/
-    public static boolean checkJava() {
+    public static Version checkJava() {
 
         String[] cmd = {"java", "--version"};
 
-        //String line = null;
-        //List<String> list = new ArrayList<String>();
-        //boolean executed = true;
         try {
-            Runtime.getRuntime().exec(cmd);
-            /*          
-            Process p = Runtime.getRuntime().exec(cmd);
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            Process proc = Runtime.getRuntime().exec(cmd);
 
-            BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+            BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
-            
-            while ((line = stdInput.readLine()) != null) {
-                list.add(line);
+            List<String> javaOutputList = new ArrayList<String>();
+
+            String s = null;
+            while ((s = stdInput.readLine()) != null) {
+                javaOutputList.add(s);
             }
 
-            while ((line = stdError.readLine()) != null) {
-                list.add(line);
-            } */
+            String[] splitStr = javaOutputList.get(0).trim().split("\\s+");
+
+            Version jV = new Version(splitStr[1].replaceAll("/[^0-9.]/g", ""));
+
+            return jV;
 
         } catch (Exception e) {
-            return false;
+            return null;
         }
 
-        return true;
     }
 
-    private static void openSetup(String... launcherArgs) {
+    private static void openSetup(String... args) {
 
-        Application.launch(Setup.class, launcherArgs);
+        Application.launch(Setup.class, args);
+
     }
 
-    private static void openJar(String jarFilePathString) {
-        String cmdString = "cmd /c javaw -jar " + jarFilePathString;
-        boolean executed = true;
+    public static void openJar(String jarFilePathString) throws IOException {
+        String[] cmdString;
 
-        try {
-            Runtime.getRuntime().exec(cmdString);
-        } catch (IOException e) {
-            executed = false;
-        }
+        cmdString = new String[]{"cmd", "/c", "javaw", "-jar", jarFilePathString};
 
-        if (executed) {
+        Runtime.getRuntime().exec(cmdString);
 
-            shutdownNow();
-        }
     }
 
-    private static void shutdownNow() {
-        Platform.exit();
-        System.exit(0);
-    }
 }

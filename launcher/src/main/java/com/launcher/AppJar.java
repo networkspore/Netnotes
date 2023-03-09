@@ -23,7 +23,11 @@ public class AppJar {
         jarVersion = getVersionFromFileName(jarFile.getName());
 
         jarLocation = jarFile.getAbsolutePath();
-        jarHash = Utils.digestFileToHex(jarFile, Blake2b.BLAKE2_B_256);
+        try {
+            jarHash = Utils.digestFileToHex(jarFile);
+        } catch (Exception e) {
+
+        }
     }
 
     public File getFile() {
@@ -39,7 +43,11 @@ public class AppJar {
         String versionStr = "0.0.0";
 
         if (fileName.equals("netnotes.jar")) {
-            return new Version(versionStr);
+            try {
+                return new Version(versionStr);
+            } catch (Exception e) {
+
+            }
         }
 
         if (fileName.length() == fileLength) {
@@ -62,11 +70,20 @@ public class AppJar {
             versionStr = fileName.substring(i + 1, end);
 
             if (versionStr.matches("[0-9]+(\\.[0-9]+)*")) {
-                return new Version(versionStr);
+                try {
+                    return new Version(versionStr);
+                } catch (Exception e) {
+
+                }
             }
         }
+        Version zero = null;
+        try {
+            zero = new Version("0.0.0");
+        } catch (Exception e) {
 
-        return new Version("0.0.0");
+        }
+        return zero;
     }
 
     public String getLocation() {
