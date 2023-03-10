@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,34 +74,12 @@ public class App extends Application {
 
     public static final String settingsFileName = "settings.conf";
     public static final String homeString = System.getProperty("user.home");
-
+    public File settingsFile = null;
     public static JsonObject appData;
 
     public File currentDir = null;
     public File launcherFile = null;
     public File currentJar = null;
-
-    @Override
-    public void start(Stage appStage) {
-        Platform.setImplicitExit(true);
-
-        appStage.setResizable(false);
-        appStage.initStyle(StageStyle.UNDECORATED);
-        appStage.setTitle("Netnotes");
-        appStage.getIcons().add(logo);
-
-        Parameters params = getParameters();
-        List<String> list = params.getRaw();
-
-        parseArgs(list, appStage);
-
-        if (currentDir != null) {
-            startApp(appStage);
-        } else {
-            shutdownNow();
-        }
-
-    }
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -124,7 +103,7 @@ public class App extends Application {
                 currentDir = currentJar.getParentFile();
                 launcherFile = new File(launcherFilePathString);
                 File launcherDir = launcherFile.getParentFile();
-                String launcherDirString = launcherDir.getAbsolutePath();
+
                 File destinationFile = new File(currentDir.getAbsolutePath() + "/" + launcherFile.getName());
 
                 new Thread(new Runnable() {
@@ -160,67 +139,151 @@ public class App extends Application {
 
     }
 
-    private void startApp(Stage appStage) {
-
-        File settingsFile = new File(currentDir.getAbsolutePath() + "\\" + settingsFileName);
-
-        if (!settingsFile.isFile()) {
-
-            Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + currentDir.getAbsolutePath() + "\n" + launcherFile.getAbsolutePath(), ButtonType.CLOSE);
-            a.initOwner(appStage);
-            a.showAndWait();
-            shutdownNow();
-
-        } else {
-
-            String passwordHash = null;
-            try {
-
-                String jsonString = Files.readString(settingsFile.toPath());
-                appData = new JsonParser().parse(jsonString).getAsJsonObject();
-                passwordHash = appData.get("appKey").getAsString();
-            } catch (Exception e) {
-                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                a.initOwner(appStage);
-                a.showAndWait();
-            }
-
-            if (passwordHash != null) {
-                String password = null;
-                byte[] hashBytes = passwordHash.getBytes();
-                boolean tryAgain = true;
-                while (tryAgain) {
-                    password = getPasswordStage("Net Notes", logo, "Net Notes");
-
-                    if (password == null) {
-                        break;
-                    }
-
-                    BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), hashBytes);
-
-                    tryAgain = result.verified;
-                }
-
-                if (password != null) {
-                    openNetnotes(appStage);
-                } else {
-                    shutdownNow();
-                }
-            } else {
-                shutdownNow();
-            }
-
-        }
-    }
-
-    public static void setStatusStage(Stage appStage, String title, String statusMessage) {
+    @Override
+    public void start(Stage appStage) {
+        //  Platform.setImplicitExit(true);
 
         appStage.setResizable(false);
         appStage.initStyle(StageStyle.UNDECORATED);
-        appStage.setTitle("Net Notes");
+        appStage.setTitle("Netnotes");
         appStage.getIcons().add(logo);
 
-        HBox topBar = createTopBar(icon, title, null, appStage);
+        Parameters params = getParameters();
+        List<String> list = params.getRaw();
+
+        parseArgs(list, appStage);
+
+        if (currentDir != null) {
+            settingsFile = new File(currentDir.getAbsolutePath() + "\\" + settingsFileName);
+
+            if (!settingsFile.isFile()) {
+
+                Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + currentDir.getAbsolutePath() + "\n" + launcherFile.getAbsolutePath(), ButtonType.CLOSE);
+                a.showAndWait();
+                shutdownNow();
+
+            } else {
+
+                String passwordHash = null;
+                try {
+
+                    String jsonString = Files.readString(settingsFile.toPath());
+                    appData = new JsonParser().parse(jsonString).getAsJsonObject();
+                    passwordHash = appData.get("appKey").getAsString();
+                } catch (Exception e) {
+                    Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                    a.showAndWait();
+                }
+                if (passwordHash != null) {
+
+                    startApp(passwordHash.getBytes(), appStage);
+                } else {
+                    //set init stage
+                }
+            }
+
+        } else {
+            Alert a = new Alert(AlertType.NONE, "Unable to open Net Notes.", ButtonType.CLOSE);
+            a.initOwner(appStage);
+            a.showAndWait();
+            shutdownNow();
+        }
+
+    }
+
+    public static void startApp(byte[] hashBytes, Stage appStage) {
+
+        appStage.setTitle("Net Notes - Verify Password");
+
+        Button closeBtn = new Button();
+
+        HBox titleBox = createTopBar(icon, "Net Notes - Verify Password", closeBtn, appStage);
+
+        Button imageButton = createImageButton(logo, "Net Notes");
+
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
+
+        Text passwordTxt = new Text("> Enter password:");
+        passwordTxt.setFill(txtColor);
+        passwordTxt.setFont(txtFont);
+
+        PasswordField passwordField = new PasswordField();
+        passwordField.setFont(txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+
+        Platform.runLater(() -> passwordField.requestFocus());
+
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button clickRegion = new Button();
+        clickRegion.setMaxWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(Double.MAX_VALUE);
+
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
+        });
+
+        VBox bodyBox = new VBox(passwordBox, clickRegion);
+        VBox.setMargin(bodyBox, new Insets(5, 10, 0, 20));
+        VBox.setVgrow(bodyBox, Priority.ALWAYS);
+
+        VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
+
+        Scene passwordScene = new Scene(layoutVBox, 600, 425);
+
+        passwordScene.getStylesheets().add("/css/startWindow.css");
+        appStage.setScene(passwordScene);
+
+        closeBtn.setOnAction(e -> {
+            shutdownNow();
+        });
+
+        Stage statusStage = new Stage();
+        statusStage.setResizable(false);
+        statusStage.initStyle(StageStyle.UNDECORATED);
+        statusStage.setTitle("Netnotes - Verifying");
+        statusStage.getIcons().add(logo);
+
+        setStatusStage(statusStage, "Net Notes - Verifying", "Verifying...");
+
+        passwordField.setOnKeyPressed(e -> {
+
+            KeyCode keyCode = e.getCode();
+
+            if (keyCode == KeyCode.ENTER) {
+
+                if (passwordField.getText().length() < 6) {
+                    passwordField.setText("");
+                } else {
+
+                    statusStage.show();
+
+                    FxTimer.runLater(Duration.ofMillis(100), () -> {
+                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), hashBytes);
+                        statusStage.close();
+
+                        if (result.verified) {
+                            openNetnotes(appStage);
+                        } else {
+                            passwordField.setText("");
+                        }
+                    });
+                }
+            }
+        });
+        appStage.show();
+    }
+    //openNetnotes(appStage);
+
+    public static void setStatusStage(Stage appStage, String title, String statusMessage) {
+
+        appStage.setTitle(title);
+
+        HBox topBar = createTopBar(icon, title, new Button(), appStage);
 
         ImageView waitingView = new ImageView(logo);
         waitingView.setFitHeight(135);
@@ -449,7 +512,8 @@ public class App extends Application {
         if (ergFile == null) {
             return null;
         } else {
-            String password = getPasswordStage("Open wallet", ergoLogo, "Ergo wallet");
+
+            String password = confirmErgoTransactionStage("Wallet password");
 
             try {
                 return Wallet.load(ergFile.toPath(), password);
@@ -607,7 +671,7 @@ public class App extends Application {
         }
         );
 
-        Button minimizeBtn = new Button("_");
+        Button minimizeBtn = new Button("-");
         minimizeBtn.setId("toolBtn");
         minimizeBtn.setPadding(new Insets(0, 5, 0, 3));
         minimizeBtn.setOnAction(minEvent -> {
@@ -690,13 +754,15 @@ public class App extends Application {
     }
 
     public static String confirmErgoTransactionStage(String information) {
-        return getPasswordStage("Confirm transaction", ergoLogo, "Confirm transaction");
-    }
 
-    public static String getPasswordStage(String topTitle, Image windowLogo, String windowSubTitle) {
+        String topTitle = "Confirm transaction";
+        Image windowLogo = ergoLogo;
+        String windowSubTitle = "Confirm transaction";
 
         Stage passwordStage = new Stage();
+
         passwordStage.setTitle(topTitle);
+
         passwordStage.getIcons().add(logo);
         passwordStage.setResizable(false);
         passwordStage.initStyle(StageStyle.UNDECORATED);
@@ -768,4 +834,5 @@ public class App extends Application {
 
         return passwordField.getText().equals("") ? null : passwordField.getText();
     }
+
 }

@@ -66,8 +66,15 @@ public class Main {
             try {
                 String jsonString = Files.readString(settingsPath);
                 launcherData = new JsonParser().parse(jsonString).getAsJsonObject();
-            } catch (Exception e) {
+                String appKey = launcherData.get("appKey").getAsString();;
+                Boolean updates = launcherData.get("updates").getAsBoolean();;
+                if (!appKey.startsWith("$2a$15$")) {
+                    launcherData = null;
+                }
 
+                launcherData.get("networks").getAsString();
+            } catch (Exception e) {
+                launcherData = null;
             }
         }
 
@@ -80,25 +87,21 @@ public class Main {
             openSetup(firstRun, appJarArg, javaVersionArg);
 
         } else {
-            boolean checkForUpdates = launcherData.get("checkForUpdates").getAsBoolean();
-            if (checkForUpdates) {
-                openSetup(setupUpdates, javaVersionArg, appJarArg);
-            } else {
 
-                boolean isJar = !currentDirectoyJar.equals("");
+            boolean isJar = !currentDirectoyJar.equals("");
 
-                if (javaVersion != null && isJar) {
+            if (javaVersion != null && isJar) {
 
-                    try {
-                        openJar(currentDirectoyJar);
-                    } catch (IOException e) {
-                        openSetup(visitGitHub, javaVersionArg, appJarArg);
-                    }
-
-                } else {
+                try {
+                    openJar(currentDirectoyJar);
+                } catch (IOException e) {
                     openSetup(visitGitHub, javaVersionArg, appJarArg);
                 }
+
+            } else {
+                openSetup(visitGitHub, javaVersionArg, appJarArg);
             }
+
         }
 
     }
