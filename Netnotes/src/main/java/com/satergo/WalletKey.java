@@ -250,7 +250,7 @@ public abstract class WalletKey {
         }
 
         private Mnemonic getMnemonic() throws Failure {
-            return getMnemonic(() -> com.netnotes.App.confirmErgoTransactionStage("TransactionNotes"));
+            return getMnemonic(() -> com.netnotes.App.confirmPassword("Ergo - Wallet password", "Wallet password", null));
         }
 
         private static Mnemonic readMnemonic(ByteBuffer data) {

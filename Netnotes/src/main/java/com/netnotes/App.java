@@ -71,6 +71,8 @@ public class App extends Application {
     public static Image logo = new Image("/assets/icon256.png");
     public static Image ergoLogo = new Image("/assets/ergo-black-350.png");
     public static Image waitingImage = new Image("/assets/spinning.gif");
+    public static Image closeImg = new Image("/assets/close-outline-white.png");
+    public static Image minimizeImg = new Image("/assets/minimize-white-20.png");
 
     public static final String settingsFileName = "settings.conf";
     public static final String homeString = System.getProperty("user.home");
@@ -193,11 +195,11 @@ public class App extends Application {
 
     public static void startApp(byte[] hashBytes, Stage appStage) {
 
-        appStage.setTitle("Net Notes - Verify Password");
+        appStage.setTitle("Net Notes - Enter Password");
 
         Button closeBtn = new Button();
 
-        HBox titleBox = createTopBar(icon, "Net Notes - Verify Password", closeBtn, appStage);
+        HBox titleBox = createTopBar(icon, "Net Notes - Enter Password", closeBtn, appStage);
 
         Button imageButton = createImageButton(logo, "Net Notes");
 
@@ -282,8 +284,9 @@ public class App extends Application {
     public static void setStatusStage(Stage appStage, String title, String statusMessage) {
 
         appStage.setTitle(title);
-
-        HBox topBar = createTopBar(icon, title, new Button(), appStage);
+        Button closeBtn = new Button();
+        HBox topBar = createTopBar(icon, title, closeBtn, appStage);
+        closeBtn.setVisible(false);
 
         ImageView waitingView = new ImageView(logo);
         waitingView.setFitHeight(135);
@@ -513,8 +516,7 @@ public class App extends Application {
             return null;
         } else {
 
-            String password = confirmErgoTransactionStage("Wallet password");
-
+            String password = confirmPassword("Ergo - Wallet password", "Wallet password", "");
             try {
                 return Wallet.load(ergFile.toPath(), password);
 
@@ -628,8 +630,6 @@ public class App extends Application {
         networkStage.setScene(networkScene);
 
         networkStage.show();
-        networkStage.setX(networkStage.getX() - 50);
-        networkStage.setY(networkStage.getY() + 50);
 
         closeBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -658,7 +658,7 @@ public class App extends Application {
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
 
         //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
-        ImageView closeImage = highlightedImageView(new Image("/assets/close-outline-white.png"));
+        ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
         closeImage.setPreserveRatio(true);
@@ -666,14 +666,16 @@ public class App extends Application {
         closeBtn.setGraphic(closeImage);
         closeBtn.setPadding(new Insets(0, 5, 0, 3));
         closeBtn.setId("closeBtn");
-        closeBtn.setOnAction(e -> {
-            theStage.close();
-        }
-        );
 
-        Button minimizeBtn = new Button("-");
+        ImageView minimizeImage = highlightedImageView(minimizeImg);
+        minimizeImage.setFitHeight(15);
+        minimizeImage.setFitWidth(15);
+        minimizeImage.setPreserveRatio(true);
+
+        Button minimizeBtn = new Button();
         minimizeBtn.setId("toolBtn");
-        minimizeBtn.setPadding(new Insets(0, 5, 0, 3));
+        minimizeBtn.setGraphic(minimizeImage);
+        minimizeBtn.setPadding(new Insets(5, 5, 0, 5));
         minimizeBtn.setOnAction(minEvent -> {
             theStage.setIconified(true);
         });
@@ -753,11 +755,9 @@ public class App extends Application {
         return imageView;
     }
 
-    public static String confirmErgoTransactionStage(String information) {
+    public static String confirmPassword(String topTitle, String windowSubTitle, String information) {
 
-        String topTitle = "Confirm transaction";
         Image windowLogo = ergoLogo;
-        String windowSubTitle = "Confirm transaction";
 
         Stage passwordStage = new Stage();
 

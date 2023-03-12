@@ -85,7 +85,7 @@ public class Setup extends Application {
     public static String updateUrl = "https://github.com/networkspore/Netnotes/releases/latest/download";
     public static String javaUrl = "https://www.java.com/en/download/";
 
-    public static final String programFilesDir = System.getenv("LOCALAPPDATA");
+    public static final String programFilesDir = System.getenv("LOCALAPPDATA") + "\\Net Notes";
 
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public static Font txtFont = Font.font("OCR A Extended", 15);
@@ -97,6 +97,8 @@ public class Setup extends Application {
     public static Image logo = new Image("/assets/icon256.png");
     public static Image ergoLogo = new Image("/assets/ergo-black-350.png");
     public static Image waitingImage = new Image("/assets/spinning.gif");
+    public static Image closeImg = new Image("/assets/close-outline-white.png");
+    public static Image minimizeImg = new Image("/assets/minimize-white-20.png");
 
     public static String javaFileName = "jdk-19_windows-x64_bin.exe";
 
@@ -105,7 +107,7 @@ public class Setup extends Application {
     @Override
     public void start(Stage appStage) {
         // HostServices hostServices;
-        Platform.setImplicitExit(false);
+        Platform.setImplicitExit(true);
         appStage.initStyle(StageStyle.UNDECORATED);
         Parameters params = getParameters();
         List<String> list = params.getRaw();
@@ -171,15 +173,22 @@ public class Setup extends Application {
         bodyVBox.getChildren().clear();
         setSetupStage(appStage, "Netnotes - Setup", "Setup...", bodyVBox);
 
-        Text directoryTxt = new Text("> Install location:");
+        Text directoryTxt = new Text("> Location:");
         directoryTxt.setFill(txtColor);
         directoryTxt.setFont(txtFont);
 
         Button directoryBtn = new Button(programFilesDir);
         directoryBtn.setFont(txtFont);
-
-        // directoryBtn.setPadding(new Insets(10, 10, 10, 10));
         directoryBtn.setId("toolBtn");
+
+        Button defaultBtn = new Button("(default)");
+        defaultBtn.setFont(txtFont);
+        defaultBtn.setId("toolBtn");
+        defaultBtn.setVisible(false);
+        defaultBtn.setOnAction(btnEvent -> {
+            directoryBtn.setText(programFilesDir);
+            defaultBtn.setVisible(false);
+        });
 
         directoryBtn.setOnAction(btnEvent -> {
 
@@ -188,13 +197,38 @@ public class Setup extends Application {
             File chosenDir = dirChooser.showDialog(appStage);
             if (chosenDir != null) {
                 directoryBtn.setText(chosenDir.getAbsolutePath());
+                defaultBtn.setVisible(true);
             }
         });
 
         HBox.setHgrow(directoryBtn, Priority.ALWAYS);
 
-        HBox directoryBox = new HBox(directoryTxt, directoryBtn);
+        HBox directoryBox = new HBox(directoryTxt, directoryBtn, defaultBtn);
         directoryBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text currentDirTxt = new Text("> Use current directory:");
+        currentDirTxt.setFill(txtColor);
+        currentDirTxt.setFont(txtFont);
+
+        Button currentDirBtn = new Button("Disabled");
+        currentDirBtn.setId("toolBtn");
+        currentDirBtn.setFont(txtFont);
+        currentDirBtn.setOnAction(btnEvent -> {
+            if (currentDirBtn.getText().equals("Enabled")) {
+                currentDirBtn.setText("Disabled");
+                directoryBtn.setVisible(true);
+                if (!directoryBtn.getText().equals(programFilesDir)) {
+                    defaultBtn.setVisible(true);
+                }
+            } else {
+                currentDirBtn.setText("Enabled");
+                directoryBtn.setVisible(false);
+                defaultBtn.setVisible(false);
+            }
+        });
+
+        HBox currentDirBox = new HBox(currentDirTxt, currentDirBtn);
+        currentDirBox.setAlignment(Pos.CENTER_LEFT);
 
         Text updatesTxt = new Text("> Updates:");
         updatesTxt.setFill(txtColor);
@@ -226,18 +260,19 @@ public class Setup extends Application {
 
         HBox gBox = new HBox(hBar);
         gBox.setAlignment(Pos.CENTER);
-        gBox.setPadding(new Insets(45, 0, 0, 0));
+        gBox.setPadding(new Insets(25, 0, 0, 0));
 
         HBox nextBox = new HBox(nextBtn);
         nextBox.setAlignment(Pos.CENTER);
         nextBox.setPadding(new Insets(25, 0, 0, 0));
 
-        bodyVBox.getChildren().addAll(directoryBox, updatesBox, gBox, nextBox);
+        bodyVBox.getChildren().addAll(directoryBox, currentDirBox, updatesBox, gBox, nextBox);
 
         nextBtn.setOnAction(btnEvent -> {
 
             boolean updates = updatesBtn.getText().equals("Enabled");
-            String directoryString = directoryBtn.getText() + "\\Net Notes";
+
+            String directoryString = currentDirBtn.getText().equals("Enabled") ? Main.currentDirectory : directoryBtn.getText();
             File directoryFile = new File(directoryString);
 
             if (!directoryFile.isDirectory()) {
@@ -394,16 +429,23 @@ public class Setup extends Application {
 
         boolean validJava = javaVersion != null && (javaVersion.compareTo(new Version("17.0.3")) > -1);
 
+        boolean moveFiles = !installDir.getAbsolutePath().equals(Main.currentDirectory);
+
         if (validJar && validJava) {
 
             File launcherFile = null;
 
             try {
-                URL classLocation = Utils.getLocation(getClass());
-                launcherFile = Utils.urlToFile(classLocation);
+                if (moveFiles) {
+                    URL classLocation = Utils.getLocation(getClass());
+                    launcherFile = Utils.urlToFile(classLocation);
 
-                Files.move(jarFile.toPath(), newPath, StandardCopyOption.REPLACE_EXISTING);
-                openJar(installDirString + "\\" + jarFile.getName(), launcherFile);
+                    Files.move(jarFile.toPath(), newPath, StandardCopyOption.REPLACE_EXISTING);
+
+                    openJar(installDirString + "\\" + jarFile.getName(), launcherFile);
+                } else {
+                    Main.openJar(jarFile.getAbsolutePath());
+                }
                 shutdownNow();
             } catch (Exception e) {
                 Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
@@ -413,7 +455,7 @@ public class Setup extends Application {
             }
 
         } else {
-            if (validJar) {
+            if (validJar && moveFiles) {
 
                 Files.move(jarFile.toPath(), newPath, StandardCopyOption.REPLACE_EXISTING);
             }
@@ -1019,7 +1061,7 @@ public class Setup extends Application {
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
 
         //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
-        ImageView closeImage = highlightedImageView(new Image("/assets/close-outline-white.png"));
+        ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
         closeImage.setPreserveRatio(true);
@@ -1028,12 +1070,18 @@ public class Setup extends Application {
         closeBtn.setPadding(new Insets(0, 5, 0, 3));
         closeBtn.setId("closeBtn");
         closeBtn.setOnAction(minEvent -> {
-            theStage.close();
+            shutdownNow();
         });
 
-        Button minimizeBtn = new Button("_");
+        ImageView minimizeImage = highlightedImageView(minimizeImg);
+        minimizeImage.setFitHeight(15);
+        minimizeImage.setFitWidth(15);
+        minimizeImage.setPreserveRatio(true);
+
+        Button minimizeBtn = new Button();
         minimizeBtn.setId("toolBtn");
-        minimizeBtn.setPadding(new Insets(0, 5, 0, 3));
+        minimizeBtn.setGraphic(minimizeImage);
+        minimizeBtn.setPadding(new Insets(5, 5, 0, 5));
         minimizeBtn.setOnAction(minEvent -> {
             theStage.setIconified(true);
         });
