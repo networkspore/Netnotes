@@ -33,10 +33,6 @@ public final class Wallet {
     @SuppressWarnings("FieldCanBeLocal")
     private final long formatVersion = NEWEST_SUPPORTED_FORMAT;
 
-    public final Path path;
-
-    public final SimpleStringProperty name;
-
     // Idea: local notes on transactions
     private final TreeMap<Integer, String> internalMyAddresses = new TreeMap<>();
     // index<->name; EIP3 addresses belonging to this wallet
@@ -48,16 +44,15 @@ public final class Wallet {
         return internalMyAddresses.lastKey() + 1;
     }
 
-    private Wallet(Path path, WalletKey key, String name, Map<Integer, String> myAddresses, byte[] detailsIv, SecretKey detailsSecretKey) {
-        this.path = path;
+    private Wallet(WalletKey key, Map<Integer, String> myAddresses, byte[] detailsIv, SecretKey detailsSecretKey) {
+
         this.key = key;
-        this.name = new SimpleStringProperty(name);
+
         this.detailsIv = detailsIv;
         this.detailsSecretKey = detailsSecretKey;
 
         this.myAddresses.putAll(myAddresses);
-        this.myAddresses.addListener((MapChangeListener<Integer, String>) change -> saveToFile());
-        this.name.addListener((observable, oldValue, newValue) -> saveToFile());
+
     }
 
     private WalletKey key;
@@ -118,13 +113,12 @@ public final class Wallet {
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new RuntimeException(e);
         }
-        saveToFile();
     }
 
     /**
      * creates a new wallet with local key and master address and saves it
      */
-    public static Wallet create(Path path, Mnemonic mnemonic, String name, char[] password, boolean nonstandardDerivation) {
+    public static Wallet create(Mnemonic mnemonic, char[] password, boolean nonstandardDerivation) {
         byte[] detailsIv = AESEncryption.generateNonce12();
         SecretKey detailsSecretKey;
         try {
@@ -132,20 +126,16 @@ public final class Wallet {
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new RuntimeException(e);
         }
-        Wallet wallet = new Wallet(path, WalletKey.Local.create(nonstandardDerivation, mnemonic, password), name, Map.of(0, "Master"), detailsIv, detailsSecretKey);
-        wallet.saveToFile();
-        return wallet;
-    }
+        Wallet wallet = new Wallet(WalletKey.Local.create(nonstandardDerivation, mnemonic, password), Map.of(0, "Master"), detailsIv, detailsSecretKey);
 
-    public static Wallet create(Path path, Mnemonic mnemonic, String name, char[] password) {
-        return create(path, mnemonic, name, password, false);
+        return wallet;
     }
 
     // ENCRYPTION, SERIALIZATION & STORING
     private byte[] detailsIv;
     private SecretKey detailsSecretKey;
 
-    public byte[] serializeEncrypted() throws IOException {
+    public byte[] serializeEncrypted() throws Exception {
         try (ByteArrayOutputStream bytes = new ByteArrayOutputStream(); DataOutputStream out = new DataOutputStream(bytes)) {
             out.writeInt(MAGIC_NUMBER);
             out.writeLong(formatVersion);
@@ -155,7 +145,7 @@ public final class Wallet {
 
             byte[] rawDetailsData;
             try (ByteArrayOutputStream bytesInfo = new ByteArrayOutputStream(); DataOutputStream outInfo = new DataOutputStream(bytesInfo)) {
-                outInfo.writeUTF(name.get());
+
                 outInfo.writeInt(myAddresses.size());
                 for (Map.Entry<Integer, String> entry : myAddresses.entrySet()) {
                     outInfo.writeInt(entry.getKey());
@@ -180,18 +170,10 @@ public final class Wallet {
         }
     }
 
-    public void saveToFile() {
-        try {
-            Files.write(path, serializeEncrypted());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Wallet deserializeDecryptedLegacy(long formatVersion, byte[] bytes, Path path, char[] password) throws UnsupportedOperationException, IOException {
+    private static Wallet deserializeDecryptedLegacy(long formatVersion, byte[] bytes, char[] password) throws UnsupportedOperationException, IOException {
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
             if (formatVersion == 0) {
-                String name = in.readUTF();
+
                 SecretString seedPhrase = SecretString.create(in.readUTF());
                 SecretString mnemonicPassword = SecretString.create(in.readUTF());
                 int myAddressesSize = in.readInt();
@@ -206,11 +188,11 @@ public final class Wallet {
                 }
                 // nonstandardDerivation is always true because the bug in the ergo-wallet cryptography library
                 // was not discovered yet when formatVersion 0 was created
-                Wallet wallet = Wallet.create(path, Mnemonic.create(seedPhrase, mnemonicPassword), name, password, true);
+                Wallet wallet = Wallet.create(Mnemonic.create(seedPhrase, mnemonicPassword), password, true);
                 wallet.myAddresses.putAll(myAddresses);
                 wallet.addressBook.putAll(addressBook);
                 // Upgrade wallet file right away
-                wallet.saveToFile();
+
                 return wallet;
             } else {
                 throw new UnsupportedOperationException("Unsupported format version " + formatVersion + " (this release only supports " + NEWEST_SUPPORTED_FORMAT + " and older)");
@@ -222,7 +204,7 @@ public final class Wallet {
      * @throws UnsupportedOperationException Cannot deserialize this
      * formatVersion, it is too new
      */
-    private static Wallet deserializeNew(long formatVersion, DataInputStream in, Path path, char[] password) throws Exception, UnsupportedOperationException, IOException {
+    private static Wallet deserializeNew(long formatVersion, DataInputStream in, char[] password) throws Exception, UnsupportedOperationException, IOException {
         if (formatVersion == 1) {
             WalletKey key;
             byte[] decryptedDetails;
@@ -255,7 +237,7 @@ public final class Wallet {
                 for (int i = 0; i < addressBookSize; i++) {
                     addressBook.put(din.readUTF(), Address.create(din.readUTF()));
                 }
-                Wallet wallet = new Wallet(path, key, name, myAddresses, detailsEncryptionIv, detailsEncryptionKey);
+                Wallet wallet = new Wallet(key, myAddresses, detailsEncryptionIv, detailsEncryptionKey);
                 wallet.addressBook.putAll(addressBook);
                 return wallet;
             }
@@ -264,11 +246,11 @@ public final class Wallet {
         }
     }
 
-    public static Wallet deserializeEncrypted(byte[] bytes, Path path, char[] password) throws Exception {
+    public static Wallet deserializeEncrypted(byte[] bytes, char[] password) throws Exception {
         try {
             try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
                 if (in.readInt() == MAGIC_NUMBER) {
-                    return deserializeNew(in.readLong(), in, path, password);
+                    return deserializeNew(in.readLong(), in, password);
                 }
             }
             // old format (version 0)
@@ -278,7 +260,7 @@ public final class Wallet {
             byte[] decrypted = AESEncryption.decryptData(password, buffer);
             try (ObjectInputStream old = new ObjectInputStream(new ByteArrayInputStream(decrypted))) {
                 long formatVersion = old.readLong();
-                return deserializeDecryptedLegacy(formatVersion, old.readAllBytes(), path, password);
+                return deserializeDecryptedLegacy(formatVersion, old.readAllBytes(), password);
             } catch (StreamCorruptedException | EOFException e) {
                 throw new IllegalArgumentException("Invalid wallet data");
             }
@@ -289,10 +271,9 @@ public final class Wallet {
         }
     }
 
-    public static Wallet load(Path path, String password) throws Exception {
+    public static Wallet load(byte[] bytes, String password) throws Exception {
         try {
-            Wallet wallet = deserializeEncrypted(Files.readAllBytes(path), path, password.toCharArray());
-            wallet.saveToFile();
+            Wallet wallet = deserializeEncrypted(bytes, password.toCharArray());
             return wallet;
         } catch (IOException e) {
             throw new RuntimeException(e);

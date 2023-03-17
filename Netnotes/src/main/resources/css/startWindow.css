@@ -24,9 +24,7 @@
     -fx-background-color: linear-gradient(to bottom, #ffffff15 0%, #000000EE 50%, #11111110 90%);
    
 }
-#menuBox {
-    -fx-background-color: linear-gradient(to top, #ffffff05 0%, #111111 50%, #ffffff02 98%);
-}
+
 
 #toolBtn {
     -fx-background-color: transparent;
@@ -120,4 +118,26 @@
     -fx-background-color: #33333380;
     -fx-text-fill: white;
    
+}
+
+#hGradient {
+    -fx-background-color: linear-gradient(to right, #111111AA, #77777740, #111111AA);
+}
+
+#menuBtn {
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+}
+
+#menuBtn:hover {
+    -fx-background-color: #33333380;
+    -fx-opacity: 1;
+}
+
+#menuBox {
+    -fx-background-color: linear-gradient(to top,  #ffffff05,#ffffff08, #111111AA );
+}
+
+#bodyBox {
+    -fx-background-color: #333333;
 }

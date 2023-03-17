@@ -27,6 +27,7 @@ import javafx.scene.control.Alert.AlertType;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.rfksystems.blake2b.security.Blake2bProvider;
@@ -61,18 +62,26 @@ public class Main {
         Path settingsPath = Paths.get(currentDirectory + "\\" + settingsFileName);
 
         boolean isSettings = Files.isRegularFile(settingsPath);
-
+        boolean updates = true;
         if (isSettings) {
             try {
                 String jsonString = Files.readString(settingsPath);
                 launcherData = new JsonParser().parse(jsonString).getAsJsonObject();
-                String appKey = launcherData.get("appKey").getAsString();;
-                Boolean updates = launcherData.get("updates").getAsBoolean();;
-                if (!appKey.startsWith("$2a$15$")) {
+                JsonElement appKeyElement = launcherData.get("appKey");
+                JsonElement updatesElement = launcherData.get("updates");
+                if (appKeyElement != null) {
+                    String appKey = appKeyElement.getAsString();
+                    if (updatesElement != null) {
+                        updates = updatesElement.getAsBoolean();
+
+                    }
+                    if (!appKey.startsWith("$2a$15$")) {
+                        launcherData = null;
+                    }
+                } else {
                     launcherData = null;
                 }
 
-                launcherData.get("networks").getAsString();
             } catch (Exception e) {
                 launcherData = null;
             }

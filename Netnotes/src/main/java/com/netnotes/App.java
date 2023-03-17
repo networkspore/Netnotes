@@ -14,8 +14,9 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
-
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.effect.ColorAdjust;
@@ -43,13 +44,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.apache.commons.codec.DecoderException;
 import org.bouncycastle.util.encoders.Hex;
 import org.ergoplatform.appkit.*;
 import org.reactfx.util.FxTimer;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -73,15 +77,23 @@ public class App extends Application {
     public static Image waitingImage = new Image("/assets/spinning.gif");
     public static Image closeImg = new Image("/assets/close-outline-white.png");
     public static Image minimizeImg = new Image("/assets/minimize-white-20.png");
+    public static Image globeImg = new Image("/assets/globe-outline-white-120.png");
+    public static Image settingsImg = new Image("/assets/settings-outline-white-120.png");
 
     public static final String settingsFileName = "settings.conf";
-    public static final String homeString = System.getProperty("user.home");
-    public File settingsFile = null;
-    public static JsonObject appData;
+    public static final String networksFileName = "networks.dat";
 
-    public File currentDir = null;
-    public File launcherFile = null;
-    public File currentJar = null;
+    public static final String homeString = System.getProperty("user.home");
+
+    private AppData appData;
+
+    private File settingsFile = null;
+    private File networksFile;
+    private File currentDir = null;
+    private File launcherFile = null;
+    private File currentJar = null;
+
+    private ArrayList<Network> networks = new ArrayList<>();
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -120,9 +132,12 @@ public class App extends Application {
                         try {
                             File desktopFile = new File(homeString + "/Desktop");
 
-                            Files.move(launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            if (!launcherFile.getAbsolutePath().equals(destinationFile.toString())) {
 
-                            Utils.createLink(destinationFile, launcherDir, "Net Notes.lnk");
+                                Files.move(launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                Utils.createLink(destinationFile, launcherDir, "Net Notes.lnk");
+
+                            }
 
                             Utils.createLink(destinationFile, desktopFile, "Net Notes.lnk");
 
@@ -156,7 +171,10 @@ public class App extends Application {
         parseArgs(list, appStage);
 
         if (currentDir != null) {
-            settingsFile = new File(currentDir.getAbsolutePath() + "\\" + settingsFileName);
+            String currentDirString = currentDir.getAbsolutePath();
+
+            networksFile = new File(currentDirString + "/" + networksFileName);
+            settingsFile = new File(currentDirString + "/" + settingsFileName);
 
             if (!settingsFile.isFile()) {
 
@@ -168,10 +186,8 @@ public class App extends Application {
 
                 String passwordHash = null;
                 try {
-
-                    String jsonString = Files.readString(settingsFile.toPath());
-                    appData = new JsonParser().parse(jsonString).getAsJsonObject();
-                    passwordHash = appData.get("appKey").getAsString();
+                    appData = new AppData(settingsFile);
+                    passwordHash = appData.getAppKey();
                 } catch (Exception e) {
                     Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                     a.showAndWait();
@@ -180,7 +196,8 @@ public class App extends Application {
 
                     startApp(passwordHash.getBytes(), appStage);
                 } else {
-                    //set init stage
+                    //init?
+                    shutdownNow();
                 }
             }
 
@@ -193,7 +210,7 @@ public class App extends Application {
 
     }
 
-    public static void startApp(byte[] hashBytes, Stage appStage) {
+    public void startApp(byte[] hashBytes, Stage appStage) {
 
         appStage.setTitle("Net Notes - Enter Password");
 
@@ -247,10 +264,9 @@ public class App extends Application {
         Stage statusStage = new Stage();
         statusStage.setResizable(false);
         statusStage.initStyle(StageStyle.UNDECORATED);
-        statusStage.setTitle("Netnotes - Verifying");
+        statusStage.setTitle("Net Notes - Verifying");
         statusStage.getIcons().add(logo);
-
-        setStatusStage(statusStage, "Net Notes - Verifying", "Verifying...");
+        setStatusStage(statusStage, "Net Notes - Verifying...", "Verifying..");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -267,9 +283,9 @@ public class App extends Application {
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
                         BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), hashBytes);
                         statusStage.close();
-
                         if (result.verified) {
                             openNetnotes(appStage);
+
                         } else {
                             passwordField.setText("");
                         }
@@ -279,14 +295,42 @@ public class App extends Application {
         });
         appStage.show();
     }
-    //openNetnotes(appStage);
+
+    private void loadNetworks() throws Exception {
+        if (networksFile.isFile()) {
+
+            String fileHexString = Files.readString(networksFile.toPath());
+            byte[] bytes = Hex.decode(fileHexString);
+            String jsonArrayString = new String(bytes, StandardCharsets.UTF_8);
+            JsonArray jsonArray = new JsonParser().parse(jsonArrayString).getAsJsonArray();
+
+            for (JsonElement element : jsonArray) {
+                JsonObject arrayObject = element.getAsJsonObject();
+                Network savedNetwork = new Network(arrayObject);
+                networks.add(savedNetwork);
+            }
+
+        }
+
+    }
 
     public static void setStatusStage(Stage appStage, String title, String statusMessage) {
 
         appStage.setTitle(title);
-        Button closeBtn = new Button();
-        HBox topBar = createTopBar(icon, title, closeBtn, appStage);
-        closeBtn.setVisible(false);
+
+        Label newTitleLbl = new Label(title);
+        newTitleLbl.setFont(titleFont);
+        newTitleLbl.setTextFill(txtColor);
+        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
+
+        ImageView barIconView = new ImageView(icon);
+        barIconView.setFitHeight(20);
+        barIconView.setPreserveRatio(true);
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl);
+        newTopBar.setAlignment(Pos.CENTER_LEFT);
+        newTopBar.setPadding(new Insets(10, 8, 10, 10));
+        newTopBar.setId("topBar");
 
         ImageView waitingView = new ImageView(logo);
         waitingView.setFitHeight(135);
@@ -305,7 +349,7 @@ public class App extends Application {
         VBox.setVgrow(bodyVBox, Priority.ALWAYS);
         VBox.setMargin(bodyVBox, new Insets(0, 20, 20, 20));
 
-        VBox layoutVBox = new VBox(topBar, bodyVBox);
+        VBox layoutVBox = new VBox(newTopBar, bodyVBox);
 
         Scene statusScene = new Scene(layoutVBox, 420, 220);
         statusScene.getStylesheets().add("/css/startWindow.css");
@@ -320,16 +364,24 @@ public class App extends Application {
     }
 
     // private static int createTries = 0;
-    private static void openNetnotes(Stage appStage) {
+    private void openNetnotes(Stage appStage) {
 
         Button closeBtn = new Button();
-        Button addBtn = new Button();
+        Button settingsBtn = new Button();
+        Button networksBtn = new Button();
 
         HBox titleBox = createTopBar(icon, "Net Notes", closeBtn, appStage);
 
-        HBox menuBox = createMenu(addBtn);
+        VBox menuBox = createMenu(settingsBtn, networksBtn);
 
-        VBox layout = new VBox(titleBox, menuBox);
+        VBox.setVgrow(menuBox, Priority.ALWAYS);
+        VBox bodyVBox = new VBox();
+        HBox.setHgrow(bodyVBox, Priority.ALWAYS);
+        VBox.setVgrow(bodyVBox, Priority.ALWAYS);
+
+        HBox mainHbox = new HBox(menuBox, bodyVBox);
+
+        VBox layout = new VBox(titleBox, mainHbox);
 
         Scene appScene = new Scene(layout, 800, 450);
         appScene.getStylesheets().add("/css/startWindow.css");
@@ -337,49 +389,139 @@ public class App extends Application {
 
         closeBtn.setOnAction(e -> {
             appStage.close();
-        }
-        );
+        });
 
-        addBtn.setOnAction(e -> {
-            addNetwork();
+        settingsBtn.setOnAction(e -> {
+            showSettings(appStage, bodyVBox);
+        });
+
+        networksBtn.setOnAction(e -> {
+            showNetworks(bodyVBox);
         });
 
         appStage.show();
-        String networksString = "";
+
         try {
-            networksString = appData.get("networks").getAsString();
-        } catch (Exception e) {
+            loadNetworks();
+        } catch (Exception e1) {
 
+            Alert a = new Alert(AlertType.NONE, "Fatal error: Error unable to load networks.\n\n" + e1.toString(), ButtonType.CLOSE);
+            a.setTitle("Fatal error: Unable to load networks.");
+            a.initOwner(appStage);
+            a.showAndWait();
+            shutdownNow();
         }
 
-        if (networksString.equals("")) {
-            addNetwork();
-        }
     }
 
-    private static HBox createMenu(Button addButton) {
-        ImageView addImageView = highlightedImageView(new Image("/assets/add-outline-white-40.png"));
-        addImageView.setFitHeight(15);
-        addImageView.setPreserveRatio(true);
+    private void showSettings(Stage appStage, VBox bodyVBox) {
+        bodyVBox.getChildren().clear();
 
-        addButton = new Button("Add");
-        addButton.setGraphic(addImageView);
-        addButton.setId("toolBtn");
-        addButton.setPadding(new Insets(2, 15, 2, 5));
+        boolean isUpdates = appData.getUpdates();
 
-        addButton.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent actionEvent) {
-                addNetwork();
-            }
+        Button settingsButton = createImageButton(logo, "Settings");
+
+        HBox settingsBtnBox = new HBox(settingsButton);
+        settingsBtnBox.setAlignment(Pos.CENTER);
+
+        Text passwordTxt = new Text("> Update password:");
+        passwordTxt.setFill(txtColor);
+        passwordTxt.setFont(txtFont);
+
+        Button passwordBtn = new Button("(click to update)");
+        passwordBtn.setFont(txtFont);
+        passwordBtn.setId("formField");
+        passwordBtn.setOnAction(e -> {
+            Stage newPasswordStage = new Stage();
+            final String newPassword = createPassword(newPasswordStage, "Net Notes - Update password", logo, "Update password...");
+
+            Stage statusStage = new Stage();
+            setStatusStage(statusStage, "Net Notes - Saving...", "Saving...");
+            statusStage.show();
+            FxTimer.runLater(Duration.ofMillis(100), () -> {
+                String hash = Utils.getBcryptHashString(newPassword);
+
+                try {
+
+                    appData.setAppKey(hash);
+                } catch (IOException e1) {
+                    Alert a = new Alert(AlertType.NONE, "Error:\n\n" + e1.toString(), ButtonType.CLOSE);
+                    a.initOwner(appStage);
+                    a.show();
+                }
+
+                statusStage.close();
+
+            });
         });
 
-        HBox hbox = new HBox(addButton);
-        hbox.setAlignment(Pos.CENTER_LEFT);
-        hbox.setId("menuBox");
-        hbox.setPadding(new Insets(3, 0, 3, 15));
+        HBox passwordBox = new HBox(passwordTxt, passwordBtn);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
 
-        return hbox;
+        Text updatesTxt = new Text("> Updates:");
+        updatesTxt.setFill(txtColor);
+        updatesTxt.setFont(txtFont);
+
+        Button updatesBtn = new Button(isUpdates ? "Enabled" : "Disabled");
+        updatesBtn.setFont(txtFont);
+        updatesBtn.setId("formField");
+        updatesBtn.setOnAction(e -> {
+            try {
+                if (updatesBtn.getText().equals("Enabled")) {
+                    updatesBtn.setText("Disabled");
+                    appData.setUpdates(false);
+                } else {
+                    updatesBtn.setText("Enabled");
+                    appData.setUpdates(true);
+                }
+            } catch (IOException e1) {
+                Alert a = new Alert(AlertType.NONE, "Error:\n\n" + e1.toString(), ButtonType.CLOSE);
+                a.initOwner(appStage);
+                a.show();
+            }
+
+        });
+
+        HBox updatesBox = new HBox(updatesTxt, updatesBtn);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+
+        bodyVBox.getChildren().addAll(settingsBtnBox, passwordBox, updatesBox);
+    }
+
+    private void showNetworks(VBox bodyVBox) {
+        bodyVBox.getChildren().clear();
+    }
+
+    private VBox createMenu(Button settingsBtn, Button networksBtn) {
+        double menuSize = 35;
+
+        ImageView networkImageView = highlightedImageView(globeImg);
+        networkImageView.setFitHeight(menuSize);
+        networkImageView.setPreserveRatio(true);
+
+        Tooltip networkToolTip = new Tooltip("Networks");
+        networkToolTip.setShowDelay(new javafx.util.Duration(100));
+        networksBtn.setGraphic(networkImageView);
+        networksBtn.setId("menuBtn");
+        networksBtn.setTooltip(networkToolTip);
+
+        ImageView settingsImageView = highlightedImageView(settingsImg);
+        settingsImageView.setFitHeight(menuSize);
+        settingsImageView.setPreserveRatio(true);
+
+        Tooltip settingsTooltip = new Tooltip("Settings");
+        settingsTooltip.setShowDelay(new javafx.util.Duration(100));
+        settingsBtn.setGraphic(settingsImageView);
+        settingsBtn.setId("menuBtn");
+        settingsBtn.setTooltip(settingsTooltip);
+
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        VBox menuBox = new VBox(networksBtn, spacer, settingsBtn);
+        VBox.setVgrow(menuBox, Priority.ALWAYS);
+        menuBox.setId("menuBox");
+
+        return menuBox;
     }
 
     public static File getFile(String title, Stage owner, FileChooser.ExtensionFilter... extensionFilters) {
@@ -509,6 +651,7 @@ public class App extends Application {
         return passwordField.getText();
     }
 
+    /*
     private static Wallet selectWallet(Stage callingStage) {
         File ergFile = getFile("Ergo wallet", callingStage, new FileChooser.ExtensionFilter("Ergo wallet", "*.erg"));
 
@@ -518,7 +661,6 @@ public class App extends Application {
 
             String password = confirmPassword("Ergo - Wallet password", "Wallet password", "");
             try {
-                return Wallet.load(ergFile.toPath(), password);
 
             } catch (Exception e) {
                 return null;
@@ -526,20 +668,22 @@ public class App extends Application {
         }
 
         //    new com.satergo.Wallet()
-    }
-
+    } */
     private static void restoreWallet(Stage callingStage) {
 
     }
 
-    public static void addNetwork() {
+    public void addNetwork() {
         Stage networkStage = new Stage();
         networkStage.setTitle("Add Ergo Network");
-        networkStage.getIcons().add(logo);
+        networkStage.getIcons().add(ergoLogo);
         networkStage.setResizable(false);
         networkStage.initStyle(StageStyle.UNDECORATED);
 
         Button closeBtn = new Button();
+        closeBtn.setOnAction(closeEvent -> {
+            networkStage.close();
+        });
 
         HBox titleBox = createTopBar(icon, "Add Network", closeBtn, networkStage);
 
@@ -556,29 +700,15 @@ public class App extends Application {
         networkTypeBox.setPadding(new Insets(3, 0, 5, 0));
         HBox.setHgrow(networkTypeBox, Priority.ALWAYS);
 
-        Text locationTxt = new Text("> Network URL:");
+        Text locationTxt = new Text("> Location:");
         locationTxt.setFill(txtColor);
         locationTxt.setFont(txtFont);
 
-        TextField locationField = new TextField("localhost (default)"); //127.0.0.1:9503
-        locationField.setFont(txtFont);
-        locationField.setId("formField");
-        HBox.setHgrow(locationField, Priority.ALWAYS);
+        Button locationBtn = new Button("(select)"); //127.0.0.1:9503
+        locationBtn.setFont(txtFont);
+        locationBtn.setId("formField");
 
-        locationField.focusedProperty().addListener((obs, oldVal, newVal)
-                -> {
-            if (newVal) {
-                if (locationField.getText().equals("localhost (default)")) {
-                    locationField.setText("");
-                }
-            } else {
-                if (locationField.getText().equals("")) {
-                    locationField.setText("localhost (default)");
-                }
-            }
-        });
-
-        HBox locationBox = new HBox(locationTxt, locationField);
+        HBox locationBox = new HBox(locationTxt, locationBtn);
         locationBox.setAlignment(Pos.CENTER_LEFT);
 
         Text walletTxt = new Text("> Wallet (*.erg):");
@@ -586,16 +716,16 @@ public class App extends Application {
         walletTxt.setFont(txtFont);
 
         Button existingWalletBtn = new Button("(select)");
-        existingWalletBtn.setId("toolBtn");
+        existingWalletBtn.setId("formField");
         existingWalletBtn.setPadding(new Insets(2, 10, 2, 10));
         existingWalletBtn.setFont(txtFont);
 
         existingWalletBtn.setOnAction(e -> {
-            Wallet existingWallet = selectWallet(networkStage);
+            //Wallet existingWallet = selectWallet(networkStage);
 
-            Alert a = new Alert(AlertType.NONE, existingWallet != null ? "not null" : "is null", ButtonType.OK);
+            /*  Alert a = new Alert(AlertType.NONE, existingWallet != null ? "not null" : "is null", ButtonType.OK);
             a.initOwner(networkStage);
-            a.show();
+            a.show(); */
         });
 
         HBox.setHgrow(existingWalletBtn, Priority.ALWAYS);
@@ -604,11 +734,27 @@ public class App extends Application {
         newWalletBtn.setId("toolBtn");
         newWalletBtn.setPadding(new Insets(2, 15, 2, 15));
         newWalletBtn.setFont(txtFont);
+        Network newNetwork = new Network();
+
         newWalletBtn.setOnAction(newWalletEvent -> {
-            String walletPassword = createPassword(networkStage, "Create password", ergoLogo, "Ergo wallet");
-            Alert a = new Alert(AlertType.NONE, walletPassword, ButtonType.OK);
-            a.initOwner(networkStage);
-            a.show();
+
+            String password = createPassword(networkStage, "Ergo - New wallet: Password", ergoLogo, "New Wallet");
+            if (!password.equals("")) {
+                String seedPhrase = createMnemonicStage();
+
+                if (!seedPhrase.equals("")) {
+                    Mnemonic mnemonic = Mnemonic.create(SecretString.create(seedPhrase), SecretString.create(password));
+
+                    try {
+                        newNetwork.setWallet(Wallet.create(mnemonic, password.toCharArray(), false));
+                        newNetwork.save(networksFile);
+                    } catch (Exception e1) {
+                        Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
+                        a.initOwner(networkStage);
+                        a.show();
+                    }
+                }
+            }
         });
 
         Button restoreWalletBtn = new Button("(restore)");
@@ -625,23 +771,117 @@ public class App extends Application {
 
         VBox networkVBox = new VBox(titleBox, imageBox, bodyBox);
 
-        Scene networkScene = new Scene(networkVBox, 400, 500);
+        Scene networkScene = new Scene(networkVBox, 450, 500);
         networkScene.getStylesheets().add("/css/startWindow.css");
         networkStage.setScene(networkScene);
 
         networkStage.show();
 
-        closeBtn.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent actionEvent) {
+    }
 
-                networkStage.close();
+    public static String createMnemonicStage() {
+        String titleStr = "Ergo - New wallet: Mnemonic phrase";
+
+        String mnemonic = Mnemonic.generateEnglishMnemonic();
+
+        Stage mnemonicStage = new Stage();
+
+        mnemonicStage.setTitle(titleStr);
+
+        mnemonicStage.getIcons().add(logo);
+        mnemonicStage.setResizable(false);
+        mnemonicStage.initStyle(StageStyle.UNDECORATED);
+
+        Button closeBtn = new Button();
+
+        HBox titleBox = createTopBar(icon, titleStr, closeBtn, mnemonicStage);
+
+        Button imageButton = createImageButton(ergoLogo, "New Wallet");
+
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
+
+        Text subTitleTxt = new Text("> Mnemonic phrase - Required to recover wallet:");
+        subTitleTxt.setFill(txtColor);
+        subTitleTxt.setFont(txtFont);
+
+        HBox subTitleBox = new HBox(subTitleTxt);
+        subTitleBox.setAlignment(Pos.CENTER_LEFT);
+
+        TextArea mnemonicField = new TextArea(mnemonic);
+        mnemonicField.setFont(txtFont);
+        mnemonicField.setId("textField");
+        mnemonicField.setEditable(false);
+        mnemonicField.setWrapText(true);
+        mnemonicField.setPrefRowCount(2);
+        HBox.setHgrow(mnemonicField, Priority.ALWAYS);
+
+        Platform.runLater(() -> mnemonicField.requestFocus());
+
+        HBox mnemonicBox = new HBox(mnemonicField);
+        mnemonicBox.setPadding(new Insets(20, 30, 0, 30));
+
+        Region hBar = new Region();
+        hBar.setPrefWidth(400);
+        hBar.setPrefHeight(2);
+        hBar.setId("hGradient");
+
+        HBox gBox = new HBox(hBar);
+        gBox.setAlignment(Pos.CENTER);
+        gBox.setPadding(new Insets(15, 0, 0, 0));
+
+        Button nextBtn = new Button("Next");
+        nextBtn.setId("toolSelected");
+        nextBtn.setFont(txtFont);
+        nextBtn.setOnAction(nxtEvent -> {
+            Alert nextAlert = new Alert(AlertType.NONE, "User Agreement:\n\nI have written this phrase down and stored it in a secure\nlocation.\n\nI understand that this phrase is the only way to recover my wallet if the password is lost.\n\nI understand and accept that I am solely responsible for\nkeeping my mnemonic phrase secret and secure.\n ", ButtonType.NO, ButtonType.YES);
+            nextAlert.initOwner(mnemonicStage);
+            nextAlert.setTitle("User Agreement");
+            Optional<ButtonType> result = nextAlert.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.YES) {
+                mnemonicStage.close();
+            } else {
+                Alert terminateAlert = new Alert(AlertType.NONE, "Wallet creation:\n\nTerminated.", ButtonType.CLOSE);
+                terminateAlert.initOwner(mnemonicStage);
+                terminateAlert.setTitle("Terminated");
+                terminateAlert.showAndWait();
+                mnemonicStage.close();
+                mnemonicField.setText("");
             }
         });
 
+        HBox nextBox = new HBox(nextBtn);
+        nextBox.setAlignment(Pos.CENTER);
+        nextBox.setPadding(new Insets(25, 0, 0, 0));
+
+        VBox bodyBox = new VBox(subTitleBox, mnemonicBox, gBox, nextBox);
+        VBox.setMargin(bodyBox, new Insets(5, 10, 0, 20));
+        VBox.setVgrow(bodyBox, Priority.ALWAYS);
+
+        VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
+
+        Scene mnemonicScene = new Scene(layoutVBox, 600, 425);
+
+        mnemonicScene.getStylesheets().add("/css/startWindow.css");
+        mnemonicStage.setScene(mnemonicScene);
+
+        closeBtn.setOnAction(e -> {
+            Alert terminateAlert = new Alert(AlertType.NONE, "Wallet creation:\n\nTerminated.", ButtonType.CLOSE);
+            terminateAlert.initOwner(mnemonicStage);
+            terminateAlert.setTitle("Wallet creation: Terminated");
+            terminateAlert.showAndWait();
+
+            mnemonicStage.close();
+            mnemonicField.setText("");
+
+        });
+
+        mnemonicStage.showAndWait();
+
+        return mnemonicField.getText();
     }
 
-    private static HBox createTopBar(Image iconImage, String titleString, Button closeBtn, Stage theStage) {
+    public static HBox createTopBar(Image iconImage, String titleString, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
         barIconView.setFitHeight(20);
