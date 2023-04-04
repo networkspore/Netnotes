@@ -1044,10 +1044,10 @@ public class Setup extends Application {
         System.exit(0);
     }
 
-    private static HBox createTopBar(Image iconImage, String titleString, Button closeBtn, Stage theStage) {
+    public static HBox createTopBar(Image iconImage, String titleString, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitHeight(20);
+        barIconView.setFitHeight(18);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -1069,27 +1069,23 @@ public class Setup extends Application {
         closeBtn.setGraphic(closeImage);
         closeBtn.setPadding(new Insets(0, 5, 0, 3));
         closeBtn.setId("closeBtn");
-        closeBtn.setOnAction(minEvent -> {
-            shutdownNow();
-        });
 
         ImageView minimizeImage = highlightedImageView(minimizeImg);
-        minimizeImage.setFitHeight(15);
-        minimizeImage.setFitWidth(15);
+        minimizeImage.setFitHeight(20);
+        minimizeImage.setFitWidth(20);
         minimizeImage.setPreserveRatio(true);
 
         Button minimizeBtn = new Button();
         minimizeBtn.setId("toolBtn");
         minimizeBtn.setGraphic(minimizeImage);
-        minimizeBtn.setPadding(new Insets(5, 5, 0, 5));
+        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
         minimizeBtn.setOnAction(minEvent -> {
             theStage.setIconified(true);
         });
 
         HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, closeBtn);
-
         newTopBar.setAlignment(Pos.CENTER_LEFT);
-        newTopBar.setPadding(new Insets(10, 8, 10, 10));
+        newTopBar.setPadding(new Insets(5, 8, 10, 10));
         newTopBar.setId("topBar");
 
         Delta dragDelta = new Delta();
@@ -1111,7 +1107,6 @@ public class Setup extends Application {
         });
 
         return newTopBar;
-
     }
 
     static class Delta {

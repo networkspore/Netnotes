@@ -1,7 +1,7 @@
 .root {
     -fx-background-color: #111111;
     -fx-border-color: #222222;
-    -fx-border-width: 0 3px 2px 3px;
+    -fx-border-width: 0 2px 1px 2px;
     fx-border-style: solid;
 
 }
@@ -26,10 +26,11 @@
 }
 
 
+
 #toolBtn {
     -fx-background-color: transparent;
     -fx-text-fill: #cdd4da;
-    -fx-font-size: 14px;
+    
     
     -fx-opacity: .6;
 }
@@ -39,6 +40,7 @@
     -fx-opacity: 1;
     -fx-text-fill: white;
 }
+
 
 #closeBtn {
     -fx-background-color: transparent;
@@ -115,13 +117,25 @@
 }
 
 #inactiveMainImageBtn:hover {
-    -fx-background-color: #33333380;
+    -fx-background-color: #33333350;
     -fx-text-fill: white;
    
 }
 
 #hGradient {
     -fx-background-color: linear-gradient(to right, #111111AA, #77777740, #111111AA);
+}
+#vGradient {
+    -fx-background-color: linear-gradient(to bottom, #111111AA, #77777740, #111111AA);
+}
+#activeMenuBtn {
+    -fx-background-color:linear-gradient(to right, #ffffffAA 0%, #88888840 5%, #77777740 100%);
+    -fx-opacity: .8;
+}
+
+#activeMenuBtn:hover {
+    -fx-background-color: linear-gradient(to right, #ffffffAA 0%, #EEEEEE40 5%, #FFFFFF40 100%);
+    -fx-opacity: 1;
 }
 
 #menuBtn {
@@ -130,14 +144,31 @@
 }
 
 #menuBtn:hover {
-    -fx-background-color: #33333380;
+    -fx-background-color: #77777750;
+    -fx-opacity: 1;
+}
+
+#iconBtn {
+    -fx-background-radius: 10px;
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+}
+
+#iconBtn:hover {
+   
     -fx-opacity: 1;
 }
 
 #menuBox {
-    -fx-background-color: linear-gradient(to top,  #ffffff05,#ffffff08, #111111AA );
+    -fx-background-color: linear-gradient(to top,  #ffffff01,#ffffff02, #11111105 );
+}
+
+#menuBar {
+    -fx-background-color: linear-gradient(to top, #66666650, #ffffff09, #66666650);
+
 }
 
 #bodyBox {
-    -fx-background-color: #333333;
+    -fx-background-color: #33333350;
+
 }
