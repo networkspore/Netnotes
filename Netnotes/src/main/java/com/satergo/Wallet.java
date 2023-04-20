@@ -1,5 +1,6 @@
 package com.satergo;
 
+import com.netnotes.AddressData;
 import com.satergo.ergo.Balance;
 import com.satergo.ergo.ErgoInterface;
 import com.satergo.extra.AESEncryption;
@@ -10,6 +11,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.MapChangeListener;
 import javafx.collections.ObservableMap;
 import javafx.stage.FileChooser;
+
+import org.ergoplatform.ErgoAddress;
 import org.ergoplatform.appkit.*;
 
 import javax.crypto.AEADBadTagException;
@@ -22,6 +25,7 @@ import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -88,21 +92,6 @@ public final class Wallet {
                 throw new RuntimeException(e);
             }
         });
-    }
-
-    public Balance totalBalance(NetworkType networkType) throws ConnectException {
-        try {
-            return addressStream(networkType).parallel().map(address -> ErgoInterface.getBalance(networkType, address))
-                    .reduce(Balance::combine).orElseThrow();
-        } catch (RuntimeException e) {
-            if (e.getCause() instanceof ConnectException ce) {
-                throw ce;
-            }
-            if (e.getCause().getCause() instanceof ConnectException ce) {
-                throw ce;
-            }
-            throw e;
-        }
     }
 
     public String transact(NetworkType networkType, String nodeApiAddress, SignedTransaction signedTx) {

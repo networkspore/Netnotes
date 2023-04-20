@@ -27,6 +27,8 @@ import javafx.scene.effect.ColorAdjust;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.layout.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.text.Font;
@@ -43,23 +45,51 @@ import javafx.stage.FileChooser.ExtensionFilter;
 import mslinks.ShellLinkException;
 import javafx.scene.input.KeyCode;
 
+import java.awt.image.BufferedImage;
+import java.awt.AlphaComposite;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.text.DecimalFormat;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.Map.Entry;
+import java.util.stream.Stream;
 
 import org.apache.commons.codec.DecoderException;
 import org.bouncycastle.util.encoders.Hex;
+import org.ergoplatform.ErgoAddress;
 import org.ergoplatform.appkit.*;
 import org.ergoplatform.restapi.client.WalletBox;
 import org.reactfx.util.FxTimer;
@@ -70,10 +100,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.netnotes.Network.NetworkName;
-import com.netnotes.Network.NetworkType;
 import com.satergo.Wallet;
+import com.satergo.WalletKey.Failure;
+import com.satergo.ergo.ErgoInterface;
+import com.satergo.ergo.ErgoNodeAccess;
 import com.utils.Utils;
-
+import javafx.embed.swing.SwingFXUtils;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
@@ -98,8 +130,13 @@ public class App extends Application {
     public static Image lockDocumentImg = new Image("/assets/document-lock.png");
     public static Image ergoNetworkImg = new Image("/assets/globe-outline-ergo-150.png");
     public static Image arrowRightImg = new Image("/assets/arrow-forward-outline-white-20.png");
-    public static Image walletImg = new Image("/assets/wallet-outline-white-20.png");
-    public static Image walletLockImg = new Image("/assets/wallet-locked-outline-white-20.png");
+    public static Image walletImg20 = new Image("/assets/wallet-outline-white-20.png");
+    public static Image walletImg240 = new Image("/assets/wallet-outline-white-240.png");
+    public static Image atImage = new Image("/assets/at-white-240.png");
+    public static Image branchImg = new Image("/assets/git-branch-outline-white-240.png");
+
+    public static Image walletLockImg20 = new Image("/assets/wallet-locked-outline-white-20.png");
+
     public static Image openImg = new Image("/assets/open-outline-white-20.png");
     public static Image diskImg = new Image("/assets/save-outline-white-20.png");
 
@@ -803,100 +840,483 @@ public class App extends Application {
 
     }
 
-    public void openWalletStage(Network network) {
+    public ArrayList<AddressData> getWalletAddressDataList(Wallet wallet, NetworkType networkType) {
+
+        // ErgoClient ergoClient = RestApiErgoClient.create(nodeApiAddress, networkType, "", networkType == NetworkType.MAINNET ? defaultMainnetExplorerUrl : defaultTestnetExplorerUrl);
+        ArrayList<AddressData> addressList = new ArrayList<>();
+        wallet.myAddresses.forEach((index, name) -> {
+
+            Address address = null;
+            try {
+                address = wallet.publicAddress(networkType, index);
+            } catch (Failure e) {
+
+            }
+            addressList.add(new AddressData(name, index, address, networkType));
+
+        });
+
+        return addressList;
+    }
+
+    public void showOpenWalletStage(Wallet wallet, Network network) {
+
+        NetworkType networkType = network.getType() == Network.NetworkType.MAINNET ? NetworkType.MAINNET : NetworkType.TESTNET;
+
+        String name = network.getName() == Network.NetworkName.ERGO ? "Ergo" : "unknown";
+
+        String title = name + " wallet - (" + (network.getType() == Network.NetworkType.MAINNET ? "MAINNET" : "TESTNET") + ")";
+
+        Timer timer = new Timer("updateClock", true);
+
         Stage openWalletStage = new Stage();
-        openWalletStage.setTitle("Net Notes - Network: Wallet");
-        openWalletStage.getIcons().add(walletImg);
+        openWalletStage.setTitle(title);
+        openWalletStage.getIcons().add(walletImg240);
         openWalletStage.setResizable(false);
         openWalletStage.initStyle(StageStyle.UNDECORATED);
 
         Button closeBtn = new Button();
         closeBtn.setOnAction(closeEvent -> {
-
+            timer.cancel();
             openWalletStage.close();
         });
 
-        HBox titleBox = createTopBar(icon, "Wallet", closeBtn, openWalletStage);
+        HBox titleBox = createTopBar(icon, title, closeBtn, openWalletStage);
 
-        Button imageButton = createImageButton(walletImg, "Wallet");
+        /*Button imageButton = createImageButton(walletImg240, title + "\n" + wallet.name.get());
         HBox imageBox = new HBox(imageButton);
         imageBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(imageBox, Priority.ALWAYS);
+        HBox.setHgrow(imageBox, Priority.ALWAYS);*/
+        ImageView addImage = highlightedImageView(addImg);
+        addImage.setFitHeight(10);
+        addImage.setPreserveRatio(true);
 
-        VBox bodyVBox = new VBox(titleBox, imageBox);
-        VBox.setVgrow(bodyVBox, Priority.ALWAYS);
-        Scene openWalletScene = new Scene(bodyVBox, 400, 525);
+        Tooltip addTip = new Tooltip("Add address");
+        addTip.setShowDelay(new javafx.util.Duration(100));
+        addTip.setFont(txtFont);
+
+        Button addButton = new Button();
+        addButton.setGraphic(highlightedImageView(new Image("/assets/git-branch-outline-white-30.png")));
+        addButton.setId("menuBarBtn");
+        addButton.setPadding(new Insets(2, 6, 2, 6));
+        addButton.setTooltip(addTip);
+
+        Tooltip explorerUrlTip = new Tooltip("Explorer url");
+        explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
+        explorerUrlTip.setFont(txtFont);
+
+        Button explorerBtn = new Button();
+        explorerBtn.setGraphic(highlightedImageView(new Image("/assets/search-outline-white-30.png")));
+        explorerBtn.setId("menuBarBtn");
+        explorerBtn.setPadding(new Insets(2, 6, 2, 6));
+        explorerBtn.setTooltip(explorerUrlTip);
+        explorerBtn.setDisable(true);
+
+        TextField explorerURLField = new TextField();
+        explorerURLField.setId("urlField");
+        explorerURLField.setText(network.getCurrentExplorerURL());
+        explorerURLField.setEditable(false);
+
+        explorerURLField.setPrefWidth(250);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox menuBar = new HBox(addButton, spacer, explorerBtn, explorerURLField);
+        HBox.setHgrow(menuBar, Priority.ALWAYS);
+        menuBar.setAlignment(Pos.CENTER_LEFT);
+        menuBar.setId("menuBar");
+        menuBar.setPadding(new Insets(5, 5, 5, 5));
+
+        HBox paddingBox = new HBox(menuBar);
+        paddingBox.setPadding(new Insets(2, 5, 2, 5));
+
+        VBox layoutBox = new VBox();
+        Font smallerFont = Font.font("OCR A Extended", 10);
+
+        Text updatedTxt = new Text("Updated:");
+        updatedTxt.setFill(altColor);
+        updatedTxt.setFont(smallerFont);
+
+        TextField lastUpdatedField = new TextField();
+        lastUpdatedField.setFont(smallerFont);
+        lastUpdatedField.setId("formField");
+
+        HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
+        updateBox.setAlignment(Pos.CENTER_RIGHT);
+
+        Region spacerRegion = new Region();
+        VBox.setVgrow(spacerRegion, Priority.ALWAYS);
+
+        VBox bodyVBox = new VBox(titleBox, paddingBox, layoutBox, spacerRegion, updateBox);
+
+        ArrayList<AddressData> addressDataList = getWalletAddressDataList(wallet, networkType);
+
+        updateAddressList(addressDataList, layoutBox, wallet, network, networkType);
+
+        addButton.setOnAction(e -> {
+            String addressName = showGetTextInput("Address name", "Address name", branchImg);
+            if (addressName != null) {
+                int nextAddressIndex = wallet.nextAddressIndex();
+                wallet.myAddresses.put(nextAddressIndex, name);
+                try {
+                    Address address = wallet.publicAddress(networkType, nextAddressIndex);
+                    AddressData addressData = new AddressData(addressName, nextAddressIndex, address, networkType);
+                    Button newButton = getAddressDataButton(addressData, wallet, networkType);
+
+                    addressDataList.add(addressData);
+                    layoutBox.getChildren().add(newButton);
+                } catch (Failure e1) {
+                    Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
+                    a.show();
+                }
+
+            }
+        });
+        Scene openWalletScene = new Scene(bodyVBox, 450, 525);
         openWalletScene.getStylesheets().add("/css/startWindow.css");
         openWalletStage.setScene(openWalletScene);
         openWalletStage.show();
 
-        try {
-            final File file = network.getWalletFile();
+        TimerTask updateTask = new TimerTask() {
 
-            if (file == null) {
-                Alert a = new Alert(AlertType.NONE, "File error:\n\n" + "File not found.", ButtonType.CLOSE);
-                a.initOwner(openWalletStage);
-                a.showAndWait();
-                openWalletStage.close();
-            } else {
+            @Override
+            public void run() {
+                addressDataList.forEach(addressData -> {
 
-                Text passwordTxt = new Text("> Enter password:");
-                passwordTxt.setFill(txtColor);
-                passwordTxt.setFont(txtFont);
+                    addressData.update();
 
-                PasswordField passwordField = new PasswordField();
-                passwordField.setFont(txtFont);
-                passwordField.setId("passField");
-                HBox.setHgrow(passwordField, Priority.ALWAYS);
+                    lastUpdatedField.setText(getNowTimeString());
 
-                Platform.runLater(() -> passwordField.requestFocus());
-
-                HBox passwordBox = new HBox(passwordTxt, passwordField);
-                passwordBox.setAlignment(Pos.CENTER_LEFT);
-
-                Button clickRegion = new Button();
-                clickRegion.setPrefWidth(Double.MAX_VALUE);
-                clickRegion.setId("transparentColor");
-                clickRegion.setPrefHeight(500);
-
-                clickRegion.setOnAction(e -> {
-                    passwordField.requestFocus();
-
-                });
-
-                VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
-
-                VBox layoutVBox = new VBox(passwordBox, clickRegion);
-                VBox.setVgrow(layoutVBox, Priority.ALWAYS);
-
-                bodyVBox.getChildren().add(layoutVBox);
-
-                passwordField.setOnKeyPressed(e -> {
-
-                    KeyCode keyCode = e.getCode();
-
-                    if (keyCode == KeyCode.ENTER) {
-
-                        try {
-                            Wallet wallet = Wallet.load(file.toPath(), passwordField.getText());
-
-                        } catch (Exception e1) {
-                            passwordField.setText("");
-                        }
-                    }
                 });
             }
-        } catch (Exception e) {
-            Alert a = new Alert(AlertType.NONE, "Error:\n\n" + e.toString(), ButtonType.CLOSE);
-            a.initOwner(openWalletStage);
-            a.showAndWait();
-            openWalletStage.close();
+        };
+        timer.schedule(updateTask, 0, 5000);
+        addressDataList.forEach(addressData -> {
+
+            addressData.update();
+
+            lastUpdatedField.setText(getNowTimeString());
+
+        });
+
+    }
+
+    public String getNowTimeString() {
+        LocalTime time = LocalTime.now();
+
+        DateTimeFormatter formater = DateTimeFormatter.ofPattern("hh:mm:ss a");
+
+        return formater.format(time);
+    }
+
+    private Button getAddressDataButton(AddressData addressData, Wallet wallet, NetworkType networkType) {
+
+        Image btnImage = addressData.getErgImage();
+
+        double remainingSpace = 450 - btnImage.getWidth();
+
+        String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
+
+        ImageView btnImageView = highlightedImageView(btnImage);
+
+        String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
+
+        Tooltip addressTip = new Tooltip(addressData.getName());
+
+        Button rowBtn = new Button(text);
+        //  HBox.setHgrow(rowBtn, Priority.ALWAYS);
+        rowBtn.setPrefHeight(40);
+        rowBtn.setPrefWidth(450);
+        rowBtn.setGraphic(btnImageView);
+        rowBtn.setAlignment(Pos.CENTER_LEFT);
+        rowBtn.setContentDisplay(ContentDisplay.LEFT);
+        rowBtn.setTooltip(addressTip);
+        rowBtn.setPadding(new Insets(0, 20, 0, 20));
+        rowBtn.setId("rowBtn");
+
+        rowBtn.setOnAction(e -> {
+            showAddressStage(wallet, networkType, addressData);
+        });
+
+        addressData.lastUpdated.addListener(e -> {
+            updateAddressBtn(rowBtn, addressData);
+        });
+
+        return rowBtn;
+    }
+
+    private void updateAddressBtn(Button rowBtn, AddressData addressData) {
+        Image btnImage = addressData.getErgImage();
+
+        double remainingSpace = 450 - btnImage.getWidth();
+
+        String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
+
+        ImageView btnImageView = highlightedImageView(btnImage);
+
+        String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
+        Tooltip addressTip = new Tooltip(addressData.getName());
+
+        rowBtn.setGraphic(btnImageView);
+        rowBtn.setText(text);
+        rowBtn.setTooltip(addressTip);
+    }
+
+    private void updateAddressList(ArrayList<AddressData> addressDataList, VBox listBox, Wallet wallet, Network network, NetworkType networkType) {
+
+        listBox.getChildren().clear();
+
+        if (addressDataList.size() > 0) {
+
+            addressDataList.forEach(addressData -> {
+
+                Button rowBtn = getAddressDataButton(addressData, wallet, networkType);
+
+                HBox rowBox = new HBox(rowBtn);
+                HBox.setHgrow(rowBox, Priority.ALWAYS);
+                listBox.getChildren().add(rowBox);
+                HBox.setHgrow(listBox, Priority.ALWAYS);
+            });
         }
+    }
+
+    private void showAddressStage(Wallet wallet, NetworkType networkType, AddressData addressData) {
+
+        String title = "Ergo Wallet: " + addressData.getName() + "(" + (networkType.toString()) + ") - " + addressData.getAddressMinimal(12);
+
+        Stage addressStage = new Stage();
+        addressStage.setTitle(title);
+        addressStage.getIcons().add(walletImg240);
+        addressStage.setResizable(false);
+        addressStage.initStyle(StageStyle.UNDECORATED);
+
+        Button closeBtn = new Button();
+        closeBtn.setOnAction(closeEvent -> {
+            addressStage.close();
+        });
+
+        HBox titleBox = createTopBar(icon, title, closeBtn, addressStage);
+
+        ImageView addImage = highlightedImageView(addImg);
+        addImage.setFitHeight(10);
+        addImage.setPreserveRatio(true);
+
+        Tooltip selectMarketTip = new Tooltip("Select Market");
+        selectMarketTip.setShowDelay(new javafx.util.Duration(100));
+        selectMarketTip.setFont(txtFont);
+
+        MenuButton changeMarketButton = new MenuButton();
+        changeMarketButton.setGraphic(highlightedImageView(new Image("/assets/navigate-outline-white-30.png")));
+        changeMarketButton.setId("menuBarBtn");
+        changeMarketButton.setPadding(new Insets(2, 6, 2, 6));
+        changeMarketButton.setTooltip(selectMarketTip);
+
+        addressData.getUrlMenuItems().forEach(item -> {
+            item.setId("urlMenuItem");
+
+            changeMarketButton.getItems().add(item);
+            item.setOnAction(e -> {
+                addressData.setApiIndex(item.getIndex());
+            });
+        });
+
+        Tooltip locationUrlTip = new Tooltip("Market url");
+        locationUrlTip.setShowDelay(new javafx.util.Duration(100));
+        locationUrlTip.setFont(txtFont);
+
+        TextField locationUrlField = new TextField();
+        locationUrlField.setId("urlField");
+        locationUrlField.setText(addressData.getCurrentPriceApiUrl());
+        locationUrlField.setEditable(false);
+        locationUrlField.setTooltip(locationUrlTip);
+
+        HBox.setHgrow(locationUrlField, Priority.ALWAYS);
+
+        HBox menuBar = new HBox(changeMarketButton, locationUrlField);
+        HBox.setHgrow(menuBar, Priority.ALWAYS);
+        menuBar.setAlignment(Pos.CENTER_LEFT);
+        menuBar.setId("menuBar");
+        menuBar.setPadding(new Insets(5, 5, 5, 5));
+
+        HBox paddingBox = new HBox(menuBar);
+        paddingBox.setPadding(new Insets(2, 5, 2, 5));
+
+        Text addressNameTxt = new Text("> " + addressData.getName() + ":");
+        addressNameTxt.setFill(txtColor);
+        addressNameTxt.setFont(txtFont);
+
+        HBox addressNameBox = new HBox(addressNameTxt);
+        addressNameBox.setPadding(new Insets(3, 0, 5, 0));
+
+        Text addressTxt = new Text("  Address:");
+        addressTxt.setFont(txtFont);
+        addressTxt.setFill(txtColor);
+
+        TextField addressField = new TextField(addressData.getAddressString());
+        addressField.setEditable(false);
+
+        addressField.setFont(txtFont);
+        addressField.setId("formField");
+        HBox.setHgrow(addressField, Priority.ALWAYS);
+
+        HBox addressBox = new HBox(addressTxt, addressField);
+        addressBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text ergQuantityTxt = new Text("  Balance:");
+        ergQuantityTxt.setFont(txtFont);
+        ergQuantityTxt.setFill(txtColor);
+        double unconfirmed = addressData.getFullErgUnconfirmed();
+        TextField ergQuantityField = new TextField(addressData.getFullErgDouble() + " ERG" + (unconfirmed != 0 ? (" (" + unconfirmed + " unconfirmed)") : ""));
+        ergQuantityField.setEditable(false);
+        ergQuantityField.setFont(txtFont);
+        ergQuantityField.setId("formField");
+        HBox.setHgrow(ergQuantityField, Priority.ALWAYS);
+
+        HBox ergQuantityBox = new HBox(ergQuantityTxt, ergQuantityField);
+        ergQuantityBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text priceTxt = new Text("  Price: ");
+        priceTxt.setFont(txtFont);
+        priceTxt.setFill(txtColor);
+
+        TextField priceField = new TextField(addressData.getPriceString());
+        priceField.setEditable(false);
+
+        priceField.setFont(txtFont);
+        priceField.setId("formField");
+        HBox.setHgrow(priceField, Priority.ALWAYS);
+
+        HBox priceBox = new HBox(priceTxt, priceField);
+        priceBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text balanceTxt = new Text("  Total:");
+        balanceTxt.setFont(txtFont);
+        balanceTxt.setFill(txtColor);
+
+        TextField balanceField = new TextField(addressData.getTotalErgPriceString());
+        balanceField.setEditable(false);
+
+        balanceField.setFont(txtFont);
+        balanceField.setId("formField");
+        HBox.setHgrow(balanceField, Priority.ALWAYS);
+
+        HBox balanceBox = new HBox(balanceTxt, balanceField);
+        balanceBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text lastUpdatedTxt = new Text("  Updated:");
+        lastUpdatedTxt.setFill(txtColor);
+        lastUpdatedTxt.setFont(txtFont);
+
+        TextField lastUpdatedField = new TextField(addressData.getLastUpdatedString());
+        lastUpdatedField.setEditable(false);
+        lastUpdatedField.setId("formField");
+        lastUpdatedField.setFont(txtFont);
+        HBox.setHgrow(lastUpdatedField, Priority.ALWAYS);
+
+        HBox lastUpdatedBox = new HBox(lastUpdatedTxt, lastUpdatedField);
+        lastUpdatedBox.setAlignment(Pos.CENTER_LEFT);
+
+        VBox bodyVBox = new VBox(addressNameBox, addressBox, ergQuantityBox, priceBox, balanceBox, lastUpdatedBox);
+        bodyVBox.setPadding(new Insets(0, 20, 0, 20));
+        VBox layoutVBox = new VBox(titleBox, paddingBox, bodyVBox);
+        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+
+        Scene addressScene = new Scene(layoutVBox, 650, 400);
+
+        addressScene.getStylesheets().add("/css/startWindow.css");
+
+        addressStage.setScene(addressScene);
+        addressStage.show();
+
+        addressData.lastUpdated.addListener(changed -> {
+            double unconfirmedUpdate = addressData.getFullErgUnconfirmed();
+            ergQuantityField.setText(addressData.getFullErgDouble() + " ERG" + (unconfirmedUpdate != 0 ? (" (" + unconfirmedUpdate + " unconfirmed)") : ""));
+            double priceUpdate = addressData.getPrice();
+            priceField.setText(addressData.getPriceString());
+            balanceField.setText(addressData.getTotalErgPriceString() + (unconfirmedUpdate != 0 ? (" (" + (unconfirmedUpdate * priceUpdate) + " unconfirmed)") : ""));
+            lastUpdatedField.setText(addressData.getLastUpdatedString());
+        });
+
+    }
+
+    public String showGetTextInput(String prompt, String title, Image img) {
+
+        Stage textInputStage = new Stage();
+        textInputStage.setTitle(title);
+        textInputStage.getIcons().add(walletImg240);
+        textInputStage.setResizable(false);
+        textInputStage.initStyle(StageStyle.UNDECORATED);
+
+        Button closeBtn = new Button();
+
+        HBox titleBox = createTopBar(icon, title, closeBtn, textInputStage);
+
+        Button imageButton = createImageButton(img, title);
+
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
+
+        Text promptTxt = new Text("> " + prompt + ":");
+        promptTxt.setFill(txtColor);
+        promptTxt.setFont(txtFont);
+
+        TextField textField = new TextField();
+        textField.setFont(txtFont);
+        textField.setId("textField");
+
+        closeBtn.setOnAction(event -> {
+            textField.setText("");
+            textInputStage.close();
+        });
+
+        HBox.setHgrow(textField, Priority.ALWAYS);
+
+        Platform.runLater(() -> textField.requestFocus());
+
+        HBox passwordBox = new HBox(promptTxt, textField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button clickRegion = new Button();
+        clickRegion.setPrefWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(500);
+
+        clickRegion.setOnAction(e -> {
+            textField.requestFocus();
+
+        });
+
+        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
+
+        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+
+        Scene textInputScene = new Scene(layoutVBox, 600, 425);
+
+        textInputScene.getStylesheets().add("/css/startWindow.css");
+
+        textInputStage.setScene(textInputScene);
+
+        textField.setOnKeyPressed(e -> {
+
+            KeyCode keyCode = e.getCode();
+
+            if (keyCode == KeyCode.ENTER) {
+
+                textInputStage.close();
+
+            }
+        });
+        textInputStage.showAndWait();
+        String returnValue = textField.getText();
+
+        return returnValue.equals("") ? null : returnValue;
+
     }
 
     public Network showNetworkStage(Network network) {
 
-        Network currentNetwork = network == null ? new Network(NetworkName.ERGO, Network.NetworkType.MAINNET) : network;
+        Network currentNetwork = network == null ? new Network(Network.NetworkName.ERGO, Network.NetworkType.MAINNET) : network;
 
         Stage networkStage = new Stage();
         networkStage.setTitle("Net Notes - Network");
@@ -1043,11 +1463,23 @@ public class App extends Application {
         walletTxt.setFont(txtFont);
 
         Button openWalletBtn = new Button("Open");
-        openWalletBtn.setGraphic(highlightedImageView(walletLockImg));
+        openWalletBtn.setGraphic(highlightedImageView(walletLockImg20));
         openWalletBtn.setPadding(new Insets(2, 10, 2, 10));
         openWalletBtn.setFont(txtFont);
         openWalletBtn.setDisable(true);
         openWalletBtn.setOnAction(openEvent -> {
+
+            try {
+                WalletContainer walletContainer = confirmWalletPassword(currentNetwork.getWalletFile());
+                Wallet wallet = walletContainer.getWallet();
+
+                if (wallet != null) {
+                    showOpenWalletStage(wallet, currentNetwork);
+                }
+            } catch (Exception e) {
+                Alert noWallet = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                noWallet.showAndWait();
+            }
 
         });
 
@@ -1087,7 +1519,7 @@ public class App extends Application {
 
         selectWalletBtn.setOnAction(e -> {
 
-            SelectedFile selectedWalletFile = showWalletStage();
+            SelectedFile selectedWalletFile = showSelectWalletStage(currentNetwork);
             File walletFile = selectedWalletFile.getFile();
 
             if (walletFile != null) {
@@ -1204,7 +1636,9 @@ public class App extends Application {
         }
     }
 
-    public SelectedFile showWalletStage() {
+    public SelectedFile showSelectWalletStage(Network network) {
+
+        NetworkType networkType = network.getType() == Network.NetworkType.MAINNET ? NetworkType.MAINNET : NetworkType.TESTNET;
 
         SelectedFile selectedFile = new SelectedFile(null);
 
@@ -1218,7 +1652,7 @@ public class App extends Application {
             walletStage.close();
         });
 
-        HBox titleBox = createTopBar(icon, "Network: Wallet file", closeBtn, walletStage);
+        HBox titleBox = createTopBar(icon, "Network: Wallet file - " + (networkType == NetworkType.MAINNET ? "Mainnet" : "Testnet"), closeBtn, walletStage);
 
         Button lockDocBtn = createImageButton(lockDocumentImg, "Wallet File");
         HBox imageBox = new HBox(lockDocBtn);
@@ -1268,8 +1702,10 @@ public class App extends Application {
 
                     } else {
                         try {
-                            Wallet.create(walletFile.toPath(), mnemonic, walletFile.getName(), password.toCharArray());
+                            Wallet wallet = Wallet.create(walletFile.toPath(), mnemonic, walletFile.getName(), password.toCharArray());
                             selectedFile.setFile(walletFile);
+
+                            showOpenWalletStage(wallet, network);
                             walletStage.close();
                         } catch (Exception e1) {
                             Alert a = new Alert(AlertType.NONE, "Wallet creation:\n\n" + e1.toString() + ". Creation process terminated.\n\n" + e1.toString(), ButtonType.OK);
@@ -1298,10 +1734,13 @@ public class App extends Application {
 
             if (walletFile != null) {
 
-                SelectedFile walletPasswordFile = confirmWalletPassword(walletFile);
-                if (walletPasswordFile.getFile() != null) {
+                WalletContainer walletContainer = confirmWalletPassword(walletFile);
+                Wallet wallet = walletContainer.getWallet();
+                if (wallet != null) {
                     selectedFile.setFile(walletFile);
+                    showOpenWalletStage(wallet, network);
                     walletStage.close();
+
                 }
 
             }
@@ -1339,7 +1778,9 @@ public class App extends Application {
 
                             //  Files.write(walletFile.toPath(), newWallet.serializeEncrypted());
                             selectedFile.setFile(walletFile);
+                            showOpenWalletStage(newWallet, network);
                             walletStage.close();
+
                         } catch (Exception e1) {
                             Alert a = new Alert(AlertType.NONE, "Wallet creation: Cannot be saved.\n\n" + e1.toString(), ButtonType.OK);
                             a.initOwner(walletStage);
@@ -1400,13 +1841,13 @@ public class App extends Application {
         return selectedFile;
     }
 
-    public SelectedFile confirmWalletPassword(File file) {
+    public WalletContainer confirmWalletPassword(File file) {
         Stage walletPasswordStage = new Stage();
         walletPasswordStage.setResizable(false);
         walletPasswordStage.initStyle(StageStyle.UNDECORATED);
         walletPasswordStage.setTitle("Wallet file: Security");
 
-        SelectedFile selectedFile = new SelectedFile(null);
+        WalletContainer walletContainer = new WalletContainer();
 
         Button closeBtn = new Button();
 
@@ -1459,28 +1900,20 @@ public class App extends Application {
 
             if (keyCode == KeyCode.ENTER) {
 
-                boolean correct = false;
                 try {
 
-                    Wallet.load(file.toPath(), passwordField.getText());
-                    selectedFile.setFile(file);
-                    correct = true;
-                } catch (Exception e1) {
-                    Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CLOSE);
-                    a.show();
-                }
-
-                if (correct) {
+                    walletContainer.setWallet(Wallet.load(file.toPath(), passwordField.getText()));;
 
                     walletPasswordStage.close();
-                } else {
+                } catch (Exception e1) {
+
                     passwordField.setText("");
                 }
 
             }
         });
         walletPasswordStage.showAndWait();
-        return selectedFile;
+        return walletContainer;
     }
 
     public static String restoreMnemonicStage() {

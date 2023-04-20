@@ -9,6 +9,9 @@ import com.google.gson.JsonObject;
 
 public class Network {
 
+    public static String ErgoMainnet_EXPLORER_URL = "https://api.ergoplatform.com";
+    public static String ErgoTestnet_EXPLORER_URL = "https://api-testnet.ergoplatform.com";
+
     public static class NetworkName {
 
         public static int ERGO = 1;
@@ -28,6 +31,7 @@ public class Network {
     private int m_type;
     private int m_port;
     private int m_exPort;
+    private String m_currentExplorerUrlString = ErgoMainnet_EXPLORER_URL;
 
     public Network(int networkName, int type) {
         m_uuid = UUID.randomUUID().toString();
@@ -67,12 +71,18 @@ public class Network {
 
         if (m_name == NetworkName.ERGO) {
             if (m_type == NetworkType.MAINNET) {
+                m_currentExplorerUrlString = ErgoMainnet_EXPLORER_URL;
                 m_port = 9053;
             } else {
+                m_currentExplorerUrlString = ErgoTestnet_EXPLORER_URL;
                 m_port = 9052;
             }
             m_exPort = 9030;
         }
+    }
+
+    public String getCurrentExplorerURL() {
+        return m_currentExplorerUrlString;
     }
 
     public void setName(int name) {

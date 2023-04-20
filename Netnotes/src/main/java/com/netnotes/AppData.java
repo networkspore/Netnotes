@@ -29,7 +29,6 @@ public class AppData {
 
     public void setAppKey(String keyHash) throws IOException {
         m_appKey = keyHash;
-        save();
     }
 
     public boolean getUpdates() {

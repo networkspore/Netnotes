@@ -58,8 +58,8 @@ public class ErgoInterface {
 
     public static Balance getBalance(NetworkType networkType, Address address) {
         // I don't want to use explorer here...
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = ErgoNodeAccess.httpRequestBuilder().uri(URI.create(getExplorerUrl(networkType)).resolve("/api/v1/addresses/" + address + "/balance/total")).build();
+            HttpClient httpClient = HttpClient.newHttpClient();  
+                 HttpRequest request = ErgoNodeAccess.httpRequestBuilder().uri(URI.create(getExplorerUrl(networkType)).resolve("/api/v1/addresses/" + address + "/balance/total")).build();
         try {
             JsonObject body = JsonParser.object().from(httpClient.send(request, ofString()).body());
             JsonObject confirmed = body.getObject("confirmed");

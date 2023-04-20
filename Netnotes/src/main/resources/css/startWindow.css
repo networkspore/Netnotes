@@ -25,12 +25,46 @@
    
 }
 
+#urlField {
+    -fx-background-color:#FFFFFFDF;
+    -fx-text-fill: #222222;
+    -fx-background-radius: 10px;
+    -fx-alignment: center;
+    -fx-opacity: .9;
+    -fx-pref-height: 25px;
+    -fx-font-size: 12px;
+    -fx-font-family: 'OCR A Extended'; 
+}
 
+#urlField:focused {
+    -fx-text-fill: #000000;
+    -fx-opacity: 1;
+
+}
+
+#urlField:focused:hover {
+    -fx-text-fill: #000000;
+    -fx-opacity: 1;
+}
+
+#rowBtn {
+    -fx-text-fill: #777777;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+}
+
+#rowBtn:hover{
+    -fx-text-fill: #FFFFFF;
+    -fx-background-color: #33333360;
+    -fx-opacity: 1;
+}
 
 #toolBtn {
     -fx-background-color: transparent;
     -fx-text-fill: #cdd4da;
-    
+
     
     -fx-opacity: .6;
 }
@@ -159,6 +193,7 @@
     -fx-opacity: 1;
 }
 
+
 #menuBox {
     -fx-background-color: linear-gradient(to top,  #ffffff01,#ffffff02, #11111105 );
 }
@@ -171,4 +206,26 @@
 #bodyBox {
     -fx-background-color: #33333350;
 
+}
+
+#menuBarBtn{
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+}
+
+#menuBarBtn:hover {
+    -fx-background-color: #ffffff50;
+        -fx-opacity: 1
+}
+
+#urlMenuItem{
+    -fx-background-color: #000000;
+    -fx-text-fill: #777777;
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 14px;
+}
+
+#urlMenuItem:hover {
+    -fx-background-color: #777777;
+    -fx-text-fill: white;
 }
