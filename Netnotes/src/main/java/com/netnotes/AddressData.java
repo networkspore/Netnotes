@@ -1,5 +1,6 @@
 package com.netnotes;
 
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -10,6 +11,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.NavigableMap;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
@@ -23,11 +26,15 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.satergo.WalletKey.Local;
 import com.satergo.ergo.ErgoInterface;
+import com.utils.Utils;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.EventHandler;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
@@ -50,8 +57,6 @@ public class AddressData {
 
     public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<>();
 
-    private double m_price;
-    private boolean m_priceValid = false;
     private boolean m_valid = false;
     private String m_name = "";
     private int m_index;
@@ -64,29 +69,47 @@ public class AddressData {
     private String m_priceBaseCurrency = "USD";
     private String m_priceTargetCurrency = "ERG";
 
+    private PriceChart m_priceChart;
+
     private ArrayList<TokenData> m_confirmedTokensList = new ArrayList<>();
     private ArrayList<TokenData> m_unconfirmedTokensList = new ArrayList<>();
 
     private ArrayList<UrlMenuItem> m_urlMenuItems = new ArrayList<>();
 
-    public AddressData(String name, int index, Address address, NetworkType networktype) {
+    File logFile = new File("log.txt");
+
+    public AddressData(String name, int index, Address address, PriceChart priceChart, NetworkType networktype) {
 
         m_name = name;
         m_index = index;
         m_networkType = networktype;
         m_address = address;
         m_apiIndex = 0;
-        m_urlMenuItems.add(new UrlMenuItem("Kucoin", "ERG-USD", "https://api.kucoin.com/api/v1/prices?base=USD&currencies=ERG", "ERG", "USD", 0));
-        m_urlMenuItems.add(new UrlMenuItem("Kucoin", "ERG-EUR", "https://api.kucoin.com/api/v1/prices?base=EUR&currencies=ERG", "ERG", "EUR", 1));
-        m_urlMenuItems.add(new UrlMenuItem("Kucoin", "ERG-BTC", "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=ERG-BTC", "ERG", "BTC", 2));
-        m_urlMenuItems.add(new UrlMenuItem("CoinGecko", "ERG-USD", "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=USD", "ERG", "USD", 3));
-        m_urlMenuItems.add(new UrlMenuItem("CoinGecko", "ERG-EUR", "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=EUR", "ERG", "EUR", 4));
-        m_urlMenuItems.add(new UrlMenuItem("CoinGecko", "ERG-BTC", "https://api.coingecko.com/api/v3/simple/price?ids=ergo&vs_currencies=BTC", "ERG", "BTC", 5));
-        m_urlMenuItems.add(new UrlMenuItem("Coinex", "ERG-USD", "https://api.coinex.com/v1/market/ticker?market=ERGUSDT", "ERG", "USDT", 6));
-        m_urlMenuItems.add(new UrlMenuItem("Coinex", "ERG-BTC", "https://api.coinex.com/v1/market/ticker?market=ERGBTC", "ERG", "BTC", 7));
 
-        update();
+        m_urlMenuItems.add(new UrlMenuItem("Kucoin", "ERG-USDT", "https://api.kucoin.com", "ERG", "USDT", 0));
+        m_urlMenuItems.add(new UrlMenuItem("Kucoin", "ERG-BTC", "https://api.kucoin.com", "ERG", "BTC", 1));
+        m_priceChart = priceChart;
+        m_priceChart.lastUpdated.addListener(e -> {
+            updateBalance();
+        });
 
+        updateBalance();
+
+        Timer timer = new Timer("updateClock:" + getName(), true);
+
+        TimerTask updateTask = new TimerTask() {
+
+            @Override
+            public void run() {
+                updateBalance();
+
+            }
+        };
+        timer.schedule(updateTask, 0, 5000);
+    }
+
+    public PriceChart getPriceChart() {
+        return m_priceChart;
     }
 
     public String getMainnetExplorerUrlString() {
@@ -132,7 +155,7 @@ public class AddressData {
         return (show * 2) > len ? adr : adr.substring(0, show) + "..." + adr.substring(len - show, len);
     }
 
-    public BigDecimal getConfirmedERG() {
+    public BigDecimal getConfirmedAmount() {
         return ErgoInterface.toFullErg(m_confirmedNanoErgs);
     }
 
@@ -155,29 +178,26 @@ public class AddressData {
     public ArrayList<TokenData> getUnconfirmedTokenList() {
         return m_unconfirmedTokensList;
     }
+    private BufferedImage m_image = null;
 
-    public Image getErgImage() {
-        return numToImage(getTotalErgPriceString(), getFullErg(), getErgDecimalPosition(), 9, getPriceTargetCurrency(), getPriceString());
-    }
-
-    public double getFullErgDouble() {
+    public double getFullAmountDouble() {
         return (double) getConfirmedNanoErgs() / 1000000000;
     }
 
-    public double getFullErgUnconfirmed() {
+    public double getFullAmountUnconfirmed() {
         return (double) getUnconfirmedNanoErgs() / 1000000000;
     }
 
     public double getPrice() {
-        return m_price;
+        return m_priceChart.getCurrentPrice();
     }
 
     public boolean getPriceValid() {
-        return m_priceValid;
+        return m_priceChart.getValid();
     }
 
-    public double getTotalErgPrice() {
-        return getFullErgDouble() * m_price;
+    public double getTotalAmountPrice() {
+        return getFullAmountDouble() * getPrice();
     }
 
     public String getLastUpdatedString() {
@@ -187,18 +207,21 @@ public class AddressData {
         return formater.format(lastUpdated.get());
     }
 
-    public String getTotalErgPriceString() {
-        String priceTotal = (getPriceValid() ? String.format("%.2f", getTotalErgPrice()) : "-.--");
+    public String getTotalAmountPriceString() {
+        String priceTotal = (getPriceValid() ? String.format("%.2f", getTotalAmountPrice()) : "-.--");
 
-        switch (m_priceBaseCurrency) {
+        switch (m_priceTargetCurrency) {
             case "USD":
                 priceTotal = "$" + priceTotal;
+                break;
+            case "USDT":
+                priceTotal = priceTotal + " USDT";
                 break;
             case "EUR":
                 priceTotal = "€‎" + priceTotal;
                 break;
             case "BTC":
-                priceTotal = "₿" + (getPriceValid() ? String.format("$.8f", getTotalErgPrice()) : "-.--");
+                priceTotal = "₿" + (getPriceValid() ? String.format("%.8f", getTotalAmountPrice()) : "-.--");
                 break;
         }
 
@@ -206,42 +229,60 @@ public class AddressData {
     }
 
     public String getPriceString() {
-        String price = (getPriceValid() ? String.format("%.3f", m_price) : "-.--");
-        switch (m_priceBaseCurrency) {
+        String price = (getPriceValid() ? String.format("%.3f", getPrice()) : "-.--");
+        switch (m_priceTargetCurrency) {
             case "USD":
                 price = "$" + price;
+                break;
+            case "USDT":
+                price = price + " USDT";
                 break;
             case "EUR":
                 price = "€‎" + price;// priceTotal;
                 break;
             case "BTC":
-                price = "₿" + (getPriceValid() ? String.format("$.8f", m_price) : "-.--");
+                price = "₿" + (getPriceValid() ? String.format("%.8f", getPrice()) : "-.--");
                 break;
         }
         return price;
     }
 
-    public int getFullErg() {
-        return (int) getFullErgDouble();
+    public int getAmountInt() {
+        return (int) getFullAmountDouble();
     }
 
-    public double getErgDecimalPosition() {
-        return getFullErgDouble() - getFullErg();
+    public double getAmountDecimalPosition() {
+        return getFullAmountDouble() - getAmountInt();
     }
 
     public Image getUnitImage() {
         return new Image("/assets/unitErgo.png");
     }
 
-    public Image numToImage(String totalPrice, int integers, double decimals, int decimalPlaces, String units, String currencyPrice) {
+    public BufferedImage getBufferedImage() {
+        if (m_image == null) {
+            updateBufferedImage();
+        }
+        return m_image;
+    }
+
+    public void updateBufferedImage() {
+
+        String totalPrice = getTotalAmountPriceString();
+        int integers = getAmountInt();
+        double decimals = getAmountDecimalPosition();
+        int decimalPlaces = 9;
+        String cryptoName = getPriceBaseCurrency();
+        String currencyPrice = getPriceString();
 
         java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 30);
         java.awt.Font smallFont = new java.awt.Font("SANS-SERIF", java.awt.Font.PLAIN, 12);
 
         //   Image ergoBlack25 = new Image("/assets/ergo-black-25.png");
         //   SwingFXUtils.fromFXImage(ergoBlack25, null);
-        String ergString = String.format("%d", getFullErg());
-        String decs = String.format("%." + decimalPlaces + "f", getErgDecimalPosition());
+        String AmountString = String.format("%d", integers);
+        String decs = String.format("%." + decimalPlaces + "f", decimals);
+
         decs = decs.substring(1, decs.length());
         totalPrice = totalPrice + "   ";
         currencyPrice = "(" + currencyPrice + ")   ";
@@ -252,7 +293,7 @@ public class AddressData {
         g2d.setFont(font);
         FontMetrics fm = g2d.getFontMetrics();
         int padding = 5;
-        int stringWidth = fm.stringWidth(ergString);
+        int stringWidth = fm.stringWidth(AmountString);
         int width = stringWidth;
         int height = fm.getHeight() + 10;
 
@@ -265,7 +306,7 @@ public class AddressData {
 
         //  int priceAscent = fm.getAscent();
         width = priceLength + width + 58 + (padding * 2);
-        int unitStringX = width - fm.stringWidth(units) - 3;
+        int cryptoNameStringX = width - fm.stringWidth(cryptoName) - 3;
 
         g2d.dispose();
 
@@ -303,12 +344,12 @@ public class AddressData {
         g2d.setColor(new java.awt.Color(.6f, .6f, .6f, .9f));
         g2d.drawString(currencyPrice, 0, height - 10);
 
-        g2d.drawString(units, unitStringX, height - 10);
+        g2d.drawString(cryptoName, cryptoNameStringX, height - 10);
 
         g2d.setFont(font);
         fm = g2d.getFontMetrics();
         g2d.setColor(java.awt.Color.WHITE);
-        g2d.drawString(ergString, priceLength, fm.getAscent() + 5);
+        g2d.drawString(AmountString, priceLength, fm.getAscent() + 5);
 
         g2d.setFont(smallFont);
         fm = g2d.getFontMetrics();
@@ -317,98 +358,73 @@ public class AddressData {
         g2d.drawString(decs, priceLength + stringWidth + 1, fm.getHeight() + 2);
 
         g2d.dispose();
+        m_image = img;
 
-        Image textImage = SwingFXUtils.toFXImage(img, null);
-
-        //    highlightedImageView((Image) img);
-        return textImage;
+        lastUpdated.set(LocalDateTime.now());
     }
 
-    public void update() {
+    public void updateBalance() {
 
         String urlString = "/api/v1/addresses/" + m_address + "/balance/total";
+        Utils.getUrlData((m_networkType == NetworkType.MAINNET ? m_mainnetExplorerUrl : m_testnetExplorerUrl) + urlString,
+                e -> {
 
-        Task<JsonObject> task = new Task<JsonObject>() {
-            @Override
-            public JsonObject call() {
-                InputStream inputStream = null;
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                try {
-                    URL url = new URL((m_networkType == NetworkType.MAINNET ? m_mainnetExplorerUrl : m_testnetExplorerUrl) + urlString);
-
-                    String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
-
-                    URLConnection con = url.openConnection();
-
-                    con.setRequestProperty("User-Agent", USER_AGENT);
-
-                    // long contentLength = con.getContentLengthLong();
-                    inputStream = con.getInputStream();
-
-                    byte[] buffer = new byte[2048];
-
-                    int length;
-                    // long downloaded = 0;
-
-                    while ((length = inputStream.read(buffer)) != -1) {
-
-                        outputStream.write(buffer, 0, length);
-                        //   downloaded += (long) length;
-
-                    }
+                    ByteArrayOutputStream outputStream = (ByteArrayOutputStream) e.getSource().getValue();
                     String jsonString = outputStream.toString();
 
                     JsonObject jsonObject = new JsonParser().parse(jsonString).getAsJsonObject();
-                    return jsonObject;
-                } catch (JsonParseException | IOException e) {
-                    return null;
-                }
+                    JsonElement confirmedElement = jsonObject != null ? jsonObject.get("confirmed") : null;
+                    if (confirmedElement == null) {
+                        m_valid = false;
+                    } else {
 
-            }
+                        JsonObject confirmedObject = confirmedElement.getAsJsonObject();
+                        JsonObject unconfirmedObject = jsonObject.get("unconfirmed").getAsJsonObject();
 
-        };
+                        m_confirmedNanoErgs = confirmedObject.get("nanoErgs").getAsLong();
 
-        task.setOnFailed(e -> {
-            m_valid = false;
-            lastUpdated.set(LocalDateTime.now());
-        });
+                        m_unconfirmedNanoErgs = unconfirmedObject.get("nanoErgs").getAsLong();
 
-        task.setOnSucceeded(e -> {
-            JsonObject jsonObject = task.getValue();
-            JsonElement confirmedElement = jsonObject != null ? jsonObject.get("confirmed") : null;
-            if (confirmedElement == null) {
-                m_valid = false;
-            } else {
+                        JsonArray confirmedTokenArray = confirmedObject.get("tokens").getAsJsonArray();
+                        JsonArray unconfirmedTokenArray = unconfirmedObject.get("tokens").getAsJsonArray();
 
-                JsonObject confirmedObject = confirmedElement.getAsJsonObject();
-                JsonObject unconfirmedObject = jsonObject.get("unconfirmed").getAsJsonObject();
+                        ArrayList<TokenData> cTokensList = new ArrayList<>();
 
-                m_confirmedNanoErgs = confirmedObject.get("nanoErgs").getAsLong();
-                m_unconfirmedNanoErgs = unconfirmedObject.get("nanoErgs").getAsLong();
+                        int confirmedSize = confirmedTokenArray.size();
+                        for (int i = 0; i < confirmedSize; i++) {
+                            JsonObject token = confirmedTokenArray.get(i).getAsJsonObject();
+                            TokenData data = new TokenData(token);
+                            cTokensList.add(data);
+                        }
 
-                JsonArray confirmedTokenArray = confirmedObject.get("tokens").getAsJsonArray();
-                JsonArray unconfirmedTokenArray = unconfirmedObject.get("tokens").getAsJsonArray();
+                        ArrayList<TokenData> uTokensList = new ArrayList<>();
+                        int unconfirmedSize = unconfirmedTokenArray.size();
 
-                ArrayList<TokenData> cTokensList = new ArrayList<>();
-                confirmedTokenArray.forEach(token -> {
-                    cTokensList.add(new TokenData(token.getAsJsonObject()));
-                });
-                m_confirmedTokensList = cTokensList;
+                        for (int i = 0; i < unconfirmedSize; i++) {
+                            JsonObject token = unconfirmedTokenArray.get(i).getAsJsonObject();
+                            TokenData data = new TokenData(token);
+                            uTokensList.add(data);
 
-                ArrayList<TokenData> uTokensList = new ArrayList<>();
-                unconfirmedTokenArray.forEach(token -> {
-                    uTokensList.add(new TokenData(token.getAsJsonObject()));
-                });
-                m_unconfirmedTokensList = uTokensList;
-                m_valid = true;
+                        }
 
-            }
-            updatePrice();
+                        m_confirmedTokensList = cTokensList;
+                        m_unconfirmedTokensList = uTokensList;
 
-        });
+                        m_valid = true;
 
-        Thread t = new Thread(task);
-        t.start();
+                    }
+
+                    updateBufferedImage();
+
+                },
+                e -> {
+
+                    m_valid = false;
+                    updateBufferedImage();
+                },
+                null
+        );
+
     }
 
     public JsonArray getConfirmedTokenJsonArray() {
@@ -462,7 +478,7 @@ public class AddressData {
 
     public void setApiIndex(int index) {
         m_apiIndex = index;
-        update();
+
     }
 
     public String getCurrentPriceApiUrl() {
@@ -479,149 +495,6 @@ public class AddressData {
 
     public String getPriceTargetCurrency() {
         return m_priceTargetCurrency;
-    }
-
-    public void updatePrice() {
-        String urlString = getCurrentPriceApiUrl();
-
-        Task<JsonObject> task = new Task<JsonObject>() {
-            @Override
-            public JsonObject call() throws IOException {
-                InputStream inputStream = null;
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                try {
-                    URL url = new URL(urlString);
-
-                    String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
-
-                    URLConnection con = url.openConnection();
-
-                    con.setRequestProperty("User-Agent", USER_AGENT);
-
-                    // long contentLength = con.getContentLengthLong();
-                    inputStream = con.getInputStream();
-
-                    byte[] buffer = new byte[2048];
-
-                    int length;
-                    // long downloaded = 0;
-
-                    while ((length = inputStream.read(buffer)) != -1) {
-
-                        outputStream.write(buffer, 0, length);
-                        //   downloaded += (long) length;
-
-                    }
-                    String jsonString = outputStream.toString();
-
-                    JsonObject jsonObject = new JsonParser().parse(jsonString).getAsJsonObject();
-                    return jsonObject;
-                } catch (JsonParseException | IOException e) {
-
-                    return null;
-                }
-
-            }
-
-        };
-
-        task.setOnFailed(e -> {
-            m_priceValid = false;
-            lastUpdated.set(LocalDateTime.now());
-        });
-
-        task.setOnSucceeded(e -> {
-            JsonObject tempObj;
-
-            JsonObject jsonObject = task.getValue();
-
-            UrlMenuItem tmpItem = m_urlMenuItems.get(m_apiIndex);
-            m_priceBaseCurrency = tmpItem.getBaseCurrency();
-            m_priceTargetCurrency = tmpItem.getTargetCurrency();
-
-            switch (m_apiIndex) {
-                case 0:
-
-                    tempObj = jsonObject.getAsJsonObject("data");
-                    if (tempObj != null) {
-                        String erg = tempObj.get("ERG").getAsString();
-                        m_price = Double.parseDouble(erg);
-                        m_priceValid = true;
-                    } else {
-                        m_priceValid = false;
-                    }
-
-                    break;
-                case 1:
-
-                    tempObj = jsonObject.getAsJsonObject("data");
-                    if (tempObj != null) {
-                        String erg = tempObj.get("ERG").getAsString();
-                        m_price = Double.parseDouble(erg);
-                        m_priceValid = true;
-                    }
-                    break;
-                case 2:
-
-                    tempObj = jsonObject.getAsJsonObject("data");
-                    if (tempObj != null) {
-                        String erg = tempObj.get("price").getAsString();
-                        m_price = Double.parseDouble(erg);
-                        m_priceValid = true;
-                    }
-                    break;
-                case 3:
-
-                    tempObj = jsonObject.getAsJsonObject("ergo");
-                    if (tempObj != null) {
-                        m_price = tempObj.get("price").getAsDouble();
-                        m_priceValid = true;
-                    }
-                    break;
-                case 4:
-
-                    tempObj = jsonObject.getAsJsonObject("ergo");
-                    if (tempObj != null) {
-                        m_price = tempObj.get("price").getAsDouble();
-                        m_priceValid = true;
-                    }
-                    break;
-                case 5:
-
-                    tempObj = jsonObject.getAsJsonObject("ergo");
-                    if (tempObj != null) {
-                        m_price = tempObj.get("price").getAsDouble();
-                        m_priceValid = true;
-                    }
-                    break;
-                case 6:
-
-                    tempObj = jsonObject.getAsJsonObject("data");
-                    if (tempObj != null) {
-
-                        String erg = tempObj.getAsJsonObject("ticker").get("price").getAsString();
-                        m_price = Double.parseDouble(erg);
-                        m_priceValid = true;
-                    }
-                    break;
-                case 7:
-
-                    tempObj = jsonObject.getAsJsonObject("data");
-                    if (tempObj != null) {
-
-                        String erg = tempObj.getAsJsonObject("ticker").get("price").getAsString();
-                        m_price = Double.parseDouble(erg);
-                        m_priceValid = true;
-                    }
-                    break;
-
-            }
-
-            lastUpdated.set(LocalDateTime.now());
-        });
-
-        Thread t = new Thread(task);
-        t.start();
     }
 
 }

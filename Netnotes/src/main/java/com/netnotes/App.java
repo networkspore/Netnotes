@@ -10,6 +10,8 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 
@@ -68,6 +70,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
@@ -111,6 +114,7 @@ import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
 public class App extends Application {
 
+    private File logFile = new File("log.txt");
     //public members
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public static Font txtFont = Font.font("OCR A Extended", 15);
@@ -840,7 +844,7 @@ public class App extends Application {
 
     }
 
-    public ArrayList<AddressData> getWalletAddressDataList(Wallet wallet, NetworkType networkType) {
+    public ArrayList<AddressData> getWalletAddressDataList(Wallet wallet, PriceChart priceChart, NetworkType networkType) {
 
         // ErgoClient ergoClient = RestApiErgoClient.create(nodeApiAddress, networkType, "", networkType == NetworkType.MAINNET ? defaultMainnetExplorerUrl : defaultTestnetExplorerUrl);
         ArrayList<AddressData> addressList = new ArrayList<>();
@@ -852,7 +856,7 @@ public class App extends Application {
             } catch (Failure e) {
 
             }
-            addressList.add(new AddressData(name, index, address, networkType));
+            addressList.add(new AddressData(name, index, address, priceChart, networkType));
 
         });
 
@@ -867,7 +871,9 @@ public class App extends Application {
 
         String title = name + " wallet - (" + (network.getType() == Network.NetworkType.MAINNET ? "MAINNET" : "TESTNET") + ")";
 
-        Timer timer = new Timer("updateClock", true);
+        PriceChart priceChart = new PriceChart();
+
+        double width = 450;
 
         Stage openWalletStage = new Stage();
         openWalletStage.setTitle(title);
@@ -877,7 +883,7 @@ public class App extends Application {
 
         Button closeBtn = new Button();
         closeBtn.setOnAction(closeEvent -> {
-            timer.cancel();
+
             openWalletStage.close();
         });
 
@@ -916,8 +922,8 @@ public class App extends Application {
         explorerURLField.setId("urlField");
         explorerURLField.setText(network.getCurrentExplorerURL());
         explorerURLField.setEditable(false);
-
-        explorerURLField.setPrefWidth(250);
+        explorerURLField.setPrefWidth(350);
+        explorerURLField.setAlignment(Pos.CENTER_LEFT);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -949,9 +955,12 @@ public class App extends Application {
 
         VBox bodyVBox = new VBox(titleBox, paddingBox, layoutBox, spacerRegion, updateBox);
 
-        ArrayList<AddressData> addressDataList = getWalletAddressDataList(wallet, networkType);
+        ArrayList<AddressData> addressDataList = getWalletAddressDataList(wallet, priceChart, networkType);
 
-        updateAddressList(addressDataList, layoutBox, wallet, network, networkType);
+        Scene openWalletScene = new Scene(bodyVBox, width, 525);
+        openWalletScene.getStylesheets().add("/css/startWindow.css");
+        openWalletStage.setScene(openWalletScene);
+        openWalletStage.show();
 
         addButton.setOnAction(e -> {
             String addressName = showGetTextInput("Address name", "Address name", branchImg);
@@ -960,8 +969,8 @@ public class App extends Application {
                 wallet.myAddresses.put(nextAddressIndex, name);
                 try {
                     Address address = wallet.publicAddress(networkType, nextAddressIndex);
-                    AddressData addressData = new AddressData(addressName, nextAddressIndex, address, networkType);
-                    Button newButton = getAddressDataButton(addressData, wallet, networkType);
+                    AddressData addressData = new AddressData(addressName, nextAddressIndex, address, priceChart, networkType);
+                    Button newButton = getAddressDataButton(openWalletScene.getWidth(), addressData, wallet, networkType);
 
                     addressDataList.add(addressData);
                     layoutBox.getChildren().add(newButton);
@@ -972,31 +981,15 @@ public class App extends Application {
 
             }
         });
-        Scene openWalletScene = new Scene(bodyVBox, 450, 525);
-        openWalletScene.getStylesheets().add("/css/startWindow.css");
-        openWalletStage.setScene(openWalletScene);
-        openWalletStage.show();
 
-        TimerTask updateTask = new TimerTask() {
-
-            @Override
-            public void run() {
-                addressDataList.forEach(addressData -> {
-
-                    addressData.update();
-
-                    lastUpdatedField.setText(getNowTimeString());
-
-                });
-            }
-        };
-        timer.schedule(updateTask, 0, 5000);
         addressDataList.forEach(addressData -> {
 
-            addressData.update();
+            Button rowBtn = getAddressDataButton(width, addressData, wallet, networkType);
 
-            lastUpdatedField.setText(getNowTimeString());
-
+            HBox rowBox = new HBox(rowBtn);
+            HBox.setHgrow(rowBox, Priority.ALWAYS);
+            layoutBox.getChildren().add(rowBox);
+            HBox.setHgrow(layoutBox, Priority.ALWAYS);
         });
 
     }
@@ -1009,80 +1002,57 @@ public class App extends Application {
         return formater.format(time);
     }
 
-    private Button getAddressDataButton(AddressData addressData, Wallet wallet, NetworkType networkType) {
-
-        Image btnImage = addressData.getErgImage();
-
-        double remainingSpace = 450 - btnImage.getWidth();
-
-        String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
-
-        ImageView btnImageView = highlightedImageView(btnImage);
-
-        String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
+    private Button getAddressDataButton(double width, AddressData addressData, Wallet wallet, NetworkType networkType) {
 
         Tooltip addressTip = new Tooltip(addressData.getName());
 
-        Button rowBtn = new Button(text);
+        Button rowBtn = new Button();
         //  HBox.setHgrow(rowBtn, Priority.ALWAYS);
         rowBtn.setPrefHeight(40);
-        rowBtn.setPrefWidth(450);
-        rowBtn.setGraphic(btnImageView);
+        rowBtn.setPrefWidth(width);
         rowBtn.setAlignment(Pos.CENTER_LEFT);
         rowBtn.setContentDisplay(ContentDisplay.LEFT);
         rowBtn.setTooltip(addressTip);
         rowBtn.setPadding(new Insets(0, 20, 0, 20));
         rowBtn.setId("rowBtn");
 
+        updateAddressBtn(width, rowBtn, addressData);
+
         rowBtn.setOnAction(e -> {
             showAddressStage(wallet, networkType, addressData);
         });
 
         addressData.lastUpdated.addListener(e -> {
-            updateAddressBtn(rowBtn, addressData);
+            updateAddressBtn(width, rowBtn, addressData);
         });
 
         return rowBtn;
     }
 
-    private void updateAddressBtn(Button rowBtn, AddressData addressData) {
-        Image btnImage = addressData.getErgImage();
+    private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {
 
-        double remainingSpace = 450 - btnImage.getWidth();
+        BufferedImage imageBuffer = addressData.getBufferedImage();
+
+        int remainingSpace = imageBuffer.getWidth();
 
         String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
 
-        ImageView btnImageView = highlightedImageView(btnImage);
-
+        ImageView btnImageView = new ImageView();
+        if (imageBuffer != null) {
+            btnImageView.setImage(SwingFXUtils.toFXImage(imageBuffer, null));
+        }
         String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
         Tooltip addressTip = new Tooltip(addressData.getName());
 
         rowBtn.setGraphic(btnImageView);
         rowBtn.setText(text);
         rowBtn.setTooltip(addressTip);
-    }
 
-    private void updateAddressList(ArrayList<AddressData> addressDataList, VBox listBox, Wallet wallet, Network network, NetworkType networkType) {
-
-        listBox.getChildren().clear();
-
-        if (addressDataList.size() > 0) {
-
-            addressDataList.forEach(addressData -> {
-
-                Button rowBtn = getAddressDataButton(addressData, wallet, networkType);
-
-                HBox rowBox = new HBox(rowBtn);
-                HBox.setHgrow(rowBox, Priority.ALWAYS);
-                listBox.getChildren().add(rowBox);
-                HBox.setHgrow(listBox, Priority.ALWAYS);
-            });
-        }
     }
 
     private void showAddressStage(Wallet wallet, NetworkType networkType, AddressData addressData) {
 
-        String title = "Ergo Wallet: " + addressData.getName() + "(" + (networkType.toString()) + ") - " + addressData.getAddressMinimal(12);
+        String title = "Ergo Wallet - " + addressData.getName() + " (" + (networkType.toString()) + "): " + addressData.getAddressMinimal(16);
 
         Stage addressStage = new Stage();
         addressStage.setTitle(title);
@@ -1104,21 +1074,16 @@ public class App extends Application {
         Tooltip selectMarketTip = new Tooltip("Select Market");
         selectMarketTip.setShowDelay(new javafx.util.Duration(100));
         selectMarketTip.setFont(txtFont);
+        ImageView arrow = highlightedImageView(new Image("/assets/navigate-outline-white-30.png"));
+        arrow.setFitWidth(25);
+        arrow.setPreserveRatio(true);
 
         MenuButton changeMarketButton = new MenuButton();
-        changeMarketButton.setGraphic(highlightedImageView(new Image("/assets/navigate-outline-white-30.png")));
+        changeMarketButton.setGraphic(arrow);
         changeMarketButton.setId("menuBarBtn");
-        changeMarketButton.setPadding(new Insets(2, 6, 2, 6));
+        // changeMarketButton.setMaxWidth(30);
+        //  changeMarketButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         changeMarketButton.setTooltip(selectMarketTip);
-
-        addressData.getUrlMenuItems().forEach(item -> {
-            item.setId("urlMenuItem");
-
-            changeMarketButton.getItems().add(item);
-            item.setOnAction(e -> {
-                addressData.setApiIndex(item.getIndex());
-            });
-        });
 
         Tooltip locationUrlTip = new Tooltip("Market url");
         locationUrlTip.setShowDelay(new javafx.util.Duration(100));
@@ -1129,6 +1094,19 @@ public class App extends Application {
         locationUrlField.setText(addressData.getCurrentPriceApiUrl());
         locationUrlField.setEditable(false);
         locationUrlField.setTooltip(locationUrlTip);
+        locationUrlField.setAlignment(Pos.CENTER_LEFT);
+        locationUrlField.setFont(txtFont);
+
+        addressData.getUrlMenuItems().forEach(item -> {
+            item.setId("urlMenuItem");
+            item.setOnAction(e -> {
+                addressData.setApiIndex(item.getIndex());
+                locationUrlField.setText(addressData.getCurrentPriceApiUrl());
+            });
+
+            changeMarketButton.getItems().add(item);
+
+        });
 
         HBox.setHgrow(locationUrlField, Priority.ALWAYS);
 
@@ -1141,16 +1119,18 @@ public class App extends Application {
         HBox paddingBox = new HBox(menuBar);
         paddingBox.setPadding(new Insets(2, 5, 2, 5));
 
-        Text addressNameTxt = new Text("> " + addressData.getName() + ":");
-        addressNameTxt.setFill(txtColor);
+        Text addressNameTxt = new Text("> Ergo wallet - " + addressData.getName() + " (" + networkType.toString() + "):");
+        addressNameTxt.setFill(Color.WHITE);
         addressNameTxt.setFont(txtFont);
 
         HBox addressNameBox = new HBox(addressNameTxt);
         addressNameBox.setPadding(new Insets(3, 0, 5, 0));
 
+        Color formFieldColor = new Color(.8, .8, .8, .9);
+
         Text addressTxt = new Text("  Address:");
         addressTxt.setFont(txtFont);
-        addressTxt.setFill(txtColor);
+        addressTxt.setFill(formFieldColor);
 
         TextField addressField = new TextField(addressData.getAddressString());
         addressField.setEditable(false);
@@ -1164,9 +1144,9 @@ public class App extends Application {
 
         Text ergQuantityTxt = new Text("  Balance:");
         ergQuantityTxt.setFont(txtFont);
-        ergQuantityTxt.setFill(txtColor);
-        double unconfirmed = addressData.getFullErgUnconfirmed();
-        TextField ergQuantityField = new TextField(addressData.getFullErgDouble() + " ERG" + (unconfirmed != 0 ? (" (" + unconfirmed + " unconfirmed)") : ""));
+        ergQuantityTxt.setFill(formFieldColor);
+        double unconfirmed = addressData.getFullAmountUnconfirmed();
+        TextField ergQuantityField = new TextField(addressData.getFullAmountDouble() + " ERG" + (unconfirmed != 0 ? (" (" + unconfirmed + " unconfirmed)") : ""));
         ergQuantityField.setEditable(false);
         ergQuantityField.setFont(txtFont);
         ergQuantityField.setId("formField");
@@ -1177,7 +1157,7 @@ public class App extends Application {
 
         Text priceTxt = new Text("  Price: ");
         priceTxt.setFont(txtFont);
-        priceTxt.setFill(txtColor);
+        priceTxt.setFill(formFieldColor);
 
         TextField priceField = new TextField(addressData.getPriceString());
         priceField.setEditable(false);
@@ -1191,9 +1171,9 @@ public class App extends Application {
 
         Text balanceTxt = new Text("  Total:");
         balanceTxt.setFont(txtFont);
-        balanceTxt.setFill(txtColor);
+        balanceTxt.setFill(formFieldColor);
 
-        TextField balanceField = new TextField(addressData.getTotalErgPriceString());
+        TextField balanceField = new TextField(addressData.getTotalAmountPriceString());
         balanceField.setEditable(false);
 
         balanceField.setFont(txtFont);
@@ -1204,7 +1184,7 @@ public class App extends Application {
         balanceBox.setAlignment(Pos.CENTER_LEFT);
 
         Text lastUpdatedTxt = new Text("  Updated:");
-        lastUpdatedTxt.setFill(txtColor);
+        lastUpdatedTxt.setFill(formFieldColor);
         lastUpdatedTxt.setFont(txtFont);
 
         TextField lastUpdatedField = new TextField(addressData.getLastUpdatedString());
@@ -1216,12 +1196,51 @@ public class App extends Application {
         HBox lastUpdatedBox = new HBox(lastUpdatedTxt, lastUpdatedField);
         lastUpdatedBox.setAlignment(Pos.CENTER_LEFT);
 
-        VBox bodyVBox = new VBox(addressNameBox, addressBox, ergQuantityBox, priceBox, balanceBox, lastUpdatedBox);
+        ImageView chartView = new ImageView();
+        chartView.setUserData(null);
+        // chartView.setPreserveRatio(true);
+        chartView.setFitWidth(400);
+        chartView.setFitHeight(150);
+        // chartView.setPreserveRatio(true);
+        Button chartButton = new Button("Getting price information");
+        chartButton.setGraphic(chartView);
+        chartButton.setContentDisplay(ContentDisplay.BOTTOM);
+        chartButton.setId("iconBtn");
+        chartButton.setFont(txtFont);
+
+        chartButton.setOnMouseEntered(e -> {
+            chartView.setUserData("mouseOver");
+            PriceChart pc = addressData.getPriceChart();
+            BufferedImage imgBuf = pc.getChartBufferedImage();
+            if (imgBuf != null) {
+                chartView.setImage(SwingFXUtils.toFXImage(pc.zoomLatest(48), null));
+            } else {
+                chartView.setImage(null);
+                chartButton.setText("Price unavailable");
+            }
+        });
+
+        chartButton.setOnMouseExited(e -> {
+            chartView.setUserData(null);
+
+            if (addressData.getPriceChart().getValid()) {
+                chartView.setImage(SwingFXUtils.toFXImage(Utils.greyScaleImage(addressData.getPriceChart().zoomLatest(48)), null));
+            } else {
+                chartView.setImage(null);
+                chartButton.setText("Price unavailable");
+            }
+        });
+
+        HBox chartBox = new HBox(chartButton);
+        chartBox.setAlignment(Pos.CENTER);
+        chartBox.setPadding(new Insets(5, 0, 20, 0));
+
+        VBox bodyVBox = new VBox(chartBox, addressNameBox, addressBox, ergQuantityBox, priceBox, balanceBox, lastUpdatedBox);
         bodyVBox.setPadding(new Insets(0, 20, 0, 20));
         VBox layoutVBox = new VBox(titleBox, paddingBox, bodyVBox);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene addressScene = new Scene(layoutVBox, 650, 400);
+        Scene addressScene = new Scene(layoutVBox, 650, 500);
 
         addressScene.getStylesheets().add("/css/startWindow.css");
 
@@ -1229,12 +1248,30 @@ public class App extends Application {
         addressStage.show();
 
         addressData.lastUpdated.addListener(changed -> {
-            double unconfirmedUpdate = addressData.getFullErgUnconfirmed();
-            ergQuantityField.setText(addressData.getFullErgDouble() + " ERG" + (unconfirmedUpdate != 0 ? (" (" + unconfirmedUpdate + " unconfirmed)") : ""));
+
+            double unconfirmedUpdate = addressData.getFullAmountUnconfirmed();
+            ergQuantityField.setText(addressData.getFullAmountDouble() + " ERG" + (unconfirmedUpdate != 0 ? (" (" + unconfirmedUpdate + " unconfirmed)") : ""));
             double priceUpdate = addressData.getPrice();
             priceField.setText(addressData.getPriceString());
-            balanceField.setText(addressData.getTotalErgPriceString() + (unconfirmedUpdate != 0 ? (" (" + (unconfirmedUpdate * priceUpdate) + " unconfirmed)") : ""));
+            balanceField.setText(addressData.getTotalAmountPriceString() + (unconfirmedUpdate != 0 ? (" (" + (unconfirmedUpdate * priceUpdate) + " unconfirmed)") : ""));
             lastUpdatedField.setText(addressData.getLastUpdatedString());
+
+        });
+
+        addressData.getPriceChart().lastUpdated.addListener(updated -> {
+            PriceChart priceChart = addressData.getPriceChart();
+            if (priceChart.getValid()) {
+
+                chartButton.setText(priceChart.getSymbol() + " - " + priceChart.getTimespan() + " (" + priceChart.getTimeStampString() + ")");
+                if (chartView.getUserData() == null) {
+                    chartView.setImage(SwingFXUtils.toFXImage(Utils.greyScaleImage(addressData.getPriceChart().zoomLatest(48)), null));
+                } else {
+                    chartView.setImage(SwingFXUtils.toFXImage(addressData.getPriceChart().zoomLatest(48), null));
+                }
+            } else {
+                chartButton.setText("Price unavailable");
+                chartView.setImage(null);
+            }
         });
 
     }

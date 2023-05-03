@@ -211,6 +211,10 @@
 #menuBarBtn{
     -fx-background-color: transparent;
     -fx-opacity: .8;
+    -fx-shape: "...";
+    -fx-scale-shape: true;
+    -fx-position-shape: true;
+
 }
 
 #menuBarBtn:hover {

@@ -28,6 +28,13 @@ public class TokenData {
         }
     }
 
+    public boolean compare(TokenData tokenData) {
+        if (m_tokenID.equals(tokenData.getTokenID()) && m_amount == tokenData.getAmount() && m_decimals == tokenData.getDecimals() && m_name.equals(tokenData.getName())) {
+            return true;
+        }
+        return false;
+    }
+
     public String getTokenID() {
         return m_tokenID;
     }

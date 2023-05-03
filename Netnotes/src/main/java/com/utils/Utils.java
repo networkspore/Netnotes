@@ -17,6 +17,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URLConnection;
+
+import javafx.beans.property.DoubleProperty;
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ProgressIndicator;
 
 import org.apache.commons.codec.binary.Hex;
 
@@ -179,4 +190,84 @@ public class Utils {
         ShellLinkHelper.createLink(target.getAbsolutePath(), linkDir.getAbsolutePath() + "/" + linkName);
 
     }
+
+    public static void getUrlData(String urlString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+
+        Task<ByteArrayOutputStream> task = new Task<ByteArrayOutputStream>() {
+            @Override
+            public ByteArrayOutputStream call() {
+                InputStream inputStream = null;
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                try {
+                    URL url = new URL(urlString);
+
+                    String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+
+                    URLConnection con = url.openConnection();
+
+                    con.setRequestProperty("User-Agent", USER_AGENT);
+
+                    long contentLength = con.getContentLengthLong();
+                    inputStream = con.getInputStream();
+
+                    byte[] buffer = new byte[2048];
+
+                    int length;
+                    long downloaded = 0;
+
+                    while ((length = inputStream.read(buffer)) != -1) {
+
+                        outputStream.write(buffer, 0, length);
+                        downloaded += (long) length;
+                        updateProgress(downloaded, contentLength);
+                    }
+
+                    return outputStream;
+                } catch (IOException e) {
+                    return null;
+                }
+
+            }
+
+        };
+
+        if (progressIndicator != null) {
+            progressIndicator.progressProperty().bind(task.progressProperty());
+        }
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.start();
+    }
+
+    public static BufferedImage greyScaleImage(BufferedImage img) {
+
+        int height = img.getHeight();
+        int width = img.getWidth();
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int p = img.getRGB(x, y);
+
+                int a = (p >> 24) & 0xff;
+                int r = (p >> 16) & 0xff;
+                int g = (p >> 8) & 0xff;
+                int b = p & 0xff;
+
+                //calculate average
+                int avg = (r + g + b) / 3;
+
+                //replace RGB value with avg
+                p = (a << 24) | (avg << 16) | (avg << 8) | avg;
+
+                img.setRGB(x, y, p);
+            }
+        }
+
+        return img;
+    }
+
 }
