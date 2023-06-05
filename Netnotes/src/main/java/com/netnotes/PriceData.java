@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
 
 public class PriceData {
 
-    private LocalDateTime m_timestamp_UTC;
+    private long m_timestamp;
     private double m_open;
     private double m_close;
     private double m_high;
@@ -18,8 +18,8 @@ public class PriceData {
     private double m_volume;
     private double m_turnover;
 
-    public PriceData(LocalDateTime timestamp_UTC, double open, double close, double high, double low, double volume, double turnover) {
-        m_timestamp_UTC = timestamp_UTC;
+    public PriceData(long timestamp, double open, double close, double high, double low, double volume, double turnover) {
+        m_timestamp = timestamp;
         m_open = open;
         m_close = close;
         m_high = high;
@@ -30,11 +30,7 @@ public class PriceData {
 
     public PriceData(JsonArray jsonArray) {
 
-        long timestamp = jsonArray.get(0).getAsLong();
-
-        Instant timeInstant = Instant.ofEpochMilli(timestamp / 1_000).plusNanos(timestamp % 1_000);
-
-        m_timestamp_UTC = LocalDateTime.ofInstant(timeInstant, ZoneId.of("UTC"));
+        m_timestamp = jsonArray.get(0).getAsLong();
 
         m_open = jsonArray.get(1).getAsDouble();
         m_close = jsonArray.get(2).getAsDouble();
@@ -45,12 +41,22 @@ public class PriceData {
 
     }
 
-    public LocalDateTime getTimestamp_UTC() {
-        return m_timestamp_UTC;
+    public long getTimestamp() {
+        return m_timestamp;
     }
 
-    public void setTimestamp_UTC(LocalDateTime timeStamp) {
-        m_timestamp_UTC = timeStamp;
+    public static LocalDateTime nanosToTimeUTC(long timestamp) {
+        Instant timeInstant = Instant.ofEpochMilli(timestamp / 1_000).plusNanos(timestamp % 1_000);
+
+        return LocalDateTime.ofInstant(timeInstant, ZoneId.of("UTC"));
+    }
+
+    public LocalDateTime getTimestamp_UTC() {
+        return nanosToTimeUTC(m_timestamp);
+    }
+
+    public void setTimestamp(long timeStamp) {
+        m_timestamp = timeStamp;
     }
 
     public double getOpen() {

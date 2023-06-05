@@ -29,6 +29,7 @@ import javafx.event.EventHandler;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
 
+import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
 import java.io.FilenameFilter;
@@ -37,6 +38,9 @@ import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import mslinks.ShellLinkException;
 import mslinks.ShellLinkHelper;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.rfksystems.blake2b.Blake2b;
 
 public class Utils {
@@ -189,6 +193,25 @@ public class Utils {
 
         ShellLinkHelper.createLink(target.getAbsolutePath(), linkDir.getAbsolutePath() + "/" + linkName);
 
+    }
+
+    public static String readHexDecodeString(File file) {
+        String fileHexString = null;
+
+        try {
+            fileHexString = file != null && file.isFile() ? Files.readString(file.toPath()) : null;
+        } catch (IOException e) {
+
+        }
+        byte[] bytes = null;
+
+        try {
+            bytes = fileHexString != null ? Hex.decodeHex(fileHexString) : null;
+        } catch (DecoderException e) {
+
+        }
+
+        return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
     }
 
     public static void getUrlData(String urlString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {

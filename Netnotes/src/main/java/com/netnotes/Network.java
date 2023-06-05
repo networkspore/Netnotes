@@ -1,196 +1,128 @@
 package com.netnotes;
 
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 
 import com.google.gson.JsonObject;
 
-public class Network {
+import javafx.application.Platform;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.image.Image;
+import javafx.scene.input.MouseButton;
+import javafx.scene.text.FontWeight;
 
-    public static String ErgoMainnet_EXPLORER_URL = "https://api.ergoplatform.com";
-    public static String ErgoTestnet_EXPLORER_URL = "https://api-testnet.ergoplatform.com";
+public class Network extends IconButton {
 
-    public static class NetworkName {
+    private String m_networkId;
+    private NetworksData m_networksData;
+    private ArrayList<NoteInterface> m_tunnelInterfaceList = new ArrayList<>();
+    private NoteInterface m_parentInterface = null;
+    private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
 
-        public static int ERGO = 1;
+    public static class NetworkID {
+
+        public static String ERGO_NETWORK = "ERGO_NETWORK";
+        public static String ERGO_WALLET = "ERGO_WALLET";
+        public static String KUKOIN_EXCHANGE = "KUCOIN_EXCHANGE";
+        public static String ERGO_EXPLORER = "ERGO_EXPLORER";
     }
 
-    public static class NetworkType {
-
-        public static int MAINNET = 0;
-        public static int TESTNET = 1;
+    public Network(Image icon, String name, String id, NetworksData networksData) {
+        super(icon);
+        setName(name);
+        m_networkId = id;
+        m_networksData = networksData;
+        m_parentInterface = null;
     }
 
-    private final String m_uuid;
-    private String m_wallet = null;
-    private String m_id;
-    private int m_name;
-    private String m_host = null;
-    private int m_type;
-    private int m_port;
-    private int m_exPort;
-    private String m_currentExplorerUrlString = ErgoMainnet_EXPLORER_URL;
-
-    public Network(int networkName, int type) {
-        m_uuid = UUID.randomUUID().toString();
-        m_id = networkName + m_uuid.substring(0, 5);
-        m_name = networkName;
-        m_host = null;
-
-        setType(type);
+    public Network(Image icon, String name, String id, NoteInterface parentInterface) {
+        this(icon, name, id, parentInterface.getNetworksData());
+        m_parentInterface = parentInterface;
     }
 
-    public Network(JsonObject networkJson) throws Exception {
+    public String getFullNetworkId() {
+        String fullNetworkId = m_networkId;
+        NoteInterface parent = m_parentInterface;
+        while (parent != null) {
+            fullNetworkId = parent.getNetworkId() + "." + fullNetworkId;
+            parent = parent.getParentInterface();
+        }
+        return fullNetworkId;
+    }
 
-        String walletValue = networkJson.get("walletFile").getAsString();
-        String hostValue = networkJson.get("host").getAsString();
+    public NoteInterface getParentInterface() {
+        return m_parentInterface;
+    }
 
-        m_id = networkJson.get("id").getAsString();
-        m_name = networkJson.get("name").getAsInt();
-        m_uuid = networkJson.get("uuid").getAsString();
-        m_wallet = walletValue == "" ? null : walletValue;
-        m_type = networkJson.get("type").getAsInt();
-        m_host = hostValue.equals("") ? null : hostValue;
-        m_port = networkJson.get("port").getAsInt();
-        m_exPort = networkJson.get("externalPort").getAsInt();
+    public void setNetworkId(String id) {
+        m_networkId = id;
+    }
+
+    public String getNetworkId() {
+        return m_networkId;
+    }
+
+    public JsonObject getJsonObject() {
+        JsonObject networkObj = new JsonObject();
+        networkObj.addProperty("name", getText());
+        networkObj.addProperty("networkId", m_networkId);
+
+        return networkObj;
 
     }
 
-    public String getUUID() {
-        return m_uuid;
+    public NetworksData getNetworksData() {
+        return m_networksData;
     }
 
-    public int getType() {
-        return m_type;
-    }
+    public NoteInterface getTunnelNoteInterface(String networkId) {
 
-    public void setType(int type) {
-        m_type = type;
-
-        if (m_name == NetworkName.ERGO) {
-            if (m_type == NetworkType.MAINNET) {
-                m_currentExplorerUrlString = ErgoMainnet_EXPLORER_URL;
-                m_port = 9053;
-            } else {
-                m_currentExplorerUrlString = ErgoTestnet_EXPLORER_URL;
-                m_port = 9052;
+        for (NoteInterface noteInterface : m_tunnelInterfaceList) {
+            if (noteInterface.getNetworkId().equals(networkId)) {
+                return noteInterface;
             }
-            m_exPort = 9030;
+        }
+        return null;
+    }
+
+    public ArrayList<NoteInterface> getTunnelNoteInterfaces() {
+        return m_tunnelInterfaceList;
+    }
+
+    public void addTunnelNoteInterface(NoteInterface noteInterface) {
+        if (getTunnelNoteInterface(noteInterface.getNetworkId()) == null) {
+            m_tunnelInterfaceList.add(noteInterface);
         }
     }
 
-    public String getCurrentExplorerURL() {
-        return m_currentExplorerUrlString;
-    }
-
-    public void setName(int name) {
-        m_name = name;
-    }
-
-    public int getName() {
-        return m_name;
-    }
-
-    public void setId(String id) {
-        m_id = id;
-    }
-
-    public String getId() {
-        return m_id;
-    }
-
-    public String getHost() {
-        return m_host;
-    }
-
-    public void setHost(String host) {
-        m_host = host;
-    }
-
-    public int getPort() {
-        return m_port;
-    }
-
-    public void setPort(int port) {
-        m_port = port;
-
-    }
-
-    public void setExternalPort(int port) {
-        m_port = port;
-    }
-
-    public int getExternalPort() {
-        return m_port;
-    }
-
-    public void setWalletFile(File walletFile) {
-        m_wallet = walletFile.getAbsolutePath();
-    }
-
-    public File getWalletFile() throws Exception {
-        File walletFile = new File(m_wallet);
-        return walletFile;
-    }
-
-    public boolean isWallet() {
-        if (m_wallet == null) {
-            return false;
-        } else {
-            File walletFile = new File(m_wallet);
-            return walletFile.isFile();
-        }
-    }
-
-    public void setUrl(String url) throws MalformedURLException {
-        if (url == null) {
-            m_host = null;
-        } else {
-            if (url.equals("")) {
-                m_host = null;
-            } else {
-
-                char c0 = url.charAt(0);
-
-                URL testURL = new URL(c0 != 'h' ? "http://" + url : url);
-
-                m_host = testURL.getHost();
-
-                int port = testURL.getPort();
-
-                if (port != 80 && port != -1) {
-
-                    setPort(port);
-
-                }
-
+    public void removeTunnelNoteInterface(String id) {
+        m_tunnelInterfaceList.forEach(tunnel -> {
+            if (tunnel.getNetworkId().equals(id)) {
+                m_tunnelInterfaceList.remove(tunnel);
             }
-
-        }
-
+        });
     }
 
-    public JsonObject getJsonObject() throws Exception {
-        if (m_wallet != null) {
-            String walletValue = m_wallet == null ? "" : m_wallet;
-            String hostValue = m_host == null ? "" : m_host.toString();
-
-            JsonObject networkObj = new JsonObject();
-            networkObj.addProperty("type", m_type);
-            networkObj.addProperty("uuid", m_uuid);
-            networkObj.addProperty("wallet", walletValue);
-            networkObj.addProperty("name", m_name);
-            networkObj.addProperty("host", hostValue);
-            networkObj.addProperty("id", m_id);
-            networkObj.addProperty("port", m_port);
-            networkObj.addProperty("externalPort", m_exPort);
-
-            return networkObj;
-        } else {
-            return null;
+    public void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        for (NoteInterface tunnelInterface : m_tunnelInterfaceList) {
+            if (tunnelInterface.getNetworkId().equals(tunnelId)) {
+                tunnelInterface.sendNote(note, onSucceeded, onFailed);
+            }
         }
     }
 
+    public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
+        return m_lastUpdated;
+    }
 }

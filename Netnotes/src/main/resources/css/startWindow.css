@@ -61,6 +61,10 @@
     -fx-opacity: 1;
 }
 
+#blackMenu{
+    fx-background-color: linear-gradient(to left, #77777790 5%, #00000000, #77777790 95%);
+}
+
 #toolBtn {
     -fx-background-color: transparent;
     -fx-text-fill: #cdd4da;
@@ -193,6 +197,14 @@
     -fx-opacity: 1;
 }
 
+#iconBtnSelected {
+    -fx-opacity: .8;
+    -fx-background-color: linear-gradient(to top, #ffffff01, #ffffff02, #11111105);
+} 
+
+#iconBtnSelected:hover {
+    -fx-opacity: 1;
+}
 
 #menuBox {
     -fx-background-color: linear-gradient(to top,  #ffffff01,#ffffff02, #11111105 );
@@ -219,8 +231,19 @@
 
 #menuBarBtn:hover {
     -fx-background-color: #ffffff50;
-        -fx-opacity: 1
+    -fx-opacity: 1;
+    -fx-shape: "";
 }
+
+#menuBarBtnDisabled {
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+    -fx-shape: "...";
+    -fx-scale-shape: true;
+    -fx-position-shape: true;
+    -fx-text-fill: #777777;
+}
+
 
 #urlMenuItem{
     -fx-background-color: #000000;

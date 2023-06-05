@@ -86,7 +86,7 @@ import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.TreeMap;
-import java.util.UUID;
+
 import java.util.Map.Entry;
 import java.util.stream.Stream;
 
@@ -102,7 +102,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.netnotes.Network.NetworkName;
+import com.netnotes.IconButton.IconStyle;
 import com.satergo.Wallet;
 import com.satergo.WalletKey.Failure;
 import com.satergo.ergo.ErgoInterface;
@@ -121,10 +121,11 @@ public class App extends Application {
     public static Font titleFont = Font.font("OCR A Extended", FontWeight.BOLD, 12);
     public static Color txtColor = Color.web("#cdd4da");
     public static Color altColor = Color.web("#777777");
+    public static Color formFieldColor = new Color(.8, .8, .8, .9);
 
     public static Image icon = new Image("/assets/icon20.png");
     public static Image logo = new Image("/assets/icon256.png");
-    public static Image ergoLogo = new Image("/assets/ergo-black-350.png");
+    public static Image ergoLogo = new Image("/assets/ergo-network.png");
     public static Image waitingImage = new Image("/assets/spinning.gif");
     public static Image addImg = new Image("/assets/add-outline-white-40.png");
     public static Image closeImg = new Image("/assets/close-outline-white.png");
@@ -135,31 +136,31 @@ public class App extends Application {
     public static Image ergoNetworkImg = new Image("/assets/globe-outline-ergo-150.png");
     public static Image arrowRightImg = new Image("/assets/arrow-forward-outline-white-20.png");
     public static Image walletImg20 = new Image("/assets/wallet-outline-white-20.png");
-    public static Image walletImg240 = new Image("/assets/wallet-outline-white-240.png");
+    public static Image ergoWallet = new Image("/assets/ergo-wallet.png");
     public static Image atImage = new Image("/assets/at-white-240.png");
     public static Image branchImg = new Image("/assets/git-branch-outline-white-240.png");
+    public static Image ergoExplorerImg = new Image("/assets/ergo-explorer.png");
+    public static Image kucoinImg = new Image("/assets/kucoin-100.png");
 
     public static Image walletLockImg20 = new Image("/assets/wallet-locked-outline-white-20.png");
 
     public static Image openImg = new Image("/assets/open-outline-white-20.png");
     public static Image diskImg = new Image("/assets/save-outline-white-20.png");
 
-    public static ExtensionFilter ergExt = new ExtensionFilter("Ergo wallet", "*.erg");
-
-    public static final String settingsFileName = "settings.conf";
-    public static final String networksFileName = "networks.dat";
+    public static String settingsFileName = "settings.conf";
+    public static String networksFileName = "networks.dat";
 
     public static final String homeString = System.getProperty("user.home");
 
     private AppData appData;
-    private NetworksData networksData;
 
-    private File walletsDir;
     private File settingsFile = null;
-    private File networksFile;
+
     private File currentDir = null;
     private File launcherFile = null;
     private File currentJar = null;
+
+    private NetworksData m_networksData;
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -220,14 +221,6 @@ public class App extends Application {
             currentDir = new File(System.getProperty("user.dir"));
         }
 
-        walletsDir = new File(currentDir.getAbsolutePath() + "/wallets");
-        if (!walletsDir.isDirectory()) {
-            try {
-                Files.createDirectories(walletsDir.toPath());
-            } catch (IOException e) {
-                walletsDir = null;
-            }
-        }
     }
 
     @Override
@@ -247,7 +240,6 @@ public class App extends Application {
         if (currentDir != null) {
             String currentDirString = currentDir.getAbsolutePath();
 
-            networksFile = new File(currentDirString + "/" + networksFileName);
             settingsFile = new File(currentDirString + "/" + settingsFileName);
 
             if (!settingsFile.isFile()) {
@@ -266,6 +258,7 @@ public class App extends Application {
                     Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                     a.showAndWait();
                 }
+
                 if (passwordHash != null) {
 
                     startApp(passwordHash.getBytes(), appStage);
@@ -327,7 +320,7 @@ public class App extends Application {
         VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 425);
+        Scene passwordScene = new Scene(layoutVBox, 600, 320);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(passwordScene);
@@ -359,6 +352,7 @@ public class App extends Application {
                         BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), hashBytes);
                         statusStage.close();
                         if (result.verified) {
+
                             openNetnotes(appStage);
 
                         } else {
@@ -422,6 +416,18 @@ public class App extends Application {
 
     // private static int createTries = 0;
     private void openNetnotes(Stage appStage) {
+        File networksFile = new File(networksFileName);
+        JsonObject networksObject = null;
+
+        try {
+            String fileString = !networksFile.isFile() ? null : Files.readString(networksFile.toPath());
+            JsonElement fileElement = fileString == null ? null : new JsonParser().parse(fileString);
+            networksObject = fileElement == null ? null : fileElement.getAsJsonObject();
+        } catch (Exception e) {
+
+        }
+
+        m_networksData = new NetworksData(networksObject, networksFile);
 
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
@@ -452,9 +458,10 @@ public class App extends Application {
 
         Scene appScene = new Scene(layout, 800, 450);
         appScene.getStylesheets().add("/css/startWindow.css");
-        appStage.setScene(appScene);
+        // appStage.setScene(appScene);
 
         closeBtn.setOnAction(e -> {
+
             appStage.close();
         });
 
@@ -470,114 +477,92 @@ public class App extends Application {
             showNetworks(appStage, bodyVBox);
         });
 
-        appStage.show();
-
-        try {
-            networksData = new NetworksData(networksFile);
-        } catch (Exception e1) {
-
-            Alert a = new Alert(AlertType.NONE, "Fatal error: Error unable to load networks.\n\n" + e1.toString(), ButtonType.CLOSE);
-            a.setTitle("Fatal error: Unable to load networks.");
-            a.initOwner(appStage);
-            a.showAndWait();
-            shutdownNow();
-        }
+        setupOptions(appStage, appScene);
 
         showNetworks(appStage, bodyVBox);
+
+        appStage.show();
+    }
+
+    private void setupOptions(Stage appStage, Scene appScene) {
+
+        String topTitle = "Setup: Options";
+
+        Button closeBtn = new Button();
+        closeBtn.setOnAction(e -> {
+            appStage.setScene(appScene);
+        });
+        HBox titleBox = createTopBar(icon, topTitle, closeBtn, appStage);
+
+        IconButton allNetworksBtn = new IconButton(new Image("/assets/layers.png"), "Full Install");
+
+        allNetworksBtn.setOnAction(e -> {
+
+            m_networksData.addNoteInterface(new ErgoWallet(m_networksData));
+            m_networksData.addNoteInterface(new ErgoExplorer(m_networksData));
+            m_networksData.addNoteInterface(new ErgoNetwork(m_networksData));
+            m_networksData.addNoteInterface(new KucoinExchange(m_networksData));
+
+            appStage.setScene(appScene);
+        });
+        Region seperatorRegion = new Region();
+        seperatorRegion.setPrefHeight(20);
+
+        IconButton cleanInstallBtn = new IconButton(new Image("/assets/snow.png"), "Clean Install");
+        cleanInstallBtn.setPrefWidth(200);
+        cleanInstallBtn.setPrefHeight(200);
+        cleanInstallBtn.setOnAction(e -> {
+            m_networksData.clear();
+            appStage.setScene(appScene);
+            m_networksData.showManageNetworkStage();
+        });
+
+        VBox listVBox = new VBox(allNetworksBtn, seperatorRegion, cleanInstallBtn);
+        listVBox.setPadding(new Insets(35, 0, 0, 0));
+        listVBox.setAlignment(Pos.CENTER);
+
+        VBox layoutVBox = new VBox(titleBox, listVBox);
+
+        Scene setupOptionsScene = new Scene(layoutVBox, 350, 450);
+        setupOptionsScene.getStylesheets().add("/css/startWindow.css");
+        appStage.setScene(setupOptionsScene);
+
     }
 
     private void showNetworks(Stage appStage, VBox bodyVBox) {
+
         bodyVBox.getChildren().clear();
 
-        ImageView addImage = highlightedImageView(addImg);
-        addImage.setFitHeight(10);
-        addImage.setPreserveRatio(true);
-
-        Tooltip addTip = new Tooltip("Add network");
+        Tooltip addTip = new Tooltip("Networks");
         addTip.setShowDelay(new javafx.util.Duration(100));
-        addTip.setFont(txtFont);
+        addTip.setFont(App.txtFont);
 
-        Button addButton = new Button();
-        addButton.setGraphic(addImage);
-        addButton.setId("menuBarBtn");
-        addButton.setPadding(new Insets(2, 6, 2, 6));
-        addButton.setTooltip(addTip);
+        IconButton manageButton = new IconButton(new Image("/assets/filter.png"), "", IconStyle.ICON);
+        manageButton.setImageWidth(15);
+        manageButton.setPadding(new Insets(0, 6, 0, 6));
+        manageButton.setTooltip(addTip);
+        manageButton.setOnAction(e -> m_networksData.showManageNetworkStage());
 
-        /*  Region lRegion = new Region();
-        Region rRegion = new Region();
-
-        HBox.setHgrow(lRegion, Priority.ALWAYS);
-        HBox.setHgrow(rRegion, Priority.ALWAYS); */
-        HBox menuBar = new HBox(addButton);
+        HBox menuBar = new HBox(manageButton);
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setAlignment(Pos.CENTER_LEFT);
         menuBar.setId("menuBar");
         menuBar.setPadding(new Insets(5, 5, 5, 5));
-        bodyVBox.getChildren().add(menuBar);
-        bodyVBox.setPadding(new Insets(0, 5, 0, 5));
-        /*Alert a = new Alert(AlertType.NONE, layoutBounds.getWidth() + " " + layoutBounds.getHeight(), ButtonType.CLOSE);
-        a.initOwner(appStage);
-        a.show();*/
 
-        VBox gridBox = new VBox();
+        bodyVBox.setPadding(new Insets(0, 5, 0, 5));
+
+        VBox gridBox = m_networksData.getNetworksBox(appStage.getWidth() - 100);
         VBox.setVgrow(gridBox, Priority.ALWAYS);
         HBox.setHgrow(gridBox, Priority.ALWAYS);
 
-        bodyVBox.getChildren().add(gridBox);
+        bodyVBox.getChildren().addAll(menuBar, gridBox);
 
-        refreshNetworksGrid(gridBox);
-
+        /*
         addButton.setOnAction(clickEvent -> {
             Network newNetwork = showNetworkStage(null);
 
             refreshNetworksGrid(gridBox);
-        });
-
-    }
-
-    public void refreshNetworksGrid(VBox gridBox) {
-        gridBox.getChildren().clear();
-        int numCells = networksData.getNetworks().size();
-
-        if (numCells == 0) {
-            IconButton addNetworkBtn = new IconButton(globeImg, "Add Network", "empty");
-
-            gridBox.setAlignment(Pos.CENTER);
-            gridBox.getChildren().add(addNetworkBtn);
-
-            addNetworkBtn.setOnAction(addEvent -> {
-                Network newNetwork = showNetworkStage(null);
-            });
-        } else {
-
-            Bounds layoutBounds = gridBox.getLayoutBounds();
-            double imageWidth = 100;
-            double cellPadding = 15;
-            double cellWidth = imageWidth + (cellPadding * 2);
-
-            int numCol = (int) Math.floor(cellWidth / layoutBounds.getWidth());
-            int numRows = (int) ((numCells > 0) && (numCol != 0) ? Math.ceil(numCells / numCol) : 1);
-
-            HBox[] rowsBoxes = new HBox[numRows];
-
-            Image iconImage = ergoNetworkImg;
-
-            ItemIterator grid = new ItemIterator();
-
-            networksData.getNetworks().forEach(network -> {
-
-                IconButton iconButton = new IconButton(iconImage, network.getId(), network.getUUID()); //createIconButton(imageWidth, cellPadding, iconImage, network.getName());
-
-                rowsBoxes[grid.getJ()].getChildren().add(iconButton);
-
-                if (grid.getI() < numCol) {
-                    grid.setI(grid.getI() + 1);
-                } else {
-                    grid.setI(0);
-                    grid.setJ(0);
-                }
-            });
-        }
+        });*/
     }
 
     private void showSettings(Stage appStage, VBox bodyVBox) {
@@ -661,24 +646,6 @@ public class App extends Application {
         updatesBox.setPadding(new Insets(0, 0, 0, 20));
 
         bodyVBox.getChildren().addAll(settingsBtnBox, passwordBox, updatesBox);
-    }
-
-    public Button createIconButton(double imageWidth, double padding, Image image, String title) {
-
-        ImageView btnImageView = highlightedImageView(image);
-        btnImageView.setFitHeight(imageWidth);
-        btnImageView.setPreserveRatio(true);
-
-        Button imageBtn = new Button(title);
-        imageBtn.setGraphic(btnImageView);
-        imageBtn.setId("iconBtn");
-        imageBtn.setFont(txtFont);
-        imageBtn.setContentDisplay(ContentDisplay.TOP);
-        imageBtn.setPrefWidth(imageWidth);
-        imageBtn.setPadding(new Insets(padding, padding, padding, padding));
-
-        return imageBtn;
-
     }
 
     private VBox createMenu(Button settingsBtn, Button networksBtn) {
@@ -844,156 +811,6 @@ public class App extends Application {
 
     }
 
-    public ArrayList<AddressData> getWalletAddressDataList(Wallet wallet, PriceChart priceChart, NetworkType networkType) {
-
-        // ErgoClient ergoClient = RestApiErgoClient.create(nodeApiAddress, networkType, "", networkType == NetworkType.MAINNET ? defaultMainnetExplorerUrl : defaultTestnetExplorerUrl);
-        ArrayList<AddressData> addressList = new ArrayList<>();
-        wallet.myAddresses.forEach((index, name) -> {
-
-            Address address = null;
-            try {
-                address = wallet.publicAddress(networkType, index);
-            } catch (Failure e) {
-
-            }
-            addressList.add(new AddressData(name, index, address, priceChart, networkType));
-
-        });
-
-        return addressList;
-    }
-
-    public void showOpenWalletStage(Wallet wallet, Network network) {
-
-        NetworkType networkType = network.getType() == Network.NetworkType.MAINNET ? NetworkType.MAINNET : NetworkType.TESTNET;
-
-        String name = network.getName() == Network.NetworkName.ERGO ? "Ergo" : "unknown";
-
-        String title = name + " wallet - (" + (network.getType() == Network.NetworkType.MAINNET ? "MAINNET" : "TESTNET") + ")";
-
-        PriceChart priceChart = new PriceChart();
-
-        double width = 450;
-
-        Stage openWalletStage = new Stage();
-        openWalletStage.setTitle(title);
-        openWalletStage.getIcons().add(walletImg240);
-        openWalletStage.setResizable(false);
-        openWalletStage.initStyle(StageStyle.UNDECORATED);
-
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-
-            openWalletStage.close();
-        });
-
-        HBox titleBox = createTopBar(icon, title, closeBtn, openWalletStage);
-
-        /*Button imageButton = createImageButton(walletImg240, title + "\n" + wallet.name.get());
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(imageBox, Priority.ALWAYS);*/
-        ImageView addImage = highlightedImageView(addImg);
-        addImage.setFitHeight(10);
-        addImage.setPreserveRatio(true);
-
-        Tooltip addTip = new Tooltip("Add address");
-        addTip.setShowDelay(new javafx.util.Duration(100));
-        addTip.setFont(txtFont);
-
-        Button addButton = new Button();
-        addButton.setGraphic(highlightedImageView(new Image("/assets/git-branch-outline-white-30.png")));
-        addButton.setId("menuBarBtn");
-        addButton.setPadding(new Insets(2, 6, 2, 6));
-        addButton.setTooltip(addTip);
-
-        Tooltip explorerUrlTip = new Tooltip("Explorer url");
-        explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
-        explorerUrlTip.setFont(txtFont);
-
-        Button explorerBtn = new Button();
-        explorerBtn.setGraphic(highlightedImageView(new Image("/assets/search-outline-white-30.png")));
-        explorerBtn.setId("menuBarBtn");
-        explorerBtn.setPadding(new Insets(2, 6, 2, 6));
-        explorerBtn.setTooltip(explorerUrlTip);
-        explorerBtn.setDisable(true);
-
-        TextField explorerURLField = new TextField();
-        explorerURLField.setId("urlField");
-        explorerURLField.setText(network.getCurrentExplorerURL());
-        explorerURLField.setEditable(false);
-        explorerURLField.setPrefWidth(350);
-        explorerURLField.setAlignment(Pos.CENTER_LEFT);
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox menuBar = new HBox(addButton, spacer, explorerBtn, explorerURLField);
-        HBox.setHgrow(menuBar, Priority.ALWAYS);
-        menuBar.setAlignment(Pos.CENTER_LEFT);
-        menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(5, 5, 5, 5));
-
-        HBox paddingBox = new HBox(menuBar);
-        paddingBox.setPadding(new Insets(2, 5, 2, 5));
-
-        VBox layoutBox = new VBox();
-        Font smallerFont = Font.font("OCR A Extended", 10);
-
-        Text updatedTxt = new Text("Updated:");
-        updatedTxt.setFill(altColor);
-        updatedTxt.setFont(smallerFont);
-
-        TextField lastUpdatedField = new TextField();
-        lastUpdatedField.setFont(smallerFont);
-        lastUpdatedField.setId("formField");
-
-        HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
-        updateBox.setAlignment(Pos.CENTER_RIGHT);
-
-        Region spacerRegion = new Region();
-        VBox.setVgrow(spacerRegion, Priority.ALWAYS);
-
-        VBox bodyVBox = new VBox(titleBox, paddingBox, layoutBox, spacerRegion, updateBox);
-
-        ArrayList<AddressData> addressDataList = getWalletAddressDataList(wallet, priceChart, networkType);
-
-        Scene openWalletScene = new Scene(bodyVBox, width, 525);
-        openWalletScene.getStylesheets().add("/css/startWindow.css");
-        openWalletStage.setScene(openWalletScene);
-        openWalletStage.show();
-
-        addButton.setOnAction(e -> {
-            String addressName = showGetTextInput("Address name", "Address name", branchImg);
-            if (addressName != null) {
-                int nextAddressIndex = wallet.nextAddressIndex();
-                wallet.myAddresses.put(nextAddressIndex, name);
-                try {
-                    Address address = wallet.publicAddress(networkType, nextAddressIndex);
-                    AddressData addressData = new AddressData(addressName, nextAddressIndex, address, priceChart, networkType);
-                    Button newButton = getAddressDataButton(openWalletScene.getWidth(), addressData, wallet, networkType);
-
-                    addressDataList.add(addressData);
-                    layoutBox.getChildren().add(newButton);
-                } catch (Failure e1) {
-                    Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
-                    a.show();
-                }
-
-            }
-        });
-
-        addressDataList.forEach(addressData -> {
-
-            Button rowBtn = getAddressDataButton(width, addressData, wallet, networkType);
-
-            HBox rowBox = new HBox(rowBtn);
-            HBox.setHgrow(rowBox, Priority.ALWAYS);
-            layoutBox.getChildren().add(rowBox);
-            HBox.setHgrow(layoutBox, Priority.ALWAYS);
-        });
-
-    }
-
     public String getNowTimeString() {
         LocalTime time = LocalTime.now();
 
@@ -1002,285 +819,11 @@ public class App extends Application {
         return formater.format(time);
     }
 
-    private Button getAddressDataButton(double width, AddressData addressData, Wallet wallet, NetworkType networkType) {
-
-        Tooltip addressTip = new Tooltip(addressData.getName());
-
-        Button rowBtn = new Button();
-        //  HBox.setHgrow(rowBtn, Priority.ALWAYS);
-        rowBtn.setPrefHeight(40);
-        rowBtn.setPrefWidth(width);
-        rowBtn.setAlignment(Pos.CENTER_LEFT);
-        rowBtn.setContentDisplay(ContentDisplay.LEFT);
-        rowBtn.setTooltip(addressTip);
-        rowBtn.setPadding(new Insets(0, 20, 0, 20));
-        rowBtn.setId("rowBtn");
-
-        updateAddressBtn(width, rowBtn, addressData);
-
-        rowBtn.setOnAction(e -> {
-            showAddressStage(wallet, networkType, addressData);
-        });
-
-        addressData.lastUpdated.addListener(e -> {
-            updateAddressBtn(width, rowBtn, addressData);
-        });
-
-        return rowBtn;
-    }
-
-    private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {
-
-        BufferedImage imageBuffer = addressData.getBufferedImage();
-
-        int remainingSpace = imageBuffer.getWidth();
-
-        String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
-
-        ImageView btnImageView = new ImageView();
-        if (imageBuffer != null) {
-            btnImageView.setImage(SwingFXUtils.toFXImage(imageBuffer, null));
-        }
-        String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
-        Tooltip addressTip = new Tooltip(addressData.getName());
-
-        rowBtn.setGraphic(btnImageView);
-        rowBtn.setText(text);
-        rowBtn.setTooltip(addressTip);
-
-    }
-
-    private void showAddressStage(Wallet wallet, NetworkType networkType, AddressData addressData) {
-
-        String title = "Ergo Wallet - " + addressData.getName() + " (" + (networkType.toString()) + "): " + addressData.getAddressMinimal(16);
-
-        Stage addressStage = new Stage();
-        addressStage.setTitle(title);
-        addressStage.getIcons().add(walletImg240);
-        addressStage.setResizable(false);
-        addressStage.initStyle(StageStyle.UNDECORATED);
-
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-            addressStage.close();
-        });
-
-        HBox titleBox = createTopBar(icon, title, closeBtn, addressStage);
-
-        ImageView addImage = highlightedImageView(addImg);
-        addImage.setFitHeight(10);
-        addImage.setPreserveRatio(true);
-
-        Tooltip selectMarketTip = new Tooltip("Select Market");
-        selectMarketTip.setShowDelay(new javafx.util.Duration(100));
-        selectMarketTip.setFont(txtFont);
-        ImageView arrow = highlightedImageView(new Image("/assets/navigate-outline-white-30.png"));
-        arrow.setFitWidth(25);
-        arrow.setPreserveRatio(true);
-
-        MenuButton changeMarketButton = new MenuButton();
-        changeMarketButton.setGraphic(arrow);
-        changeMarketButton.setId("menuBarBtn");
-        // changeMarketButton.setMaxWidth(30);
-        //  changeMarketButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        changeMarketButton.setTooltip(selectMarketTip);
-
-        Tooltip locationUrlTip = new Tooltip("Market url");
-        locationUrlTip.setShowDelay(new javafx.util.Duration(100));
-        locationUrlTip.setFont(txtFont);
-
-        TextField locationUrlField = new TextField();
-        locationUrlField.setId("urlField");
-        locationUrlField.setText(addressData.getCurrentPriceApiUrl());
-        locationUrlField.setEditable(false);
-        locationUrlField.setTooltip(locationUrlTip);
-        locationUrlField.setAlignment(Pos.CENTER_LEFT);
-        locationUrlField.setFont(txtFont);
-
-        addressData.getUrlMenuItems().forEach(item -> {
-            item.setId("urlMenuItem");
-            item.setOnAction(e -> {
-                addressData.setApiIndex(item.getIndex());
-                locationUrlField.setText(addressData.getCurrentPriceApiUrl());
-            });
-
-            changeMarketButton.getItems().add(item);
-
-        });
-
-        HBox.setHgrow(locationUrlField, Priority.ALWAYS);
-
-        HBox menuBar = new HBox(changeMarketButton, locationUrlField);
-        HBox.setHgrow(menuBar, Priority.ALWAYS);
-        menuBar.setAlignment(Pos.CENTER_LEFT);
-        menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(5, 5, 5, 5));
-
-        HBox paddingBox = new HBox(menuBar);
-        paddingBox.setPadding(new Insets(2, 5, 2, 5));
-
-        Text addressNameTxt = new Text("> Ergo wallet - " + addressData.getName() + " (" + networkType.toString() + "):");
-        addressNameTxt.setFill(Color.WHITE);
-        addressNameTxt.setFont(txtFont);
-
-        HBox addressNameBox = new HBox(addressNameTxt);
-        addressNameBox.setPadding(new Insets(3, 0, 5, 0));
-
-        Color formFieldColor = new Color(.8, .8, .8, .9);
-
-        Text addressTxt = new Text("  Address:");
-        addressTxt.setFont(txtFont);
-        addressTxt.setFill(formFieldColor);
-
-        TextField addressField = new TextField(addressData.getAddressString());
-        addressField.setEditable(false);
-
-        addressField.setFont(txtFont);
-        addressField.setId("formField");
-        HBox.setHgrow(addressField, Priority.ALWAYS);
-
-        HBox addressBox = new HBox(addressTxt, addressField);
-        addressBox.setAlignment(Pos.CENTER_LEFT);
-
-        Text ergQuantityTxt = new Text("  Balance:");
-        ergQuantityTxt.setFont(txtFont);
-        ergQuantityTxt.setFill(formFieldColor);
-        double unconfirmed = addressData.getFullAmountUnconfirmed();
-        TextField ergQuantityField = new TextField(addressData.getFullAmountDouble() + " ERG" + (unconfirmed != 0 ? (" (" + unconfirmed + " unconfirmed)") : ""));
-        ergQuantityField.setEditable(false);
-        ergQuantityField.setFont(txtFont);
-        ergQuantityField.setId("formField");
-        HBox.setHgrow(ergQuantityField, Priority.ALWAYS);
-
-        HBox ergQuantityBox = new HBox(ergQuantityTxt, ergQuantityField);
-        ergQuantityBox.setAlignment(Pos.CENTER_LEFT);
-
-        Text priceTxt = new Text("  Price: ");
-        priceTxt.setFont(txtFont);
-        priceTxt.setFill(formFieldColor);
-
-        TextField priceField = new TextField(addressData.getPriceString());
-        priceField.setEditable(false);
-
-        priceField.setFont(txtFont);
-        priceField.setId("formField");
-        HBox.setHgrow(priceField, Priority.ALWAYS);
-
-        HBox priceBox = new HBox(priceTxt, priceField);
-        priceBox.setAlignment(Pos.CENTER_LEFT);
-
-        Text balanceTxt = new Text("  Total:");
-        balanceTxt.setFont(txtFont);
-        balanceTxt.setFill(formFieldColor);
-
-        TextField balanceField = new TextField(addressData.getTotalAmountPriceString());
-        balanceField.setEditable(false);
-
-        balanceField.setFont(txtFont);
-        balanceField.setId("formField");
-        HBox.setHgrow(balanceField, Priority.ALWAYS);
-
-        HBox balanceBox = new HBox(balanceTxt, balanceField);
-        balanceBox.setAlignment(Pos.CENTER_LEFT);
-
-        Text lastUpdatedTxt = new Text("  Updated:");
-        lastUpdatedTxt.setFill(formFieldColor);
-        lastUpdatedTxt.setFont(txtFont);
-
-        TextField lastUpdatedField = new TextField(addressData.getLastUpdatedString());
-        lastUpdatedField.setEditable(false);
-        lastUpdatedField.setId("formField");
-        lastUpdatedField.setFont(txtFont);
-        HBox.setHgrow(lastUpdatedField, Priority.ALWAYS);
-
-        HBox lastUpdatedBox = new HBox(lastUpdatedTxt, lastUpdatedField);
-        lastUpdatedBox.setAlignment(Pos.CENTER_LEFT);
-
-        ImageView chartView = new ImageView();
-        chartView.setUserData(null);
-        // chartView.setPreserveRatio(true);
-        chartView.setFitWidth(400);
-        chartView.setFitHeight(150);
-        // chartView.setPreserveRatio(true);
-        Button chartButton = new Button("Getting price information");
-        chartButton.setGraphic(chartView);
-        chartButton.setContentDisplay(ContentDisplay.BOTTOM);
-        chartButton.setId("iconBtn");
-        chartButton.setFont(txtFont);
-
-        chartButton.setOnMouseEntered(e -> {
-            chartView.setUserData("mouseOver");
-            PriceChart pc = addressData.getPriceChart();
-            BufferedImage imgBuf = pc.getChartBufferedImage();
-            if (imgBuf != null) {
-                chartView.setImage(SwingFXUtils.toFXImage(pc.zoomLatest(48), null));
-            } else {
-                chartView.setImage(null);
-                chartButton.setText("Price unavailable");
-            }
-        });
-
-        chartButton.setOnMouseExited(e -> {
-            chartView.setUserData(null);
-
-            if (addressData.getPriceChart().getValid()) {
-                chartView.setImage(SwingFXUtils.toFXImage(Utils.greyScaleImage(addressData.getPriceChart().zoomLatest(48)), null));
-            } else {
-                chartView.setImage(null);
-                chartButton.setText("Price unavailable");
-            }
-        });
-
-        HBox chartBox = new HBox(chartButton);
-        chartBox.setAlignment(Pos.CENTER);
-        chartBox.setPadding(new Insets(5, 0, 20, 0));
-
-        VBox bodyVBox = new VBox(chartBox, addressNameBox, addressBox, ergQuantityBox, priceBox, balanceBox, lastUpdatedBox);
-        bodyVBox.setPadding(new Insets(0, 20, 0, 20));
-        VBox layoutVBox = new VBox(titleBox, paddingBox, bodyVBox);
-        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
-
-        Scene addressScene = new Scene(layoutVBox, 650, 500);
-
-        addressScene.getStylesheets().add("/css/startWindow.css");
-
-        addressStage.setScene(addressScene);
-        addressStage.show();
-
-        addressData.lastUpdated.addListener(changed -> {
-
-            double unconfirmedUpdate = addressData.getFullAmountUnconfirmed();
-            ergQuantityField.setText(addressData.getFullAmountDouble() + " ERG" + (unconfirmedUpdate != 0 ? (" (" + unconfirmedUpdate + " unconfirmed)") : ""));
-            double priceUpdate = addressData.getPrice();
-            priceField.setText(addressData.getPriceString());
-            balanceField.setText(addressData.getTotalAmountPriceString() + (unconfirmedUpdate != 0 ? (" (" + (unconfirmedUpdate * priceUpdate) + " unconfirmed)") : ""));
-            lastUpdatedField.setText(addressData.getLastUpdatedString());
-
-        });
-
-        addressData.getPriceChart().lastUpdated.addListener(updated -> {
-            PriceChart priceChart = addressData.getPriceChart();
-            if (priceChart.getValid()) {
-
-                chartButton.setText(priceChart.getSymbol() + " - " + priceChart.getTimespan() + " (" + priceChart.getTimeStampString() + ")");
-                if (chartView.getUserData() == null) {
-                    chartView.setImage(SwingFXUtils.toFXImage(Utils.greyScaleImage(addressData.getPriceChart().zoomLatest(48)), null));
-                } else {
-                    chartView.setImage(SwingFXUtils.toFXImage(addressData.getPriceChart().zoomLatest(48), null));
-                }
-            } else {
-                chartButton.setText("Price unavailable");
-                chartView.setImage(null);
-            }
-        });
-
-    }
-
-    public String showGetTextInput(String prompt, String title, Image img) {
+    public static String showGetTextInput(String prompt, String title, Image img) {
 
         Stage textInputStage = new Stage();
         textInputStage.setTitle(title);
-        textInputStage.getIcons().add(walletImg240);
+        textInputStage.getIcons().add(logo);
         textInputStage.setResizable(false);
         textInputStage.initStyle(StageStyle.UNDECORATED);
 
@@ -1351,840 +894,10 @@ public class App extends Application {
 
     }
 
-    public Network showNetworkStage(Network network) {
-
-        Network currentNetwork = network == null ? new Network(Network.NetworkName.ERGO, Network.NetworkType.MAINNET) : network;
-
-        Stage networkStage = new Stage();
-        networkStage.setTitle("Net Notes - Network");
-        networkStage.getIcons().add(ergoLogo);
-        networkStage.setResizable(false);
-        networkStage.initStyle(StageStyle.UNDECORATED);
-
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-            if (network == null) {
-
-                currentNetwork.setId(null);
-
-            }
-            networkStage.close();
-        });
-
-        HBox titleBox = createTopBar(icon, "Network", closeBtn, networkStage);
-
-        Button imageButton = createImageButton(globeImg, "Network");
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(imageBox, Priority.ALWAYS);
-
-        Text networkTypeTxt = new Text("> Name:  Ergo");
-        networkTypeTxt.setFill(txtColor);
-        networkTypeTxt.setFont(txtFont);
-
-        HBox networkTypeBox = new HBox(networkTypeTxt);
-        networkTypeBox.setPadding(new Insets(3, 0, 5, 0));
-        HBox.setHgrow(networkTypeBox, Priority.ALWAYS);
-
-        Text applicationTxt = new Text("> Application:");
-        applicationTxt.setFill(txtColor);
-        applicationTxt.setFont(txtFont);
-
-        Text addressTxt = new Text("URL:");
-        addressTxt.setFont(txtFont);
-        addressTxt.setFill(altColor);
-        addressTxt.setId("textField");
-
-        ImageView arrowRightImage = highlightedImageView(arrowRightImg);
-        arrowRightImage.setFitHeight(15);
-        arrowRightImage.setPreserveRatio(true);
-
-        Button addressBtn = new Button();
-        addressBtn.setGraphic(arrowRightImage);
-        addressBtn.setPadding(new Insets(2, 15, 2, 15));
-        addressBtn.setFont(txtFont);
-        addressBtn.setVisible(false);
-
-        TextField addressField = new TextField("Enter address or click manage...");
-        addressField.setId("formField");
-        HBox.setHgrow(addressField, Priority.ALWAYS);
-        addressField.setOnKeyPressed(key -> {
-            KeyCode keyCode = key.getCode();
-
-            if (keyCode == KeyCode.ENTER) {
-                String addressFieldText = addressField.getText();
-
-                try {
-                    currentNetwork.setUrl(addressFieldText);
-                    String currentHost = currentNetwork.getHost();
-                    if (currentHost == null) {
-
-                        addressField.setText("Enter address or click manage...");
-                    } else {
-                        int currentPort = currentNetwork.getPort();
-
-                        addressField.setText(currentHost + ":" + currentPort);
-
-                    }
-                    addressBtn.setVisible(false);
-
-                } catch (MalformedURLException e) {
-
-                    currentNetwork.setHost(null);
-
-                    addressBtn.setVisible(false);
-                    addressField.setText("Enter address or click manage...");
-
-                }
-            }
-        });
-
-        addressField.focusedProperty().addListener(new ChangeListener<Boolean>() {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> arg0, Boolean oldPropertyValue, Boolean newPropertyValue) {
-                String addressFieldText = addressField.getText();
-
-                if (newPropertyValue) {
-                    if (addressFieldText.equals("Enter address or click manage...")) {
-                        addressField.setText("");
-                    }
-                    addressBtn.setVisible(true);
-                } else {
-
-                    try {
-                        currentNetwork.setUrl(addressFieldText);
-                        String currentHost = currentNetwork.getHost();
-                        if (currentHost == null) {
-
-                            addressField.setText("Enter address or click manage...");
-                        } else {
-                            int currentPort = currentNetwork.getPort();
-
-                            addressField.setText(currentHost + ":" + currentPort);
-
-                        }
-                        addressBtn.setVisible(false);
-
-                    } catch (MalformedURLException e) {
-
-                        currentNetwork.setHost(null);
-
-                        addressBtn.setVisible(false);
-                        addressField.setText("Enter address or click manage...");
-
-                    }
-
-                }
-            }
-        });
-
-        HBox appLocationBox = new HBox(addressTxt, addressField, addressBtn);
-        appLocationBox.setPadding(new Insets(5, 0, 5, 20));
-        appLocationBox.setAlignment(Pos.CENTER_LEFT);
-
-        Button applicationBtn = new Button("Manage"); //127.0.0.1:9503
-        applicationBtn.setGraphic(highlightedImageView(new Image("/assets/server-outline-white-20.png")));
-        applicationBtn.setFont(txtFont);
-        applicationBtn.setPadding(new Insets(2, 10, 2, 10));
-
-        HBox manageBox = new HBox(applicationBtn);
-        manageBox.setAlignment(Pos.CENTER_LEFT);
-        manageBox.setPadding(new Insets(10, 0, 10, 20));
-
-        HBox applicationBox = new HBox(applicationTxt);
-        applicationBox.setAlignment(Pos.CENTER_LEFT);
-        applicationBox.setPadding(new Insets(3, 0, 0, 0));
-
-        Text walletTxt = new Text("> Wallet:");
-        walletTxt.setFill(txtColor);
-        walletTxt.setFont(txtFont);
-
-        Button openWalletBtn = new Button("Open");
-        openWalletBtn.setGraphic(highlightedImageView(walletLockImg20));
-        openWalletBtn.setPadding(new Insets(2, 10, 2, 10));
-        openWalletBtn.setFont(txtFont);
-        openWalletBtn.setDisable(true);
-        openWalletBtn.setOnAction(openEvent -> {
-
-            try {
-                WalletContainer walletContainer = confirmWalletPassword(currentNetwork.getWalletFile());
-                Wallet wallet = walletContainer.getWallet();
-
-                if (wallet != null) {
-                    showOpenWalletStage(wallet, currentNetwork);
-                }
-            } catch (Exception e) {
-                Alert noWallet = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                noWallet.showAndWait();
-            }
-
-        });
-
-        TextField fileTxtField = new TextField("Select file...");
-        fileTxtField.setId("formField");
-        fileTxtField.setEditable(false);
-        HBox.setHgrow(fileTxtField, Priority.ALWAYS);
-
-        Tooltip selectTooltip = new Tooltip("Select File");
-        selectTooltip.setShowDelay(new javafx.util.Duration(100));
-
-        Button selectWalletBtn = new Button();
-        selectWalletBtn.setGraphic(highlightedImageView(diskImg));
-        selectWalletBtn.setAlignment(Pos.CENTER);
-        selectWalletBtn.setTooltip(selectTooltip);
-
-        File defaultFile = null;
-        boolean isWallet = currentNetwork.isWallet();
-
-        if (isWallet) {
-            try {
-                defaultFile = currentNetwork.getWalletFile();
-            } catch (Exception e) {
-
-            }
-        }
-
-        if (defaultFile != null) {
-            fileTxtField.setText(defaultFile.getName());
-            openWalletBtn.setDisable(false);
-        }
-
-        TextField walletLocationField = new TextField("");
-        walletLocationField.setEditable(false);
-        walletLocationField.setId("formField");
-        HBox.setHgrow(walletLocationField, Priority.ALWAYS);
-
-        selectWalletBtn.setOnAction(e -> {
-
-            SelectedFile selectedWalletFile = showSelectWalletStage(currentNetwork);
-            File walletFile = selectedWalletFile.getFile();
-
-            if (walletFile != null) {
-                currentNetwork.setWalletFile(walletFile);
-                fileTxtField.setText(walletFile.getName());
-                openWalletBtn.setDisable(false);
-
-            } else {
-                if (currentNetwork.isWallet()) {
-
-                    try {
-                        fileTxtField.setText(currentNetwork.getWalletFile().getName());
-                        openWalletBtn.setDisable(false);
-                    } catch (Exception e1) {
-
-                        fileTxtField.setText("Select file...");
-                        openWalletBtn.setDisable(true);
-                    }
-                } else {
-
-                    fileTxtField.setText("Select file...");
-                    openWalletBtn.setDisable(true);
-                }
-            }
-        });
-
-        HBox walletBox = new HBox(walletTxt);
-        walletBox.setAlignment(Pos.CENTER_LEFT);
-        walletBox.setPadding(new Insets(5, 0, 3, 0));
-
-        Text fileTxt = new Text("File (*.erg):");
-        fileTxt.setFont(txtFont);
-        fileTxt.setFill(altColor);
-        fileTxt.setId("textField");
-
-        HBox fileBox = new HBox(fileTxt, fileTxtField, selectWalletBtn);
-        fileBox.setAlignment(Pos.CENTER_LEFT);
-        fileBox.setPadding(new Insets(0, 10, 0, 20));
-        fileBox.setPrefWidth(Double.MAX_VALUE);
-
-        Region hBar = null;
-        HBox gBox = null;
-        HBox addBox = null;
-
-        if (network == null) {
-
-            hBar = new Region();
-            hBar.setPrefWidth(400);
-            hBar.setPrefHeight(2);
-            hBar.setId("hGradient");
-
-            gBox = new HBox(hBar);
-            gBox.setAlignment(Pos.CENTER);
-            gBox.setPadding(new Insets(15, 0, 0, 0));
-            HBox.setHgrow(gBox, Priority.ALWAYS);
-
-            Button addBtn = new Button("Add");
-            addBtn.setPadding(new Insets(2, 10, 2, 10));
-            addBtn.setFont(txtFont);
-            addBtn.setOnAction(openEvent -> {
-
-            });
-
-            addBox = new HBox(addBtn);
-            addBox.setAlignment(Pos.CENTER);
-            addBox.setPadding(new Insets(25, 0, 0, 0));
-        }
-
-        HBox walletManageBox = new HBox(openWalletBtn);
-        walletManageBox.setPadding(new Insets(15, 0, 0, 20));
-
-        VBox bodyBox = null;
-        if (network == null) {
-            bodyBox = new VBox(imageBox, networkTypeBox, applicationBox, appLocationBox, manageBox, walletBox, fileBox, walletManageBox, gBox, addBox);
-        } else {
-            bodyBox = new VBox(imageBox, networkTypeBox, applicationBox, appLocationBox, manageBox, walletBox, fileBox, walletManageBox);
-        }
-        VBox.setMargin(bodyBox, new Insets(5, 10, 0, 20));
-        VBox.setVgrow(bodyBox, Priority.ALWAYS);
-        HBox.setHgrow(bodyBox, Priority.ALWAYS);
-
-        VBox networkVBox = new VBox(titleBox, bodyBox);
-        HBox.setHgrow(networkVBox, Priority.ALWAYS);
-
-        Scene networkScene = new Scene(networkVBox, 400, 525);
-        networkScene.getStylesheets().add("/css/startWindow.css");
-        networkStage.setScene(networkScene);
-
-        if (!isWallet) {
-            Platform.runLater(() -> selectWalletBtn.fire());
-        }
-        networkStage.showAndWait();
-        if (currentNetwork.getId() == null) {
-            return null;
-        } else {
-            return currentNetwork;
-        }
-
-    }
-
-    class SelectedFile {
-
-        private File m_file;
-
-        public SelectedFile(File file) {
-        }
-
-        public File getFile() {
-            return m_file;
-        }
-
-        public void setFile(File file) {
-            m_file = file;
-        }
-    }
-
-    public SelectedFile showSelectWalletStage(Network network) {
-
-        NetworkType networkType = network.getType() == Network.NetworkType.MAINNET ? NetworkType.MAINNET : NetworkType.TESTNET;
-
-        SelectedFile selectedFile = new SelectedFile(null);
-
-        Stage walletStage = new Stage();
-        walletStage.getIcons().add(logo);
-        walletStage.setResizable(false);
-        walletStage.initStyle(StageStyle.UNDECORATED);
-
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-            walletStage.close();
-        });
-
-        HBox titleBox = createTopBar(icon, "Network: Wallet file - " + (networkType == NetworkType.MAINNET ? "Mainnet" : "Testnet"), closeBtn, walletStage);
-
-        Button lockDocBtn = createImageButton(lockDocumentImg, "Wallet File");
-        HBox imageBox = new HBox(lockDocBtn);
-        imageBox.setAlignment(Pos.CENTER);
-
-        Text walletTxt = new Text("> Select wallet file:");
-        walletTxt.setFont(txtFont);
-        walletTxt.setFill(txtColor);
-
-        HBox textWalletBox = new HBox(walletTxt);
-        textWalletBox.setAlignment(Pos.CENTER_LEFT);
-        textWalletBox.setPadding(new Insets(10, 0, 0, 0));
-
-        Button newWalletBtn = new Button("Create");
-
-        newWalletBtn.setPadding(new Insets(2, 10, 2, 10));
-        newWalletBtn.setFont(txtFont);
-        newWalletBtn.setPrefWidth(120);
-
-        newWalletBtn.setOnAction(newWalletEvent -> {
-
-            String seedPhrase = createMnemonicStage();
-            if (!seedPhrase.equals("")) {
-                String password = createPassword(walletStage, "Ergo - New wallet: Password", ergoLogo, "New Wallet");
-
-                if (!password.equals("")) {
-                    Alert nextAlert = new Alert(AlertType.NONE, "Notice:\n\nThis password is required along with the mnemonic phrase in order to restore this wallet.\n\nPlease be aware that you may change the password to access your wallet, but you will always need this password in order to restore this wallet.\n\nIf it is possible for you to forget this password write it down and keep it in a secure location.\n\n", ButtonType.OK);
-                    nextAlert.initOwner(walletStage);
-                    nextAlert.setTitle("Password: Notice");
-                    nextAlert.showAndWait();
-
-                    Mnemonic mnemonic = Mnemonic.create(SecretString.create(seedPhrase), SecretString.create(password));
-
-                    FileChooser saveFileChooser = new FileChooser();
-                    saveFileChooser.setInitialDirectory(walletsDir);
-                    saveFileChooser.setTitle("Save: Wallet file");
-                    saveFileChooser.getExtensionFilters().add(ergExt);
-                    saveFileChooser.setSelectedExtensionFilter(ergExt);
-
-                    File walletFile = saveFileChooser.showSaveDialog(walletStage);
-
-                    if (walletFile == null) {
-                        Alert a = new Alert(AlertType.NONE, "Wallet creation:\n\nCanceled by user.\n\n", ButtonType.CLOSE);
-                        a.initOwner(walletStage);
-                        a.setTitle("Wallet creation: Canceled");
-                        a.showAndWait();
-
-                    } else {
-                        try {
-                            Wallet wallet = Wallet.create(walletFile.toPath(), mnemonic, walletFile.getName(), password.toCharArray());
-                            selectedFile.setFile(walletFile);
-
-                            showOpenWalletStage(wallet, network);
-                            walletStage.close();
-                        } catch (Exception e1) {
-                            Alert a = new Alert(AlertType.NONE, "Wallet creation:\n\n" + e1.toString() + ". Creation process terminated.\n\n" + e1.toString(), ButtonType.OK);
-                            a.initOwner(walletStage);
-                            a.show();
-                        }
-                    }
-
-                }
-            }
-
-        });
-
-        Button existingWalletBtn = new Button("Open");
-        existingWalletBtn.setPadding(new Insets(2, 10, 2, 10));
-        existingWalletBtn.setPrefWidth(120);
-        existingWalletBtn.setFont(txtFont);
-        existingWalletBtn.setOnAction(clickEvent -> {
-            FileChooser openFileChooser = new FileChooser();
-            openFileChooser.setInitialDirectory(walletsDir);
-            openFileChooser.setTitle("Open: Wallet file");
-            openFileChooser.getExtensionFilters().add(ergExt);
-            openFileChooser.setSelectedExtensionFilter(ergExt);
-
-            File walletFile = openFileChooser.showOpenDialog(walletStage);
-
-            if (walletFile != null) {
-
-                WalletContainer walletContainer = confirmWalletPassword(walletFile);
-                Wallet wallet = walletContainer.getWallet();
-                if (wallet != null) {
-                    selectedFile.setFile(walletFile);
-                    showOpenWalletStage(wallet, network);
-                    walletStage.close();
-
-                }
-
-            }
-        });
-
-        Button restoreWalletBtn = new Button("Restore");
-        restoreWalletBtn.setPadding(new Insets(2, 5, 2, 5));
-        restoreWalletBtn.setFont(txtFont);
-        restoreWalletBtn.setPrefWidth(120);
-        restoreWalletBtn.setOnAction(clickEvent -> {
-            String seedPhrase = restoreMnemonicStage();
-            if (!seedPhrase.equals("")) {
-                String password = createPassword(walletStage, "Ergo - Restore wallet: Password", ergoLogo, "Restore Wallet");
-
-                if (!password.equals("")) {
-                    Mnemonic mnemonic = Mnemonic.create(SecretString.create(seedPhrase), SecretString.create(password));
-
-                    FileChooser saveFileChooser = new FileChooser();
-                    saveFileChooser.setInitialDirectory(walletsDir);
-                    saveFileChooser.setTitle("Save: Wallet file");
-                    saveFileChooser.getExtensionFilters().add(ergExt);
-                    saveFileChooser.setSelectedExtensionFilter(ergExt);
-
-                    File walletFile = saveFileChooser.showSaveDialog(walletStage);
-
-                    if (walletFile == null) {
-                        Alert a = new Alert(AlertType.NONE, "Wallet restoration: Canceled", ButtonType.CLOSE);
-                        a.initOwner(walletStage);
-                        a.setTitle("Wallet restoration: Canceled");
-                        a.showAndWait();
-
-                    } else {
-                        try {
-                            Wallet newWallet = Wallet.create(walletFile.toPath(), mnemonic, seedPhrase, password.toCharArray());
-
-                            //  Files.write(walletFile.toPath(), newWallet.serializeEncrypted());
-                            selectedFile.setFile(walletFile);
-                            showOpenWalletStage(newWallet, network);
-                            walletStage.close();
-
-                        } catch (Exception e1) {
-                            Alert a = new Alert(AlertType.NONE, "Wallet creation: Cannot be saved.\n\n" + e1.toString(), ButtonType.OK);
-                            a.initOwner(walletStage);
-                            a.show();
-                        }
-                    }
-
-                }
-            }
-
-        });
-
-        Region lRegion = new Region();
-        lRegion.setPrefWidth(20);
-
-        Region rRegion = new Region();
-        rRegion.setPrefWidth(20);
-
-        HBox newWalletBox = new HBox(newWalletBtn, lRegion, existingWalletBtn, rRegion, restoreWalletBtn);
-        newWalletBox.setAlignment(Pos.CENTER);
-        VBox.setVgrow(newWalletBox, Priority.ALWAYS);
-        newWalletBox.setPadding(new Insets(45, 0, 0, 0));
-
-        Region hBar = new Region();
-        hBar.setPrefWidth(400);
-        hBar.setPrefHeight(2);
-        hBar.setId("hGradient");
-
-        HBox gBox = new HBox(hBar);
-        gBox.setAlignment(Pos.CENTER);
-        gBox.setPadding(new Insets(45, 0, 0, 0));
-        HBox.setHgrow(gBox, Priority.ALWAYS);
-
-        Button okBtn = new Button("Close");
-        okBtn.setPadding(new Insets(2, 5, 2, 5));
-        okBtn.setFont(txtFont);
-        okBtn.setPrefWidth(120);
-        okBtn.setOnAction(clickEvent -> {
-            walletStage.close();
-        });
-
-        HBox okBox = new HBox(okBtn);
-        okBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(okBox, Priority.ALWAYS);
-        okBox.setPadding(new Insets(20, 0, 0, 0));
-
-        VBox bodyBox = new VBox(textWalletBox, newWalletBox, gBox, okBox);
-        bodyBox.setPadding(new Insets(0, 20, 0, 20));
-
-        VBox layoutBox = new VBox(titleBox, imageBox, bodyBox);
-
-        Scene walletScene = new Scene(layoutBox, 600, 425);
-        walletScene.getStylesheets().add("/css/startWindow.css");
-        walletStage.setScene(walletScene);
-
-        walletStage.showAndWait();
-
-        return selectedFile;
-    }
-
-    public WalletContainer confirmWalletPassword(File file) {
-        Stage walletPasswordStage = new Stage();
-        walletPasswordStage.setResizable(false);
-        walletPasswordStage.initStyle(StageStyle.UNDECORATED);
-        walletPasswordStage.setTitle("Wallet file: Security");
-
-        WalletContainer walletContainer = new WalletContainer();
-
-        Button closeBtn = new Button();
-
-        HBox titleBox = createTopBar(icon, "Wallet file - Security", closeBtn, walletPasswordStage);
-        closeBtn.setOnAction(event -> {
-            walletPasswordStage.close();
-        });
-        Button imageButton = createImageButton(lockDocumentImg, "Wallet File");
-
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
-
-        Text passwordTxt = new Text("> Enter password:");
-        passwordTxt.setFill(txtColor);
-        passwordTxt.setFont(txtFont);
-
-        PasswordField passwordField = new PasswordField();
-        passwordField.setFont(txtFont);
-        passwordField.setId("passField");
-        HBox.setHgrow(passwordField, Priority.ALWAYS);
-
-        Platform.runLater(() -> passwordField.requestFocus());
-
-        HBox passwordBox = new HBox(passwordTxt, passwordField);
-        passwordBox.setAlignment(Pos.CENTER_LEFT);
-
-        Button clickRegion = new Button();
-        clickRegion.setPrefWidth(Double.MAX_VALUE);
-        clickRegion.setId("transparentColor");
-        clickRegion.setPrefHeight(500);
-
-        clickRegion.setOnAction(e -> {
-            passwordField.requestFocus();
-
-        });
-
-        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
-
-        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
-        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
-
-        Scene passwordScene = new Scene(layoutVBox, 600, 425);
-
-        passwordScene.getStylesheets().add("/css/startWindow.css");
-        walletPasswordStage.setScene(passwordScene);
-
-        passwordField.setOnKeyPressed(e -> {
-
-            KeyCode keyCode = e.getCode();
-
-            if (keyCode == KeyCode.ENTER) {
-
-                try {
-
-                    walletContainer.setWallet(Wallet.load(file.toPath(), passwordField.getText()));;
-
-                    walletPasswordStage.close();
-                } catch (Exception e1) {
-
-                    passwordField.setText("");
-                }
-
-            }
-        });
-        walletPasswordStage.showAndWait();
-        return walletContainer;
-    }
-
-    public static String restoreMnemonicStage() {
-        String titleStr = "Ergo - Restore wallet: Mnemonic phrase";
-
-        Stage mnemonicStage = new Stage();
-
-        mnemonicStage.setTitle(titleStr);
-
-        mnemonicStage.getIcons().add(logo);
-        mnemonicStage.setResizable(false);
-        mnemonicStage.initStyle(StageStyle.UNDECORATED);
-
-        Button closeBtn = new Button();
-
-        HBox titleBox = createTopBar(icon, titleStr, closeBtn, mnemonicStage);
-
-        Button imageButton = createImageButton(ergoLogo, "Restore wallet");
-
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
-
-        Text subTitleTxt = new Text("> Mnemonic phrase - Required to recover wallet:");
-        subTitleTxt.setFill(txtColor);
-        subTitleTxt.setFont(txtFont);
-
-        HBox subTitleBox = new HBox(subTitleTxt);
-        subTitleBox.setAlignment(Pos.CENTER_LEFT);
-
-        TextArea mnemonicField = new TextArea();
-        mnemonicField.setFont(txtFont);
-        mnemonicField.setId("formField");
-
-        mnemonicField.setWrapText(true);
-        mnemonicField.setPrefRowCount(2);
-        HBox.setHgrow(mnemonicField, Priority.ALWAYS);
-
-        Platform.runLater(() -> mnemonicField.requestFocus());
-
-        HBox mnemonicBox = new HBox(mnemonicField);
-        mnemonicBox.setPadding(new Insets(20, 30, 0, 30));
-
-        Region hBar = new Region();
-        hBar.setPrefWidth(400);
-        hBar.setPrefHeight(2);
-        hBar.setId("hGradient");
-
-        HBox gBox = new HBox(hBar);
-        gBox.setAlignment(Pos.CENTER);
-        gBox.setPadding(new Insets(15, 0, 0, 0));
-
-        Button nextBtn = new Button("Words left: 15");
-        nextBtn.setId("toolBtn");
-        nextBtn.setFont(txtFont);
-        nextBtn.setDisable(true);
-        nextBtn.setOnAction(nxtEvent -> {
-            String mnemonicString = mnemonicField.getText();;
-
-            String[] words = mnemonicString.split("\\s+");
-
-            List<String> mnemonicList = Arrays.asList(words);
-            try {
-                Mnemonic.checkEnglishMnemonic(mnemonicList);
-                mnemonicStage.close();
-            } catch (MnemonicValidationException e) {
-                Alert a = new Alert(AlertType.NONE, "Error: Mnemonic invalid\n\nPlease correct the mnemonic phrase and try again.", ButtonType.CLOSE);
-                a.initOwner(mnemonicStage);
-                a.setTitle("Error: Mnemonic invalid.");
-            }
-
-        });
-
-        mnemonicField.setOnKeyPressed(e1 -> {
-            String mnemonicString = mnemonicField.getText();;
-
-            String[] words = mnemonicString.split("\\s+");
-            int numWords = words.length;
-            if (numWords == 15) {
-                nextBtn.setText("Ok");
-                List<String> mnemonicList = Arrays.asList(words);
-                try {
-                    Mnemonic.checkEnglishMnemonic(mnemonicList);
-                    nextBtn.setDisable(false);
-
-                } catch (MnemonicValidationException e) {
-                    nextBtn.setText("Invalid");
-                    nextBtn.setId("toolBtn");
-                    nextBtn.setDisable(true);
-                }
-
-            } else {
-                if (nextBtn.getText().equals("")) {
-                    nextBtn.setText("Words left: 15");
-                } else {
-                    nextBtn.setText("Words left: " + (15 - numWords));
-                }
-
-                nextBtn.setId("toolBtn");
-                nextBtn.setDisable(true);
-            }
-
-        });
-
-        HBox nextBox = new HBox(nextBtn);
-        nextBox.setAlignment(Pos.CENTER);
-        nextBox.setPadding(new Insets(25, 0, 0, 0));
-
-        VBox bodyBox = new VBox(subTitleBox, mnemonicBox, gBox, nextBox);
-        VBox.setMargin(bodyBox, new Insets(5, 10, 0, 20));
-        VBox.setVgrow(bodyBox, Priority.ALWAYS);
-
-        VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
-
-        Scene mnemonicScene = new Scene(layoutVBox, 600, 425);
-
-        mnemonicScene.getStylesheets().add("/css/startWindow.css");
-        mnemonicStage.setScene(mnemonicScene);
-
-        closeBtn.setOnAction(e -> {
-            Alert terminateAlert = new Alert(AlertType.NONE, "Wallet creation:\n\nTerminated.", ButtonType.CLOSE);
-            terminateAlert.initOwner(mnemonicStage);
-            terminateAlert.setTitle("Wallet creation: Terminated");
-            terminateAlert.showAndWait();
-
-            mnemonicStage.close();
-            mnemonicField.setText("");
-
-        });
-
-        mnemonicStage.showAndWait();
-
-        return mnemonicField.getText();
-
-    }
-
-    public static String createMnemonicStage() {
-        String titleStr = "Ergo - New wallet: Mnemonic phrase";
-
-        String mnemonic = Mnemonic.generateEnglishMnemonic();
-
-        Stage mnemonicStage = new Stage();
-
-        mnemonicStage.setTitle(titleStr);
-
-        mnemonicStage.getIcons().add(logo);
-        mnemonicStage.setResizable(false);
-        mnemonicStage.initStyle(StageStyle.UNDECORATED);
-
-        Button closeBtn = new Button();
-
-        HBox titleBox = createTopBar(icon, titleStr, closeBtn, mnemonicStage);
-
-        Button imageButton = createImageButton(ergoLogo, "New Wallet");
-
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
-
-        Text subTitleTxt = new Text("> Mnemonic phrase - Required to recover wallet:");
-        subTitleTxt.setFill(txtColor);
-        subTitleTxt.setFont(txtFont);
-
-        HBox subTitleBox = new HBox(subTitleTxt);
-        subTitleBox.setAlignment(Pos.CENTER_LEFT);
-
-        TextArea mnemonicField = new TextArea(mnemonic);
-        mnemonicField.setFont(txtFont);
-        mnemonicField.setId("textField");
-        mnemonicField.setEditable(false);
-        mnemonicField.setWrapText(true);
-        mnemonicField.setPrefRowCount(2);
-        HBox.setHgrow(mnemonicField, Priority.ALWAYS);
-
-        Platform.runLater(() -> mnemonicField.requestFocus());
-
-        HBox mnemonicBox = new HBox(mnemonicField);
-        mnemonicBox.setPadding(new Insets(20, 30, 0, 30));
-
-        Region hBar = new Region();
-        hBar.setPrefWidth(400);
-        hBar.setPrefHeight(2);
-        hBar.setId("hGradient");
-
-        HBox gBox = new HBox(hBar);
-        gBox.setAlignment(Pos.CENTER);
-        gBox.setPadding(new Insets(15, 0, 0, 0));
-
-        Button nextBtn = new Button("Next");
-
-        nextBtn.setFont(txtFont);
-        nextBtn.setOnAction(nxtEvent -> {
-            Alert nextAlert = new Alert(AlertType.NONE, "User Agreement:\n\nI have written the mnemonic phrase down and will store it in a secure location.", ButtonType.NO, ButtonType.YES);
-            nextAlert.initOwner(mnemonicStage);
-            nextAlert.setTitle("User Agreement");
-            Optional<ButtonType> result = nextAlert.showAndWait();
-            if (result.isPresent() && result.get() == ButtonType.YES) {
-                mnemonicStage.close();
-            }
-        });
-
-        HBox nextBox = new HBox(nextBtn);
-        nextBox.setAlignment(Pos.CENTER);
-        nextBox.setPadding(new Insets(25, 0, 0, 0));
-
-        VBox bodyBox = new VBox(subTitleBox, mnemonicBox, gBox, nextBox);
-        VBox.setMargin(bodyBox, new Insets(5, 10, 0, 20));
-        VBox.setVgrow(bodyBox, Priority.ALWAYS);
-
-        VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
-
-        Scene mnemonicScene = new Scene(layoutVBox, 600, 425);
-
-        mnemonicScene.getStylesheets().add("/css/startWindow.css");
-        mnemonicStage.setScene(mnemonicScene);
-
-        closeBtn.setOnAction(e -> {
-            Alert terminateAlert = new Alert(AlertType.NONE, "Wallet creation:\n\nTerminated.", ButtonType.CLOSE);
-            terminateAlert.initOwner(mnemonicStage);
-            terminateAlert.setTitle("Wallet creation: Terminated");
-            terminateAlert.showAndWait();
-
-            mnemonicStage.close();
-            mnemonicField.setText("");
-
-        });
-
-        mnemonicStage.showAndWait();
-
-        return mnemonicField.getText();
-    }
-
     public static HBox createTopBar(Image iconImage, String titleString, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitHeight(18);
+        barIconView.setFitWidth(25);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -2222,7 +935,7 @@ public class App extends Application {
 
         HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, closeBtn);
         newTopBar.setAlignment(Pos.CENTER_LEFT);
-        newTopBar.setPadding(new Insets(5, 8, 10, 10));
+        newTopBar.setPadding(new Insets(7, 8, 10, 10));
         newTopBar.setId("topBar");
 
         Delta dragDelta = new Delta();
@@ -2246,7 +959,7 @@ public class App extends Application {
         return newTopBar;
     }
 
-    private static Button createImageButton(Image image, String name) {
+    public static Button createImageButton(Image image, String name) {
         ImageView btnImageView = new ImageView(image);
         btnImageView.setFitHeight(135);
         btnImageView.setPreserveRatio(true);
@@ -2276,7 +989,7 @@ public class App extends Application {
             imageView.setImage(new Image("/assets/ergo-white-256.png"));
         }
     }*/
-    private static ImageView highlightedImageView(Image image) {
+    public static ImageView highlightedImageView(Image image) {
 
         ImageView imageView = new ImageView(image);
 
@@ -2345,7 +1058,7 @@ public class App extends Application {
 
         VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 425);
+        Scene passwordScene = new Scene(layoutVBox, 600, 375);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
@@ -2375,30 +1088,4 @@ public class App extends Application {
         return passwordField.getText().equals("") ? null : passwordField.getText();
     }
 
-    public class ItemIterator {
-
-        private int m_i;
-        private int m_j;
-
-        public ItemIterator() {
-            m_i = 0;
-            m_j = 0;
-        }
-
-        public void setI(int i) {
-            m_i = i;
-        }
-
-        public int getI() {
-            return m_i;
-        }
-
-        public int getJ() {
-            return m_j;
-        }
-
-        public void setJ(int j) {
-            m_j = j;
-        }
-    }
 }

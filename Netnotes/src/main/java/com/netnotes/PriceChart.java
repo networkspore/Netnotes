@@ -5,14 +5,13 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
-import java.awt.Rectangle;
+
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
+
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
@@ -20,34 +19,29 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import javax.imageio.ImageIO;
-import javax.net.ssl.HttpsURLConnection;
-
+import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import com.satergo.WalletKey.Local;
-import com.utils.Utils;
 
-import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.ObjectProperty;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.ProgressIndicator;
 
-public class PriceChart {
+public class PriceChart implements NoteInterface {
+
+    private File logFile = new File("pricechart-log.txt");
+
+    private NumberClass m_numberClass = new NumberClass();
+
+    private String m_uuid;
 
     private ArrayList<PriceData> m_priceList = new ArrayList<>();
 
-    public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<>();
+    public SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
 
     private boolean m_valid = false;
     private Font m_headingFont = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 18);
@@ -55,25 +49,232 @@ public class PriceChart {
     Color m_backgroundColor = new Color(1f, 1f, 1f, 0f);
     Font m_labelFont = new Font("OCR A Extended", java.awt.Font.PLAIN, 10);
     private double m_scale = 0;
-    public int m_cellWidth = 20;
-    public int m_chartHeight = 800;
+    private int m_cellWidth = 20;
+    private int m_chartHeight = 800;
     private String m_msg = "Getting price information";
-    private String m_timeSpan = "30min";
-    private String m_symbol = "ERG-USDT";
+    private String m_timeSpan;
+    private String m_symbol;
     private double m_currentPrice = 0;
+    private BufferedImage m_img = null;
+    private NoteInterface m_noteInterface;
+    private String m_exchangeNetworkId;
 
-    public BufferedImage m_img = null;
+    public PriceChart(NoteInterface noteInterface, String exchangeNetworkID, String symbol, String timeSpan) {
 
-    File logFile = new File("log.txt");
+        m_noteInterface = noteInterface;
+        m_noteInterface.addTunnelNoteInterface(this);
 
-    public PriceChart() {
-        updateKucoinPriceData(null);
-    }
-
-    public PriceChart(String timeSpan, String symbol, ProgressIndicator progressIndicator) {
+        m_uuid = noteInterface.getNetworkId() + ":" + FriendlyId.createFriendlyId();
         m_timeSpan = timeSpan;
         m_symbol = symbol;
-        updateKucoinPriceData(progressIndicator);
+
+        m_exchangeNetworkId = exchangeNetworkID;
+        updatePriceDataList();
+    }
+
+    public PriceChart(JsonObject jsonObject, NoteInterface noteInterface) {
+        m_noteInterface = noteInterface;
+        m_noteInterface.addTunnelNoteInterface(this);
+
+        JsonElement uuidElement = jsonObject == null ? null : jsonObject.get("uuid");
+        JsonElement symbolElement = jsonObject == null ? null : jsonObject.get("symbol");
+        JsonElement timeSpanElement = jsonObject == null ? null : jsonObject.get("timeSpan");
+        JsonElement exchangeIdElement = jsonObject == null ? null : jsonObject.get("exchangeNetworkId");
+
+        m_uuid = uuidElement == null ? noteInterface.getNetworkId() + ":" + FriendlyId.createFriendlyId() : uuidElement.getAsString();
+        m_timeSpan = timeSpanElement == null ? "30min" : timeSpanElement.getAsString();
+        m_symbol = symbolElement == null ? "ERG-USDT" : symbolElement.getAsString();
+        m_exchangeNetworkId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
+
+        updatePriceDataList();
+    }
+
+    public String getNetworkId() {
+        return m_uuid;
+    }
+
+    public NoteInterface getParentInterface() {
+        return m_noteInterface;
+    }
+
+    public String getFullNetworkId() {
+        String fullNetworkId = m_uuid;
+        NoteInterface parent = m_noteInterface;
+        while (parent != null) {
+            fullNetworkId = parent.getNetworkId() + "." + fullNetworkId;
+            parent = parent.getParentInterface();
+        }
+        return fullNetworkId;
+    }
+
+    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
+        JsonElement subjectElement = note.get("subject");
+        JsonElement topicElement = note.get("topic");
+        JsonElement tunnelIdElement = note.get("tunnelId");
+
+        if (subjectElement != null && topicElement != null && tunnelIdElement != null) {
+            String tunnelId = tunnelIdElement.getAsString();
+            if (tunnelId.equals(getFullNetworkId())) {
+                String subjectString = subjectElement.getAsString();
+                String topicString = topicElement.getAsString();
+
+                switch (subjectString) {
+                    case "trade.candles.update":
+
+                        JsonElement dataElement = note.get("data");
+                        if (dataElement != null) {
+                            JsonArray dataArray = dataElement.getAsJsonArray();
+
+                            /*for (WebClientListener messagelistener : listeners) {
+
+                                                messagelistener.updatePriceData(tunnelId, topicString, priceData);
+                                            }*/
+                            return true;
+                        }
+
+                        break;
+                    default:
+                        /*for (WebClientListener messagelistener : listeners) {
+
+                                            messagelistener.message(tunnelId, messageObject);
+                                        }*/
+                        break;
+                }
+            }
+        }
+        return false;
+    }
+
+    public JsonObject getJsonObject() {
+        return null;
+    }
+
+    public IconButton getButton() {
+        return null;
+    }
+
+    public NetworksData getNetworksData() {
+        return m_noteInterface.getNetworksData();
+    }
+
+    public ArrayList<NoteInterface> getTunnelNoteInterfaces() {
+        return m_noteInterface.getTunnelNoteInterfaces();
+    }
+
+    public void addTunnelNoteInterface(NoteInterface noteInterface) {
+        m_noteInterface.addTunnelNoteInterface(noteInterface);
+    }
+
+    public void removeTunnelNoteInterface(String id) {
+        m_noteInterface.removeTunnelNoteInterface(id);
+    }
+
+    public void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        m_noteInterface.sendNoteToTunnelInterface(note, tunnelId, onSucceeded, onFailed);
+        /*int index = tunnelId.indexOf(":");
+
+        String networkId = index == -1 ? tunnelId : tunnelId.substring(0, index);
+
+        NoteInterface networkInterface = m_noteInterface.getNetworksData().getNoteInterface(networkId);
+
+        for (NoteInterface noteInterface : networkInterface.getTunnelNoteInterfaces()) {
+
+            if (noteInterface.getNetworkId().equals(tunnelId)) {
+                noteInterface.sendNoteToTunnelInterface(note, tunnelId, onSucceeded, onFailed);
+            }
+        }*/
+    }
+
+    public NoteInterface getTunnelNoteInterface(String networkId) {
+        return m_noteInterface.getTunnelNoteInterface(networkId);
+    }
+
+    private JsonObject getPriceDataListJson() {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("subject", "GET_CANDLES_DATASET");
+        jsonObject.addProperty("symbol", m_symbol);
+        jsonObject.addProperty("timeSpan", m_timeSpan);
+        return jsonObject;
+    }
+
+    public void updatePriceDataList() {
+        if (m_exchangeNetworkId != null) {
+            m_noteInterface.getNetworksData().sendNoteToNetworkId(getPriceDataListJson(), m_exchangeNetworkId, success -> {
+                ByteArrayOutputStream output = (ByteArrayOutputStream) success.getSource().getValue();
+
+                if (output != null) {
+                    String outputString = output.toString();
+                    JsonObject json = null;
+                    try {
+                        json = new JsonParser().parse(outputString).getAsJsonObject();
+                    } catch (JsonParseException e) {
+
+                    }
+
+                    if (json != null) {
+                        NumberClass numberClass = new NumberClass();
+
+                        ArrayList<PriceData> tmpPriceList = new ArrayList<>();
+                        JsonArray jsonArray = json.get("data").getAsJsonArray();
+
+                        jsonArray.forEach(dataElement -> {
+
+                            JsonArray dataArray = dataElement.getAsJsonArray();
+
+                            PriceData priceData = new PriceData(dataArray);
+                            if (numberClass.low.get() == 0) {
+                                numberClass.low.set(priceData.getLow());
+                            }
+
+                            numberClass.sum.set(numberClass.sum.get() + priceData.getClose());
+                            numberClass.count.set(numberClass.count.get() + 1);
+                            tmpPriceList.add(priceData);
+                            if (priceData.getHigh() > numberClass.high.get()) {
+                                numberClass.high.set(priceData.getHigh());
+                            }
+                            if (priceData.getLow() < numberClass.low.get()) {
+                                numberClass.low.set(priceData.getLow());
+                            }
+                        });
+
+                        Collections.reverse(tmpPriceList);
+                        m_priceList = tmpPriceList;
+                        m_valid = true;
+                    } else {
+                        m_valid = false;
+                    }
+                    updateBufferedImage();
+                } else {
+
+                }
+            }, e -> {
+
+            });
+        } else {
+            m_valid = false;
+            updateBufferedImage();
+        }
+    }
+
+    private void updateCandleData(PriceData priceData) {
+        int priceListSize = m_priceList.size();
+
+        if (priceListSize > 0) {
+            int lastIndex = m_priceList.size() - 1;
+            PriceData lastData = m_priceList.get(lastIndex);
+
+            if (lastData.getTimestamp() == priceData.getTimestamp()) {
+                m_priceList.set(lastIndex, priceData);
+            } else {
+                m_priceList.add(priceData);
+            }
+        } else {
+            m_priceList.add(priceData);
+
+        }
+        m_currentPrice = priceData.getClose();
+        updateBufferedImage();
     }
 
     public double getCurrentPrice() {
@@ -152,196 +353,11 @@ public class PriceChart {
         return m_valid;
     }
 
-    public class NumberClass {
-
-        private SimpleDoubleProperty high = new SimpleDoubleProperty();
-        private SimpleDoubleProperty low = new SimpleDoubleProperty();
-        public SimpleDoubleProperty sum = new SimpleDoubleProperty();
-        public SimpleIntegerProperty count = new SimpleIntegerProperty();
-
-        public NumberClass() {
-            count.set(0);
-            sum.set(0);
-            high.set(0);
-            low.set(0);
-        }
-
-        public double getAverage() {
-            return count.get() == 0 ? 0 : sum.get() / count.get();
-        }
-    }
-    private NumberClass m_numberClass = new NumberClass();
-
     public NumberClass getNumbers() {
         return m_numberClass;
     }
 
-    public void getKucoinPriceStream() {
-
-        Task<JsonObject> task = new Task<JsonObject>() {
-            @Override
-            public JsonObject call() {
-                InputStream inputStream = null;
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                try {
-                    URL url = new URL("https://api.kucoin.com/api/v1/bullet-public");
-
-                    String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
-                    //  String urlParameters = "param1=a&param2=b&param3=c";
-
-                    //  byte[] postData = new byte[]{};
-                    //  int postDataLength = postData.length;
-                    HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-
-                    //  conn.setDoOutput(false);
-                    //   conn.setInstanceFollowRedirects(false);
-                    conn.setRequestMethod("POST");
-                    //  conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                    //   conn.setRequestProperty("charset", "utf-8");
-                    //  conn.setRequestProperty("Content-Length", Integer.toString(postDataLength));
-                    //   conn.setUseCaches(false);
-
-                    conn.setRequestProperty("Content-Type", "application/json");
-
-                    conn.setRequestProperty("User-Agent", USER_AGENT);
-
-                    // long contentLength = con.getContentLengthLong();
-                    inputStream = conn.getInputStream();
-
-                    byte[] buffer = new byte[2048];
-
-                    int length;
-                    // long downloaded = 0;
-
-                    while ((length = inputStream.read(buffer)) != -1) {
-
-                        outputStream.write(buffer, 0, length);
-                        //   downloaded += (long) length;
-
-                    }
-                    String jsonString = outputStream.toString();
-
-                    JsonObject jsonObject = new JsonParser().parse(jsonString).getAsJsonObject();
-                    return jsonObject;
-                } catch (JsonParseException | IOException e) {
-                    return null;
-                }
-
-            }
-
-        };
-        task.setOnFailed(e -> {
-            try {
-                Files.writeString(logFile.toPath(), e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-
-            }
-        });
-
-        task.setOnSucceeded(e -> {
-
-            JsonObject jsonObject = task.getValue();
-
-            if (jsonObject != null) {
-                JsonElement dataElement = jsonObject.get("data");
-                if (dataElement != null) {
-                    JsonObject dataObject = dataElement.getAsJsonObject();
-                    String tokenString = dataObject.get("token").getAsString();
-
-                }
-            }
-        });
-
-        Thread t = new Thread(task);
-        t.start();
-    }
-
     /*1min, 3min, 15min, 30min, 1hour, 2hour, 4hour, 6hour, 8hour, 12hour, 1day, 1week */
-    public void updateKucoinPriceData(ProgressIndicator progressIndicator) {
-
-        String urlString = "https://api.kucoin.com/api/v1/market/candles?type=" + m_timeSpan + "&symbol=" + m_symbol;
-        try {
-            Files.writeString(logFile.toPath(), "url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
-        Utils.getUrlData(urlString, success -> {
-            ByteArrayOutputStream output = (ByteArrayOutputStream) success.getSource().getValue();
-
-            if (output != null) {
-                String outputString = output.toString();
-                JsonObject json = null;
-                try {
-                    json = new JsonParser().parse(outputString).getAsJsonObject();
-                } catch (JsonParseException e) {
-                    m_valid = false;
-                    m_priceList.clear();
-
-                }
-
-                if (json != null) {
-
-                    ArrayList<PriceData> tmpPriceList = new ArrayList<>();
-                    JsonArray jsonArray = json.get("data").getAsJsonArray();
-
-                    jsonArray.forEach(dataElement -> {
-
-                        JsonArray dataArray = dataElement.getAsJsonArray();
-
-                        PriceData priceData = new PriceData(dataArray);
-                        if (m_numberClass.low.get() == 0) {
-                            m_numberClass.low.set(priceData.getLow());
-                        }
-
-                        m_numberClass.sum.set(m_numberClass.sum.get() + priceData.getClose());
-                        m_numberClass.count.set(m_numberClass.count.get() + 1);
-                        tmpPriceList.add(priceData);
-                        if (priceData.getHigh() > m_numberClass.high.get()) {
-                            m_numberClass.high.set(priceData.getHigh());
-                        }
-                        if (priceData.getLow() < m_numberClass.low.get()) {
-                            m_numberClass.low.set(priceData.getLow());
-                        }
-                    });
-
-                    Collections.reverse(tmpPriceList);
-                    m_valid = true;
-
-                    m_msg = "Retrieved Kucoin price data.";
-                    m_priceList = tmpPriceList;
-                    m_currentPrice = m_priceList.get(m_priceList.size() - 1).getClose();
-
-                } else {
-                    m_valid = false;
-                    m_msg = "Unable to retrieve price information.";
-                    m_priceList.clear();
-
-                }
-
-            } else {
-                /*  try {
-                    Files.writeString(testFile.toPath(), "nullstring");
-                } catch (IOException e1) {
-
-                }*/
-                m_valid = false;
-                m_msg = "Unable to retrieve price information.";
-                m_priceList.clear();
-
-            }
-            updateBufferedImage();
-        }, failed -> {
-            /* try {
-                Files.writeString(testFile.toPath(), failed.toString());
-            } catch (IOException e1) {
-
-            } */
-            m_valid = false;
-            m_msg = "Unable to retrieve price information.";
-            updateBufferedImage();
-        }, progressIndicator);
-    }
-
     public int getPriceListSize() {
         return m_priceList.size();
     }
@@ -413,7 +429,7 @@ public class PriceChart {
     }
 
     public String getTimeStampString() {
-        LocalDateTime time = lastUpdated.get();
+        LocalDateTime time = m_lastUpdated.get();
 
         DateTimeFormatter formater = DateTimeFormatter.ofPattern("hh:mm:ss a");
 
@@ -535,6 +551,11 @@ public class PriceChart {
 
         } */
         m_img = img;
-        lastUpdated.set(LocalDateTime.now());
+        m_lastUpdated.set(LocalDateTime.now());
     }
+
+    public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
+        return m_lastUpdated;
+    }
+
 }
