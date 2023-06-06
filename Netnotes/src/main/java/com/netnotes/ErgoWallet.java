@@ -33,6 +33,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -130,6 +131,10 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void showWalletsStage() {
         if (m_walletsStage == null) {
+            double walletsStageWidth = 300;
+            double walletsStageHeight = 500;
+            double buttonHeight = 100;
+
             m_walletsStage = new Stage();
             m_walletsStage.getIcons().add(getIcon());
             m_walletsStage.setResizable(false);
@@ -151,16 +156,40 @@ public class ErgoWallet extends Network implements NoteInterface {
             addTip.setShowDelay(new javafx.util.Duration(100));
             addTip.setFont(App.txtFont);
 
-            Tooltip removeTip = new Tooltip("Remove");
-            removeTip.setShowDelay(new javafx.util.Duration(100));
-            removeTip.setFont(App.txtFont);
+            VBox layoutVBox = new VBox(titleBox);
+            layoutVBox.setPadding(new Insets(0, 5, 0, 5));
+            VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+
+            Scene walletsScene = new Scene(layoutVBox, walletsStageWidth, walletsStageHeight);
+
+            //  bodyBox.prefHeightProperty().bind(walletsScene.heightProperty() - 40 - 100);
+            walletsScene.getStylesheets().add("/css/startWindow.css");
+            m_walletsStage.setScene(walletsScene);
+
+            VBox walletsBox = m_walletsData.getButtonGrid();
+
+            Region growRegion = new Region();
+
+            VBox.setVgrow(growRegion, Priority.ALWAYS);
+
+            VBox bodyBox = new VBox(walletsBox, growRegion);
+
+            ScrollPane scrollPane = new ScrollPane(bodyBox);
+            scrollPane.prefViewportWidthProperty().bind(walletsScene.widthProperty());
+            scrollPane.prefViewportHeightProperty().bind(walletsScene.heightProperty().subtract(140));
+            scrollPane.setId("bodyBox");
 
             Button addButton = new Button("New");
             // addButton.setGraphic(addImage);
             addButton.setId("menuBarBtn");
             addButton.setPadding(new Insets(2, 6, 2, 6));
             addButton.setTooltip(addTip);
-            HBox.setHgrow(addButton, Priority.ALWAYS);
+            addButton.setPrefWidth(walletsStageWidth / 2);
+            addButton.setPrefHeight(buttonHeight);
+
+            Tooltip removeTip = new Tooltip("Remove");
+            removeTip.setShowDelay(new javafx.util.Duration(100));
+            removeTip.setFont(App.txtFont);
 
             Button removeButton = new Button("Remove");
             // removeButton.setGraphic(addImage);
@@ -168,34 +197,22 @@ public class ErgoWallet extends Network implements NoteInterface {
             removeButton.setPadding(new Insets(2, 6, 2, 6));
             removeButton.setTooltip(removeTip);
             removeButton.setDisable(true);
+            removeButton.setPrefWidth(walletsStageWidth / 2);
+            removeButton.setPrefHeight(buttonHeight);
 
-            HBox.setHgrow(removeButton, Priority.ALWAYS);
-
-            HBox menuBar = new HBox(addButton, removeButton);
-            menuBar.setId("blackMenu");
-            menuBar.setPrefHeight(60);
-            HBox.setHgrow(menuBar, Priority.ALWAYS);
-            menuBar.setAlignment(Pos.CENTER_LEFT);
-            menuBar.setPadding(new Insets(5, 5, 5, 5));
-
-            VBox walletsBox = m_walletsData.getButtonGrid();
-
-            VBox layoutVBox = new VBox(titleBox, walletsBox, menuBar);
-
-            Scene walletsScene = new Scene(layoutVBox, 400, 500);
-
-            walletsScene.getStylesheets().add("/css/startWindow.css");
-            m_walletsStage.setScene(walletsScene);
-
-            m_walletsStage.show();
+            HBox menuBox = new HBox(addButton, removeButton);
+            menuBox.setId("blackMenu");
+            menuBox.setAlignment(Pos.CENTER_LEFT);
+            menuBox.setPadding(new Insets(5, 5, 5, 5));
+            menuBox.setPrefHeight(buttonHeight);
 
             addButton.setOnAction(event -> {
                 showAddWalletStage();
             });
 
-            if (m_walletsData.size() == 0) {
-                showAddWalletStage();
-            }
+            layoutVBox.getChildren().addAll(scrollPane, menuBox);
+
+            m_walletsStage.show();
         } else {
             if (m_walletsStage.isIconified()) {
                 m_walletsStage.setIconified(false);

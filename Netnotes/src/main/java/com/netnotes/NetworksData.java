@@ -284,6 +284,7 @@ public class NetworksData {
         m_notInstalledVBox = null;
         m_installedVBox = null;
         m_installables = null;
+        m_focusedInstallable = null;
     }
 
     public void updateAvailableLists() {

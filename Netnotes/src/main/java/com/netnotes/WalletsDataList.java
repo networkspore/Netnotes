@@ -17,6 +17,7 @@ import javafx.event.EventHandler;
 
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 public class WalletsDataList {
@@ -67,14 +68,6 @@ public class WalletsDataList {
         }
         updateGrid();
         lastUpdated.set(LocalDateTime.now());
-    }
-
-    public VBox getButtonGrid() {
-        if (m_buttonGrid == null) {
-            m_buttonGrid = new VBox();
-        }
-        updateGrid();
-        return m_buttonGrid;
     }
 
     public void setButtonGridNull() {
@@ -173,19 +166,35 @@ public class WalletsDataList {
         updateGrid();
     }
 
+    public VBox getButtonGrid() {
+        if (m_buttonGrid == null) {
+            m_buttonGrid = new VBox();
+            HBox.setHgrow(m_buttonGrid, Priority.ALWAYS);
+        }
+        updateGrid();
+        return m_buttonGrid;
+    }
+
     public void updateGrid() {
-        m_buttonGrid.getChildren().clear();
+
         int numCells = m_noteInterfaceList.size();
 
-        if (m_buttonGrid != null) {
+        m_buttonGrid.getChildren().clear();
 
-            /*
+        for (int i = 0; i < numCells; i++) {
+            NoteInterface noteInterface = m_noteInterfaceList.get(i);
+
+            IconButton rowButton = noteInterface.getButton();
+            HBox.setHgrow(rowButton, Priority.ALWAYS);
+            m_buttonGrid.getChildren().add(rowButton);
+        }
+        /*
             try {
                 Files.writeString(logFile.toPath(), "networks: " + numCells);
             } catch (IOException e) {
 
-            } */
-            if (m_direction.equals("row")) {
+            } 
+           
                 double imageWidth = 100;
                 double cellPadding = 15;
                 double cellWidth = imageWidth + (cellPadding * 2);
@@ -216,15 +225,7 @@ public class WalletsDataList {
                         grid.setI(0);
                         grid.setJ(0);
                     }
-                }
-            } else {
-
-            }
-        } else {
-            for (NoteInterface noteInterface : m_noteInterfaceList) {
-                m_buttonGrid.getChildren().add(noteInterface.getButton());
-            }
-        }
+                }*/
 
     }
 
