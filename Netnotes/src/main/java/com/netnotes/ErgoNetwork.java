@@ -36,7 +36,9 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public static int MAINNET_PORT = 9053;
     public static int TESTNET_PORT = 9052;
 
-    private int m_exPort = 9030;
+    public static int EXTERNAL_PORT = 9030;
+
+    private int m_exPort = EXTERNAL_PORT;
     private int m_port = MAINNET_PORT;
     private String m_host = null;
 
@@ -50,15 +52,23 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
         if (jsonObj != null) {
 
-            m_port = jsonObj.get("port").getAsInt();
-            m_exPort = jsonObj.get("exPort").getAsInt();
-            m_host = jsonObj.get("host").getAsString();
+            JsonElement portElement = jsonObj.get("port");
+            JsonElement externalPortElement = jsonObj.get("externalPort");
+            JsonElement hostElement = jsonObj.get("host");
+
+            m_port = portElement == null ? MAINNET_PORT : portElement.getAsInt();
+            m_exPort = externalPortElement == null ? EXTERNAL_PORT : externalPortElement.getAsInt();
+            m_host = hostElement == null ? "" : hostElement.getAsString();
         }
 
     }
 
     public static Image getAppIcon() {
         return App.ergoLogo;
+    }
+
+    public static Image getSmallAppIcon() {
+        return new Image("/assets/ergo-network-30.png");
     }
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {

@@ -13,6 +13,7 @@ import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.Alert;
@@ -75,9 +76,8 @@ public class Network extends IconButton {
 
     public JsonObject getJsonObject() {
         JsonObject networkObj = new JsonObject();
-        networkObj.addProperty("name", getText());
-        networkObj.addProperty("networkId", m_networkId);
-
+        networkObj.addProperty("name", getName());
+        networkObj.addProperty("networkId", getNetworkId());
         return networkObj;
 
     }
@@ -124,5 +124,27 @@ public class Network extends IconButton {
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
         return m_lastUpdated;
+    }
+
+    private ChangeListener<LocalDateTime> m_changeListener = null;
+
+    public void addUpdateListener(ChangeListener<LocalDateTime> changeListener) {
+        m_changeListener = changeListener;
+        if (m_changeListener != null) {
+            m_lastUpdated.addListener(m_changeListener);
+
+        }
+        // m_lastUpdated.addListener();
+    }
+
+    public void removeUpdateListener() {
+        if (m_changeListener != null) {
+            m_lastUpdated.removeListener(m_changeListener);
+            m_changeListener = null;
+        }
+    }
+
+    public void remove() {
+        removeUpdateListener();
     }
 }

@@ -320,7 +320,7 @@ public class App extends Application {
         VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 320);
+        Scene passwordScene = new Scene(layoutVBox, 600, 330);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(passwordScene);
@@ -418,13 +418,18 @@ public class App extends Application {
     private void openNetnotes(Stage appStage) {
         File networksFile = new File(networksFileName);
         JsonObject networksObject = null;
+        boolean notSetup = networksFile.isFile();
+        if (notSetup) {
+            try {
+                String fileString = Files.readString(networksFile.toPath());
+                networksObject = new JsonParser().parse(fileString).getAsJsonObject();
+            } catch (Exception e) {
+                try {
+                    Files.writeString(logFile.toPath(), "\n" + e.toString());
+                } catch (IOException e1) {
 
-        try {
-            String fileString = !networksFile.isFile() ? null : Files.readString(networksFile.toPath());
-            JsonElement fileElement = fileString == null ? null : new JsonParser().parse(fileString);
-            networksObject = fileElement == null ? null : fileElement.getAsJsonObject();
-        } catch (Exception e) {
-
+                }
+            }
         }
 
         m_networksData = new NetworksData(networksObject, networksFile);
@@ -477,7 +482,11 @@ public class App extends Application {
             showNetworks(appStage, bodyVBox);
         });
 
-        setupOptions(appStage, appScene);
+        if (notSetup) {
+            appStage.setScene(appScene);
+        } else {
+            setupOptions(appStage, appScene);
+        }
 
         showNetworks(appStage, bodyVBox);
 
@@ -547,7 +556,7 @@ public class App extends Application {
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setAlignment(Pos.CENTER_LEFT);
         menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(5, 5, 5, 5));
+        menuBar.setPadding(new Insets(3, 3, 3, 3));
 
         bodyVBox.setPadding(new Insets(0, 5, 0, 5));
 
@@ -1058,7 +1067,7 @@ public class App extends Application {
 
         VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 375);
+        Scene passwordScene = new Scene(layoutVBox, 600, 330);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);

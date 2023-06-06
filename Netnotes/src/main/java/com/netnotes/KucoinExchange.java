@@ -25,6 +25,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     public static String DESCRIPTION = "KuCoin Exchange provides access to real time crypto market information for trading pairs.";
     public static String SUMMARY = "KuCoin is a cryptocurrency exchange built with the mission to “facilitate the global free flow of digital value.” It claims to have an emphasis on intuitive design, simple registration process and high level of security.";
     public static String NAME = "KuCoin Exchange";
+
     private File logFile = new File("kucoinExchange-log.txt");
     private KucoinWebClient m_webClient = new KucoinWebClient();
 
@@ -42,6 +43,10 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public static Image getAppIcon() {
         return App.kucoinImg;
+    }
+
+    public static Image getSmallAppIcon() {
+        return new Image("/assets/kucoin-30.png");
     }
 
     private void connectToExchange() {

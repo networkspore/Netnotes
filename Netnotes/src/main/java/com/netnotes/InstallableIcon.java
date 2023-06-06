@@ -29,23 +29,16 @@ public class InstallableIcon extends IconButton {
     private double m_sceneWidth = DEFAULT_SCENE_WIDTH;
     private double m_sceneHeight = DEFAULT_SCENE_HEIGHT;
     private NetworksData m_networksData;
+    private double m_rowWidth;
 
-    public InstallableIcon(NoteInterface noteInterface) {
-        super(noteInterface.getButton().getIcon(), noteInterface.getButton().getName(), IconStyle.ROW);
-
-        setNetworkId(noteInterface.getNetworkId());
-        m_installed = true;
-        m_networksData = noteInterface.getNetworksData();
-        enableActions();
-    }
-
-    public InstallableIcon(NetworksData networksData, String networkId) {
+    public InstallableIcon(NetworksData networksData, String networkId, boolean installed, double rowWidth) {
         super();
-        m_installed = false;
+        m_rowWidth = rowWidth;
+        setInstalled(installed);
         m_networksData = networksData;
 
         setNetworkId(networkId);
-        setIconStyle(IconStyle.ICON);
+        setIconStyle(installed ? IconStyle.ROW : IconStyle.ICON);
         setId("iconBtn");
         setFont(App.txtFont);
         enableActions();
@@ -65,29 +58,33 @@ public class InstallableIcon extends IconButton {
 
     }
 
+    public String getNetworkId() {
+        return m_networkId;
+    }
+
     public void setNetworkId(String networkId) {
         m_networkId = networkId;
         switch (m_networkId) {
             case "ERGO_EXPLORER":
-                setIcon(ErgoExplorer.getAppIcon());
+                setIcon(m_installed ? ErgoExplorer.getSmallAppIcon() : ErgoExplorer.getAppIcon());
                 setName(ErgoExplorer.NAME);
                 setDescription(ErgoExplorer.DESCRIPTION);
                 setSummary(ErgoExplorer.SUMMARY);
                 break;
             case "ERGO_WALLET":
-                setIcon(ErgoWallet.getAppIcon());
+                setIcon(m_installed ? ErgoWallet.getSmallAppIcon() : ErgoWallet.getAppIcon());
                 setName(ErgoWallet.NAME);
                 setDescription(ErgoWallet.DESCRIPTION);
                 setSummary(ErgoWallet.SUMMARY);
                 break;
             case "ERGO_NETWORK":
-                setIcon(ErgoNetwork.getAppIcon());
+                setIcon(m_installed ? ErgoNetwork.getSmallAppIcon() : ErgoNetwork.getAppIcon());
                 setName(ErgoNetwork.NAME);
                 setDescription(ErgoNetwork.DESCRIPTION);
                 setSummary(ErgoNetwork.SUMMARY);
                 break;
             case "KUCOIN_EXCHANGE":
-                setIcon(KucoinExchange.getAppIcon());
+                setIcon(m_installed ? KucoinExchange.getSmallAppIcon() : KucoinExchange.getAppIcon());
                 setName(KucoinExchange.NAME);
                 setDescription(KucoinExchange.DESCRIPTION);
                 setSummary(KucoinExchange.SUMMARY);
@@ -144,20 +141,10 @@ public class InstallableIcon extends IconButton {
         footerBtn.setFont(App.titleFont);
         footerBtn.setId("menuBarBtn");
         footerBtn.setOnAction(e -> {
-            switch (m_networkId) {
-                case "ERGO_EXPLORER":
-                    m_networksData.addNoteInterface(new ErgoExplorer(m_networksData));
-                    break;
-                case "ERGO_WALLET":
-                    m_networksData.addNoteInterface(new ErgoWallet(m_networksData));
-                    break;
-                case "ERGO_NETWORK":
-                    m_networksData.addNoteInterface(new ErgoNetwork(m_networksData));
-                    break;
-                case "KUCOIN_EXCHANGE":
-                    m_networksData.addNoteInterface(new KucoinExchange(m_networksData));
-                    break;
-            }
+            String networkId = getNetworkId();
+            close();
+            m_networksData.installNetwork(networkId);
+
         });
 
         HBox footerHBox = new HBox(leftfooterRegion, footerBtn);
@@ -216,7 +203,7 @@ public class InstallableIcon extends IconButton {
         footerBtn.setFont(App.titleFont);
         footerBtn.setId("menuBarBtn");
         footerBtn.setOnAction(e -> {
-            m_networksData.removeNoteInterface(m_networkId);
+            m_networksData.removeNetwork(getNetworkId());
             close();
         });
 
@@ -235,8 +222,9 @@ public class InstallableIcon extends IconButton {
         if (m_stage != null) {
             m_stage.close();
             m_stage = null;
-            super.close();
+            super.open();
         }
+
     }
 
     public boolean getInstalled() {
@@ -248,7 +236,8 @@ public class InstallableIcon extends IconButton {
         if (isOpen()) {
             setScene();
         }
-        setIconStyle(m_installed ? IconStyle.ROW : IconStyle.ICON);
+        setIconStyle(installed ? IconStyle.ROW : IconStyle.ICON);
+
     }
 
     public void setDescription(String description) {

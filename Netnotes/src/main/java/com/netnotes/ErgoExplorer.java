@@ -41,6 +41,10 @@ public class ErgoExplorer extends Network implements NoteInterface {
 
     }
 
+    public static Image getSmallAppIcon() {
+        return new Image("/assets/ergo-explorer-30.png");
+    }
+
     public static Image getAppIcon() {
         return App.ergoExplorerImg;
     }

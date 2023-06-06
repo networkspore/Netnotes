@@ -27,6 +27,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
@@ -41,7 +42,8 @@ public class PriceChart implements NoteInterface {
 
     private ArrayList<PriceData> m_priceList = new ArrayList<>();
 
-    public SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
+    private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
+    private ChangeListener<LocalDateTime> m_changeListener = null;
 
     private boolean m_valid = false;
     private Font m_headingFont = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 18);
@@ -558,4 +560,25 @@ public class PriceChart implements NoteInterface {
         return m_lastUpdated;
     }
 
+    public void addUpdateListener(ChangeListener<LocalDateTime> changeListener) {
+        m_changeListener = changeListener;
+        if (m_changeListener != null) {
+            m_lastUpdated.addListener(changeListener);
+
+        } else {
+            removeUpdateListener();
+        }
+        // m_lastUpdated.addListener();
+
+    }
+
+    public void removeUpdateListener() {
+        if (m_changeListener != null) {
+            m_lastUpdated.removeListener(m_changeListener);
+        }
+    }
+
+    public void remove() {
+        removeUpdateListener();
+    }
 }

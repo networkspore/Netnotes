@@ -41,7 +41,7 @@ public class IconButton extends Button {
     private int m_open = 0;
     private boolean m_multipleInstances = false;
     private ChangeListener<Boolean> m_focusListener;
-    private EventHandler<MouseEvent> m_mouseEventHandler;
+    //private EventHandler<MouseEvent> m_mouseEventHandler;
 
     public IconButton() {
         super();
@@ -147,12 +147,15 @@ public class IconButton extends Button {
                 setPadding(NORMAL_INSETS);
                 setContentDisplay(ContentDisplay.TOP);
                 setTextAlignment(TextAlignment.CENTER);
+
                 break;
             case "ROW":
                 setImageWidth(SMALL_IMAGE_WIDTH);
                 setPadding(SMALL_INSETS);
                 setContentDisplay(ContentDisplay.LEFT);
                 setAlignment(Pos.CENTER_LEFT);
+                setText(m_name);
+
                 break;
         }
     }

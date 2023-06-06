@@ -90,6 +90,12 @@ public class ErgoWallet extends Network implements NoteInterface {
 
         super(getAppIcon(), NAME, NetworkID.ERGO_WALLET, networksData);
 
+        try {
+            Files.writeString(logFile.toPath(), jsonObject.toString());
+        } catch (IOException e) {
+
+        }
+
         if (jsonObject != null) {
             JsonElement exchangeElement = jsonObject.get("exchangeData");
             JsonElement explorerIdElement = jsonObject.get("explorerId");
@@ -109,6 +115,10 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public static Image getAppIcon() {
         return App.ergoWallet;
+    }
+
+    public static Image getSmallAppIcon() {
+        return new Image("/assets/ergo-wallet-30.png");
     }
 
     @Override

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import com.google.gson.JsonObject;
 
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 
@@ -36,4 +37,10 @@ public interface NoteInterface {
     void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed);
 
     NoteInterface getParentInterface();
+
+    void addUpdateListener(ChangeListener<LocalDateTime> changeListener);
+
+    void removeUpdateListener();
+
+    void remove();
 }
