@@ -30,6 +30,7 @@ public class Network extends IconButton {
     private ArrayList<NoteInterface> m_tunnelInterfaceList = new ArrayList<>();
     private NoteInterface m_parentInterface = null;
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
+    private ChangeListener<LocalDateTime> m_changeListener = null;
 
     public static class NetworkID {
 
@@ -129,8 +130,6 @@ public class Network extends IconButton {
     public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
         return m_lastUpdated;
     }
-
-    private ChangeListener<LocalDateTime> m_changeListener = null;
 
     public void addUpdateListener(ChangeListener<LocalDateTime> changeListener) {
         m_changeListener = changeListener;

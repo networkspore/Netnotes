@@ -76,6 +76,35 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     @Override
+    public JsonObject getJsonObject() {
+        JsonObject jsonObject = new JsonObject();
+
+        jsonObject.addProperty("name", getName());
+        jsonObject.addProperty("id", getNetworkId());
+        jsonObject.addProperty("file", m_walletFile.getAbsolutePath());
+        jsonObject.addProperty("networkType", m_networkType.toString());
+
+        if (m_nodeInterface != null) {
+            jsonObject.addProperty("nodeId", m_nodeInterface.getNetworkId());
+        }
+        if (m_explorerInterface != null) {
+            jsonObject.addProperty("explorerId", m_explorerInterface.getNetworkId());
+        }
+        if (m_exchangeInterface != null) {
+            jsonObject.addProperty("exchangeId", m_exchangeInterface.getNetworkId());
+        }
+
+        /*jsonObject.set("name");
+        jsonObject.get("id");
+        jsonObject.get("file");
+        jsonObject.get("networkType");
+        jsonObject.get("nodeId");
+        jsonObject.get("explorerId");
+        jsonObject.get("exchangeId");*/
+        return jsonObject;
+    }
+
+    @Override
     public void open() {
         try {
             Files.writeString(logFile.toPath(), "\nwalletsData opening.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -275,7 +304,7 @@ public class WalletData extends Network implements NoteInterface {
 
             Button closeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), getName() + "- Enter password", closeBtn, m_passwordStage);
+            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), getName() + " - Enter password", closeBtn, m_passwordStage);
             closeBtn.setOnAction(event -> {
                 m_passwordStage.close();
 
@@ -351,5 +380,18 @@ public class WalletData extends Network implements NoteInterface {
         }
 
     }
+
+    private void setNodeInterface(String networkId) {
+        m_nodeInterface = getNetworksData().getNoteInterface(networkId);
+    }
+
+    private void setExplorerInterface(String networkId) {
+        m_explorerInterface = getNetworksData().getNoteInterface(networkId);
+    }
+
+    private void setExchangeInterface(String networkId) {
+        m_exchangeInterface = getNetworksData().getNoteInterface(networkId);
+    }
+;
 
 }

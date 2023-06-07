@@ -56,55 +56,63 @@ public class WalletsDataList {
     private String m_direction = "column";
     private Stage m_addWalletStage = null;
     private ErgoWallet m_ergoWallet;
-    private File m_walletsDirectory = new File(System.getProperty("user.dir") + "/wallets");
 
     public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
 
-    public WalletsDataList(JsonArray jsonArray, ErgoWallet ergoWallet) {
+    public WalletsDataList(JsonArray jsonArray, File walletsDirectory, ErgoWallet ergoWallet) {
 
         m_ergoWallet = ergoWallet;
 
-        for (JsonElement element : jsonArray) {
-            JsonObject jsonObject = element.getAsJsonObject();
-            JsonElement nameElement = jsonObject.get("name");
-            JsonElement idElement = jsonObject.get("id");
-            JsonElement fileLocationElement = jsonObject.get("walletFile");
-            JsonElement networkTypeElement = jsonObject.get("networkType");
-            JsonElement nodeIdElement = jsonObject.get("nodeId");
-            JsonElement explorerIdElement = jsonObject.get("explorerId");
-            JsonElement exchangeIdElement = jsonObject.get("exchangeId");
+        if (jsonArray != null) {
+            for (JsonElement element : jsonArray) {
+                JsonObject jsonObject = element.getAsJsonObject();
+                JsonElement nameElement = jsonObject.get("name");
+                JsonElement idElement = jsonObject.get("id");
+                JsonElement fileLocationElement = jsonObject.get("file");
+                JsonElement networkTypeElement = jsonObject.get("networkType");
+                JsonElement nodeIdElement = jsonObject.get("nodeId");
+                JsonElement explorerIdElement = jsonObject.get("explorerId");
+                JsonElement exchangeIdElement = jsonObject.get("exchangeId");
 
-            if (nameElement != null && idElement != null && fileLocationElement != null) {
-                String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
-                String name = nameElement == null ? "Wallet #" + id : nameElement.getAsString();
-                File walletFile = fileLocationElement == null ? null : new File(fileLocationElement.getAsString());
-                NetworkType walletNetworkType = networkTypeElement == null ? NetworkType.MAINNET : NetworkType.fromValue(networkTypeElement.getAsString());
-                String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
-                String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
-                String exchangeId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
+                if (nameElement != null && idElement != null && fileLocationElement != null) {
+                    String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
+                    String name = nameElement == null ? "Wallet #" + id : nameElement.getAsString();
+                    File walletFile = fileLocationElement == null ? null : new File(fileLocationElement.getAsString());
+                    NetworkType walletNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
 
-                m_noteInterfaceList.add(new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, walletNetworkType, m_ergoWallet));
+                    String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
+                    String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
+                    String exchangeId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
 
+                    m_noteInterfaceList.add(new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, walletNetworkType, m_ergoWallet));
+
+                }
             }
         }
 
+    }
+
+    public File getWalletsDirectory() {
+        return m_ergoWallet.getWalletsDirectory();
     }
 
     public void addOpen(WalletData walletData) {
         m_noteInterfaceList.add(walletData);
         updateGrid();
-        lastUpdated.set(LocalDateTime.now());
+        walletData.addUpdateListener((obs, oldValue, newValue) -> lastUpdated.set(LocalDateTime.now()));
         walletData.open();
-
+        lastUpdated.set(LocalDateTime.now());
     }
 
     public void remove(String id) {
         for (NoteInterface noteInterface : m_noteInterfaceList) {
             if (noteInterface.getNetworkId().equals(id)) {
+                noteInterface.removeUpdateListener();
                 m_noteInterfaceList.remove(noteInterface);
                 break;
             }
         }
+
         updateGrid();
         lastUpdated.set(LocalDateTime.now());
     }
@@ -277,7 +285,7 @@ public class WalletsDataList {
                         Mnemonic mnemonic = Mnemonic.create(SecretString.create(seedPhrase), SecretString.create(password));
 
                         FileChooser saveFileChooser = new FileChooser();
-                        saveFileChooser.setInitialDirectory(m_walletsDirectory);
+                        saveFileChooser.setInitialDirectory(getWalletsDirectory());
                         saveFileChooser.setTitle("Save: Wallet file");
                         saveFileChooser.getExtensionFilters().add(ErgoWallet.ergExt);
                         saveFileChooser.setSelectedExtensionFilter(ErgoWallet.ergExt);
@@ -314,7 +322,7 @@ public class WalletsDataList {
 
             existingWalletBtn.setOnAction(clickEvent -> {
                 FileChooser openFileChooser = new FileChooser();
-                openFileChooser.setInitialDirectory(m_walletsDirectory);
+                openFileChooser.setInitialDirectory(getWalletsDirectory());
                 openFileChooser.setTitle("Open: Wallet file");
                 openFileChooser.getExtensionFilters().add(ErgoWallet.ergExt);
                 openFileChooser.setSelectedExtensionFilter(ErgoWallet.ergExt);
@@ -349,7 +357,7 @@ public class WalletsDataList {
                         Mnemonic mnemonic = Mnemonic.create(SecretString.create(seedPhrase), SecretString.create(password));
 
                         FileChooser saveFileChooser = new FileChooser();
-                        saveFileChooser.setInitialDirectory(m_walletsDirectory);
+                        saveFileChooser.setInitialDirectory(getWalletsDirectory());
                         saveFileChooser.setTitle("Save: Wallet file");
                         saveFileChooser.getExtensionFilters().add(ErgoWallet.ergExt);
                         saveFileChooser.setSelectedExtensionFilter(ErgoWallet.ergExt);

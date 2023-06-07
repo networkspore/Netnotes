@@ -3,6 +3,7 @@ package com.netnotes;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -42,7 +43,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     private File logFile = new File("ergoWallet - log.txt");
 
-    private File m_walletsDir = new File(App.homeString + "/wallets");
+    private File m_walletsDir = new File(System.getProperty("user.dir") + "/wallets");
 
     private WalletsDataList m_walletsData;
     private Stage m_walletsStage = null;
@@ -50,14 +51,15 @@ public class ErgoWallet extends Network implements NoteInterface {
     public ErgoWallet(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_WALLET, networksData);
         createWalletDirectory();
-        m_walletsData = new WalletsDataList(null, this);
-
+        m_walletsData = new WalletsDataList(null, m_walletsDir, this);
+        m_walletsData.lastUpdated.addListener(e -> {
+            getLastUpdated().set(LocalDateTime.now());
+        });
     }
 
     public ErgoWallet(JsonObject jsonObject, NetworksData networksData) {
 
         super(getAppIcon(), NAME, NetworkID.ERGO_WALLET, networksData);
-        createWalletDirectory();
 
         try {
             Files.writeString(logFile.toPath(), jsonObject.toString());
@@ -65,12 +67,27 @@ public class ErgoWallet extends Network implements NoteInterface {
 
         }
 
-        JsonElement walletsElement = jsonObject.get("walletsData");
+        JsonElement walletsElement = jsonObject.get("wallets");
+        JsonElement walletsDirElement = jsonObject.get("walletsDir");
 
-        JsonArray walletsArray = walletsElement != null ? walletsElement.getAsJsonArray() : new JsonArray();
+        JsonArray walletsArray = walletsElement == null ? null : walletsElement.getAsJsonArray();
 
-        m_walletsData = new WalletsDataList(walletsArray, this);
+        m_walletsDir = walletsDirElement == null ? null : new File(walletsDirElement.getAsString());
+        createWalletDirectory();
 
+        m_walletsData = new WalletsDataList(walletsArray, m_walletsDir, this);
+        m_walletsData.lastUpdated.addListener(e -> {
+            getLastUpdated().set(LocalDateTime.now());
+        });
+    }
+
+    @Override
+    public JsonObject getJsonObject() {
+        JsonObject jsonObject = super.getJsonObject();
+        jsonObject.addProperty("walletsDir", getWalletsDirectory().getAbsolutePath());
+        JsonArray jsonArray = m_walletsData.getJsonArray();
+        jsonObject.add("wallets", jsonArray);
+        return jsonObject;
     }
 
     public static Image getAppIcon() {
@@ -86,6 +103,10 @@ public class ErgoWallet extends Network implements NoteInterface {
         /* Alert a = new Alert(AlertType.NONE, "opening", ButtonType.CLOSE);
         a.show(); */
         showWalletsStage();
+    }
+
+    public File getWalletsDirectory() {
+        return m_walletsDir;
     }
 
     public void showWalletsStage() {
@@ -181,6 +202,9 @@ public class ErgoWallet extends Network implements NoteInterface {
     }
 
     public void createWalletDirectory() {
+        if (m_walletsDir == null) {
+            m_walletsDir = new File(System.getProperty("user.dir") + "/wallets");
+        }
         if (!m_walletsDir.isDirectory()) {
             try {
                 Files.createDirectories(m_walletsDir.toPath());
