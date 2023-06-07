@@ -59,6 +59,7 @@ public class NetworksData {
 
         m_networksFile = networksFile;
         m_networksBox = new VBox();
+
         try {
             Files.writeString(logFile.toPath(), "networks data\n");
         } catch (IOException e) {
@@ -512,6 +513,15 @@ public class NetworksData {
 
         for (NoteInterface noteInterface : m_noteInterfaceList) {
             if (noteInterface.getNetworkId().equals(networkId)) {
+                return noteInterface;
+            }
+        }
+        return null;
+    }
+
+    public NoteInterface getNoteIntefaceByName(String name) {
+        for (NoteInterface noteInterface : m_noteInterfaceList) {
+            if (noteInterface.getName().equals(name)) {
                 return noteInterface;
             }
         }

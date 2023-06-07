@@ -34,6 +34,8 @@ import javafx.event.EventHandler;
 
 public class PriceChart implements NoteInterface {
 
+    private static String NAME = "Price chart";
+
     private File logFile = new File("pricechart-log.txt");
 
     private NumberClass m_numberClass = new NumberClass();
@@ -89,6 +91,10 @@ public class PriceChart implements NoteInterface {
         m_exchangeNetworkId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
 
         updatePriceDataList();
+    }
+
+    public String getName() {
+        return NAME;
     }
 
     public String getNetworkId() {

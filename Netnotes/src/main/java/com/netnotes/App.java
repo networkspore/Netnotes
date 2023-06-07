@@ -20,6 +20,7 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -479,7 +480,7 @@ public class App extends Application {
         networksBtn.setOnAction(e -> {
             networksBtn.setId("activeMenuBtn");
             settingsBtn.setId("menuBtn");
-            showNetworks(appStage, bodyVBox);
+            showNetworks(appScene, bodyVBox);
         });
 
         if (notSetup) {
@@ -488,7 +489,7 @@ public class App extends Application {
             setupOptions(appStage, appScene);
         }
 
-        showNetworks(appStage, bodyVBox);
+        showNetworks(appScene, bodyVBox);
 
         appStage.show();
     }
@@ -538,7 +539,7 @@ public class App extends Application {
 
     }
 
-    private void showNetworks(Stage appStage, VBox bodyVBox) {
+    private void showNetworks(Scene appScene, VBox bodyVBox) {
 
         bodyVBox.getChildren().clear();
 
@@ -556,15 +557,20 @@ public class App extends Application {
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setAlignment(Pos.CENTER_LEFT);
         menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(3, 3, 3, 3));
+        menuBar.setPadding(new Insets(1, 5, 1, 5));
 
         bodyVBox.setPadding(new Insets(0, 5, 0, 5));
 
-        VBox gridBox = m_networksData.getNetworksBox(appStage.getWidth() - 100);
+        VBox gridBox = m_networksData.getNetworksBox(appScene.getWidth() - 100);
         VBox.setVgrow(gridBox, Priority.ALWAYS);
         HBox.setHgrow(gridBox, Priority.ALWAYS);
 
-        bodyVBox.getChildren().addAll(menuBar, gridBox);
+        ScrollPane scrollPane = new ScrollPane(gridBox);
+        scrollPane.setPadding(new Insets(5, 0, 5, 0));
+        scrollPane.prefViewportWidthProperty().bind(appScene.widthProperty());
+        scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty().subtract(40).subtract(menuBar.heightProperty().get()));
+
+        bodyVBox.getChildren().addAll(menuBar, scrollPane);
 
         /*
         addButton.setOnAction(clickEvent -> {

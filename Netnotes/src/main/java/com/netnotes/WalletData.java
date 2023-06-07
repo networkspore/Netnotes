@@ -45,29 +45,44 @@ import javafx.stage.StageStyle;
 
 public class WalletData extends Network implements NoteInterface {
 
-    private File logFile = new File("WalletData-log.txt");
+    private File logFile;
     private File m_walletFile = null;
 
     private NetworkType m_networkType = null;
     private Stage m_walletStage = null;
     private Stage m_passwordStage = null;
 
-    public WalletData(String id, String name, File walletFile, NetworkType networkType, NoteInterface noteInterface) {
+    private NoteInterface m_nodeInterface = null;
+    private NoteInterface m_explorerInterface = null;
+    private NoteInterface m_exchangeInterface = null;
+
+    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String exchangeId, NetworkType networkType, NoteInterface noteInterface) {
         super(null, name, id, noteInterface);
+        logFile = new File("WalletData" + name + "-log.txt");
+
+        try {
+            Files.writeString(logFile.toPath(), "ExchangeId: " + exchangeId + " nodeId: " + nodeId + " explorerId: " + explorerId + " networkType: " + networkType);
+        } catch (IOException e) {
+
+        }
         m_walletFile = walletFile;
         m_networkType = networkType;
 
-        setId("iconBtn");
-        setFont(App.txtFont);
-        setContentDisplay(ContentDisplay.LEFT);
-        setTextAlignment(TextAlignment.LEFT);
-        setPadding(new Insets(5, 5, 5, 5));
+        m_nodeInterface = nodeId == null ? null : getNetworksData().getNoteInterface(nodeId);
+        m_explorerInterface = explorerId == null ? null : getNetworksData().getNoteInterface(explorerId);
+        m_exchangeInterface = exchangeId == null ? null : getNetworksData().getNoteInterface(exchangeId);
 
+        setIconStyle(IconStyle.ROW);
     }
 
     @Override
     public void open() {
-        confirmWalletPassword();
+        try {
+            Files.writeString(logFile.toPath(), "\nwalletsData opening.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+        openWallet();
     }
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
@@ -75,14 +90,18 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     private void showWalletStage(Wallet wallet) {
+        try {
+            Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }
         String title = getName() + " - (" + m_networkType.toString() + ")";
 
         double width = 450;
 
         m_walletStage = new Stage();
         m_walletStage.setTitle(title);
-        m_walletStage.getIcons().add(getIcon());
+        m_walletStage.getIcons().add(ErgoWallet.getAppIcon());
         m_walletStage.setResizable(false);
         m_walletStage.initStyle(StageStyle.UNDECORATED);
 
@@ -93,7 +112,7 @@ public class WalletData extends Network implements NoteInterface {
             m_walletStage = null;
         });
 
-        HBox titleBox = App.createTopBar(getIcon(), title, closeBtn, m_walletStage);
+        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, closeBtn, m_walletStage);
 
         /*Button imageButton = createImageButton(walletImg240, title + "\n" + wallet.name.get());
         HBox imageBox = new HBox(imageButton);
@@ -240,9 +259,15 @@ public class WalletData extends Network implements NoteInterface {
 
     }
 
-    public void confirmWalletPassword() {
+    public void openWallet() {
+
+        try {
+            Files.writeString(logFile.toPath(), "\nConfirming wallet password.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
         if (m_passwordStage == null) {
-            Stage m_passwordStage = new Stage();
+            m_passwordStage = new Stage();
 
             m_passwordStage.setResizable(false);
             m_passwordStage.initStyle(StageStyle.UNDECORATED);
@@ -250,7 +275,7 @@ public class WalletData extends Network implements NoteInterface {
 
             Button closeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(getIcon(), getName() + "- Enter password", closeBtn, m_passwordStage);
+            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), getName() + "- Enter password", closeBtn, m_passwordStage);
             closeBtn.setOnAction(event -> {
                 m_passwordStage.close();
 
@@ -301,25 +326,30 @@ public class WalletData extends Network implements NoteInterface {
                 if (keyCode == KeyCode.ENTER) {
 
                     try {
-                        Wallet wallet = Wallet.load(m_walletFile.toPath(), passwordField.getText());
 
+                        Wallet wallet = Wallet.load(m_walletFile.toPath(), passwordField.getText());
                         showWalletStage(wallet);
 
                         m_passwordStage.close();
-
+                        m_passwordStage = null;
                     } catch (Exception e1) {
 
                         passwordField.setText("");
+                        try {
+                            Files.writeString(logFile.toPath(), e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e2) {
+
+                        }
                     }
 
                 }
             });
 
-            m_passwordStage.showAndWait();
+            m_passwordStage.show();
         } else {
-            m_passwordStage.showAndWait();
+            m_passwordStage.show();
         }
 
-        m_passwordStage = null;
     }
+
 }

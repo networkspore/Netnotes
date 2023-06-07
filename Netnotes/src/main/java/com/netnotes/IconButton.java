@@ -82,10 +82,6 @@ public class IconButton extends Button {
         focusedProperty().removeListener(m_focusListener);
     }
 
-    private void startMouseClickedHandler() {
-
-    }
-
     public void enableActions() {
         setOnMouseClicked((event) -> onClick(event));
         startFocusCurrent();

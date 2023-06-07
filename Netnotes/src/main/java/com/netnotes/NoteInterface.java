@@ -12,6 +12,8 @@ import javafx.event.EventHandler;
 
 public interface NoteInterface {
 
+    String getName();
+
     String getNetworkId();
 
     String getFullNetworkId();

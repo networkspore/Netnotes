@@ -39,8 +39,7 @@ public class InstallableIcon extends IconButton {
 
         setNetworkId(networkId);
         setIconStyle(installed ? IconStyle.ROW : IconStyle.ICON);
-        setId("iconBtn");
-        setFont(App.txtFont);
+
         enableActions();
 
     }
