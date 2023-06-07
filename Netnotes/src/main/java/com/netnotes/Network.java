@@ -62,6 +62,10 @@ public class Network extends IconButton {
         return fullNetworkId;
     }
 
+    public boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        return false;
+    }
+
     public NoteInterface getParentInterface() {
         return m_parentInterface;
     }

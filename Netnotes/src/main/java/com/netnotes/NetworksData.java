@@ -550,16 +550,7 @@ public class NetworksData {
             String networkId = tunnelId.substring(0, index);
             networkInterface = getNoteInterface(networkId);
 
-            int lastIndex = tunnelId.indexOf(".", index + 1);
-            while (lastIndex != -1 && networkInterface != null) {
-                networkId = tunnelId.substring(index + 1, lastIndex);
-                index = lastIndex;
-                networkInterface = getTunnelInterface(networkInterface, networkId);
-                lastIndex = tunnelId.indexOf(".", index + 1);
-            }
-
-            networkId = tunnelId.substring(index + 1, tunnelId.length());
-            networkInterface = getTunnelInterface(networkInterface, networkId);
+            networkInterface.sendNoteToFullNetworkId(note, tunnelId, onSucceeded, onFailed);
 
             if (networkInterface != null) {
                 return networkInterface.sendNote(note, onSucceeded, onFailed);
@@ -567,17 +558,6 @@ public class NetworksData {
 
         }
         return false;
-    }
-
-    public static NoteInterface getTunnelInterface(NoteInterface networkInterface, String networkId) {
-        for (NoteInterface noteInterface : networkInterface.getTunnelNoteInterfaces()) {
-
-            if (noteInterface.getNetworkId().equals(networkId)) {
-                return noteInterface;
-            }
-            break;
-        }
-        return null;
     }
 
     public void save() {

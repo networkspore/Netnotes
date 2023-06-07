@@ -702,22 +702,6 @@ public class WalletsDataList {
         });
     }
 
-    public void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int index = tunnelId.indexOf(":");
-
-        String networkId = index == -1 ? tunnelId : tunnelId.substring(0, index);
-
-        NoteInterface networkInterface = getNoteInterface(networkId);
-
-        for (NoteInterface noteInterface : networkInterface.getTunnelNoteInterfaces()) {
-
-            if (noteInterface.getNetworkId().equals(tunnelId)) {
-                noteInterface.sendNoteToTunnelInterface(note, tunnelId, onSucceeded, onFailed);
-            }
-        }
-
-    }
-
     public int size() {
         return m_noteInterfaceList.size();
     }

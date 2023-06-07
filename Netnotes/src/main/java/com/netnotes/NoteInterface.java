@@ -26,17 +26,7 @@ public interface NoteInterface {
 
     IconButton getButton();
 
-    ArrayList<NoteInterface> getTunnelNoteInterfaces();
-
-    NoteInterface getTunnelNoteInterface(String networkId);
-
-    void addTunnelNoteInterface(NoteInterface noteInterface);
-
-    void removeTunnelNoteInterface(String id);
-
     NetworksData getNetworksData();
-
-    void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed);
 
     NoteInterface getParentInterface();
 
@@ -45,4 +35,6 @@ public interface NoteInterface {
     void removeUpdateListener();
 
     void remove();
+
+    boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed);
 }

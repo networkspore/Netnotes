@@ -66,7 +66,6 @@ public class PriceChart implements NoteInterface {
     public PriceChart(NoteInterface noteInterface, String exchangeNetworkID, String symbol, String timeSpan) {
 
         m_noteInterface = noteInterface;
-        m_noteInterface.addTunnelNoteInterface(this);
 
         m_uuid = noteInterface.getNetworkId() + ":" + FriendlyId.createFriendlyId();
         m_timeSpan = timeSpan;
@@ -78,7 +77,6 @@ public class PriceChart implements NoteInterface {
 
     public PriceChart(JsonObject jsonObject, NoteInterface noteInterface) {
         m_noteInterface = noteInterface;
-        m_noteInterface.addTunnelNoteInterface(this);
 
         JsonElement uuidElement = jsonObject == null ? null : jsonObject.get("uuid");
         JsonElement symbolElement = jsonObject == null ? null : jsonObject.get("symbol");
@@ -166,36 +164,8 @@ public class PriceChart implements NoteInterface {
         return m_noteInterface.getNetworksData();
     }
 
-    public ArrayList<NoteInterface> getTunnelNoteInterfaces() {
-        return m_noteInterface.getTunnelNoteInterfaces();
-    }
-
-    public void addTunnelNoteInterface(NoteInterface noteInterface) {
-        m_noteInterface.addTunnelNoteInterface(noteInterface);
-    }
-
-    public void removeTunnelNoteInterface(String id) {
-        m_noteInterface.removeTunnelNoteInterface(id);
-    }
-
-    public void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        m_noteInterface.sendNoteToTunnelInterface(note, tunnelId, onSucceeded, onFailed);
-        /*int index = tunnelId.indexOf(":");
-
-        String networkId = index == -1 ? tunnelId : tunnelId.substring(0, index);
-
-        NoteInterface networkInterface = m_noteInterface.getNetworksData().getNoteInterface(networkId);
-
-        for (NoteInterface noteInterface : networkInterface.getTunnelNoteInterfaces()) {
-
-            if (noteInterface.getNetworkId().equals(tunnelId)) {
-                noteInterface.sendNoteToTunnelInterface(note, tunnelId, onSucceeded, onFailed);
-            }
-        }*/
-    }
-
-    public NoteInterface getTunnelNoteInterface(String networkId) {
-        return m_noteInterface.getTunnelNoteInterface(networkId);
+    public boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        return false;
     }
 
     private JsonObject getPriceDataListJson() {
