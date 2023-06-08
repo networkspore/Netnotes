@@ -178,7 +178,7 @@
 
 #menuBtn {
     -fx-background-color: transparent;
-    -fx-opacity: .8;
+    -fx-opacity: .6;
 }
 
 #menuBtn:hover {
@@ -188,6 +188,9 @@
 
 .menu-button {
     -fx-opacity: .6;
+    -fx-shape: "...";
+        -fx-scale-shape: true;
+        -fx-position-shape: true;
 }
 
 .menu-button:hover {
@@ -225,6 +228,13 @@
 #menuBar {
     -fx-background-color: linear-gradient(to top, #66666650, #ffffff09, #66666650);
 
+}
+#rightSideMenuBar {
+    -fx-background-color: linear-gradient(to top, #ffffff05, #66666680, #ffffff05);
+
+
+    -fx-border-radius: 20 0 0 20;
+    -fx-background-radius: 20 0 0 20;
 }
 
 #bodyBox {

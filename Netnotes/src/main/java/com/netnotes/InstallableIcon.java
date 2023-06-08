@@ -29,11 +29,10 @@ public class InstallableIcon extends IconButton {
     private double m_sceneWidth = DEFAULT_SCENE_WIDTH;
     private double m_sceneHeight = DEFAULT_SCENE_HEIGHT;
     private NetworksData m_networksData;
-    private double m_rowWidth;
 
-    public InstallableIcon(NetworksData networksData, String networkId, boolean installed, double rowWidth) {
+    public InstallableIcon(NetworksData networksData, String networkId, boolean installed) {
         super();
-        m_rowWidth = rowWidth;
+
         setInstalled(installed);
         m_networksData = networksData;
 
@@ -93,7 +92,9 @@ public class InstallableIcon extends IconButton {
     }
 
     private void setScene() {
-        m_stage.setScene(m_installed ? uninstallScene() : installScene());
+        if (m_stage != null) {
+            m_stage.setScene(m_installed ? uninstallScene() : installScene());
+        }
     }
 
     public Scene installScene() {
@@ -232,9 +233,9 @@ public class InstallableIcon extends IconButton {
 
     public void setInstalled(boolean installed) {
         m_installed = installed;
-        if (isOpen()) {
-            setScene();
-        }
+
+        setScene();
+
         setIconStyle(installed ? IconStyle.ROW : IconStyle.ICON);
 
     }

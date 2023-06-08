@@ -349,7 +349,7 @@ public class NetworksData {
         for (String networkId : networkIds) {
             NoteInterface noteInterface = getNoteInterface(networkId);
             boolean installed = !(noteInterface == null);
-            InstallableIcon installableIcon = new InstallableIcon(this, networkId, installed, m_leftColumnWidth);
+            InstallableIcon installableIcon = new InstallableIcon(this, networkId, installed);
 
             m_installables.add(installableIcon);
         }

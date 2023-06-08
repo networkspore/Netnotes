@@ -47,7 +47,6 @@ public class IconButton extends Button {
         super();
         setId("iconBtn");
         setFont(App.txtFont);
-        setIconStyle(IconStyle.ICON);
         enableActions();
     }
 
@@ -67,6 +66,12 @@ public class IconButton extends Button {
         super();
         setIcon(image);
         setName(name);
+        if (iconStyle.equals(IconStyle.ROW)) {
+            setPadding(SMALL_INSETS);
+        } else {
+            setPadding(NORMAL_INSETS);
+        }
+
         setIconStyle(iconStyle);
         setId("iconBtn");
         setFont(App.txtFont);
@@ -97,26 +102,18 @@ public class IconButton extends Button {
             Platform.runLater(() -> requestFocus());
         }
         if (e.getClickCount() == 2) {
-            if (!isOpen()) {
-                open();
-            }
+
+            open();
+
         }
     }
 
     public void open() {
-        m_open += 1;
-    }
 
-    public boolean isOpen() {
-        return m_open > 0;
-    }
-
-    public int getOpen() {
-        return m_open;
     }
 
     public void close() {
-        m_open--;
+
     }
 
     public boolean getMultipleInstances() {
@@ -140,14 +137,14 @@ public class IconButton extends Button {
         switch (style) {
             case "ICON":
                 setImageWidth(NORMAL_IMAGE_WIDTH);
-                setPadding(NORMAL_INSETS);
+
                 setContentDisplay(ContentDisplay.TOP);
                 setTextAlignment(TextAlignment.CENTER);
 
                 break;
             case "ROW":
                 setImageWidth(SMALL_IMAGE_WIDTH);
-                setPadding(SMALL_INSETS);
+
                 setContentDisplay(ContentDisplay.LEFT);
                 setAlignment(Pos.CENTER_LEFT);
                 setText(m_name);
@@ -276,6 +273,12 @@ public class IconButton extends Button {
 
     public void setImageWidth(double imageWidth) {
         m_imageWidth = imageWidth;
+        setGraphic(getIconView(m_icon, m_imageWidth));
+    }
+
+    public void setIconImageWidth(Image icon, double imageWidth) {
+        m_imageWidth = imageWidth;
+        m_icon = icon;
         setGraphic(getIconView(m_icon, m_imageWidth));
     }
 

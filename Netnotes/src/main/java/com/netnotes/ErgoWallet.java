@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -70,15 +72,30 @@ public class ErgoWallet extends Network implements NoteInterface {
         JsonElement walletsElement = jsonObject.get("wallets");
         JsonElement walletsDirElement = jsonObject.get("walletsDir");
 
-        JsonArray walletsArray = walletsElement == null ? null : walletsElement.getAsJsonArray();
-
         m_walletsDir = walletsDirElement == null ? null : new File(walletsDirElement.getAsString());
         createWalletDirectory();
+        if (walletsElement != null) {
+            Timer initTimer = new Timer();
+            ErgoWallet ergoWallet = this;
 
-        m_walletsData = new WalletsDataList(walletsArray, m_walletsDir, this);
-        m_walletsData.lastUpdated.addListener(e -> {
-            getLastUpdated().set(LocalDateTime.now());
-        });
+            initTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    JsonArray walletsArray = walletsElement == null ? null : walletsElement.getAsJsonArray();
+
+                    m_walletsData = new WalletsDataList(walletsArray, m_walletsDir, ergoWallet);
+                    m_walletsData.lastUpdated.addListener(e -> {
+                        getLastUpdated().set(LocalDateTime.now());
+                    });
+                }
+            }, 200);
+        } else {
+            m_walletsData = new WalletsDataList(null, m_walletsDir, this);
+            m_walletsData.lastUpdated.addListener(e -> {
+                getLastUpdated().set(LocalDateTime.now());
+            });
+        }
+
     }
 
     @Override
@@ -111,7 +128,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void showWalletsStage() {
         if (m_walletsStage == null) {
-            double walletsStageWidth = 300;
+            double walletsStageWidth = 310;
             double walletsStageHeight = 500;
             double buttonHeight = 100;
 
