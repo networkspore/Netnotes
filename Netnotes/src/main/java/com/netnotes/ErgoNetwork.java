@@ -71,6 +71,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
         return new Image("/assets/ergo-network-30.png");
     }
 
+    @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
         JsonElement subjecElement = note.get("subject");

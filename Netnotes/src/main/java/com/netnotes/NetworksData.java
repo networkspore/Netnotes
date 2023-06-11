@@ -50,6 +50,8 @@ public class NetworksData {
     private VBox m_networksBox;
     private double m_width;
 
+    private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
+
     private double m_leftColumnWidth = 175;
 
     //  public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());

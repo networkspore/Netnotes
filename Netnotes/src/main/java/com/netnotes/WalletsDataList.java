@@ -72,7 +72,7 @@ public class WalletsDataList {
                 JsonElement networkTypeElement = jsonObject.get("networkType");
                 JsonElement nodeIdElement = jsonObject.get("nodeId");
                 JsonElement explorerIdElement = jsonObject.get("explorerId");
-                JsonElement exchangeIdElement = jsonObject.get("exchangeId");
+                JsonElement exchangeIdElement = jsonObject.get("marketId");
 
                 if (nameElement != null && idElement != null && fileLocationElement != null) {
                     String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
@@ -83,8 +83,10 @@ public class WalletsDataList {
                     String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
                     String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
                     String exchangeId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
+                    WalletData walletData = new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, walletNetworkType, m_ergoWallet);
+                    m_noteInterfaceList.add(walletData);
 
-                    m_noteInterfaceList.add(new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, walletNetworkType, m_ergoWallet));
+                    walletData.addUpdateListener((obs, oldValue, newValue) -> lastUpdated.set(LocalDateTime.now()));
 
                 }
             }

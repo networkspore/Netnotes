@@ -199,6 +199,7 @@ public class KucoinExchange extends Network implements NoteInterface {
         return m_listeningIds;
     }
 
+    @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         if (!m_webClient.isReady()) {
             connectToExchange();

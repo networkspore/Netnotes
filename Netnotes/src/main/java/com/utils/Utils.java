@@ -13,6 +13,8 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -193,6 +195,13 @@ public class Utils {
 
         ShellLinkHelper.createLink(target.getAbsolutePath(), linkDir.getAbsolutePath() + "/" + linkName);
 
+    }
+
+    public static String formatDateTimeString(LocalDateTime localDateTime) {
+
+        DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss a");
+
+        return formater.format(localDateTime);
     }
 
     public static String readHexDecodeString(File file) {

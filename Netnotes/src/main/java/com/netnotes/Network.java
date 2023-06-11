@@ -38,11 +38,13 @@ public class Network extends IconButton {
         public static String ERGO_WALLET = "ERGO_WALLET";
         public static String KUKOIN_EXCHANGE = "KUCOIN_EXCHANGE";
         public static String ERGO_EXPLORER = "ERGO_EXPLORER";
+        public static String TIMER_NETWORK = "TIMER_NETWORK";
     }
 
     public Network(Image icon, String name, String id, NetworksData networksData) {
         super(icon);
         setName(name);
+        setIconStyle(IconStyle.ICON);
         m_networkId = id;
         m_networksData = networksData;
         m_parentInterface = null;
@@ -63,8 +65,56 @@ public class Network extends IconButton {
         return fullNetworkId;
     }
 
-    public boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
         return false;
+    }
+
+    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        int indexOfperiod = fullNetworkId.indexOf(".");
+
+        if (indexOfperiod != -1) {
+
+            NoteInterface parentInterface = getParentInterface();
+
+            if (parentInterface == null) {
+                int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
+                String tunnelId = indexOfSecondPeriod == -1 ? fullNetworkId.substring(indexOfperiod, fullNetworkId.length()) : fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
+
+                for (NoteInterface tunnelInterface : m_tunnelInterfaceList) {
+                    if (tunnelInterface.getNetworkId().equals(tunnelId)) {
+                        return tunnelInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
+                    }
+                }
+            } else {
+                indexOfperiod = fullNetworkId.indexOf(getNetworkId());
+                int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod);
+
+                if (indexOfSecondPeriod == -1) {
+                    return sendNote(note, onSucceeded, onFailed);
+                } else {
+                    indexOfperiod = indexOfSecondPeriod;
+                    indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
+
+                    String tunnelId = indexOfSecondPeriod == -1 ? fullNetworkId.substring(indexOfperiod, fullNetworkId.length()) : fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
+
+                    for (int i = 0; i < m_tunnelInterfaceList.size(); i++) {
+                        NoteInterface tunnelInterface = m_tunnelInterfaceList.get(i);
+
+                        if (tunnelInterface.getNetworkId().equals(tunnelId)) {
+                            return tunnelInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
+                        }
+                    }
+                }
+
+            }
+
+        } else {
+            sendNote(note, onSucceeded, onFailed);
+        }
+
+        return false;
+
     }
 
     public NoteInterface getParentInterface() {
@@ -117,14 +167,6 @@ public class Network extends IconButton {
                 m_tunnelInterfaceList.remove(tunnel);
             }
         });
-    }
-
-    public void sendNoteToTunnelInterface(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        for (NoteInterface tunnelInterface : m_tunnelInterfaceList) {
-            if (tunnelInterface.getNetworkId().equals(tunnelId)) {
-                tunnelInterface.sendNote(note, onSucceeded, onFailed);
-            }
-        }
     }
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated() {

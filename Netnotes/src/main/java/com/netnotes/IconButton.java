@@ -276,10 +276,4 @@ public class IconButton extends Button {
         setGraphic(getIconView(m_icon, m_imageWidth));
     }
 
-    public void setIconImageWidth(Image icon, double imageWidth) {
-        m_imageWidth = imageWidth;
-        m_icon = icon;
-        setGraphic(getIconView(m_icon, m_imageWidth));
-    }
-
 }

@@ -16,6 +16,8 @@ import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
+import javax.imageio.ImageIO;
+
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
 
@@ -30,8 +32,10 @@ import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
 
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
@@ -41,6 +45,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -67,12 +72,18 @@ import java.math.BigDecimal;
 
 public class AddressData extends IconButton {
 
-    private SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
+    private static String NULL_ERG = "-.-- ERG";
+
+    private SimpleStringProperty m_lastUpdated = new SimpleStringProperty(Utils.formatDateTimeString(LocalDateTime.now()));
     private boolean m_valid = false;
-    private String m_name = "";
+    private boolean m_quantityValid = false;
+    private SimpleStringProperty m_name = new SimpleStringProperty();
     private int m_index;
     private Address m_address;
-    private NetworkType m_networkType;
+
+    private SimpleStringProperty m_formattedQuantity = new SimpleStringProperty();
+    private SimpleStringProperty m_formattedPrice = new SimpleStringProperty();
+    private SimpleStringProperty m_formattedTotal = new SimpleStringProperty();
 
     private long m_confirmedNanoErgs = 0;
     private long m_unconfirmedNanoErgs = 0;
@@ -83,23 +94,21 @@ public class AddressData extends IconButton {
     private ArrayList<TokenData> m_confirmedTokensList = new ArrayList<>();
     private ArrayList<TokenData> m_unconfirmedTokensList = new ArrayList<>();
     private Stage m_addressStage = null;
-
-    File logFile = new File("addresslog.txt");
+    private WalletData m_walletData;
+    File logFile;
 
     private double m_price = 0;
-    private WalletData m_WalletData;
+    // private WalletData m_WalletData;
 
     public AddressData(String name, int index, Address address, NetworkType networktype, WalletData walletData) {
-        // super(null, "> " + name + ":\n   " + address, address.toString(), walletData);
         super();
 
-        m_WalletData = walletData;
-
-        m_name = name;
+        logFile = new File("address - " + address.toString() + "-log.txt");
+        //    m_WalletData = walletData;
+        m_walletData = walletData;
+        m_name.set(name);
         m_index = index;
-        m_networkType = networktype;
         m_address = address;
-        setText("> " + name + ":\n  " + getAddressMinimal(12));
 
         Tooltip addressTip = new Tooltip(getName());
 
@@ -115,10 +124,64 @@ public class AddressData extends IconButton {
         setPadding(new Insets(0, 10, 0, 10));
         setId("rowBtn");
 
+        textProperty().bind(Bindings.concat("> ", m_name, ":\n  ", getAddressMinimal(12)));
+
+        update();
+        getUpdates();
+    }
+
+    private void getUpdates() {
+        updateBalance();
+    }
+
+    private void update() {
+        setFormattedQuantity();
+        setFormattedPrice();
+        setFormattedTotal();
+        setLastUpdatedStringNow();
+
         updateBufferedImage();
 
-        updateBalance();
+        //  double remainingSpace = getBoundsInParent().getWidth();
+        //  int factor = (int) (remainingSpace / 24);
+        //  String addressMinimal = factor < 10 ? getAddressMinimal(10) : getAddressMinimal(factor);
+        //  setText("> " + m_name.get() + ":\n  " + addressMinimal);
+        //  explorerInterface.sendNote, null, null)
+    }
 
+    public String getQuantityString() {
+        if (m_quantityValid) {
+            double unconfirmed = getFullAmountUnconfirmed();
+            return getFullAmountDouble() + " ERG" + (unconfirmed != 0 ? (" (" + unconfirmed + " unconfirmed)") : "");
+        } else {
+            return NULL_ERG;
+        }
+    }
+
+    public String getFormmatedTotal() {
+        if (m_quantityValid) {
+            double unconfirmedTotal = getFullAmountUnconfirmed();
+            return getTotalAmountPriceString() + (unconfirmedTotal != 0 ? (" (" + (unconfirmedTotal * getPrice()) + " unconfirmed)") : "");
+        } else {
+            return "-.--";
+        }
+    }
+
+    public void setFormattedQuantity() {
+
+        m_formattedQuantity.set(getQuantityString());
+    }
+
+    public void setFormattedPrice() {
+        m_formattedPrice.set(getPriceString());
+    }
+
+    public void setFormattedTotal() {
+        m_formattedTotal.set(getFormmatedTotal());
+    }
+
+    public SimpleStringProperty getLastUpdated() {
+        return m_lastUpdated;
     }
 
     @Override
@@ -127,12 +190,22 @@ public class AddressData extends IconButton {
 
     }
 
+    /* public void updateBalance(long nanoErgs, ArrayList<TokenData> confirmedTokenList, long unconfirmedNanoErgs, ArrayList<TokenData> unconfirmedTokenList) {
+        m_valid = true;
+        m_confirmedNanoErgs = nanoErgs;
+        m_unconfirmedNanoErgs = unconfirmedNanoErgs;
+        m_confirmedTokensList = confirmedTokenList;
+        m_unconfirmedTokensList = unconfirmedTokenList;
+        lastUpdated.set(LocalDateTime.now());
+    } */
     private void showAddressStage() {
         if (m_addressStage == null) {
-            String title = "Ergo Wallet - " + m_name + ": " + getAddressMinimal(16) + " - (" + m_networkType + ")";
+            // String title = "Ergo Wallet - " + m_name.get();
+            String infoString = ": " + getAddressMinimal(16) + " - (";
 
             m_addressStage = new Stage();
-            m_addressStage.setTitle(title);
+            m_addressStage.titleProperty().bind(Bindings.concat("Ergo Wallet - ", m_name, infoString, m_address.getNetworkType().toString(), ")"));
+            // m_addressStage.setTitle(title);
             m_addressStage.getIcons().add(ErgoWallet.getAppIcon());
             m_addressStage.setResizable(false);
             m_addressStage.initStyle(StageStyle.UNDECORATED);
@@ -143,7 +216,10 @@ public class AddressData extends IconButton {
                 m_addressStage = null;
             });
 
-            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, closeBtn, m_addressStage);
+            Label titleLbl = new Label();
+
+            HBox titleBox = App.createLabeledTopBar(ErgoWallet.getSmallAppIcon(), titleLbl, closeBtn, m_addressStage);
+            titleLbl.textProperty().bind(Bindings.concat("Ergo Wallet - ", m_name, " (", m_address.getNetworkType().toString(), "): ", getAddressMinimal(10)));
 
             HBox menuBar = new HBox();
             HBox.setHgrow(menuBar, Priority.ALWAYS);
@@ -154,14 +230,18 @@ public class AddressData extends IconButton {
             HBox paddingBox = new HBox(menuBar);
             paddingBox.setPadding(new Insets(2, 5, 2, 5));
 
-            Text addressNameTxt = new Text("> Ergo wallet - " + getName() + " (" + m_networkType + "):");
-            addressNameTxt.setFill(App.txtColor);
+            TextField addressNameTxt = new TextField();
+            addressNameTxt.setId("textField");
             addressNameTxt.setFont(App.txtFont);
+            addressNameTxt.setEditable(false);
+            addressNameTxt.textProperty().bind(Bindings.concat("> ", m_name, " (", m_address.getNetworkType().toString(), "):"));
+            HBox.setHgrow(addressNameTxt, Priority.ALWAYS);
 
             HBox addressNameBox = new HBox(addressNameTxt);
-            addressNameBox.setPadding(new Insets(3, 0, 5, 0));
+            addressNameBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(addressNameBox, Priority.ALWAYS);
 
-            Text addressTxt = new Text("  Address:");
+            Text addressTxt = new Text("   Address:");
             addressTxt.setFont(App.txtFont);
             addressTxt.setFill(App.formFieldColor);
 
@@ -175,11 +255,10 @@ public class AddressData extends IconButton {
             HBox addressBox = new HBox(addressTxt, addressField);
             addressBox.setAlignment(Pos.CENTER_LEFT);
 
-            Text ergQuantityTxt = new Text("  Balance:");
+            Text ergQuantityTxt = new Text("   Balance:");
             ergQuantityTxt.setFont(App.txtFont);
             ergQuantityTxt.setFill(App.formFieldColor);
-            double unconfirmed = getFullAmountUnconfirmed();
-            String ergQuantityString = getFullAmountDouble() + " ERG" + (unconfirmed != 0 ? (" (" + unconfirmed + " unconfirmed)") : "");
+
             /*
             try {
                 Files.writeString(logFile.toPath(), "erg quantity:" + ergQuantityString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -187,8 +266,7 @@ public class AddressData extends IconButton {
             } catch (IOException e) {
 
             } */
-
-            TextField ergQuantityField = new TextField(ergQuantityString);
+            TextField ergQuantityField = new TextField();
             ergQuantityField.setEditable(false);
             ergQuantityField.setFont(App.txtFont);
             ergQuantityField.setId("formField");
@@ -197,12 +275,11 @@ public class AddressData extends IconButton {
             HBox ergQuantityBox = new HBox(ergQuantityTxt, ergQuantityField);
             ergQuantityBox.setAlignment(Pos.CENTER_LEFT);
 
-            Text priceTxt = new Text("  Price: ");
+            Text priceTxt = new Text("   Price: ");
             priceTxt.setFont(App.txtFont);
             priceTxt.setFill(App.formFieldColor);
-            String priceString = getPriceString();
 
-            TextField priceField = new TextField(priceString);
+            TextField priceField = new TextField();
             priceField.setEditable(false);
             /*
             try {
@@ -219,32 +296,25 @@ public class AddressData extends IconButton {
             HBox priceBox = new HBox(priceTxt, priceField);
             priceBox.setAlignment(Pos.CENTER_LEFT);
 
-            Text balanceTxt = new Text("  Total:");
+            Text balanceTxt = new Text("   Total:");
             balanceTxt.setFont(App.txtFont);
             balanceTxt.setFill(App.formFieldColor);
-            String balanceString = getTotalAmountPriceString();
-            TextField balanceField = new TextField(balanceString);
+
+            TextField balanceField = new TextField();
             balanceField.setEditable(false);
-            /*
-            try {
-                Files.writeString(logFile.toPath(), "balance :" + balanceString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            } catch (IOException e) {
-
-            } */
-
             balanceField.setFont(App.txtFont);
             balanceField.setId("formField");
+
             HBox.setHgrow(balanceField, Priority.ALWAYS);
 
             HBox balanceBox = new HBox(balanceTxt, balanceField);
             balanceBox.setAlignment(Pos.CENTER_LEFT);
 
-            Text lastUpdatedTxt = new Text("  Updated:");
+            Text lastUpdatedTxt = new Text("   Updated:");
             lastUpdatedTxt.setFill(App.formFieldColor);
             lastUpdatedTxt.setFont(App.txtFont);
 
-            TextField lastUpdatedField = new TextField(getLastUpdatedString());
+            TextField lastUpdatedField = new TextField();
             lastUpdatedField.setEditable(false);
             lastUpdatedField.setId("formField");
             lastUpdatedField.setFont(App.txtFont);
@@ -258,13 +328,6 @@ public class AddressData extends IconButton {
             VBox layoutVBox = new VBox(titleBox, paddingBox, bodyVBox);
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            try {
-                Files.writeString(logFile.toPath(), "chartbox :" + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            } catch (IOException e) {
-
-            }
-
             Scene addressScene = new Scene(layoutVBox, 650, 500);
 
             addressScene.getStylesheets().add("/css/startWindow.css");
@@ -272,22 +335,14 @@ public class AddressData extends IconButton {
             m_addressStage.setScene(addressScene);
             m_addressStage.show();
 
-            lastUpdated.addListener(changed -> {
+            /**
+             * **** BINDINGS ****
+             */
+            ergQuantityField.textProperty().bind(m_formattedQuantity);
+            lastUpdatedField.textProperty().bind(m_lastUpdated);
+            priceField.textProperty().bind(m_formattedPrice);
+            balanceField.textProperty().bind(m_formattedTotal);
 
-                double unconfirmedUpdate = getFullAmountUnconfirmed();
-                ergQuantityField.setText(getFullAmountDouble() + " ERG" + (unconfirmedUpdate != 0 ? (" (" + unconfirmedUpdate + " unconfirmed)") : ""));
-                double priceUpdate = getPrice();
-                priceField.setText(getPriceString());
-                balanceField.setText(getTotalAmountPriceString() + (unconfirmedUpdate != 0 ? (" (" + (unconfirmedUpdate * priceUpdate) + " unconfirmed)") : ""));
-                lastUpdatedField.setText(getLastUpdatedString());
-
-            });
-            try {
-                Files.writeString(logFile.toPath(), "end :" + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            } catch (IOException e) {
-
-            }
             /* 
             addressData.getPriceChart().lastUpdated.addListener(updated -> {
                 PriceChart priceChart = addressData.getPriceChart();
@@ -313,87 +368,15 @@ public class AddressData extends IconButton {
         return false;
     }
 
-    private JsonObject getBalanceNote() {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("subject", "GET_BALANCE");
-        jsonObject.addProperty("address", m_address.toString());
-        jsonObject.addProperty("networkType", m_networkType.toString());
-        return jsonObject;
-    }
-
-    public void updateBalance() {
-        NoteInterface explorerInterface = m_WalletData.getExplorerInterface();
-
-        if (explorerInterface != null) {
-            explorerInterface.sendNote(
-                    getBalanceNote(),
-                    success -> {
-
-                        ByteArrayOutputStream outputStream = (ByteArrayOutputStream) success.getSource().getValue();
-                        String jsonString = outputStream.toString();
-
-                        JsonElement jsonTest = null;
-                        try {
-                            jsonTest = new JsonParser().parse(jsonString);
-                        } catch (JsonParseException e) {
-
-                        }
-                        JsonObject jsonObject = jsonTest != null ? jsonTest.getAsJsonObject() : null;
-                        JsonElement confirmedElement = jsonObject != null ? jsonObject.get("confirmed") : null;
-
-                        if (confirmedElement == null || jsonObject == null) {
-                            m_valid = false;
-                        } else {
-
-                            JsonObject confirmedObject = confirmedElement.getAsJsonObject();
-                            JsonObject unconfirmedObject = jsonObject.get("unconfirmed").getAsJsonObject();
-
-                            m_confirmedNanoErgs = confirmedObject.get("nanoErgs").getAsLong();
-
-                            m_unconfirmedNanoErgs = unconfirmedObject.get("nanoErgs").getAsLong();
-
-                            JsonArray confirmedTokenArray = confirmedObject.get("tokens").getAsJsonArray();
-                            JsonArray unconfirmedTokenArray = unconfirmedObject.get("tokens").getAsJsonArray();
-
-                            ArrayList<TokenData> cTokensList = new ArrayList<>();
-
-                            int confirmedSize = confirmedTokenArray.size();
-                            for (int i = 0; i < confirmedSize; i++) {
-                                JsonObject token = confirmedTokenArray.get(i).getAsJsonObject();
-                                TokenData data = new TokenData(token);
-                                cTokensList.add(data);
-                            }
-
-                            ArrayList<TokenData> uTokensList = new ArrayList<>();
-                            int unconfirmedSize = unconfirmedTokenArray.size();
-
-                            for (int i = 0; i < unconfirmedSize; i++) {
-                                JsonObject token = unconfirmedTokenArray.get(i).getAsJsonObject();
-                                TokenData data = new TokenData(token);
-                                uTokensList.add(data);
-
-                            }
-
-                            m_confirmedTokensList = cTokensList;
-                            m_unconfirmedTokensList = uTokensList;
-
-                            m_valid = true;
-
-                        }
-
-                        updateBufferedImage();
-                    },
-                    failed -> {
-                        m_valid = false;
-                        updateBufferedImage();
-                    }
-            );
-        }
-
-    }
-
+    @Override
     public String getName() {
-        return m_name;
+        return m_name.get();
+    }
+
+    @Override
+    public void setName(String name) {
+        super.setName(name);
+        m_name.set(name);
     }
 
     public int getIndex() {
@@ -402,6 +385,11 @@ public class AddressData extends IconButton {
 
     public boolean getValid() {
         return m_valid;
+    }
+
+    public void setValid(boolean valid) {
+        m_valid = valid;
+        // updateBufferedImage();
     }
 
     public Address getAddress() {
@@ -424,7 +412,7 @@ public class AddressData extends IconButton {
     }
 
     public NetworkType getNetworkType() {
-        return m_networkType;
+        return m_address.getNetworkType();
     }
 
     public long getConfirmedNanoErgs() {
@@ -455,23 +443,20 @@ public class AddressData extends IconButton {
         return m_price;
     }
 
-    public boolean getPriceValid() {
-        return false;
-    }
-
     public double getTotalAmountPrice() {
         return getFullAmountDouble() * getPrice();
     }
 
-    public String getLastUpdatedString() {
+    public void setLastUpdatedStringNow() {
+        LocalDateTime now = LocalDateTime.now();
 
         DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss a");
 
-        return formater.format(lastUpdated.get());
+        m_lastUpdated.set(formater.format(now));
     }
 
-    public static String formatCryptoString(double price, String target, boolean valid) {
-        String priceTotal = (valid ? String.format("%.2f", price) : "-.--");
+    public String formatCryptoString(double price, String target) {
+        String priceTotal = (m_valid && m_quantityValid ? String.format("%.2f", price) : "-.--");
 
         switch (target) {
             case "USD":
@@ -484,7 +469,7 @@ public class AddressData extends IconButton {
                 priceTotal = "€‎" + priceTotal;
                 break;
             case "BTC":
-                priceTotal = "₿" + (valid ? String.format("%.8f", price) : "-.--");
+                priceTotal = "₿" + (m_valid && m_quantityValid ? String.format("%.8f", price) : "-.--");
                 break;
         }
 
@@ -492,13 +477,13 @@ public class AddressData extends IconButton {
     }
 
     public String getTotalAmountPriceString() {
-        return formatCryptoString(getTotalAmountPrice(), getPriceTargetCurrency(), getPriceValid());
+        return formatCryptoString(getTotalAmountPrice(), getPriceTargetCurrency());
 
     }
 
     public String getPriceString() {
 
-        return formatCryptoString(getPrice(), getPriceTargetCurrency(), getPriceValid());
+        return formatCryptoString(getPrice(), getPriceTargetCurrency());
 
     }
 
@@ -528,10 +513,10 @@ public class AddressData extends IconButton {
 
         //   Image ergoBlack25 = new Image("/assets/ergo-black-25.png");
         //   SwingFXUtils.fromFXImage(ergoBlack25, null);
-        String AmountString = String.format("%d", integers);
+        String AmountString = m_quantityValid ? String.format("%d", integers) : " -";
         String decs = String.format("%." + decimalPlaces + "f", decimals);
 
-        decs = decs.substring(1, decs.length());
+        decs = m_quantityValid ? decs.substring(1, decs.length()) : "";
         totalPrice = totalPrice + "   ";
         currencyPrice = "(" + currencyPrice + ")   ";
 
@@ -605,23 +590,86 @@ public class AddressData extends IconButton {
         g2d.setColor(new java.awt.Color(.9f, .9f, .9f, .9f));
 
         g2d.drawString(decs, priceLength + stringWidth + 1, fm.getHeight() + 2);
+        /*try {
+            Files.writeString(logFile.toPath(), AmountString + decs);
+        } catch (IOException e) {
 
+        }*/
         g2d.dispose();
+        /*
+        try {
+            ImageIO.write(img, "png", new File("outputImage.png"));
+        } catch (IOException e) {
 
-        setIconImageWidth(SwingFXUtils.toFXImage(img, null), width);
+        } */
+
+        setGraphic(getIconView(SwingFXUtils.toFXImage(img, null), width));
+
+    }
+
+    private JsonObject getBalanceNote() {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("subject", "GET_BALANCE");
+        jsonObject.addProperty("address", m_address.toString());
+        jsonObject.addProperty("networkType", getNetworkType().toString());
+        return jsonObject;
+    }
+
+    public void updateBalance() {
+        NoteInterface explorerInterface = m_walletData.getExplorerInterface();
+
+        if (explorerInterface != null) {
+            explorerInterface.sendNote(
+                    getBalanceNote(),
+                    success -> {
+                        JsonObject jsonObject = null;
+                        try {
+                            ByteArrayOutputStream outputStream = (ByteArrayOutputStream) success.getSource().getValue();
+                            String jsonString = outputStream.toString();
+
+                            JsonElement jsonTest = new JsonParser().parse(jsonString);
+                            jsonObject = jsonTest != null ? jsonTest.getAsJsonObject() : null;
+
+                        } catch (Exception e) {
+                            try {
+                                Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e1) {
+
+                            }
+                        }
+
+                        if (jsonObject != null) {
+
+                            setBalance(jsonObject);
+                        } else {
+
+                            m_quantityValid = false;
+                        }
+                        update();
+                    },
+                    failed -> {
+                        try {
+                            Files.writeString(logFile.toPath(), "\nUpdateBalance: failed " + "\n" + failed.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e) {
+
+                        }
+
+                        m_quantityValid = false;
+                        update();
+                    }
+            );
+        }
 
     }
 
     public void setBalance(JsonObject jsonObject) {
         if (jsonObject != null) {
             JsonElement confirmedElement = jsonObject != null ? jsonObject.get("confirmed") : null;
-
-            if (confirmedElement == null) {
-                m_valid = false;
-            } else {
+            JsonElement unconfirmedElement = jsonObject.get("unconfirmed");
+            if (confirmedElement != null && unconfirmedElement != null) {
 
                 JsonObject confirmedObject = confirmedElement.getAsJsonObject();
-                JsonObject unconfirmedObject = jsonObject.get("unconfirmed").getAsJsonObject();
+                JsonObject unconfirmedObject = unconfirmedElement.getAsJsonObject();
 
                 m_confirmedNanoErgs = confirmedObject.get("nanoErgs").getAsLong();
 
@@ -649,15 +697,17 @@ public class AddressData extends IconButton {
 
                 }
 
-                m_valid = true;
+                m_quantityValid = true;
                 m_confirmedTokensList = cTokensList;
                 m_unconfirmedTokensList = uTokensList;
-                updateBufferedImage();
+
+            } else {
+                m_quantityValid = false;
 
             }
         } else {
-            m_valid = false;
-            updateBufferedImage();
+            m_quantityValid = false;
+
         }
 
     }
@@ -680,26 +730,37 @@ public class AddressData extends IconButton {
 
     public JsonObject getJsonObject() {
         JsonObject jsonObj = new JsonObject();
+        jsonObj.addProperty("id", m_address.toString());
+        jsonObj.addProperty("tickerName", m_priceBaseCurrency);
+        jsonObj.addProperty("name", m_name.get());
+        jsonObj.addProperty("address", m_address.toString());
+        jsonObj.addProperty("networkType", m_address.getNetworkType().toString());
+        jsonObj.addProperty("explorerValidated", m_quantityValid);
+        jsonObj.addProperty("marketValidated", m_valid);
 
-        jsonObj.addProperty("valid", m_valid);
+        JsonObject formattedData = new JsonObject();
+        formattedData.addProperty("quantity", m_formattedQuantity.get());
+        formattedData.addProperty("price", m_formattedPrice.get());
+        formattedData.addProperty("total", m_formattedTotal.get());
 
-        if (m_valid) {
-            jsonObj.addProperty("name", m_name);
-            jsonObj.addProperty("address", m_address.toString());
-            jsonObj.addProperty("networkType", m_networkType.toString());
+        JsonObject priceObj = new JsonObject();
+        priceObj.addProperty("price", getPrice());
+        priceObj.addProperty("quoteCurrency", getPriceTargetCurrency());
+        priceObj.addProperty("total", getTotalAmountPrice());
+        priceObj.add("formattedData", formattedData);
 
-            JsonObject confirmedObj = new JsonObject();
-            confirmedObj.addProperty("nanoErgs", m_confirmedNanoErgs);
-            confirmedObj.add("tokens", getConfirmedTokenJsonArray());
+        jsonObj.add("priceData", priceObj);
 
-            JsonObject unconfirmedObj = new JsonObject();
-            unconfirmedObj.addProperty("nanoErgs", m_unconfirmedNanoErgs);
-            unconfirmedObj.add("tokens", getUnconfirmedTokenJsonArray());
+        JsonObject confirmedObj = new JsonObject();
+        confirmedObj.addProperty("nanoErgs", m_confirmedNanoErgs);
+        confirmedObj.add("tokens", getConfirmedTokenJsonArray());
 
-            jsonObj.add("confirmed", confirmedObj);
-            jsonObj.add("unconfirmed", unconfirmedObj);
+        JsonObject unconfirmedObj = new JsonObject();
+        unconfirmedObj.addProperty("nanoErgs", m_unconfirmedNanoErgs);
+        unconfirmedObj.add("tokens", getUnconfirmedTokenJsonArray());
 
-        }
+        jsonObj.add("confirmed", confirmedObj);
+        jsonObj.add("unconfirmed", unconfirmedObj);
 
         return jsonObj;
 

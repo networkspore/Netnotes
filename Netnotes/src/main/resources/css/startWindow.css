@@ -176,6 +176,8 @@
     -fx-opacity: 1;
 }
 
+
+
 #menuBtn {
     -fx-background-color: transparent;
     -fx-opacity: .6;
@@ -189,8 +191,17 @@
 .menu-button {
     -fx-opacity: .6;
     -fx-shape: "...";
-        -fx-scale-shape: true;
-        -fx-position-shape: true;
+    -fx-background-color: #77777715;
+    -fx-background-radius: 10 10 10 10;
+    -fx-border-radius: 10 10 10 10;
+     
+}
+.menu-button>.arrow-button {
+    -fx-padding: 0;
+}
+
+.menu-button>.arrow-button>.arrow {
+    -fx-padding: 0;
 }
 
 .menu-button:hover {

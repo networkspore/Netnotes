@@ -1,18 +1,29 @@
 package com.netnotes;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
+import org.bouncycastle.math.ec.rfc7748.X25519.Friend;
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
 
 import com.devskiller.friendly_id.FriendlyId;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.satergo.Wallet;
 import com.satergo.WalletKey.Failure;
+import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.concurrent.WorkerStateEvent;
@@ -31,6 +42,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
@@ -42,39 +54,45 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.stage.WindowEvent;
 
 public class WalletData extends Network implements NoteInterface {
 
     private File logFile;
     private File m_walletFile = null;
+    private File m_walletDirectory;
 
-    private NetworkType m_networkType = null;
+    private NetworkType m_networkType = NetworkType.MAINNET;
     private Stage m_walletStage = null;
     private Stage m_passwordStage = null;
-    private String m_name;
+    // private String m_name;
 
-    private NoteInterface m_nodeInterface = null;
-    private NoteInterface m_explorerInterface = null;
-    private NoteInterface m_marketInterface = null;
+    private String m_nodeId;
+    private String m_explorerId;
+    private String m_marketId;
 
-    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String exchangeId, NetworkType networkType, NoteInterface noteInterface) {
-        super(null, name, id, noteInterface);
-        m_name = name;
+    private ErgoWallet m_ergoWallet;
+
+    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String marketId, NetworkType networkType, ErgoWallet ergoWallet) {
+        super(null, name, id, ergoWallet);
+        //   m_name = name;
+        m_ergoWallet = ergoWallet;
         logFile = new File("WalletData" + name + "-log.txt");
 
         try {
-            Files.writeString(logFile.toPath(), "ExchangeId: " + exchangeId + " nodeId: " + nodeId + " explorerId: " + explorerId + " networkType: " + networkType);
+            Files.writeString(logFile.toPath(), "ExchangeId: " + marketId + " nodeId: " + nodeId + " explorerId: " + explorerId + " networkType: " + networkType);
         } catch (IOException e) {
 
         }
         m_walletFile = walletFile;
         m_networkType = networkType;
 
-        m_nodeInterface = nodeId == null ? null : getNetworksData().getNoteInterface(nodeId);
-        m_explorerInterface = explorerId == null ? null : getNetworksData().getNoteInterface(explorerId);
-        m_marketInterface = exchangeId == null ? null : getNetworksData().getNoteInterface(exchangeId);
+        m_nodeId = nodeId == null ? null : nodeId;
+        m_explorerId = explorerId == null ? null : explorerId;
+        m_marketId = marketId == null ? null : marketId;
 
         setIconStyle(IconStyle.ROW);
     }
@@ -88,14 +106,14 @@ public class WalletData extends Network implements NoteInterface {
         jsonObject.addProperty("file", m_walletFile.getAbsolutePath());
         jsonObject.addProperty("networkType", m_networkType.toString());
 
-        if (m_nodeInterface != null) {
-            jsonObject.addProperty("nodeId", m_nodeInterface.getNetworkId());
+        if (m_nodeId != null) {
+            jsonObject.addProperty("nodeId", m_nodeId);
         }
-        if (m_explorerInterface != null) {
-            jsonObject.addProperty("explorerId", m_explorerInterface.getNetworkId());
+        if (m_explorerId != null) {
+            jsonObject.addProperty("explorerId", m_explorerId);
         }
-        if (m_marketInterface != null) {
-            jsonObject.addProperty("exchangeId", m_marketInterface.getNetworkId());
+        if (m_marketId != null) {
+            jsonObject.addProperty("marketId", m_marketId);
         }
 
         /*jsonObject.set("name");
@@ -119,6 +137,13 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+        JsonElement networkIdElement = note.get("networkId");
+
+        if (networkIdElement != null) {
+            if (networkIdElement.getAsString().equals(NetworkID.TIMER_NETWORK)) {
+
+            }
+        }
         return false;
     }
 
@@ -177,7 +202,7 @@ public class WalletData extends Network implements NoteInterface {
             VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            Scene passwordScene = new Scene(layoutVBox, 600, 375);
+            Scene passwordScene = new Scene(layoutVBox, 650, 375);
 
             passwordScene.getStylesheets().add("/css/startWindow.css");
             m_passwordStage.setScene(passwordScene);
@@ -216,280 +241,273 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     private void showWalletStage(Wallet wallet) {
-        try {
-            Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
+        if (m_walletStage == null) {
+            AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
+            m_ergoWallet.addTunnelNoteInterface(this);
+            addTunnelNoteInterface(addressesData);
 
-        }
-        String title = m_name + " - (" + m_networkType.toString() + ")";
+            try {
+                Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
 
-        double width = 450;
-        double imageWidth = 25;
+            }
+            String title = getName() + " - (" + m_networkType.toString() + ")";
 
-        m_walletStage = new Stage();
-        m_walletStage.setTitle(title);
-        m_walletStage.getIcons().add(ErgoWallet.getAppIcon());
-        m_walletStage.setResizable(false);
-        m_walletStage.initStyle(StageStyle.UNDECORATED);
+            double sceneWidth = 450;
+            double sceneHeight = 525;
+            double imageWidth = 25;
+            double alertImageWidth = 75;
 
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
+            //  PriceChart priceChart = null;
+            m_walletStage = new Stage();
+            m_walletStage.setTitle(title);
+            m_walletStage.getIcons().add(ErgoWallet.getAppIcon());
+            m_walletStage.setResizable(false);
+            m_walletStage.initStyle(StageStyle.UNDECORATED);
 
-            m_walletStage.close();
-            m_walletStage = null;
-        });
+            Button closeBtn = new Button();
+            closeBtn.setOnAction(closeEvent -> {
 
-        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, closeBtn, m_walletStage);
+                m_walletStage.close();
+                m_walletStage = null;
+            });
 
-        /*Button imageButton = createImageButton(walletImg240, title + "\n" + wallet.name.get());
+            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, closeBtn, m_walletStage);
+
+            /*Button imageButton = createImageButton(walletImg240, title + "\n" + wallet.name.get());
         HBox imageBox = new HBox(imageButton);
         imageBox.setAlignment(Pos.CENTER);
         HBox.setHgrow(imageBox, Priority.ALWAYS);*/
-        ImageView addImage = App.highlightedImageView(App.addImg);
-        addImage.setFitHeight(10);
-        addImage.setPreserveRatio(true);
+ /*  ImageView addImage = App.highlightedImageView(App.addImg);
+            addImage.setFitHeight(10);
+            addImage.setPreserveRatio(true);*/
+ /*   Tooltip nameTip = new Tooltip("Wallet: " + getText());
+            nameTip.setShowDelay(new javafx.util.Duration(100));
+            nameTip.setFont(App.txtFont);
+           
+            Button walletButton = new Button();
+            walletButton.setGraphic(IconButton.getIconView(new Image("/assets/ergo-wallet-30.png"), 30));
+            walletButton.setId("menuBtn");
+            walletButton.setTooltip(nameTip); */
+            Tooltip addTip = new Tooltip("Add address");
+            addTip.setShowDelay(new javafx.util.Duration(100));
+            addTip.setFont(App.txtFont);
 
-        Tooltip addTip = new Tooltip("Add address");
-        addTip.setShowDelay(new javafx.util.Duration(100));
-        addTip.setFont(App.txtFont);
+            Button addButton = new Button();
+            addButton.setGraphic(IconButton.getIconView(new Image("/assets/git-branch-outline-white-30.png"), 30));
+            addButton.setId("menuBtn");
+            addButton.setTooltip(addTip);
 
-        Button addButton = new Button();
-        addButton.setGraphic(IconButton.getIconView(new Image("/assets/git-branch-outline-white-30.png"), 30));
-        addButton.setId("menuBtn");
-        addButton.setTooltip(addTip);
+            Tooltip networkTip = new Tooltip("Select network");
+            networkTip.setShowDelay(new javafx.util.Duration(100));
+            networkTip.setFont(App.txtFont);
 
-        Tooltip networkTip = new Tooltip(m_explorerInterface == null ? "Select network: (none)" : "Select network: " + m_nodeInterface.getName());
-        networkTip.setShowDelay(new javafx.util.Duration(100));
-        networkTip.setFont(App.txtFont);
+            ImageView nodeView = IconButton.getIconView(new Image("/assets/node-30.png"), imageWidth);
 
-        ImageView nodeView = IconButton.getIconView(new Image("/assets/node-30.png"), imageWidth);
+            MenuButton networkMenuBtn = new MenuButton();
+            networkMenuBtn.setGraphic(m_nodeId == null ? nodeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_nodeId, true).getIcon(), imageWidth));
+            networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
+            networkMenuBtn.setTooltip(networkTip);
 
-        MenuButton networkMenuBtn = new MenuButton();
-        networkMenuBtn.setGraphic(m_nodeInterface == null ? nodeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_nodeInterface.getNetworkId(), true).getIcon(), imageWidth));
-        networkMenuBtn.setPadding(new Insets(0, 0, 0, 15));
-        networkMenuBtn.setTooltip(networkTip);
-
-        MenuItem nodeNullMenuItem = new MenuItem("(none)");
-        nodeNullMenuItem.setOnAction(e -> {
-            removeNodeInterface();
-            networkMenuBtn.setGraphic(nodeView);
-            networkTip.setText("Select network: (none)");
-
-        });
-
-        MenuItem nodeMenuItem = new MenuItem("Ergo Network");
-        nodeMenuItem.setOnAction(e -> {
-            setNodeInterface(NetworkID.ERGO_NETWORK);
-            if (m_nodeInterface != null) {
-                networkTip.setText("Select network: " + m_nodeInterface.getName());
-                networkMenuBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getNetworksData(), m_nodeInterface.getNetworkId(), true).getIcon(), imageWidth));
-            } else {
-                networkTip.setText("Select network: (none)");
+            MenuItem nodeNullMenuItem = new MenuItem("(none)");
+            nodeNullMenuItem.setOnAction(e -> {
+                removeNodeId();
                 networkMenuBtn.setGraphic(nodeView);
-            }
-        });
 
-        networkMenuBtn.getItems().addAll(nodeNullMenuItem, nodeMenuItem);
+            });
 
-        Tooltip explorerUrlTip = new Tooltip(m_explorerInterface == null ? "Select explorer: (none)" : "Select explorer: " + m_explorerInterface.getName());
-        explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
-        explorerUrlTip.setFont(App.txtFont);
+            MenuItem nodeMenuItem = new MenuItem(ErgoNetwork.NAME);
+            nodeMenuItem.setOnAction(e -> {
+                setNodeId(NetworkID.ERGO_NETWORK);
 
-        ImageView searchView = IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), imageWidth);
-
-        MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setGraphic(m_explorerInterface == null ? searchView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerInterface.getNetworkId(), true).getIcon(), imageWidth));
-
-        explorerBtn.setTooltip(explorerUrlTip);
-
-        MenuItem explorerNullMenuItem = new MenuItem("(none)");
-        explorerNullMenuItem.setOnAction(e -> {
-            removeExplorerInterface();
-            explorerUrlTip.setText("Select explorer: (none)");
-            explorerBtn.setGraphic(searchView);
-        });
-
-        MenuItem ergoExplorerMenuItem = new MenuItem("Ergo Explorer");
-        ergoExplorerMenuItem.setOnAction(e -> {
-            setExplorerInterface(NetworkID.ERGO_EXPLORER);
-            if (m_explorerInterface != null) {
-                explorerUrlTip.setText("Select explorer: " + m_explorerInterface.getName());
-                explorerBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerInterface.getNetworkId(), true).getIcon(), imageWidth));
-            } else {
-                explorerUrlTip.setText("Select explorer: (none)");
-                explorerBtn.setGraphic(searchView);
-            }
-        });
-
-        explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Tooltip marketTip = new Tooltip((m_marketInterface == null ? "Select market: (none)" : "Select market: " + m_marketInterface.getName()));
-        marketTip.setShowDelay(new javafx.util.Duration(100));
-        marketTip.setFont(App.txtFont);
-
-        ImageView exchangeView = IconButton.getIconView(new Image("/assets/exchange-30.png"), imageWidth);
-
-        MenuButton marketBtn = new MenuButton();
-        marketBtn.setGraphic(m_marketInterface == null ? exchangeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_marketInterface.getNetworkId(), true).getIcon(), imageWidth));
-        marketBtn.setTooltip(marketTip);
-
-        MenuItem marketNullMenuItem = new MenuItem("(none)");
-        marketNullMenuItem.setOnAction(e -> {
-            removeMarketInterface();
-            marketTip.setText("Select market: (none)");
-            marketBtn.setGraphic(exchangeView);
-        });
-
-        MenuItem kucoinMenuItem = new MenuItem("KuCoin Exchange");
-        kucoinMenuItem.setOnAction(e -> {
-            setMarketInterface(NetworkID.KUKOIN_EXCHANGE);
-            if (m_marketInterface != null) {
-                marketTip.setText("Select market: " + m_marketInterface.getName());
-                marketBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getNetworksData(), m_marketInterface.getNetworkId(), true).getIcon(), imageWidth));
-
-            } else {
-                marketTip.setText("Select market: (none)");
-                marketBtn.setGraphic(exchangeView);
-            }
-        });
-
-        marketBtn.getItems().addAll(marketNullMenuItem, kucoinMenuItem);
-
-        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn);
-        rightSideMenu.setId("rightSideMenuBar");
-
-        HBox menuBar = new HBox(addButton, spacer, rightSideMenu);
-        HBox.setHgrow(menuBar, Priority.ALWAYS);
-        menuBar.setAlignment(Pos.CENTER_LEFT);
-        menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(5, 0, 5, 5));
-
-        HBox paddingBox = new HBox(menuBar);
-        paddingBox.setPadding(new Insets(2, 5, 2, 5));
-
-        VBox layoutBox = new VBox();
-        layoutBox.setPadding(SMALL_INSETS);
-        Font smallerFont = Font.font("OCR A Extended", 10);
-
-        Text updatedTxt = new Text("Updated:");
-        updatedTxt.setFill(App.altColor);
-        updatedTxt.setFont(smallerFont);
-
-        TextField lastUpdatedField = new TextField();
-        lastUpdatedField.setFont(smallerFont);
-        lastUpdatedField.setId("formField");
-
-        HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
-        updateBox.setAlignment(Pos.CENTER_RIGHT);
-
-        Region spacerRegion = new Region();
-        VBox.setVgrow(spacerRegion, Priority.ALWAYS);
-
-        ScrollPane scrollPane = new ScrollPane(layoutBox);
-
-        VBox bodyVBox = new VBox(titleBox, paddingBox, scrollPane, updateBox);
-
-        ArrayList<AddressData> addressDataList = getWalletAddressDataList(wallet);
-
-        Scene openWalletScene = new Scene(bodyVBox, width, 525);
-        openWalletScene.getStylesheets().add("/css/startWindow.css");
-        m_walletStage.setScene(openWalletScene);
-        m_walletStage.show();
-
-        addButton.setOnAction(e -> {
-            String addressName = App.showGetTextInput("Address name", "Address name", App.branchImg);
-            if (addressName != null) {
-                int nextAddressIndex = wallet.nextAddressIndex();
-                wallet.myAddresses.put(nextAddressIndex, addressName);
-                try {
-
-                    Address address = wallet.publicAddress(m_networkType, nextAddressIndex);
-                    AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
-                    Button newButton = addressData.getButton();
-
-                    addressDataList.add(addressData);
-                    layoutBox.getChildren().add(newButton);
-                } catch (Failure e1) {
-
-                    Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
-                    a.show();
+                networkMenuBtn.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
+                if (getNodeInterface() == null) {
+                    Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
+                    nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
+                    nodeAlert.initOwner(m_walletStage);
+                    nodeAlert.show();
                 }
+            });
 
-            }
-        });
+            networkMenuBtn.getItems().addAll(nodeNullMenuItem, nodeMenuItem);
 
-        HBox.setHgrow(layoutBox, Priority.ALWAYS);
+            Tooltip explorerUrlTip = new Tooltip("Select explorer");
+            explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
+            explorerUrlTip.setFont(App.txtFont);
 
-        scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty());
-        scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty().get()).subtract(menuBar.heightProperty().get()).subtract(updateBox.heightProperty().get()));
+            ImageView searchView = IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), imageWidth);
 
-        addressDataList.forEach(addressData -> {
+            MenuButton explorerBtn = new MenuButton();
+            explorerBtn.setGraphic(m_explorerId == null ? searchView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerId, true).getIcon(), imageWidth));;
+            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+            explorerBtn.setTooltip(explorerUrlTip);
 
-            IconButton rowBtn = addressData.getButton();
-            rowBtn.prefWidthProperty().bind(openWalletScene.widthProperty().subtract(15));
-            // HBox rowBox = new HBox(rowBtn);
-            //  HBox.setHgrow(rowBox, Priority.ALWAYS);
-            layoutBox.getChildren().add(rowBtn);
+            MenuItem explorerNullMenuItem = new MenuItem("(none)");
+            explorerNullMenuItem.setOnAction(e -> {
+                removeExplorerId();
 
-        });
+                explorerBtn.setGraphic(searchView);
+            });
+
+            MenuItem ergoExplorerMenuItem = new MenuItem(ErgoExplorer.NAME);
+            ergoExplorerMenuItem.setOnAction(e -> {
+                setExplorerId(NetworkID.ERGO_EXPLORER);
+
+                explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
+                if (getNodeInterface() == null) {
+                    Alert explorerAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall " + ErgoExplorer.NAME + " to use this feature.", ButtonType.OK);
+                    explorerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), alertImageWidth));
+                    explorerAlert.initOwner(m_walletStage);
+                    explorerAlert.show();
+                }
+            });
+
+            explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            Tooltip marketTip = new Tooltip("Select market");
+            marketTip.setShowDelay(new javafx.util.Duration(100));
+            marketTip.setFont(App.txtFont);
+
+            ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), imageWidth);
+
+            MenuButton marketBtn = new MenuButton();
+            marketBtn.setGraphic(m_marketId == null ? exchangeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_marketId, true).getIcon(), imageWidth));
+            marketBtn.setTooltip(marketTip);
+            marketBtn.setPadding(new Insets(2, 0, 0, 0));
+            MenuItem marketNullMenuItem = new MenuItem("(none)");
+            marketNullMenuItem.setOnAction(e -> {
+                removeMarketId();
+                marketBtn.setGraphic(exchangeView);
+            });
+
+            MenuItem kucoinMenuItem = new MenuItem(KucoinExchange.NAME);
+            kucoinMenuItem.setOnAction(e -> {
+
+                setMarketId(NetworkID.KUKOIN_EXCHANGE);
+
+                marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+                if (getMarketInterface() == null) {
+                    Alert marketAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + KucoinExchange.NAME + "'' to use this feature.", ButtonType.OK);
+                    marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), alertImageWidth));
+                    marketAlert.initOwner(m_walletStage);
+                    marketAlert.show();
+                }
+            });
+
+            marketBtn.getItems().addAll(marketNullMenuItem, kucoinMenuItem);
+
+            HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn);
+            rightSideMenu.setId("rightSideMenuBar");
+            rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
+
+            HBox menuBar = new HBox(addButton, spacer, rightSideMenu);
+            HBox.setHgrow(menuBar, Priority.ALWAYS);
+            menuBar.setAlignment(Pos.CENTER_LEFT);
+            menuBar.setId("menuBar");
+            menuBar.setPadding(new Insets(5, 0, 5, 5));
+
+            HBox paddingBox = new HBox(menuBar);
+            paddingBox.setPadding(new Insets(2, 5, 2, 5));
+
+            VBox layoutBox = addressesData.getAddressBox();
+            layoutBox.setPadding(SMALL_INSETS);
+
+            Font smallerFont = Font.font("OCR A Extended", 10);
+
+            Text updatedTxt = new Text("Updated:");
+            updatedTxt.setFill(App.altColor);
+            updatedTxt.setFont(smallerFont);
+
+            TextField lastUpdatedField = new TextField();
+            lastUpdatedField.setPrefWidth(160);
+            lastUpdatedField.setFont(smallerFont);
+            lastUpdatedField.setId("formField");
+
+            HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
+            updateBox.setAlignment(Pos.CENTER_RIGHT);
+
+            Region spacerRegion = new Region();
+            VBox.setVgrow(spacerRegion, Priority.ALWAYS);
+
+            ScrollPane scrollPane = new ScrollPane(layoutBox);
+
+            VBox bodyVBox = new VBox(titleBox, paddingBox, scrollPane, updateBox);
+
+            Scene openWalletScene = new Scene(bodyVBox, sceneWidth, sceneHeight);
+            openWalletScene.getStylesheets().add("/css/startWindow.css");
+            m_walletStage.setScene(openWalletScene);
+            m_walletStage.show();
+
+            layoutBox.prefWidthProperty().bind(openWalletScene.widthProperty().subtract(5));
+
+            addButton.setOnAction(e -> {
+                addressesData.addAddress();
+            });
+
+            HBox.setHgrow(layoutBox, Priority.ALWAYS);
+
+            scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty());
+            scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty().get()).subtract(menuBar.heightProperty().get()).subtract(updateBox.heightProperty().get()));
+
+            /*new EventHandler<WindowEvent>() {
+                public void handle(WindowEvent we) {
+                    System.out.println("Stage is closing");
+                }
+            } */
+            m_walletStage.setOnCloseRequest(e -> {
+                m_ergoWallet.removeTunnelNoteInterface(getNetworkId());
+                removeTunnelNoteInterface(addressesData.getNetworkId());
+            });
+        } else {
+            m_walletStage.show();
+        }
 
     }
 
     public NoteInterface getNodeInterface() {
-        return m_nodeInterface;
+        return m_nodeId == null ? null : getNetworksData().getNoteInterface(m_nodeId);
     }
 
     public NoteInterface getExplorerInterface() {
-        return m_explorerInterface;
+        return m_explorerId == null ? null : getNetworksData().getNoteInterface(m_explorerId);
     }
 
     public NoteInterface getMarketInterface() {
-        return m_marketInterface;
+
+        return m_marketId == null ? null : getNetworksData().getNoteInterface(m_marketId);
     }
 
-    private void setNodeInterface(String networkId) {
-        m_nodeInterface = getNetworksData().getNoteInterface(networkId);
+    private void setNodeId(String nodeId) {
+        m_nodeId = nodeId;
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setExplorerInterface(String networkId) {
-        m_explorerInterface = getNetworksData().getNoteInterface(networkId);
+    private void setExplorerId(String explorerId) {
+        m_explorerId = explorerId;
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setMarketInterface(String networkId) {
-        m_marketInterface = getNetworksData().getNoteInterface(networkId);
+    private void setMarketId(String marketId) {
+        m_marketId = marketId;
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void removeNodeInterface() {
-        m_nodeInterface = null;
+    private void removeNodeId() {
+        m_nodeId = null;
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void removeExplorerInterface() {
-        m_explorerInterface = null;
+    private void removeExplorerId() {
+        m_explorerId = null;
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void removeMarketInterface() {
-        m_marketInterface = null;
-    }
-
-    public ArrayList<AddressData> getWalletAddressDataList(Wallet wallet) {
-
-        // ErgoClient ergoClient = RestApiErgoClient.create(nodeApiAddress, networkType, "", networkType == NetworkType.MAINNET ? defaultMainnetExplorerUrl : defaultTestnetExplorerUrl);
-        ArrayList<AddressData> addressList = new ArrayList<>();
-        wallet.myAddresses.forEach((index, name) -> {
-
-            try {
-                Address address = wallet.publicAddress(m_networkType, index);
-                addressList.add(new AddressData(name, index, address, m_networkType, this));
-            } catch (Failure e) {
-
-            }
-
-        });
-
-        return addressList;
+    private void removeMarketId() {
+        m_marketId = null;
+        getLastUpdated().set(LocalDateTime.now());
     }
 
     private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {

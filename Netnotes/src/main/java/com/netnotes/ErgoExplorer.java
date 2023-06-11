@@ -49,6 +49,7 @@ public class ErgoExplorer extends Network implements NoteInterface {
         return App.ergoExplorerImg;
     }
 
+    @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjecElement = note.get("subject");
         if (subjecElement != null) {

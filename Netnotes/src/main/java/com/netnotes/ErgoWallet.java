@@ -128,6 +128,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void showWalletsStage() {
         if (m_walletsStage == null) {
+            String title = getName() + " - Wallets";
             double walletsStageWidth = 310;
             double walletsStageHeight = 500;
             double buttonHeight = 100;
@@ -136,6 +137,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             m_walletsStage.getIcons().add(getIcon());
             m_walletsStage.setResizable(false);
             m_walletsStage.initStyle(StageStyle.UNDECORATED);
+            m_walletsStage.setTitle(title);
 
             Button closeBtn = new Button();
             closeBtn.setOnAction(closeEvent -> {
@@ -143,7 +145,7 @@ public class ErgoWallet extends Network implements NoteInterface {
                 m_walletsStage = null;
             });
 
-            HBox titleBox = App.createTopBar(getIcon(), getName() + " - Wallets", closeBtn, m_walletsStage);
+            HBox titleBox = App.createTopBar(getIcon(), title, closeBtn, m_walletsStage);
 
             ImageView addImage = new ImageView(App.addImg);
             addImage.setFitHeight(10);
@@ -232,6 +234,7 @@ public class ErgoWallet extends Network implements NoteInterface {
         }
     }
 
+    @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjecElement = note.get("subject");
         if (subjecElement != null) {
