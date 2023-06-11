@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.utils.Utils;
 
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -26,6 +27,7 @@ public class TimerNetwork extends Network implements NoteInterface {
     public static String NAME = "Timer";
 
     private long m_interval = 5000;
+    private TimeUnit m_timeUnit = TimeUnit.MILLISECONDS;
     private ArrayList<String> m_subscribers = new ArrayList<>();
 
     private File logFile = new File("timer-log.txt");
@@ -50,8 +52,15 @@ public class TimerNetwork extends Network implements NoteInterface {
         super(getAppIcon(), NAME, NetworkID.TIMER_NETWORK, networksData);
 
         JsonElement intervalElement = jsonObject.get("interval");
-        m_interval = intervalElement == null ? 5000 : intervalElement.getAsLong();
+        JsonElement timeUnitElement = jsonObject.get("timeUnit");
 
+        m_interval = intervalElement == null ? 5000 : intervalElement.getAsLong();
+        if (timeUnitElement != null) {
+            TimeUnit timeUnit = Utils.stringToTimeUnit(timeUnitElement.getAsString());
+            m_timeUnit = timeUnit == null ? TimeUnit.MILLISECONDS : timeUnit;
+        } else {
+            m_timeUnit = TimeUnit.MILLISECONDS;
+        }
     }
 
     private void startTimer() {
@@ -80,7 +89,7 @@ public class TimerNetwork extends Network implements NoteInterface {
                 }
                 lastExecution = executor.submit(m_task);
             }
-        }, m_interval, m_interval, TimeUnit.MILLISECONDS);
+        }, m_interval, m_interval, m_timeUnit);
     }
 
     public static Image getSmallAppIcon() {
@@ -96,30 +105,45 @@ public class TimerNetwork extends Network implements NoteInterface {
         if (subjecElement != null) {
             switch (subjecElement.getAsString()) {
                 case "SUBSCRIBE":
-                    JsonElement fullNetworkIdElement = note.get("fullNetworkId");
+                    try {
+                    Files.writeString(logFile.toPath(), "\n" + note.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
 
-                    if (fullNetworkIdElement != null) {
-                        String fullNetworkID = fullNetworkIdElement.getAsString();
+                }
 
-                        for (String networkId : m_subscribers) {
-                            if (fullNetworkID.equals(networkId)) {
-                                return false;
-                            }
-                        }
+                JsonElement fullNetworkIdElement = note.get("fullNetworkId");
 
-                        m_subscribers.add(fullNetworkID);
-                        if (m_subscribers.size() > 0) {
-                            if (m_executorService == null) {
-                                Executors.newScheduledThreadPool(1);
-                            }
+                if (fullNetworkIdElement != null) {
+                    String fullNetworkID = fullNetworkIdElement.getAsString();
+
+                    for (String networkId : m_subscribers) {
+                        if (fullNetworkID.equals(networkId)) {
+                            return false;
                         }
                     }
 
-                    break;
+                    m_subscribers.add(fullNetworkID);
+                    if (m_subscribers.size() > 0) {
+                        if (m_executorService == null) {
+                            startTimer();
+                        }
+                    }
+                }
+
+                break;
             }
         }
 
         return false;
+    }
+
+    @Override
+    public JsonObject getJsonObject() {
+        JsonObject jsonObject = super.getJsonObject();
+
+        jsonObject.addProperty("interval", m_interval);
+        jsonObject.addProperty("timeUnit", Utils.timeUnitToString(m_timeUnit));
+        return jsonObject;
     }
 
 }

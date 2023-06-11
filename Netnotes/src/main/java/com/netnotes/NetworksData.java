@@ -2,39 +2,25 @@ package com.netnotes;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
-import org.apache.commons.codec.binary.Hex;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
-import com.netnotes.IconButton.IconStyle;
-import com.netnotes.Network.NetworkID;
-import com.utils.Utils;
 
-import javafx.application.Platform;
+import com.netnotes.Network.NetworkID;
+
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
+
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Alert.AlertType;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -43,6 +29,14 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 public class NetworksData {
+
+    public static String[] networkIds = new String[]{
+        NetworkID.ERGO_EXPLORER,
+        NetworkID.ERGO_NETWORK,
+        NetworkID.ERGO_WALLET,
+        NetworkID.KUKOIN_EXCHANGE,
+        NetworkID.TIMER_NETWORK
+    };
 
     private ArrayList<NoteInterface> m_noteInterfaceList = new ArrayList<>();
     private File m_networksFile;
@@ -53,6 +47,14 @@ public class NetworksData {
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
 
     private double m_leftColumnWidth = 175;
+
+    private VBox m_installedVBox = null;
+    private VBox m_notInstalledVBox = null;
+    private ArrayList<InstallableIcon> m_installables = new ArrayList<>();
+    //private double m_installedListWidth = 150;
+    private Stage m_addNetworkStage = null;
+
+    private InstallableIcon m_focusedInstallable = null;
 
     //  public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private File logFile = new File("networkData-log.txt");
@@ -90,13 +92,15 @@ public class NetworksData {
                             break;
                         case "ERGO_WALLET":
                             addNoteInterface(new ErgoWallet(jsonObject, this));
-
                             break;
                         case "ERGO_EXPLORER":
                             addNoteInterface(new ErgoExplorer(jsonObject, this));
                             break;
                         case "KUCOIN_EXCHANGE":
                             addNoteInterface(new KucoinExchange(jsonObject, this));
+                            break;
+                        case "TIMER_NETWORK":
+                            addNoteInterface(new TimerNetwork(jsonObject, this));
                             break;
                     }
 
@@ -163,20 +167,6 @@ public class NetworksData {
         m_width = width;
         updateNetworksGrid();
     }
-    public static String[] networkIds = new String[]{
-        NetworkID.ERGO_EXPLORER,
-        NetworkID.ERGO_NETWORK,
-        NetworkID.ERGO_WALLET,
-        NetworkID.KUKOIN_EXCHANGE
-    };
-
-    private VBox m_installedVBox = null;
-    private VBox m_notInstalledVBox = null;
-    private ArrayList<InstallableIcon> m_installables = new ArrayList<>();
-    //private double m_installedListWidth = 150;
-    private Stage m_addNetworkStage = null;
-
-    private InstallableIcon m_focusedInstallable = null;
 
     public void showManageNetworkStage() {
 
@@ -420,6 +410,9 @@ public class NetworksData {
                 break;
             case "KUCOIN_EXCHANGE":
                 addNoteInterface(new KucoinExchange(this));
+                break;
+            case "TIMER_NETWORK":
+                addNoteInterface(new TimerNetwork(this));
                 break;
         }
         m_installedVBox.getChildren().clear();

@@ -4,7 +4,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -86,6 +85,12 @@ public class InstallableIcon extends IconButton {
                 setName(KucoinExchange.NAME);
                 setDescription(KucoinExchange.DESCRIPTION);
                 setSummary(KucoinExchange.SUMMARY);
+                break;
+            case "TIMER_NETWORK":
+                setIcon(m_installed ? TimerNetwork.getSmallAppIcon() : TimerNetwork.getAppIcon());
+                setName(TimerNetwork.NAME);
+                setDescription(TimerNetwork.DESCRIPTION);
+                setSummary(TimerNetwork.SUMMARY);
                 break;
         }
 

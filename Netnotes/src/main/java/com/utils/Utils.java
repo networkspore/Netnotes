@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -302,4 +303,49 @@ public class Utils {
         return img;
     }
 
+    public static TimeUnit stringToTimeUnit(String str) {
+        switch (str.toLowerCase()) {
+            case "ms":
+            case "millisecond":
+            case "milliseconds":
+                return TimeUnit.MILLISECONDS;
+            case "s":
+            case "sec":
+            case "second":
+            case "seconds":
+                return TimeUnit.SECONDS;
+            case "min":
+            case "minute":
+            case "minutes":
+                return TimeUnit.MINUTES;
+            case "h":
+            case "hour":
+            case "hours":
+                return TimeUnit.HOURS;
+            case "day":
+            case "days":
+                return TimeUnit.DAYS;
+            default:
+                return null;
+        }
+    }
+
+    public static String timeUnitToString(TimeUnit unit) {
+        switch (unit) {
+            case MICROSECONDS:
+                return "microseconds";
+            case MILLISECONDS:
+                return "milliseconds";
+            case SECONDS:
+                return "seconds";
+            case MINUTES:
+                return "minutes";
+            case HOURS:
+                return "hours";
+            case DAYS:
+                return "days";
+            default:
+                return null;
+        }
+    }
 }
