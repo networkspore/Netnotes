@@ -26,6 +26,8 @@ import com.satergo.WalletKey.Failure;
 import com.utils.Utils;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -73,13 +75,19 @@ public class WalletData extends Network implements NoteInterface {
     private String m_nodeId;
     private String m_explorerId;
     private String m_marketId;
-    private String m_timerId;
+    private String m_timerNetworkId = null;
+    private String m_priceTimerId;
+    private String m_quantityTimerId;
 
-    private ArrayList<JsonObject> m_timerList = new ArrayList<>();
+    private SimpleStringProperty m_quantityTimerUpdatedProperty = new SimpleStringProperty(null);
+    private SimpleStringProperty m_priceTimerUpdatedProperty = new SimpleStringProperty(null);
+
+    private SimpleDoubleProperty m_currentPrice = new SimpleDoubleProperty(0);
+
     private TimersList m_availableTimers = new TimersList();
 
     // private ErgoWallet m_ergoWallet;
-    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String marketId, JsonObject timersObject, NetworkType networkType, ErgoWallet ergoWallet) {
+    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String marketId, JsonObject timersObject, NetworkType networkType, NoteInterface ergoWallet) {
         super(null, name, id, ergoWallet);
         //   m_name = name;
         //  m_ergoWallet = ergoWallet;
@@ -94,91 +102,98 @@ public class WalletData extends Network implements NoteInterface {
         m_walletFile = walletFile;
         m_networkType = networkType;
 
-        if (timersObject == null) {
-            m_timerId = null;
-        } else {
-            JsonElement timerNetworkIdElement = timersObject.get("networkId");
-            m_timerId = timerNetworkIdElement == null ? null : timerNetworkIdElement.getAsString();
-            if (m_timerId != null) {
-                JsonElement timersElement = timersObject.get("timersData");
-                if (timersElement != null && timersElement.isJsonArray()) {
-                    JsonArray timersArr = timersElement.getAsJsonArray();
-
-                    for (int i = 0; i < timersArr.size(); i++) {
-                        JsonElement arrayElement = timersArr.get(i);
-                        if (arrayElement.isJsonObject()) {
-                            JsonObject timerObject = arrayElement.getAsJsonObject();
-
-                            JsonElement timerIdElement = timerObject.get("timerId");
-                            JsonElement timerNameElement = timerObject.get("name");
-                            JsonElement timerIntervalElement = timerObject.get("interval");
-                            JsonElement timerTimeUnitElement = timerObject.get("timeUnit");
-
-                            if (timerIdElement != null && timerIdElement.isJsonPrimitive() && timerNameElement != null && timerNameElement.isJsonPrimitive() && timerIntervalElement != null && timerIntervalElement.isJsonPrimitive() && timerTimeUnitElement != null && timerTimeUnitElement.isJsonPrimitive()) {
-                                try {
-                                    timerIdElement.getAsString();
-                                    timerIntervalElement.getAsLong();
-                                    timerTimeUnitElement.getAsString();
-
-                                    m_timerList.add(timerObject);
-                                } catch (ClassCastException e) {
-
-                                }
-
-                            }
-                        }
-                    }
-                }
-                NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerId);
-                if (timerInterface != null) {
-                    timerInterface.sendNote(getTimers(), null, null);
-                }
-            }
-
-        }
-
         m_nodeId = nodeId == null ? null : nodeId;
         m_explorerId = explorerId == null ? null : explorerId;
         m_marketId = marketId == null ? null : marketId;
+
+        if (timersObject != null && m_marketId != null) {
+            JsonElement timerNetworkIdElement = timersObject.get("networkId");
+            JsonElement priceTimerIdElement = timersObject.get("priceTimerId");
+            JsonElement quantityTimerIdElement = timersObject.get("quantityTimerId");
+
+            m_timerNetworkId = timerNetworkIdElement == null ? null : timerNetworkIdElement.getAsString();
+            m_priceTimerId = priceTimerIdElement == null ? null : priceTimerIdElement.getAsString();
+            m_quantityTimerId = quantityTimerIdElement == null ? null : quantityTimerIdElement.getAsString();
+
+        }
 
         setIconStyle(IconStyle.ROW);
 
     }
 
-    private void subscribeTimers() {
-        if (m_timerId != null && m_timerList.size() > 0) {
-            NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerId);
+    /*
+    private void subscribePriceTimer() {
+        if (m_timerNetworkId != null && m_priceTimerId != null && m_marketId != null) {
+            NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerNetworkId);
 
             if (timerInterface != null) {
-                for (JsonObject timer : m_timerList) {
-                    JsonObject subscribeJson = new JsonObject();
 
-                    JsonElement timerIdElement = timer.get("timerId");
+                timers
 
-                    if (timerIdElement != null) {
-                        String timerId = timerIdElement.getAsString();
+                JsonObject subscribeJson = new JsonObject();
+                subscribeJson.addProperty("subject", "SUBSCRIBE");
+                subscribeJson.addProperty("fullNetworkId", getFullNetworkId());
+                subscribeJson.addProperty("timerId", m_priceTimerId);
 
-                        subscribeJson.addProperty("subject", "SUBSCRIBE");
-                        subscribeJson.addProperty("fullNetworkId", getFullNetworkId());
-                        subscribeJson.addProperty("timerId", timerId);
+                if (!timerInterface.sendNote(subscribeJson, null, null)) {
 
-                        if (!timerInterface.sendNote(subscribeJson, null, null)) {
+                    try {
+                        Files.writeString(logFile.toPath(), "\nFailed to subscribe:\n" + subscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
 
-                            try {
-                                Files.writeString(logFile.toPath(), "\nFailed to subscribe:\n" + subscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e) {
-
-                            }
-
-                        }
-                    } else {
-                        try {
-                            Files.writeString(logFile.toPath(), "\nFailed to subscribe:\n" + "timerId null", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e) {
-
-                        }
                     }
+
                 }
+
+            }
+        }
+    } */
+ /*
+    private void subscribeQuantityTimer() {
+        if (m_timerNetworkId != null && m_quantityTimerId != null) {
+            NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerNetworkId);
+
+            if (timerInterface != null) {
+
+                JsonObject subscribeJson = new JsonObject();
+                subscribeJson.addProperty("subject", "SUBSCRIBE");
+                subscribeJson.addProperty("fullNetworkId", getFullNetworkId());
+                subscribeJson.addProperty("timerId", m_priceTimerId.get());
+
+                if (!timerInterface.sendNote(subscribeJson, null, null)) {
+
+                    try {
+                        Files.writeString(logFile.toPath(), "\nQuantity did not subscribe (may already be subscribed):\n" + subscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+
+                    }
+
+                }
+
+            }
+        }
+    } */
+    private void unsubscribeTimer(String networkId, String timerId, String fullNetworkId) {
+        if (networkId != null && timerId != null) {
+            NoteInterface timerInterface = getNetworksData().getNoteInterface(networkId);
+
+            if (timerInterface != null) {
+
+                JsonObject unsubscribeJson = new JsonObject();
+                unsubscribeJson.addProperty("subject", "UNSUBSCRIBE");
+                unsubscribeJson.addProperty("fullNetworkId", fullNetworkId);
+                unsubscribeJson.addProperty("timerId", timerId);
+
+                if (!timerInterface.sendNote(unsubscribeJson, null, null)) {
+
+                    try {
+                        Files.writeString(logFile.toPath(), "\nFailed to unsubscribe:\n" + unsubscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+
+                    }
+
+                }
+
             }
         }
     }
@@ -202,34 +217,15 @@ public class WalletData extends Network implements NoteInterface {
             jsonObject.addProperty("marketId", m_marketId);
         }
 
-        if (m_timerId != null) {
+        if (m_timerNetworkId != null) {
             JsonObject timersObject = new JsonObject();
-            timersObject.addProperty("networkId", m_timerId);
-
-            if (m_timerList.size() > 0) {
-                timersObject.add("timersData", getTimersArray());
-            }
+            timersObject.addProperty("networkId", m_timerNetworkId);
+            timersObject.addProperty("priceTimerId", m_priceTimerId);
+            timersObject.addProperty("quantityTimerId", m_quantityTimerId);
             jsonObject.add("timers", timersObject);
         }
 
-        /*jsonObject.set("name");
-        jsonObject.get("id");
-        jsonObject.get("file");
-        jsonObject.get("networkType");
-        jsonObject.get("nodeId");
-        jsonObject.get("explorerId");
-        jsonObject.get("exchangeId");*/
         return jsonObject;
-    }
-
-    private JsonArray getTimersArray() {
-        JsonArray timersArray = new JsonArray();
-
-        for (int i = 0; i < m_timerList.size(); i++) {
-            timersArray.add(m_timerList.get(i));
-        }
-
-        return timersArray;
     }
 
     @Override
@@ -251,8 +247,18 @@ public class WalletData extends Network implements NoteInterface {
         String networkId = networkIdElement.getAsString();
 
         switch (subject) {
+            case "TIME":
+                if (networkId.equals(m_timerNetworkId)) {
+                    JsonElement localDateTimeElement = note.get("localDateTime");
+                    JsonElement timerIdElement = note.get("timerId");
+
+                    if (localDateTimeElement != null && timerIdElement != null) {
+
+                    }
+                }
+                break;
             case "TIMERS":
-                if (networkId.equals(m_timerId)) {
+                if (networkId.equals(m_timerNetworkId)) {
                     JsonElement availableTimersElement = note.get("availableTimers");
                     if (availableTimersElement != null && availableTimersElement.isJsonArray()) {
                         JsonArray timersArray = availableTimersElement.getAsJsonArray();
@@ -360,11 +366,15 @@ public class WalletData extends Network implements NoteInterface {
 
     }
 
+    public SimpleDoubleProperty priceDoubleProperty() {
+        return m_currentPrice;
+    }
+
     private void showWalletStage(Wallet wallet) {
         if (m_walletStage == null) {
             AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
-            addTunnelNoteInterface(addressesData);
-            subscribeTimers();
+            // addTunnelNoteInterface(addressesData);
+
             try {
                 Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
@@ -572,7 +582,9 @@ public class WalletData extends Network implements NoteInterface {
             scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty().get()).subtract(menuBar.heightProperty().get()).subtract(updateBox.heightProperty().get()));
 
             m_walletStage.setOnCloseRequest(event -> {
-                removeTunnelNoteInterface(addressesData.getNetworkId());
+                // removeTunnelNoteInterface(addressesData.getNetworkId());
+
+                // unsubscribeTimer(m_timerNetworkId, m_priceTimerId.get(), getFullNetworkId());
             });
 
         } else {

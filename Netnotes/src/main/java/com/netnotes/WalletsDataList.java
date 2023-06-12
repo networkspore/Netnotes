@@ -69,7 +69,7 @@ public class WalletsDataList {
             for (int i = 0; i < jsonArray.size(); i++) {
                 JsonElement jsonElement = jsonArray.get(i);
 
-                if (jsonElement != null && jsonElement.isJsonArray()) {
+                if (jsonElement != null && jsonElement.isJsonObject()) {
                     JsonObject jsonObject = jsonElement.getAsJsonObject();
 
                     JsonElement nameElement = jsonObject.get("name");
@@ -90,8 +90,13 @@ public class WalletsDataList {
                         String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
                         String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
                         String exchangeId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
-                        JsonObject timerObject = timerElement != null && timerElement.isJsonObject() ? timerElement.getAsJsonObject() : null;
 
+                        JsonObject timerObject = timerElement == null ? null : timerElement.isJsonObject() ? timerElement.getAsJsonObject() : null;
+                        try {
+                            Files.writeString(logFile.toPath(), "Got wallet data: timerObject: " + (timerObject == null ? "is null" : "not null"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e) {
+
+                        }
                         WalletData walletData = new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, timerObject, walletNetworkType, m_ergoWallet);
                         m_noteInterfaceList.add(walletData);
 

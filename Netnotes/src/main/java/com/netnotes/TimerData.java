@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +33,15 @@ public class TimerData {
     ;
     private ArrayList<JsonObject> m_subscribers = new ArrayList<>();
 
+    public JsonObject getTimeObject() {
+        JsonObject timeObject = getJsonObject();
+        timeObject.addProperty("subject", "TIME");
+        timeObject.addProperty("networkId", m_timerNetwork.getNetworkId());
+        timeObject.addProperty("timerId", m_timerID);
+        timeObject.addProperty("localDateTime", Utils.formatDateTimeString(LocalDateTime.now()));
+        return timeObject;
+    }
+
     private final Runnable m_task = new Runnable() {
         @Override
         public void run() {
@@ -45,7 +55,7 @@ public class TimerData {
                 boolean succeeded = m_timerNetwork.getNetworksData().sendNoteToFullNetworkId(getTimeObject(), fullNetworkId, null, null);
                 if (!succeeded) {
                     try {
-                        Files.writeString(logFile.toPath(), "\n fullNetworkId not found. " + fullNetworkId + " subscriber: \n" + subscriber.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        Files.writeString(logFile.toPath(), "\nfullNetworkId not found: " + fullNetworkId + " unsubscribe:\n" + subscriber.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e) {
 
                     }
@@ -80,13 +90,6 @@ public class TimerData {
 
         }
 
-    }
-
-    public JsonObject getTimeObject() {
-        JsonObject timeObject = getJsonObject();
-        timeObject.addProperty("subject", "TIME");
-        timeObject.addProperty("networkId", m_timerNetwork.getNetworkId());
-        return timeObject;
     }
 
     public JsonObject getJsonObject() {

@@ -58,6 +58,8 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
+import java.awt.AlphaComposite;
+import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -65,9 +67,10 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 
-public class AddressData extends Network implements NoteInterface {
+public class AddressData extends IconButton {
 
     private static String NULL_ERG = "-.-- ERG";
 
@@ -92,22 +95,17 @@ public class AddressData extends Network implements NoteInterface {
     private ArrayList<TokenData> m_unconfirmedTokensList = new ArrayList<>();
     private Stage m_addressStage = null;
     private WalletData m_walletData;
-
-    private String m_timerId;
-    private ArrayList<JsonObject> m_timerList = new ArrayList<>();
-    private TimersList m_availableTimers = new TimersList();
-
     File logFile;
 
     private double m_price = 0;
     // private WalletData m_WalletData;
 
-    public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressesData) {
-        super(null, name, address.toString(), addressesData);
+    public AddressData(String name, int index, Address address, NetworkType networktype, WalletData walletData) {
+        super();
 
         logFile = new File("address - " + address.toString() + "-log.txt");
         //    m_WalletData = walletData;
-
+        m_walletData = walletData;
         m_name.set(name);
         m_index = index;
         m_address = address;
@@ -180,6 +178,10 @@ public class AddressData extends Network implements NoteInterface {
 
     public void setFormattedTotal() {
         m_formattedTotal.set(getFormmatedTotal());
+    }
+
+    public SimpleStringProperty getLastUpdated() {
+        return m_lastUpdated;
     }
 
     @Override
@@ -360,6 +362,10 @@ public class AddressData extends Network implements NoteInterface {
         } else {
             m_addressStage.show();
         }
+    }
+
+    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+        return false;
     }
 
     @Override
@@ -772,32 +778,6 @@ public class AddressData extends Network implements NoteInterface {
 
     public String getPriceTargetCurrency() {
         return m_priceTargetCurrency;
-    }
-
-    @Override
-    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
-
-        JsonElement subjectElement = note.get("subject");
-        JsonElement networkIdElement = note.get("networkId");
-
-        String subject = subjectElement.getAsString();
-        String networkId = networkIdElement.getAsString();
-
-        switch (subject) {
-            case "TIMERS":
-                if (networkId.equals(m_timerId)) {
-                    JsonElement availableTimersElement = note.get("availableTimers");
-                    if (availableTimersElement != null && availableTimersElement.isJsonArray()) {
-                        JsonArray timersArray = availableTimersElement.getAsJsonArray();
-                        m_availableTimers.setAvailableTimers(timersArray);
-                        return true;
-                    }
-                }
-
-                break;
-        }
-
-        return false;
     }
 
 }

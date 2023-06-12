@@ -20,7 +20,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.ButtonType;
 import javafx.scene.layout.VBox;
 
-public class AddressesData extends Network implements NoteInterface {
+public class AddressesData {
 
     private NetworkType m_networkType;
     private VBox m_addressBox;
@@ -30,7 +30,7 @@ public class AddressesData extends Network implements NoteInterface {
     ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
     public AddressesData(String id, Wallet wallet, WalletData walletData, NetworkType networkType) {
-        super(null, wallet.name.get(), id, walletData);
+
         m_wallet = wallet;
         m_walletData = walletData;
         m_networkType = networkType;
@@ -39,7 +39,7 @@ public class AddressesData extends Network implements NoteInterface {
 
             try {
                 Address address = wallet.publicAddress(m_networkType, index);
-                m_addressDataList.add(new AddressData(name, index, address, m_networkType, this));
+                m_addressDataList.add(new AddressData(name, index, address, m_networkType, walletData));
             } catch (Failure e) {
 
             }
@@ -62,7 +62,7 @@ public class AddressesData extends Network implements NoteInterface {
             try {
 
                 Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
-                AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
+                AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, m_walletData);
 
                 m_addressDataList.add(addressData);
 
@@ -94,7 +94,7 @@ public class AddressesData extends Network implements NoteInterface {
             m_addressBox.getChildren().add(addressData);
         }
     }
-
+    /*
     @Override
     public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         int indexOfNetworkID = fullNetworkId.indexOf(getNetworkId());
@@ -123,5 +123,5 @@ public class AddressesData extends Network implements NoteInterface {
         }
 
         return false;
-    }
+    } */
 }

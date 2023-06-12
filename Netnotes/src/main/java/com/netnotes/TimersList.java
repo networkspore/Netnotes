@@ -29,8 +29,8 @@ public class TimersList {
         updateAllTimerButtons();
     }
 
-    public NetMenuButton getMenuButton(String networkId, String text, Object userData) {
-        NetMenuButton netMenuButton = new NetMenuButton(networkId, text, userData);
+    public NetMenuButton getMenuButton(String networkId, String name, String text, Object userData) {
+        NetMenuButton netMenuButton = new NetMenuButton(networkId, name, text, userData);
         m_timerMenuBtns.add(netMenuButton);
 
         return netMenuButton;

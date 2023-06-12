@@ -79,11 +79,21 @@ public class ErgoWallet extends Network implements NoteInterface {
             Timer initTimer = new Timer();
             ErgoWallet ergoWallet = this;
 
+            try {
+                Files.writeString(logFile.toPath(), "\ngetting wallets", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+
             initTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
                     JsonArray walletsArray = walletsElement == null ? null : walletsElement.getAsJsonArray();
+                    try {
+                        Files.writeString(logFile.toPath(), "\ntimer fired:\n" + walletsArray.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
 
+                    }
                     m_walletsData = new WalletsDataList(walletsArray, m_walletsDir, ergoWallet);
                     m_walletsData.lastUpdated.addListener(e -> {
                         getLastUpdated().set(LocalDateTime.now());
