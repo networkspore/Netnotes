@@ -73,28 +73,114 @@ public class WalletData extends Network implements NoteInterface {
     private String m_nodeId;
     private String m_explorerId;
     private String m_marketId;
+    private String m_timerId;
 
-    private ErgoWallet m_ergoWallet;
+    private ArrayList<JsonObject> m_timerList = new ArrayList<>();
+    private TimersList m_availableTimers = new TimersList();
 
-    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String marketId, NetworkType networkType, ErgoWallet ergoWallet) {
+    // private ErgoWallet m_ergoWallet;
+    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String marketId, JsonObject timersObject, NetworkType networkType, ErgoWallet ergoWallet) {
         super(null, name, id, ergoWallet);
         //   m_name = name;
-        m_ergoWallet = ergoWallet;
+        //  m_ergoWallet = ergoWallet;
+
         logFile = new File("WalletData" + name + "-log.txt");
 
         try {
-            Files.writeString(logFile.toPath(), "ExchangeId: " + marketId + " nodeId: " + nodeId + " explorerId: " + explorerId + " networkType: " + networkType);
+            Files.writeString(logFile.toPath(), "ExchangeId: " + marketId + " nodeId: " + nodeId + " explorerId: " + explorerId + " networkType: " + networkType + " timers:" + (timersObject != null ? "\n" + timersObject.toString() : "null"));
         } catch (IOException e) {
 
         }
         m_walletFile = walletFile;
         m_networkType = networkType;
 
+        if (timersObject == null) {
+            m_timerId = null;
+        } else {
+            JsonElement timerNetworkIdElement = timersObject.get("networkId");
+            m_timerId = timerNetworkIdElement == null ? null : timerNetworkIdElement.getAsString();
+            if (m_timerId != null) {
+                JsonElement timersElement = timersObject.get("timersData");
+                if (timersElement != null && timersElement.isJsonArray()) {
+                    JsonArray timersArr = timersElement.getAsJsonArray();
+
+                    for (int i = 0; i < timersArr.size(); i++) {
+                        JsonElement arrayElement = timersArr.get(i);
+                        if (arrayElement.isJsonObject()) {
+                            JsonObject timerObject = arrayElement.getAsJsonObject();
+
+                            JsonElement timerIdElement = timerObject.get("timerId");
+                            JsonElement timerNameElement = timerObject.get("name");
+                            JsonElement timerIntervalElement = timerObject.get("interval");
+                            JsonElement timerTimeUnitElement = timerObject.get("timeUnit");
+
+                            if (timerIdElement != null && timerIdElement.isJsonPrimitive() && timerNameElement != null && timerNameElement.isJsonPrimitive() && timerIntervalElement != null && timerIntervalElement.isJsonPrimitive() && timerTimeUnitElement != null && timerTimeUnitElement.isJsonPrimitive()) {
+                                try {
+                                    timerIdElement.getAsString();
+                                    timerIntervalElement.getAsLong();
+                                    timerTimeUnitElement.getAsString();
+
+                                    m_timerList.add(timerObject);
+                                } catch (ClassCastException e) {
+
+                                }
+
+                            }
+                        }
+                    }
+                }
+                NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerId);
+                if (timerInterface != null) {
+                    timerInterface.sendNote(getTimers(), null, null);
+                }
+            }
+
+        }
+
         m_nodeId = nodeId == null ? null : nodeId;
         m_explorerId = explorerId == null ? null : explorerId;
         m_marketId = marketId == null ? null : marketId;
 
         setIconStyle(IconStyle.ROW);
+
+    }
+
+    private void subscribeTimers() {
+        if (m_timerId != null && m_timerList.size() > 0) {
+            NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerId);
+
+            if (timerInterface != null) {
+                for (JsonObject timer : m_timerList) {
+                    JsonObject subscribeJson = new JsonObject();
+
+                    JsonElement timerIdElement = timer.get("timerId");
+
+                    if (timerIdElement != null) {
+                        String timerId = timerIdElement.getAsString();
+
+                        subscribeJson.addProperty("subject", "SUBSCRIBE");
+                        subscribeJson.addProperty("fullNetworkId", getFullNetworkId());
+                        subscribeJson.addProperty("timerId", timerId);
+
+                        if (!timerInterface.sendNote(subscribeJson, null, null)) {
+
+                            try {
+                                Files.writeString(logFile.toPath(), "\nFailed to subscribe:\n" + subscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e) {
+
+                            }
+
+                        }
+                    } else {
+                        try {
+                            Files.writeString(logFile.toPath(), "\nFailed to subscribe:\n" + "timerId null", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e) {
+
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -116,6 +202,16 @@ public class WalletData extends Network implements NoteInterface {
             jsonObject.addProperty("marketId", m_marketId);
         }
 
+        if (m_timerId != null) {
+            JsonObject timersObject = new JsonObject();
+            timersObject.addProperty("networkId", m_timerId);
+
+            if (m_timerList.size() > 0) {
+                timersObject.add("timersData", getTimersArray());
+            }
+            jsonObject.add("timers", timersObject);
+        }
+
         /*jsonObject.set("name");
         jsonObject.get("id");
         jsonObject.get("file");
@@ -124,6 +220,16 @@ public class WalletData extends Network implements NoteInterface {
         jsonObject.get("explorerId");
         jsonObject.get("exchangeId");*/
         return jsonObject;
+    }
+
+    private JsonArray getTimersArray() {
+        JsonArray timersArray = new JsonArray();
+
+        for (int i = 0; i < m_timerList.size(); i++) {
+            timersArray.add(m_timerList.get(i));
+        }
+
+        return timersArray;
     }
 
     @Override
@@ -137,13 +243,27 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+
+        JsonElement subjectElement = note.get("subject");
         JsonElement networkIdElement = note.get("networkId");
 
-        if (networkIdElement != null) {
-            if (networkIdElement.getAsString().equals(NetworkID.TIMER_NETWORK)) {
+        String subject = subjectElement.getAsString();
+        String networkId = networkIdElement.getAsString();
 
-            }
+        switch (subject) {
+            case "TIMERS":
+                if (networkId.equals(m_timerId)) {
+                    JsonElement availableTimersElement = note.get("availableTimers");
+                    if (availableTimersElement != null && availableTimersElement.isJsonArray()) {
+                        JsonArray timersArray = availableTimersElement.getAsJsonArray();
+                        m_availableTimers.setAvailableTimers(timersArray);
+                        return true;
+                    }
+                }
+
+                break;
         }
+
         return false;
     }
 
@@ -243,9 +363,8 @@ public class WalletData extends Network implements NoteInterface {
     private void showWalletStage(Wallet wallet) {
         if (m_walletStage == null) {
             AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
-            m_ergoWallet.addTunnelNoteInterface(this);
             addTunnelNoteInterface(addressesData);
-
+            subscribeTimers();
             try {
                 Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
@@ -452,15 +571,10 @@ public class WalletData extends Network implements NoteInterface {
             scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty());
             scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty().get()).subtract(menuBar.heightProperty().get()).subtract(updateBox.heightProperty().get()));
 
-            /*new EventHandler<WindowEvent>() {
-                public void handle(WindowEvent we) {
-                    System.out.println("Stage is closing");
-                }
-            } */
-            m_walletStage.setOnCloseRequest(e -> {
-                m_ergoWallet.removeTunnelNoteInterface(getNetworkId());
+            m_walletStage.setOnCloseRequest(event -> {
                 removeTunnelNoteInterface(addressesData.getNetworkId());
             });
+
         } else {
             m_walletStage.show();
         }
@@ -510,17 +624,45 @@ public class WalletData extends Network implements NoteInterface {
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {
+    @Override
+    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        int indexOfNetworkID = fullNetworkId.indexOf(getNetworkId());
+
+        int indexOfperiod = fullNetworkId.indexOf(".", indexOfNetworkID);
+
+        if (indexOfperiod == -1) {
+            return sendNote(note, onSucceeded, onFailed);
+        } else {
+            int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
+            String tunnelId;
+
+            if (indexOfSecondPeriod == -1) {
+                tunnelId = fullNetworkId.substring(indexOfperiod);
+            } else {
+                tunnelId = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
+            }
+
+            NoteInterface addressInterface = getTunnelNoteInterface(tunnelId);
+            if (addressInterface != null) {
+                return addressInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
+
+            }
+        }
+
+        return false;
+
+    }
+    /* private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {
 
         //   BufferedImage imageBuffer = addressData.getBufferedImage();
         double remainingSpace = width;// - imageBuffer.getWidth();
 
         String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
-        /*
-        ImageView btnImageView = new ImageView();
-        if (imageBuffer != null) {
-            btnImageView.setImage(SwingFXUtils.toFXImage(imageBuffer, null));
-        }*/
+        
+        //ImageView btnImageView = new ImageView();
+       // if (imageBuffer != null) {
+       //     btnImageView.setImage(SwingFXUtils.toFXImage(imageBuffer, null));
+      //  }
         String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
         Tooltip addressTip = new Tooltip(addressData.getName());
 
@@ -528,6 +670,5 @@ public class WalletData extends Network implements NoteInterface {
         rowBtn.setText(text);
         rowBtn.setTooltip(addressTip);
 
-    }
-
+    }*/
 }

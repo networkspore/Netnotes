@@ -39,7 +39,7 @@ public class AddressesData extends Network implements NoteInterface {
 
             try {
                 Address address = wallet.publicAddress(m_networkType, index);
-                m_addressDataList.add(new AddressData(name, index, address, m_networkType, walletData));
+                m_addressDataList.add(new AddressData(name, index, address, m_networkType, this));
             } catch (Failure e) {
 
             }
@@ -62,7 +62,7 @@ public class AddressesData extends Network implements NoteInterface {
             try {
 
                 Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
-                AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, m_walletData);
+                AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
 
                 m_addressDataList.add(addressData);
 
@@ -95,4 +95,33 @@ public class AddressesData extends Network implements NoteInterface {
         }
     }
 
+    @Override
+    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        int indexOfNetworkID = fullNetworkId.indexOf(getNetworkId());
+
+        int indexOfperiod = fullNetworkId.indexOf(".", indexOfNetworkID);
+
+        if (indexOfperiod == -1) {
+            return false;
+        } else {
+            int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
+            String tunnelId;
+
+            if (indexOfSecondPeriod == -1) {
+                tunnelId = fullNetworkId.substring(indexOfperiod);
+            } else {
+                tunnelId = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
+            }
+
+            for (int i = 0; i < m_addressDataList.size(); i++) {
+                AddressData addressData = m_addressDataList.get(i);
+                if (tunnelId.equals(addressData.getNetworkId())) {
+                    return addressData.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
+
+                }
+            }
+        }
+
+        return false;
+    }
 }

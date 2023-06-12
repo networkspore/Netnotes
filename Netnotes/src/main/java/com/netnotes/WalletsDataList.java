@@ -1,7 +1,9 @@
 package com.netnotes;
 
 import java.io.File;
-
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,30 +66,38 @@ public class WalletsDataList {
         m_ergoWallet = ergoWallet;
 
         if (jsonArray != null) {
-            for (JsonElement element : jsonArray) {
-                JsonObject jsonObject = element.getAsJsonObject();
-                JsonElement nameElement = jsonObject.get("name");
-                JsonElement idElement = jsonObject.get("id");
-                JsonElement fileLocationElement = jsonObject.get("file");
-                JsonElement networkTypeElement = jsonObject.get("networkType");
-                JsonElement nodeIdElement = jsonObject.get("nodeId");
-                JsonElement explorerIdElement = jsonObject.get("explorerId");
-                JsonElement exchangeIdElement = jsonObject.get("marketId");
+            for (int i = 0; i < jsonArray.size(); i++) {
+                JsonElement jsonElement = jsonArray.get(i);
 
-                if (nameElement != null && idElement != null && fileLocationElement != null) {
-                    String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
-                    String name = nameElement == null ? "Wallet #" + id : nameElement.getAsString();
-                    File walletFile = fileLocationElement == null ? null : new File(fileLocationElement.getAsString());
-                    NetworkType walletNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
+                if (jsonElement != null && jsonElement.isJsonArray()) {
+                    JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-                    String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
-                    String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
-                    String exchangeId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
-                    WalletData walletData = new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, walletNetworkType, m_ergoWallet);
-                    m_noteInterfaceList.add(walletData);
+                    JsonElement nameElement = jsonObject.get("name");
+                    JsonElement idElement = jsonObject.get("id");
+                    JsonElement fileLocationElement = jsonObject.get("file");
+                    JsonElement networkTypeElement = jsonObject.get("networkType");
+                    JsonElement nodeIdElement = jsonObject.get("nodeId");
+                    JsonElement explorerIdElement = jsonObject.get("explorerId");
+                    JsonElement exchangeIdElement = jsonObject.get("marketId");
+                    JsonElement timerElement = jsonObject.get("timers");
 
-                    walletData.addUpdateListener((obs, oldValue, newValue) -> lastUpdated.set(LocalDateTime.now()));
+                    if (nameElement != null && idElement != null && fileLocationElement != null) {
+                        String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
+                        String name = nameElement == null ? "Wallet #" + id : nameElement.getAsString();
+                        File walletFile = fileLocationElement == null ? null : new File(fileLocationElement.getAsString());
+                        NetworkType walletNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
 
+                        String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
+                        String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
+                        String exchangeId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
+                        JsonObject timerObject = timerElement != null && timerElement.isJsonObject() ? timerElement.getAsJsonObject() : null;
+
+                        WalletData walletData = new WalletData(id, name, walletFile, nodeId, explorerId, exchangeId, timerObject, walletNetworkType, m_ergoWallet);
+                        m_noteInterfaceList.add(walletData);
+
+                        walletData.addUpdateListener((obs, oldValue, newValue) -> lastUpdated.set(LocalDateTime.now()));
+
+                    }
                 }
             }
         }
@@ -258,6 +268,31 @@ public class WalletsDataList {
             HBox priceNetworkBox = new HBox(priceNetworkTxt, priceNetworkBtn);
             priceNetworkBox.setAlignment(Pos.CENTER_LEFT);
 
+            Text timerNetworkTxt = new Text("> Timer:");
+            timerNetworkTxt.setFill(App.txtColor);
+            timerNetworkTxt.setFont(App.txtFont);
+
+            MenuButton timerBtn = new MenuButton(TimerNetwork.NAME);
+            timerBtn.setFont(App.txtFont);
+            timerBtn.setTextFill(App.altColor);
+            timerBtn.setUserData(NetworkID.TIMER_NETWORK);
+
+            MenuItem timerNoneItem = new MenuItem("(none)");
+            timerNoneItem.setOnAction(e -> {
+                timerBtn.setText(timerNoneItem.getText());
+                timerBtn.setUserData(null);
+            });
+
+            MenuItem timerNetworkItem = new MenuItem(TimerNetwork.NAME);
+            timerNetworkItem.setOnAction(e -> {
+                timerBtn.setText(timerNetworkItem.getText());
+                timerBtn.setUserData(NetworkID.TIMER_NETWORK);
+            });
+
+            timerBtn.getItems().addAll(timerNoneItem, timerNetworkItem);
+
+            HBox timerBox = new HBox(timerNetworkTxt, timerBtn);
+
             Text walletTxt = new Text("> Select wallet file:");
             walletTxt.setFont(App.txtFont);
             walletTxt.setFill(App.txtColor);
@@ -308,7 +343,14 @@ public class WalletsDataList {
                             String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                             String marketId = priceNetworkBtn.getUserData() == null ? null : (String) priceNetworkBtn.getUserData();
 
-                            addOpen(new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, explorerId, marketId, networkType, m_ergoWallet));
+                            JsonObject timerObject = null;
+                            String timerId = timerBtn.getUserData() == null ? null : (String) timerBtn.getUserData();
+                            if (timerId != null) {
+                                timerObject = new JsonObject();
+                                timerObject.addProperty("networkId", timerId);
+                            }
+
+                            addOpen(new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, explorerId, marketId, timerObject, networkType, m_ergoWallet));
                             m_addWalletStage.close();
                             m_addWalletStage = null;
                         }
@@ -339,7 +381,14 @@ public class WalletsDataList {
                     String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                     String marketId = priceNetworkBtn.getUserData() == null ? null : (String) priceNetworkBtn.getUserData();
 
-                    addOpen(new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, explorerId, marketId, networkType, m_ergoWallet));
+                    JsonObject timerObject = null;
+                    String timerId = timerBtn.getUserData() == null ? null : (String) timerBtn.getUserData();
+                    if (timerId != null) {
+                        timerObject = new JsonObject();
+                        timerObject.addProperty("networkId", timerId);
+                    }
+
+                    addOpen(new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, explorerId, marketId, timerObject, networkType, m_ergoWallet));
 
                     m_addWalletStage.close();
                     m_addWalletStage = null;
@@ -382,7 +431,14 @@ public class WalletsDataList {
                                 String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                                 String marketId = priceNetworkBtn.getUserData() == null ? null : (String) priceNetworkBtn.getUserData();
 
-                                addOpen(new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, explorerId, marketId, networkType, m_ergoWallet));
+                                JsonObject timerObject = null;
+                                String timerId = timerBtn.getUserData() == null ? null : (String) timerBtn.getUserData();
+                                if (timerId != null) {
+                                    timerObject = new JsonObject();
+                                    timerObject.addProperty("networkId", timerId);
+                                }
+
+                                addOpen(new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, explorerId, marketId, timerObject, networkType, m_ergoWallet));
 
                                 m_addWalletStage.close();
                                 m_addWalletStage = null;
@@ -409,7 +465,7 @@ public class WalletsDataList {
             VBox.setVgrow(newWalletBox, Priority.ALWAYS);
             newWalletBox.setPadding(new Insets(30, 0, 0, 0));
 
-            VBox bodyBox = new VBox(walletNameBox, networkSelectBox, explorerBox, priceNetworkBox, textWalletBox, newWalletBox);
+            VBox bodyBox = new VBox(walletNameBox, networkSelectBox, explorerBox, priceNetworkBox, timerBox, textWalletBox, newWalletBox);
             bodyBox.setPadding(new Insets(0, 20, 0, 20));
 
             VBox layoutBox = new VBox(titleBox, imageBox, bodyBox);
@@ -800,6 +856,24 @@ public class WalletsDataList {
                     }
                 }*/
 
+    }
+
+    public boolean sendToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        int indexOfperiod = fullNetworkId.indexOf(".");
+
+        int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
+        String walletID;
+        if (indexOfSecondPeriod == -1) {
+            walletID = fullNetworkId.substring(indexOfperiod);
+        } else {
+            walletID = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
+        }
+        NoteInterface walletInterface = getNoteInterface(walletID);
+
+        if (walletInterface != null) {
+            walletInterface.sendNoteToFullNetworkId(note, walletID, onSucceeded, onFailed);
+        }
+        return false;
     }
 
 }

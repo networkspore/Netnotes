@@ -3,6 +3,7 @@ package com.netnotes;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -244,4 +245,15 @@ public class ErgoWallet extends Network implements NoteInterface {
         return false;
     }
 
+    @Override
+    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        int indexOfperiod = fullNetworkId.indexOf(".");
+
+        if (indexOfperiod == -1) {
+            return sendNote(note, onSucceeded, onFailed);
+        }
+
+        return m_walletsData.sendToFullNetworkId(note, fullNetworkId, null, null);
+
+    }
 }

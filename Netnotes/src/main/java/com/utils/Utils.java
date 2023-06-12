@@ -251,12 +251,15 @@ public class Utils {
                     while ((length = inputStream.read(buffer)) != -1) {
 
                         outputStream.write(buffer, 0, length);
-                        downloaded += (long) length;
-                        updateProgress(downloaded, contentLength);
+
+                        if (progressIndicator != null) {
+                            downloaded += (long) length;
+                            updateProgress(downloaded, contentLength);
+                        }
                     }
 
                     return outputStream;
-                } catch (IOException e) {
+                } catch (NullPointerException | IOException e) {
                     return null;
                 }
 
@@ -273,6 +276,7 @@ public class Utils {
         task.setOnSucceeded(onSucceeded);
 
         Thread t = new Thread(task);
+        t.setDaemon(true);
         t.start();
     }
 
@@ -305,6 +309,10 @@ public class Utils {
 
     public static TimeUnit stringToTimeUnit(String str) {
         switch (str.toLowerCase()) {
+            case "μs":
+            case "microsecond":
+            case "microseconds":
+                return TimeUnit.MICROSECONDS;
             case "ms":
             case "millisecond":
             case "milliseconds":
@@ -333,15 +341,15 @@ public class Utils {
     public static String timeUnitToString(TimeUnit unit) {
         switch (unit) {
             case MICROSECONDS:
-                return "microseconds";
+                return "μs";
             case MILLISECONDS:
-                return "milliseconds";
+                return "ms";
             case SECONDS:
-                return "seconds";
+                return "s";
             case MINUTES:
-                return "minutes";
+                return "m";
             case HOURS:
-                return "hours";
+                return "h";
             case DAYS:
                 return "days";
             default:

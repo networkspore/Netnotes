@@ -4,8 +4,11 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
@@ -25,6 +28,7 @@ import javafx.scene.text.FontWeight;
 
 public class Network extends IconButton {
 
+    private File logFile = new File("Network-log");
     private String m_networkId;
     private NetworksData m_networksData;
     private ArrayList<NoteInterface> m_tunnelInterfaceList = new ArrayList<>();
@@ -53,6 +57,7 @@ public class Network extends IconButton {
     public Network(Image icon, String name, String id, NoteInterface parentInterface) {
         this(icon, name, id, parentInterface.getNetworksData());
         m_parentInterface = parentInterface;
+
     }
 
     public String getFullNetworkId() {
@@ -71,46 +76,26 @@ public class Network extends IconButton {
     }
 
     public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int indexOfperiod = fullNetworkId.indexOf(".");
+        int indexOfNetworkID = fullNetworkId.indexOf(getNetworkId());
 
-        if (indexOfperiod != -1) {
+        int indexOfperiod = fullNetworkId.indexOf(".", indexOfNetworkID);
 
-            NoteInterface parentInterface = getParentInterface();
+        if (indexOfperiod == -1) {
+            return sendNote(note, onSucceeded, onFailed);
+        } else {
+            int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
+            String tunnelID;
 
-            if (parentInterface == null) {
-                int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
-                String tunnelId = indexOfSecondPeriod == -1 ? fullNetworkId.substring(indexOfperiod, fullNetworkId.length()) : fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
-
-                for (NoteInterface tunnelInterface : m_tunnelInterfaceList) {
-                    if (tunnelInterface.getNetworkId().equals(tunnelId)) {
-                        return tunnelInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
-                    }
-                }
+            if (indexOfSecondPeriod == -1) {
+                tunnelID = fullNetworkId.substring(indexOfperiod);
             } else {
-                indexOfperiod = fullNetworkId.indexOf(getNetworkId());
-                int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod);
-
-                if (indexOfSecondPeriod == -1) {
-                    return sendNote(note, onSucceeded, onFailed);
-                } else {
-                    indexOfperiod = indexOfSecondPeriod;
-                    indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
-
-                    String tunnelId = indexOfSecondPeriod == -1 ? fullNetworkId.substring(indexOfperiod, fullNetworkId.length()) : fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
-
-                    for (int i = 0; i < m_tunnelInterfaceList.size(); i++) {
-                        NoteInterface tunnelInterface = m_tunnelInterfaceList.get(i);
-
-                        if (tunnelInterface.getNetworkId().equals(tunnelId)) {
-                            return tunnelInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
-                        }
-                    }
-                }
-
+                tunnelID = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
             }
 
-        } else {
-            sendNote(note, onSucceeded, onFailed);
+            NoteInterface tunnelInterface = getTunnelNoteInterface(tunnelID);
+            if (tunnelInterface != null) {
+                return tunnelInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
+            }
         }
 
         return false;
@@ -162,11 +147,15 @@ public class Network extends IconButton {
     }
 
     public void removeTunnelNoteInterface(String id) {
-        m_tunnelInterfaceList.forEach(tunnel -> {
+        for (int i = 0; i < m_tunnelInterfaceList.size(); i++) {
+            NoteInterface tunnel = m_tunnelInterfaceList.get(i);
+
             if (tunnel.getNetworkId().equals(id)) {
                 m_tunnelInterfaceList.remove(tunnel);
+                break;
             }
-        });
+
+        }
     }
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
@@ -191,5 +180,13 @@ public class Network extends IconButton {
 
     public void remove() {
         removeUpdateListener();
+    }
+
+    public JsonObject getTimers() {
+        JsonObject getTimersObject = new JsonObject();
+        getTimersObject.addProperty("subject", "GET_TIMERS");
+        getTimersObject.addProperty("fullNetworkId", getFullNetworkId());
+
+        return getTimersObject;
     }
 }

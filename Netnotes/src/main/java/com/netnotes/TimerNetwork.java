@@ -12,6 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
@@ -23,73 +24,23 @@ import javafx.scene.image.Image;
 public class TimerNetwork extends Network implements NoteInterface {
 
     public static String DESCRIPTION = "Timer schedules updates.";
-    public static String SUMMARY = "**Required for obtaining network updates**";
+    public static String SUMMARY = "By installing the timer you may schedule regular data updates in Apps, at the selected interval. This allows requesting regular updates, such as regular wallet balance updates.";
     public static String NAME = "Timer";
-
-    private long m_interval = 5000;
-    private TimeUnit m_timeUnit = TimeUnit.MILLISECONDS;
-    private ArrayList<String> m_subscribers = new ArrayList<>();
 
     private File logFile = new File("timer-log.txt");
 
-    private ScheduledExecutorService m_executorService = null;
-
-    private final Runnable m_task = new Runnable() {
-        @Override
-        public void run() {
-            for (String networkId : m_subscribers) {
-                getNetworksData().sendNoteToFullNetworkId(getJsonObject(), networkId, null, null);
-            }
-        }
-    };
+    private ArrayList<TimerData> m_timersList = new ArrayList<TimerData>();
 
     public TimerNetwork(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.TIMER_NETWORK, networksData);
+
+        m_timersList.add(new TimerData(null, this));
 
     }
 
     public TimerNetwork(JsonObject jsonObject, NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.TIMER_NETWORK, networksData);
 
-        JsonElement intervalElement = jsonObject.get("interval");
-        JsonElement timeUnitElement = jsonObject.get("timeUnit");
-
-        m_interval = intervalElement == null ? 5000 : intervalElement.getAsLong();
-        if (timeUnitElement != null) {
-            TimeUnit timeUnit = Utils.stringToTimeUnit(timeUnitElement.getAsString());
-            m_timeUnit = timeUnit == null ? TimeUnit.MILLISECONDS : timeUnit;
-        } else {
-            m_timeUnit = TimeUnit.MILLISECONDS;
-        }
-    }
-
-    private void startTimer() {
-
-        m_executorService.scheduleAtFixedRate(new Runnable() {
-            private final ExecutorService executor = Executors.newFixedThreadPool(3,
-                    new ThreadFactory() {
-                public Thread newThread(Runnable r) {
-                    Thread t = Executors.defaultThreadFactory().newThread(r);
-                    t.setDaemon(true);
-                    return t;
-                }
-            });
-
-            private Future<?> lastExecution;
-
-            @Override
-            public void run() {
-                if (lastExecution != null && !lastExecution.isDone()) {
-                    try {
-                        Files.writeString(logFile.toPath(), "\nPrevious execution not complete: " + lastExecution.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-
-                    }
-
-                }
-                lastExecution = executor.submit(m_task);
-            }
-        }, m_interval, m_interval, m_timeUnit);
     }
 
     public static Image getSmallAppIcon() {
@@ -101,49 +52,66 @@ public class TimerNetwork extends Network implements NoteInterface {
     }
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        JsonElement subjecElement = note.get("subject");
-        if (subjecElement != null) {
-            switch (subjecElement.getAsString()) {
+        JsonElement subjectElement = note.get("subject");
+        JsonElement fullNetworkIdElement = note.get("fullNetworkId");
+
+        if (subjectElement != null && subjectElement.isJsonPrimitive() && fullNetworkIdElement != null && fullNetworkIdElement.isJsonPrimitive()) {
+            String fullNetworkID = fullNetworkIdElement.getAsString();
+
+            switch (subjectElement.getAsString()) {
                 case "SUBSCRIBE":
-                    try {
+                        try {
                     Files.writeString(logFile.toPath(), "\n" + note.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e) {
 
                 }
 
-                JsonElement fullNetworkIdElement = note.get("fullNetworkId");
+                JsonElement timerIdElement = note.get("timerId");
 
-                if (fullNetworkIdElement != null) {
-                    String fullNetworkID = fullNetworkIdElement.getAsString();
+                if (timerIdElement != null && timerIdElement.isJsonPrimitive()) {
 
-                    for (String networkId : m_subscribers) {
-                        if (fullNetworkID.equals(networkId)) {
-                            return false;
+                    String timerId = timerIdElement.getAsString();
+
+                    for (int i = 0; i < m_timersList.size(); i++) {
+                        TimerData timerData = m_timersList.get(i);
+
+                        if (timerData.getTimerId().equals(timerId)) {
+                            JsonObject subscriber = new JsonObject();
+                            subscriber.addProperty("fullNetworkId", fullNetworkID);
+
+                            timerData.subscribe(subscriber);
+                            return true;
                         }
-                    }
 
-                    m_subscribers.add(fullNetworkID);
-                    if (m_subscribers.size() > 0) {
-                        if (m_executorService == null) {
-                            startTimer();
-                        }
                     }
                 }
-
                 break;
+                case "GET_TIMERS":
+                    JsonObject timers = new JsonObject();
+
+                    timers.addProperty("subject", "TIMERS");
+                    timers.addProperty("networkId", getNetworkId());
+                    timers.add("availableTimers", getTimersJsonArray());
+
+                    getNetworksData().sendNoteToFullNetworkId(timers, fullNetworkID, null, null);
+
+                    break;
+
             }
+
         }
 
         return false;
     }
 
-    @Override
-    public JsonObject getJsonObject() {
-        JsonObject jsonObject = super.getJsonObject();
+    public JsonArray getTimersJsonArray() {
+        JsonArray timers = new JsonArray();
 
-        jsonObject.addProperty("interval", m_interval);
-        jsonObject.addProperty("timeUnit", Utils.timeUnitToString(m_timeUnit));
-        return jsonObject;
+        for (TimerData timerData : m_timersList) {
+            timers.add(timerData.getJsonObject());
+        }
+
+        return timers;
     }
 
 }
