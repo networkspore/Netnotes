@@ -94,6 +94,23 @@ public class AddressesData {
             m_addressBox.getChildren().add(addressData);
         }
     }
+
+    public void updateBalance() {
+        for (int i = 0; i < m_addressDataList.size(); i++) {
+            AddressData addressData = m_addressDataList.get(i);
+
+            addressData.updateBalance();
+        }
+    }
+
+    public void setQuote(PriceQuote quote) {
+
+        for (int i = 0; i < m_addressDataList.size(); i++) {
+            AddressData addressData = m_addressDataList.get(i);
+            addressData.setQuote(quote);
+        }
+    }
+
     /*
     @Override
     public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
