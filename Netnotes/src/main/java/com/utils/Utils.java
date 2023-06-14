@@ -200,6 +200,28 @@ public class Utils {
 
     }
 
+    public static String formatCryptoString(double price, String target, boolean valid) {
+        String formatedDecimals = String.format("%.2f", price);
+        String priceTotal = valid ? formatedDecimals : "-.--";
+
+        switch (target) {
+            case "USD":
+                priceTotal = "$" + priceTotal;
+                break;
+            case "USDT":
+                priceTotal = "$" + priceTotal;
+                break;
+            case "EUR":
+                priceTotal = "€‎" + priceTotal;
+                break;
+            case "BTC":
+                priceTotal = "₿" + (valid ? String.format("%.8f", price) : "-.--");
+                break;
+        }
+
+        return priceTotal;
+    }
+
     public static long getNowEpochMillis() {
         Instant instant = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant();
         return instant.toEpochMilli();

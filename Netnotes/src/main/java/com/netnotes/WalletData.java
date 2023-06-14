@@ -402,10 +402,7 @@ public class WalletData extends Network implements NoteInterface {
                 }
             }
             getMarketQuote(getMarketInterface());
-            ChangeListener<PriceQuote> quoteListener = (obs, oldValue, newValue) -> {
-                addressesData.setQuote(newValue);
-            };
-            m_lastQuote.addListener(quoteListener);
+
             try {
                 Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
@@ -658,7 +655,15 @@ public class WalletData extends Network implements NoteInterface {
 
             ScrollPane scrollPane = new ScrollPane(layoutBox);
 
-            VBox bodyVBox = new VBox(titleBox, menuVBox, scrollPane, updateBox);
+            TextField totalField = new TextField(Utils.formatCryptoString(0, m_quoteTransactionCurrency, false));
+            totalField.setId("priceField");
+            totalField.setEditable(false);
+            HBox.setHgrow(totalField, Priority.ALWAYS);
+            HBox summaryBox = new HBox(totalField);
+            HBox.setHgrow(summaryBox, Priority.ALWAYS);
+            summaryBox.setPadding(new Insets(5, 0, 0, 5));
+
+            VBox bodyVBox = new VBox(titleBox, menuVBox, scrollPane, summaryBox, updateBox);
 
             Scene openWalletScene = new Scene(bodyVBox, sceneWidth, sceneHeight);
             openWalletScene.getStylesheets().add("/css/startWindow.css");
@@ -674,10 +679,32 @@ public class WalletData extends Network implements NoteInterface {
             HBox.setHgrow(layoutBox, Priority.ALWAYS);
 
             scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty());
-            scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty().get()).subtract(menuBar.heightProperty().get()).subtract(updateBox.heightProperty().get()));
+            scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(updateBox.heightProperty()).subtract(summaryBox.heightProperty()));
+
+            /*
+             * Listeners
+             */
+            ChangeListener<PriceQuote> quoteListener = (obs, oldValue, newQuote) -> {
+                addressesData.setQuote(newQuote);
+            };
+
+            ChangeListener<Number> totalListener = (obs, oldValue, newValue) -> {
+
+                double updatedValue = newValue.doubleValue();
+
+                String formatedAmount = Utils.formatCryptoString(updatedValue, m_quoteTransactionCurrency, true);
+                PriceQuote quote = m_lastQuote.get();
+                Platform.runLater(() -> totalField.setText("Σ(" + (quote == null ? Utils.formatCryptoString(0, m_quoteTransactionCurrency, false) : Utils.formatCryptoString(quote.getAmount(), m_quoteTransactionCurrency, true)) + ") " + formatedAmount));
+
+                Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
+            };
+
+            m_lastQuote.addListener(quoteListener);
+            addressesData.getTotalDoubleProperty().addListener(totalListener);
 
             m_walletStage.setOnCloseRequest(event -> {
                 m_lastQuote.removeListener(quoteListener);
+                addressesData.getTotalDoubleProperty().removeListener(totalListener);
             });
 
         } else {

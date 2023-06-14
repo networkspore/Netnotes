@@ -74,7 +74,7 @@ public class AddressData extends IconButton {
 
     private static String NULL_ERG = "-.-- ERG";
 
-    private SimpleStringProperty m_lastUpdated = new SimpleStringProperty(Utils.formatDateTimeString(LocalDateTime.now()));
+    public SimpleStringProperty lastUpdated = new SimpleStringProperty(Utils.formatDateTimeString(LocalDateTime.now()));
     private boolean m_valid = false;
     private boolean m_quantityValid = false;
     private SimpleStringProperty m_name = new SimpleStringProperty();
@@ -135,7 +135,6 @@ public class AddressData extends IconButton {
         setFormattedQuantity();
         setFormattedPrice();
         setFormattedTotal();
-        setLastUpdatedStringNow();
 
         updateBufferedImage();
 
@@ -175,10 +174,6 @@ public class AddressData extends IconButton {
 
     public void setFormattedTotal() {
         m_formattedTotal.set(getFormmatedTotal());
-    }
-
-    public SimpleStringProperty getLastUpdated() {
-        return m_lastUpdated;
     }
 
     @Override
@@ -336,7 +331,7 @@ public class AddressData extends IconButton {
              * **** BINDINGS ****
              */
             ergQuantityField.textProperty().bind(m_formattedQuantity);
-            lastUpdatedField.textProperty().bind(m_lastUpdated);
+            lastUpdatedField.textProperty().bind(lastUpdated);
             priceField.textProperty().bind(m_formattedPrice);
             balanceField.textProperty().bind(m_formattedTotal);
 
@@ -475,40 +470,19 @@ public class AddressData extends IconButton {
     public void setLastUpdatedStringNow() {
         LocalDateTime now = LocalDateTime.now();
 
-        DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss a");
+        DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss.SSSSS a");
 
-        m_lastUpdated.set(formater.format(now));
-    }
-
-    public String formatCryptoString(double price, String target) {
-        String priceTotal = (m_valid && m_quantityValid ? String.format("%.2f", price) : "-.--");
-
-        switch (target) {
-            case "USD":
-                priceTotal = "$" + priceTotal;
-                break;
-            case "USDT":
-                priceTotal = "$" + priceTotal;
-                break;
-            case "EUR":
-                priceTotal = "€‎" + priceTotal;
-                break;
-            case "BTC":
-                priceTotal = "₿" + (m_valid && m_quantityValid ? String.format("%.8f", price) : "-.--");
-                break;
-        }
-
-        return priceTotal;
+        lastUpdated.set(formater.format(now));
     }
 
     public String getTotalAmountPriceString() {
-        return formatCryptoString(getTotalAmountPrice(), getPriceTargetCurrency());
+        return Utils.formatCryptoString(getTotalAmountPrice(), getPriceTargetCurrency(), m_valid && m_quantityValid);
 
     }
 
     public String getPriceString() {
 
-        return formatCryptoString(getPrice(), getPriceTargetCurrency());
+        return Utils.formatCryptoString(getPrice(), getPriceTargetCurrency(), m_valid);
 
     }
 
@@ -638,6 +612,7 @@ public class AddressData extends IconButton {
         m_imgBuffer = bufferedImage;
 
         Platform.runLater(() -> setGraphic(getIconView(SwingFXUtils.toFXImage(m_imgBuffer, null), m_imgBuffer.getWidth())));
+        Platform.runLater(() -> setLastUpdatedStringNow());
     }
 
     private JsonObject getBalanceNote() {

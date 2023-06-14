@@ -47,6 +47,9 @@
     -fx-opacity: 1;
 }
 
+
+
+
 #rowBtn {
     -fx-text-fill: #777777;
     -fx-font-size: 14px;
@@ -94,6 +97,20 @@
 #passField {
     -fx-background-color: transparent;
     -fx-text-fill: white;
+}
+
+#priceField {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-opacity: .7;
+    -fx-font-size: 25px;
+    -fx-font-family: 'OCR A Extended';
+}
+#priceField:hover{
+    -fx-opacity: 1;
+}
+#priceField:focus{
+    -fx-opacity: 1;
 }
 
 #textField {
