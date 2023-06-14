@@ -1,30 +1,18 @@
 package com.netnotes;
 
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 import com.google.gson.JsonObject;
 
-import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Alert.AlertType;
+
 import javafx.scene.image.Image;
-import javafx.scene.input.MouseButton;
-import javafx.scene.text.FontWeight;
 
 public class Network extends IconButton {
 
@@ -42,7 +30,7 @@ public class Network extends IconButton {
         public static String ERGO_WALLET = "ERGO_WALLET";
         public static String KUKOIN_EXCHANGE = "KUCOIN_EXCHANGE";
         public static String ERGO_EXPLORER = "ERGO_EXPLORER";
-        public static String TIMER_NETWORK = "TIMER_NETWORK";
+        public static String NETWORK_TIMER = "NETWORK_TIMER";
     }
 
     public Network(Image icon, String name, String id, NetworksData networksData) {
@@ -182,11 +170,4 @@ public class Network extends IconButton {
         removeUpdateListener();
     }
 
-    public JsonObject getTimers() {
-        JsonObject getTimersObject = new JsonObject();
-        getTimersObject.addProperty("subject", "GET_TIMERS");
-        getTimersObject.addProperty("fullNetworkId", getFullNetworkId());
-
-        return getTimersObject;
-    }
 }

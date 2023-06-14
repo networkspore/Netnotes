@@ -9,8 +9,6 @@ public interface WebClient {
 
     void requestSocket(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed);
 
-    void getCandlesDataset(String symbol, String timespan, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed);
-
     //void subscribeToCandles(String symbol, String timespan);
     void subscribeToCandles(String tunnelId, String symbol, String timespan);
 

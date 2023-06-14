@@ -111,7 +111,8 @@ public class AddressData extends IconButton {
         m_address = address;
 
         Tooltip addressTip = new Tooltip(getName());
-
+        addressTip.setShowDelay(new javafx.util.Duration(100));
+        addressTip.setFont(App.txtFont);
         //  HBox.setHgrow(this, Priority.ALWAYS);
         setPrefHeight(40);
         // setPrefWidth(width);
@@ -127,10 +128,6 @@ public class AddressData extends IconButton {
         textProperty().bind(Bindings.concat("> ", m_name, ":\n  ", getAddressMinimal(12)));
 
         update();
-        getUpdates();
-    }
-
-    private void getUpdates() {
         updateBalance();
     }
 
@@ -364,7 +361,16 @@ public class AddressData extends IconButton {
         }
     }
 
-    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        /* JsonElement subjectElement = note.get("subject");
+        if (subjectElement != null) {
+            String subject = subjectElement.getAsString();
+            switch (subject) {
+                case "GET_EXPLORER_BALANCE_UPDATE":
+                    return updateBalance();
+
+            }
+        }*/
         return false;
     }
 
@@ -443,6 +449,25 @@ public class AddressData extends IconButton {
         return m_price;
     }
 
+    public void setQuote(PriceQuote quote) {
+
+        if (quote.getQuoteCurrency().equals(m_priceBaseCurrency)) {
+            if (quote.howOldMillis() < 60000) {
+                m_valid = true;
+            }
+            m_priceTargetCurrency = quote.getTransactionCurrency();
+            setPrice(quote.getAmount());
+        }
+
+    }
+
+    public void setPrice(double price) {
+        m_price = price;
+        setFormattedPrice();
+        setFormattedTotal();
+        updateBufferedImage();
+    }
+
     public double getTotalAmountPrice() {
         return getFullAmountDouble() * getPrice();
     }
@@ -498,6 +523,8 @@ public class AddressData extends IconButton {
     public Image getUnitImage() {
         return new Image("/assets/unitErgo.png");
     }
+
+    private BufferedImage m_imgBuffer = null;
 
     public void updateBufferedImage() {
 
@@ -596,15 +623,21 @@ public class AddressData extends IconButton {
 
         }*/
         g2d.dispose();
-        /*
+
         try {
             ImageIO.write(img, "png", new File("outputImage.png"));
         } catch (IOException e) {
 
-        } */
+        }
 
-        setGraphic(getIconView(SwingFXUtils.toFXImage(img, null), width));
+        setImageBuffer(img);
 
+    }
+
+    private void setImageBuffer(BufferedImage bufferedImage) {
+        m_imgBuffer = bufferedImage;
+
+        Platform.runLater(() -> setGraphic(getIconView(SwingFXUtils.toFXImage(m_imgBuffer, null), m_imgBuffer.getWidth())));
     }
 
     private JsonObject getBalanceNote() {
@@ -615,11 +648,12 @@ public class AddressData extends IconButton {
         return jsonObject;
     }
 
-    public void updateBalance() {
+    public boolean updateBalance() {
+
         NoteInterface explorerInterface = m_walletData.getExplorerInterface();
 
         if (explorerInterface != null) {
-            explorerInterface.sendNote(
+            return explorerInterface.sendNote(
                     getBalanceNote(),
                     success -> {
                         JsonObject jsonObject = null;
@@ -658,8 +692,10 @@ public class AddressData extends IconButton {
                         update();
                     }
             );
+        } else {
+            update();
         }
-
+        return false;
     }
 
     public void setBalance(JsonObject jsonObject) {

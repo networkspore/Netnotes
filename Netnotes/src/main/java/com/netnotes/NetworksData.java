@@ -35,7 +35,7 @@ public class NetworksData {
         NetworkID.ERGO_NETWORK,
         NetworkID.ERGO_WALLET,
         NetworkID.KUKOIN_EXCHANGE,
-        NetworkID.TIMER_NETWORK
+        NetworkID.NETWORK_TIMER
     };
 
     private ArrayList<NoteInterface> m_noteInterfaceList = new ArrayList<>();
@@ -99,8 +99,8 @@ public class NetworksData {
                         case "KUCOIN_EXCHANGE":
                             addNoteInterface(new KucoinExchange(jsonObject, this));
                             break;
-                        case "TIMER_NETWORK":
-                            addNoteInterface(new TimerNetwork(jsonObject, this));
+                        case "NETWORK_TIMER":
+                            addNoteInterface(new NetworkTimer(jsonObject, this));
                             break;
                     }
 
@@ -411,8 +411,8 @@ public class NetworksData {
             case "KUCOIN_EXCHANGE":
                 addNoteInterface(new KucoinExchange(this));
                 break;
-            case "TIMER_NETWORK":
-                addNoteInterface(new TimerNetwork(this));
+            case "NETWORK_TIMER":
+                addNoteInterface(new NetworkTimer(this));
                 break;
         }
         m_installedVBox.getChildren().clear();

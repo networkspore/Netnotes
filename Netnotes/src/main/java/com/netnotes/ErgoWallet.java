@@ -43,6 +43,7 @@ public class ErgoWallet extends Network implements NoteInterface {
     public static String SUMMARY = "Access can be controlled with the Ergo Wallet, in order to keep the wallet isolated, or access can be given to the Ergo Network in order to make transactions, or the Ergo Explorer to get your ERG ballance and to the KuCoin Exchange to get your ERG value real time.";
     public static String NAME = "Ergo Wallet";
     public static ExtensionFilter ergExt = new ExtensionFilter("Ergo wallet", "*.erg");
+    public static String SYMBOL = "ERG";
 
     private File logFile = new File("ergoWallet - log.txt");
 
@@ -139,7 +140,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void showWalletsStage() {
         if (m_walletsStage == null) {
-            String title = getName() + " - Wallets";
+            String title = getName() + ": Wallets";
             double walletsStageWidth = 310;
             double walletsStageHeight = 500;
             double buttonHeight = 100;

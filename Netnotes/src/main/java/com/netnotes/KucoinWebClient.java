@@ -49,7 +49,7 @@ public class KucoinWebClient implements WebClient {
     private WebSocketClient m_websocketClient = null;
 
     public static String PUBLIC_TOKEN_URL = "https://api.kucoin.com/api/v1/bullet-public";
-    public static String PRICE_DATA_URL = "https://api.kucoin.com/api/v1/market/candles";
+
     public static String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
 
     public KucoinWebClient() {
@@ -76,18 +76,6 @@ public class KucoinWebClient implements WebClient {
 
     public void setPong(long pong) {
         m_pong = pong;
-    }
-
-    public void getCandlesDataset(String symbol, String timespan, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
-
-        String urlString = PRICE_DATA_URL + "?type=" + timespan + "&symbol=" + symbol;
-        try {
-            Files.writeString(logFile.toPath(), "url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
-        Utils.getUrlData(urlString, onSuccess, onFailed, null);
-
     }
 
     public void requestSocket(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {

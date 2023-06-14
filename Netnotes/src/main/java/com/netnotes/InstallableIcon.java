@@ -86,11 +86,11 @@ public class InstallableIcon extends IconButton {
                 setDescription(KucoinExchange.DESCRIPTION);
                 setSummary(KucoinExchange.SUMMARY);
                 break;
-            case "TIMER_NETWORK":
-                setIcon(m_installed ? TimerNetwork.getSmallAppIcon() : TimerNetwork.getAppIcon());
-                setName(TimerNetwork.NAME);
-                setDescription(TimerNetwork.DESCRIPTION);
-                setSummary(TimerNetwork.SUMMARY);
+            case "NETWORK_TIMER":
+                setIcon(m_installed ? NetworkTimer.getSmallAppIcon() : NetworkTimer.getAppIcon());
+                setName(NetworkTimer.NAME);
+                setDescription(NetworkTimer.DESCRIPTION);
+                setSummary(NetworkTimer.SUMMARY);
                 break;
         }
 

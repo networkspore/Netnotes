@@ -13,7 +13,9 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -198,6 +200,11 @@ public class Utils {
 
     }
 
+    public static long getNowEpochMillis() {
+        Instant instant = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant();
+        return instant.toEpochMilli();
+    }
+
     public static String formatDateTimeString(LocalDateTime localDateTime) {
 
         DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss a");
@@ -228,7 +235,7 @@ public class Utils {
 
         Task<ByteArrayOutputStream> task = new Task<ByteArrayOutputStream>() {
             @Override
-            public ByteArrayOutputStream call() {
+            public ByteArrayOutputStream call() throws IOException {
                 InputStream inputStream = null;
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 try {
@@ -258,11 +265,15 @@ public class Utils {
                         }
                     }
 
-                    return outputStream;
                 } catch (NullPointerException | IOException e) {
                     return null;
+                } finally {
+
+                    outputStream.close();
+
                 }
 
+                return outputStream;
             }
 
         };
