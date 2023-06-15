@@ -3,19 +3,28 @@ package com.netnotes;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 
 import org.ergoplatform.appkit.Address;
+import org.ergoplatform.appkit.ErgoClient;
+import org.ergoplatform.appkit.InputBoxesSelectionException;
 import org.ergoplatform.appkit.NetworkType;
+import org.ergoplatform.appkit.Parameters;
+import org.ergoplatform.appkit.SignedTransaction;
+import org.ergoplatform.appkit.UnsignedTransaction;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.satergo.Wallet;
+import com.satergo.WalletKey;
 import com.satergo.WalletKey.Failure;
+import com.satergo.ergo.ErgoInterface;
+import com.utils.Utils;
 
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -44,6 +53,7 @@ public class AddressesData {
         m_walletData = walletData;
         m_networkType = networkType;
 
+        //wallet.transact(networkType, id, null)
         m_wallet.myAddresses.forEach((index, name) -> {
             AddressData addressData = null;
             try {
@@ -73,11 +83,6 @@ public class AddressesData {
 
     public SimpleDoubleProperty getTotalDoubleProperty() {
         return m_totalQuote;
-    }
-
-    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-
-        return false;
     }
 
     public void addAddress() {
@@ -157,6 +162,70 @@ public class AddressesData {
         }
 
         return total;
+    }
+
+    public JsonObject getErgoClientObject(String nodeId) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("subject", "GET_CLIENT");
+        jsonObject.addProperty("networkType", m_networkType.toString());
+        jsonObject.addProperty("nodeId", nodeId);
+        return jsonObject;
+    }
+
+    public String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
+        return ergoClient.execute(ctx -> {
+            String quoted = ctx.sendTransaction(signedTx);
+            return quoted.substring(1, quoted.length() - 1);
+        });
+    }
+
+    public boolean sendErg(long nanoErg, String receipientAddress, Address senderAddress, long fee, String nodeId, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+        if (receipientAddress != null & senderAddress != null && nodeId != null && fee >= Parameters.MinFee) {
+            NoteInterface nodeInterface = m_walletData.getNodeInterface();
+            if (nodeInterface != null) {
+                return nodeInterface.sendNote(getErgoClientObject(nodeId), (successEvent) -> {
+                    WorkerStateEvent workerEvent = successEvent;
+                    Object sourceObject = workerEvent.getSource().getValue();
+                    if (sourceObject != null) {
+                        ErgoClient ergoClient = (ErgoClient) sourceObject;
+                        String txId = null;
+
+                        JsonObject txInfoJson = new JsonObject();
+                        txInfoJson.addProperty("fee", fee);
+                        txInfoJson.addProperty("nanoErg", nanoErg);
+                        txInfoJson.addProperty("receipientAddress", receipientAddress);
+                        txInfoJson.addProperty("returnAddress", senderAddress.toString());
+                        txInfoJson.addProperty("nodeId", nodeId);
+                        try {
+
+                            UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(ergoClient,
+                                    m_wallet.addressStream(m_networkType).toList(),
+                                    Address.create(receipientAddress), nanoErg, fee, senderAddress);
+
+                            txId = transact(ergoClient, ergoClient.execute(ctx -> {
+                                try {
+                                    return m_wallet.key().sign(ctx, unsignedTx, m_wallet.myAddresses.keySet());
+                                } catch (WalletKey.Failure ex) {
+
+                                    txInfoJson.addProperty("unauthorized", ex.toString());
+                                    return null;
+                                }
+                            }));
+
+                            // if (txId != null) Utils.textDialogWithCopy(Main.lang("transactionId"), txId);
+                        } catch (InputBoxesSelectionException ibsEx) {
+                            txInfoJson.addProperty("insufficientFunds", ibsEx.toString());
+                        }
+                        if (txId != null) {
+                            txInfoJson.addProperty("txId", txId);
+                        }
+
+                        Utils.returnObject(txInfoJson, onSuccess, null);
+                    }
+                }, onFailed);
+            }
+        }
+        return false;
     }
 
     /*

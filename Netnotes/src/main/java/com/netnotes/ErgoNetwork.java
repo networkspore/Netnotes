@@ -4,8 +4,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 
+import org.ergoplatform.appkit.NetworkType;
+
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.satergo.ergo.ErgoInterface;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -35,30 +39,37 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
     public static int MAINNET_PORT = 9053;
     public static int TESTNET_PORT = 9052;
-
     public static int EXTERNAL_PORT = 9030;
 
-    private int m_exPort = EXTERNAL_PORT;
-    private int m_port = MAINNET_PORT;
-    private String m_host = null;
+    private String m_explorerId = null;
+
+    private String m_mainnetNodeId = null;
+
+    private ArrayList<ErgoNodeData> m_nodesDataList = new ArrayList<>();
 
     public ErgoNetwork(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_NETWORK, networksData);
 
     }
 
-    public ErgoNetwork(JsonObject jsonObj, NetworksData networksData) {
+    public ErgoNetwork(JsonObject ergoNetworkJson, NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_NETWORK, networksData);
 
-        if (jsonObj != null) {
+        if (ergoNetworkJson != null) {
+            JsonElement nodesElement = ergoNetworkJson.get("nodes");
+            JsonElement mainnetNodeIdElement = ergoNetworkJson.get("mainnetNodeId");
 
-            JsonElement portElement = jsonObj.get("port");
-            JsonElement externalPortElement = jsonObj.get("externalPort");
-            JsonElement hostElement = jsonObj.get("host");
+            m_mainnetNodeId = mainnetNodeIdElement == null ? null : mainnetNodeIdElement.getAsString();
 
-            m_port = portElement == null ? MAINNET_PORT : portElement.getAsInt();
-            m_exPort = externalPortElement == null ? EXTERNAL_PORT : externalPortElement.getAsInt();
-            m_host = hostElement == null ? "" : hostElement.getAsString();
+            if (nodesElement != null && nodesElement.isJsonArray()) {
+                JsonArray nodesArray = nodesElement.getAsJsonArray();
+
+                for (JsonElement clientElement : nodesArray) {
+                    if (clientElement.isJsonObject()) {
+                        m_nodesDataList.add(new ErgoNodeData(clientElement.getAsJsonObject(), this));
+                    }
+                }
+            }
         }
 
     }
@@ -75,67 +86,71 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
         JsonElement subjecElement = note.get("subject");
+        JsonElement networkTypeElement = note.get("networkType");
+        JsonElement nodeIdElement = note.get("nodeId");
         if (subjecElement != null) {
-            switch (subjecElement.getAsString()) {
+            String subject = subjecElement.getAsString();
+            switch (subject) {
+                case "GET_CLIENT":
+
+                    String nodeId = nodeIdElement == null ? null : nodeIdElement.getAsString();
+                    String networkType = networkTypeElement == null ? null : networkTypeElement.toString();
+
+                    if (nodeId == null) {
+                        if (m_mainnetNodeId == null) {
+                            return false;
+                        } else {
+                            ErgoNodeData nodeData = getErgoNodeData(m_mainnetNodeId);
+                            if (nodeData != null) {
+                                if (networkType != null) {
+                                    if (nodeData.getNetworkTypeString().equals(networkType)) {
+                                        return nodeData.getClient(onSucceeded, onFailed);
+                                    } else {
+                                        return false;
+                                    }
+                                } else {
+                                    return nodeData.getClient(onSucceeded, onFailed);
+                                }
+                            } else {
+                                return false;
+                            }
+
+                        }
+                    } else {
+                        ErgoNodeData nodeData = getErgoNodeData(nodeId);
+                        if (nodeData != null) {
+                            if (networkType == null) {
+                                return nodeData.getClient(onSucceeded, onFailed);
+                            } else {
+                                if (nodeData.getNetworkTypeString().equals(networkType)) {
+                                    return nodeData.getClient(onSucceeded, onFailed);
+                                } else {
+                                    return false;
+                                }
+                            }
+                        } else {
+                            return false;
+                        }
+
+                    }
+
+                // NetworkType.MAINNET.toString().equals(networkType);
             }
-        } else {
-            return false;
         }
 
-        return true;
+        return false;
     }
 
-    public String getHost() {
-        return m_host;
-    }
-
-    public void setHost(String host) {
-        m_host = host;
-    }
-
-    public int getPort() {
-        return m_port;
-    }
-
-    public void setPort(int port) {
-        m_port = port;
-
-    }
-
-    public void setExternalPort(int port) {
-        m_port = port;
-    }
-
-    public int getExternalPort() {
-        return m_port;
-    }
-
-    public void setUrl(String url) throws MalformedURLException {
-        if (url == null) {
-            m_host = null;
-        } else {
-            if (url.equals("")) {
-                m_host = null;
-            } else {
-
-                char c0 = url.charAt(0);
-
-                URL testURL = new URL(c0 != 'h' ? "http://" + url : url);
-
-                m_host = testURL.getHost();
-
-                int port = testURL.getPort();
-
-                if (port != 80 && port != -1) {
-
-                    setPort(port);
-
-                }
-
-            }
-
+    private ErgoNodeData getErgoNodeData(String networkId) {
+        if (networkId == null) {
+            return null;
         }
-
+        for (ErgoNodeData ergoNodeData : m_nodesDataList) {
+            if (ergoNodeData.getNetworkId().equals(m_mainnetNodeId)) {
+                return ergoNodeData;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -143,16 +158,18 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
         JsonObject networkObj = super.getJsonObject();
 
-        String hostValue = m_host == null ? "" : m_host.toString();
-
-        networkObj.addProperty("host", hostValue);
-        networkObj.addProperty("port", m_port);
-        networkObj.addProperty("externalPort", m_exPort);
-
         return networkObj;
 
     }
 
+    public NoteInterface getExplorerInterface() {
+        if (m_explorerId != null) {
+            return getNetworksData().getNoteInterface(m_explorerId);
+        } else {
+            return null;
+        }
+    }
+    /*
     public void showNetworkStage(Network network) {
 
         Stage networkStage = new Stage();
@@ -335,5 +352,5 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
         networkStage.show();
 
-    }
+    }*/
 }

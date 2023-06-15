@@ -44,6 +44,7 @@ import mslinks.ShellLinkException;
 import mslinks.ShellLinkHelper;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.rfksystems.blake2b.Blake2b;
@@ -253,49 +254,70 @@ public class Utils {
         return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
     }
 
-    public static void getUrlData(String urlString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+    public static void returnObject(Object object, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
-        Task<ByteArrayOutputStream> task = new Task<ByteArrayOutputStream>() {
+        Task<Object> task = new Task<Object>() {
             @Override
-            public ByteArrayOutputStream call() throws IOException {
+            public Object call() {
+
+                return object;
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+
+    }
+
+    public static void getUrlJson(String urlString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+
+        Task<JsonObject> task = new Task<JsonObject>() {
+            @Override
+            public JsonObject call() throws JsonParseException, MalformedURLException, IOException {
                 InputStream inputStream = null;
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                try {
-                    URL url = new URL(urlString);
+                String outputString = null;
 
-                    String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+                URL url = new URL(urlString);
 
-                    URLConnection con = url.openConnection();
+                String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
 
-                    con.setRequestProperty("User-Agent", USER_AGENT);
+                URLConnection con = url.openConnection();
 
-                    long contentLength = con.getContentLengthLong();
-                    inputStream = con.getInputStream();
+                con.setRequestProperty("User-Agent", USER_AGENT);
 
-                    byte[] buffer = new byte[2048];
+                long contentLength = con.getContentLengthLong();
+                inputStream = con.getInputStream();
 
-                    int length;
-                    long downloaded = 0;
+                byte[] buffer = new byte[2048];
 
-                    while ((length = inputStream.read(buffer)) != -1) {
+                int length;
+                long downloaded = 0;
 
-                        outputStream.write(buffer, 0, length);
+                while ((length = inputStream.read(buffer)) != -1) {
 
-                        if (progressIndicator != null) {
-                            downloaded += (long) length;
-                            updateProgress(downloaded, contentLength);
-                        }
+                    outputStream.write(buffer, 0, length);
+
+                    if (progressIndicator != null) {
+                        downloaded += (long) length;
+                        updateProgress(downloaded, contentLength);
                     }
-
-                } catch (NullPointerException | IOException e) {
-                    return null;
-                } finally {
-
-                    outputStream.close();
-
                 }
 
-                return outputStream;
+                outputStream.close();
+                outputString = outputStream.toString();
+
+                JsonElement jsonElement = new JsonParser().parse(outputString);
+
+                JsonObject jsonObject = jsonElement != null && jsonElement.isJsonObject() ? jsonElement.getAsJsonObject() : null;
+
+                return jsonObject == null ? null : jsonObject;
+
             }
 
         };

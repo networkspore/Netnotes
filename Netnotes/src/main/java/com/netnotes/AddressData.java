@@ -19,7 +19,10 @@ import java.util.Map.Entry;
 import javax.imageio.ImageIO;
 
 import org.ergoplatform.appkit.Address;
+import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.NetworkType;
+import org.ergoplatform.appkit.SignedTransaction;
+import org.ergoplatform.appkit.UnsignedTransaction;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -27,6 +30,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.netnotes.Network.NetworkID;
+import com.satergo.Wallet;
+import com.satergo.WalletKey;
 import com.satergo.WalletKey.Local;
 import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
@@ -131,6 +136,28 @@ public class AddressData extends IconButton {
         updateBalance();
     }
 
+    /*public boolean donate(){
+        BigDecimal amountFullErg = dialog.showForResult().orElse(null);
+		if (amountFullErg == null) return;
+		try {
+			Wallet wallet = Main.get().getWallet();
+			UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(Utils.createErgoClient(),
+					wallet.addressStream().toList(),
+					DONATION_ADDRESS, ErgoInterface.toNanoErg(amountFullErg), Parameters.MinFee, Main.get().getWallet().publicAddress(0));
+			String txId = wallet.transact(Utils.createErgoClient().execute(ctx -> {
+				try {
+					return wallet.key().sign(ctx, unsignedTx, wallet.myAddresses.keySet());
+				} catch (WalletKey.Failure ex) {
+					return null;
+				}
+			}));
+			if (txId != null) Utils.textDialogWithCopy(Main.lang("transactionId"), txId);
+		} catch (WalletKey.Failure ignored) {
+			// user already informed
+		}
+    }*/
+ /* return ;
+        }); */
     private void update() {
         setFormattedQuantity();
         setFormattedPrice();
@@ -631,30 +658,16 @@ public class AddressData extends IconButton {
             return explorerInterface.sendNote(
                     getBalanceNote(),
                     success -> {
-                        JsonObject jsonObject = null;
-                        try {
-                            ByteArrayOutputStream outputStream = (ByteArrayOutputStream) success.getSource().getValue();
-                            String jsonString = outputStream.toString();
+                        Object sourceObject = success.getSource().getValue();
 
-                            JsonElement jsonTest = new JsonParser().parse(jsonString);
-                            jsonObject = jsonTest != null ? jsonTest.getAsJsonObject() : null;
-
-                        } catch (Exception e) {
-                            try {
-                                Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e1) {
-
-                            }
-                        }
-
-                        if (jsonObject != null) {
+                        if (sourceObject != null) {
+                            JsonObject jsonObject = (JsonObject) sourceObject;
 
                             setBalance(jsonObject);
+                            update();
                         } else {
-
                             m_quantityValid = false;
                         }
-                        update();
                     },
                     failed -> {
                         try {

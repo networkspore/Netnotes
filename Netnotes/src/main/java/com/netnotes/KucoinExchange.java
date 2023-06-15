@@ -22,6 +22,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.utils.Utils;
 
+import io.circe.Json;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -261,28 +262,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
         // prices?base=" + baseCurrency + "&currencies=ERG";
         String urlString = API_URL + "prices?base=" + transactionCurrency + "&currencies=" + quoteCurrency;
-        Utils.getUrlData(urlString, success -> {
+        Utils.getUrlJson(urlString, success -> {
+            Object sourceObject = success.getSource().getValue();
+            if (sourceObject != null) {
+                JsonObject jsonObject = (JsonObject) sourceObject;
 
-            JsonObject jsonObject = null;
-            try {
-                Object sourceValue = success.getSource().getValue();
-                if (sourceValue != null) {
-                    ByteArrayOutputStream outputStream = (ByteArrayOutputStream) sourceValue;
-                    outputStream.close();
-                    String jsonString = outputStream.toString();
-
-                    JsonElement jsonTest = new JsonParser().parse(jsonString);
-                    jsonObject = jsonTest != null ? jsonTest.getAsJsonObject() : null;
-                }
-            } catch (Exception e) {
-                try {
-                    Files.writeString(logFile.toPath(), "\nQuote url error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e1) {
-
-                }
-            }
-
-            if (jsonObject != null) {
                 JsonElement dataElement = jsonObject.get("data");
                 try {
                     Files.writeString(logFile.toPath(), "\n" + API_URL + " returned: " + jsonObject.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -330,7 +314,7 @@ public class KucoinExchange extends Network implements NoteInterface {
         } catch (IOException e) {
 
         }
-        Utils.getUrlData(urlString, onSuccess, onFailed, null);
+        Utils.getUrlJson(urlString, onSuccess, onFailed, null);
 
     }
 

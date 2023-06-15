@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import org.ergoplatform.appkit.Address;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -42,8 +44,10 @@ public class ErgoWallet extends Network implements NoteInterface {
     public static String DESCRIPTION = "Ergo Wallet allows you to create and manage wallets on the Ergo Blockchain.";
     public static String SUMMARY = "Access can be controlled with the Ergo Wallet, in order to keep the wallet isolated, or access can be given to the Ergo Network in order to make transactions, or the Ergo Explorer to get your ERG ballance and to the KuCoin Exchange to get your ERG value real time.";
     public static String NAME = "Ergo Wallet";
-    public static ExtensionFilter ergExt = new ExtensionFilter("Ergo wallet", "*.erg");
-    public static String SYMBOL = "ERG";
+    public static ExtensionFilter ergExt = new ExtensionFilter("Ergo Wallet", "*.erg");
+    public static final String SYMBOL = "ERG";
+
+    public static final Address DONATION_ADDRESS = Address.create("9h123xUZMi26FZrHuzsFfsTpfD3mMuTxQTNEhAjTpD83EPchePU");
 
     private File logFile = new File("ergoWallet - log.txt");
 
@@ -171,12 +175,6 @@ public class ErgoWallet extends Network implements NoteInterface {
             layoutVBox.setPadding(new Insets(0, 5, 0, 5));
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            Scene walletsScene = new Scene(layoutVBox, walletsStageWidth, walletsStageHeight);
-
-            //  bodyBox.prefHeightProperty().bind(walletsScene.heightProperty() - 40 - 100);
-            walletsScene.getStylesheets().add("/css/startWindow.css");
-            m_walletsStage.setScene(walletsScene);
-
             VBox walletsBox = m_walletsData.getButtonGrid();
 
             Region growRegion = new Region();
@@ -186,8 +184,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             VBox bodyBox = new VBox(walletsBox, growRegion);
 
             ScrollPane scrollPane = new ScrollPane(bodyBox);
-            scrollPane.prefViewportWidthProperty().bind(walletsScene.widthProperty());
-            scrollPane.prefViewportHeightProperty().bind(walletsScene.heightProperty().subtract(140));
+
             scrollPane.setId("bodyBox");
 
             Button addButton = new Button("New");
@@ -222,6 +219,16 @@ public class ErgoWallet extends Network implements NoteInterface {
             });
 
             layoutVBox.getChildren().addAll(scrollPane, menuBox);
+
+            Scene walletsScene = new Scene(layoutVBox, walletsStageWidth, walletsStageHeight);
+
+            scrollPane.prefViewportWidthProperty().bind(walletsScene.widthProperty());
+            scrollPane.prefViewportHeightProperty().bind(walletsScene.heightProperty().subtract(140));
+
+            walletsBox.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
+            //  bodyBox.prefHeightProperty().bind(walletsScene.heightProperty() - 40 - 100);
+            walletsScene.getStylesheets().add("/css/startWindow.css");
+            m_walletsStage.setScene(walletsScene);
 
             m_walletsStage.show();
         } else {

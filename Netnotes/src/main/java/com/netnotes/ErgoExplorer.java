@@ -1,6 +1,10 @@
 package com.netnotes;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.util.ArrayList;
 
 import org.ergoplatform.appkit.NetworkType;
@@ -8,6 +12,8 @@ import org.ergoplatform.appkit.NetworkType;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.grack.nanojson.JsonParserException;
+import com.satergo.ergo.ErgoNodeAccess;
 import com.utils.Utils;
 
 import javafx.concurrent.WorkerStateEvent;
@@ -81,7 +87,19 @@ public class ErgoExplorer extends Network implements NoteInterface {
         String urlString = networkType == NetworkType.MAINNET.toString() ? m_mainnetExplorerUrlString : m_testnetExplorerUrlString;
         urlString += "/api/v1/addresses/" + address + "/balance/total";
 
-        Utils.getUrlData(urlString, onSucceeded, onFailed, null);
+        Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
     }
+    /*
+        public static int getNetworkBlockHeight(NetworkType networkType) {
+        HttpClient httpClient = HttpClient.newHttpClient();
+        HttpRequest request = ErgoNodeAccess.httpRequestBuilder().uri(URI.create(getExplorerUrl(networkType) + "/blocks?limit=1&sortBy=height&sortDirection=desc")).build();
+        try {
+            JsonObject body = JsonParser.object().from(httpClient.send(request, ofString()).body());
+            return body.getArray("items").getObject(0).getInt("height");
+        } catch (JsonParserException | IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+     */
 
 }

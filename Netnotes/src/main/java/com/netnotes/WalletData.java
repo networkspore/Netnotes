@@ -634,7 +634,7 @@ public class WalletData extends Network implements NoteInterface {
             VBox menuVBox = new VBox(paddingBox, timerMenu);
 
             VBox layoutBox = addressesData.getAddressBox();
-            layoutBox.setPadding(SMALL_INSETS);
+            //layoutBox.setPadding(SMALL_INSETS);
 
             Font smallerFont = Font.font("OCR A Extended", 10);
 
@@ -654,7 +654,7 @@ public class WalletData extends Network implements NoteInterface {
             VBox.setVgrow(spacerRegion, Priority.ALWAYS);
 
             ScrollPane scrollPane = new ScrollPane(layoutBox);
-
+            scrollPane.setId("bodyBox");
             TextField totalField = new TextField(Utils.formatCryptoString(0, m_quoteTransactionCurrency, false));
             totalField.setId("priceField");
             totalField.setEditable(false);
@@ -663,7 +663,10 @@ public class WalletData extends Network implements NoteInterface {
             HBox.setHgrow(summaryBox, Priority.ALWAYS);
             summaryBox.setPadding(new Insets(5, 0, 0, 5));
 
-            VBox bodyVBox = new VBox(titleBox, menuVBox, scrollPane, summaryBox, updateBox);
+            HBox scrollBox = new HBox(scrollPane);
+            HBox.setHgrow(scrollBox, Priority.ALWAYS);
+            scrollBox.setPadding(new Insets(5));
+            VBox bodyVBox = new VBox(titleBox, menuVBox, scrollBox, summaryBox, updateBox);
 
             Scene openWalletScene = new Scene(bodyVBox, sceneWidth, sceneHeight);
             openWalletScene.getStylesheets().add("/css/startWindow.css");
@@ -678,7 +681,7 @@ public class WalletData extends Network implements NoteInterface {
 
             HBox.setHgrow(layoutBox, Priority.ALWAYS);
 
-            scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty());
+            scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty().subtract(10));
             scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(updateBox.heightProperty()).subtract(summaryBox.heightProperty()));
 
             /*

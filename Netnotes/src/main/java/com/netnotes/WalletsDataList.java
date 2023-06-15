@@ -54,7 +54,7 @@ public class WalletsDataList {
     private ArrayList<NoteInterface> m_noteInterfaceList = new ArrayList<>();
     private String m_selectedId;
     private VBox m_buttonGrid = null;
-    private double m_width = 400;
+    //  private double m_width = 400;
     private String m_direction = "column";
     private Stage m_addWalletStage = null;
     private ErgoWallet m_ergoWallet;
@@ -772,19 +772,10 @@ public class WalletsDataList {
         return jsonArray;
     }
 
-    public double getWidth() {
-        return m_width;
-    }
-
-    public void setWidth(double width) {
-        m_width = width;
-        updateGrid();
-    }
-
     public VBox getButtonGrid() {
         if (m_buttonGrid == null) {
             m_buttonGrid = new VBox();
-            HBox.setHgrow(m_buttonGrid, Priority.ALWAYS);
+
         }
         updateGrid();
         return m_buttonGrid;
@@ -795,14 +786,15 @@ public class WalletsDataList {
         int numCells = m_noteInterfaceList.size();
 
         m_buttonGrid.getChildren().clear();
-        VBox.setVgrow(m_buttonGrid, Priority.ALWAYS);
+        // VBox.setVgrow(m_buttonGrid, Priority.ALWAYS);
 
         for (int i = 0; i < numCells; i++) {
             NoteInterface noteInterface = m_noteInterfaceList.get(i);
 
             IconButton rowButton = noteInterface.getButton();
-            VBox.setVgrow(rowButton, Priority.ALWAYS);
+
             m_buttonGrid.getChildren().add(rowButton);
+            rowButton.prefWidthProperty().bind(m_buttonGrid.widthProperty());
         }
         /*
             try {

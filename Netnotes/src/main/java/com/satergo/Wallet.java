@@ -94,15 +94,6 @@ public final class Wallet {
         });
     }
 
-    public String transact(NetworkType networkType, String nodeApiAddress, SignedTransaction signedTx) {
-        ErgoClient client = ErgoInterface.newNodeApiClient(networkType, nodeApiAddress);
-
-        return client.execute(ctx -> {
-            String quoted = ctx.sendTransaction(signedTx);
-            return quoted.substring(1, quoted.length() - 1);
-        });
-    }
-
     public void changePassword(char[] currentPassword, char[] newPassword) throws Exception {
         try {
             key = key.changedPassword(currentPassword, newPassword);
