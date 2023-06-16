@@ -28,6 +28,7 @@ import com.utils.Utils;
 
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.Alert;
@@ -43,9 +44,10 @@ public class AddressesData {
     private Wallet m_wallet;
     private WalletData m_walletData;
 
+    private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
     private SimpleDoubleProperty m_totalQuote = new SimpleDoubleProperty(0);
 
-    ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
+    private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
     public AddressesData(String id, Wallet wallet, WalletData walletData, NetworkType networkType) {
         logFile = new File("addressesData-" + walletData.getNetworkId() + ".txt");
@@ -65,7 +67,7 @@ public class AddressesData {
             }
             if (addressData != null) {
                 m_addressDataList.add(addressData);
-                addressData.lastUpdated.addListener((a, b, c) -> {
+                addressData.getLastUpdated().addListener((a, b, c) -> {
                     double total = calculateCurrentTotal();
                     try {
                         Files.writeString(logFile.toPath(), c + total, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -79,6 +81,10 @@ public class AddressesData {
         });
         m_addressBox = new VBox();
         updateAddressBox();
+    }
+
+    public SimpleObjectProperty<AddressData> getSelectedAddressDataProperty() {
+        return m_selectedAddressData;
     }
 
     public SimpleDoubleProperty getTotalDoubleProperty() {
@@ -103,7 +109,7 @@ public class AddressesData {
             }
             if (addressData != null) {
                 m_addressDataList.add(addressData);
-                addressData.lastUpdated.addListener((a, b, c) -> {
+                addressData.getLastUpdated().addListener((a, b, c) -> {
                     try {
                         Files.writeString(logFile.toPath(), c, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e) {

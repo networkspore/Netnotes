@@ -47,8 +47,12 @@
     -fx-opacity: 1;
 }
 
-
-
+#addressBtn{
+    -fx-opacity: .9;
+}
+#addressBtn:hover {
+    -fx-opacity: 1;
+}
 
 #rowBtn {
     -fx-text-fill: #777777;
@@ -193,7 +197,10 @@
     -fx-opacity: 1;
 }
 
-
+#menuBtnDisabled {
+    -fx-background-color: transparent;
+    -fx-opacity: .3;
+}
 
 #menuBtn {
     -fx-background-color: transparent;

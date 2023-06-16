@@ -3,6 +3,7 @@ package com.netnotes;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
@@ -26,10 +27,12 @@ import com.satergo.WalletKey.Failure;
 import com.utils.Utils;
 
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -39,6 +42,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
@@ -56,6 +60,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
@@ -431,21 +436,18 @@ public class WalletData extends Network implements NoteInterface {
 
             HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, closeBtn, m_walletStage);
 
-            /*Button imageButton = createImageButton(walletImg240, title + "\n" + wallet.name.get());
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(imageBox, Priority.ALWAYS);*/
- /*  ImageView addImage = App.highlightedImageView(App.addImg);
-            addImage.setFitHeight(10);
-            addImage.setPreserveRatio(true);*/
- /*   Tooltip nameTip = new Tooltip("Wallet: " + getText());
-            nameTip.setShowDelay(new javafx.util.Duration(100));
-            nameTip.setFont(App.txtFont);
-           
-            Button walletButton = new Button();
-            walletButton.setGraphic(IconButton.getIconView(new Image("/assets/ergo-wallet-30.png"), 30));
-            walletButton.setId("menuBtn");
-            walletButton.setTooltip(nameTip); */
+            Tooltip sendTip = new Tooltip("Send");
+            sendTip.setShowDelay(new javafx.util.Duration(100));
+            sendTip.setFont(App.txtFont);
+
+            Button sendButton = new Button();
+            sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-redo-white-30.png"), 30));
+            sendButton.setId("menuBtn");
+            sendButton.setTooltip(sendTip);
+            sendButton.setDisable(true);
+            sendButton.setUserData("sendButton");
+
+            //   addressesData.currentAddressProperty
             Tooltip addTip = new Tooltip("Add address");
             addTip.setShowDelay(new javafx.util.Duration(100));
             addTip.setFont(App.txtFont);
@@ -620,7 +622,7 @@ public class WalletData extends Network implements NoteInterface {
             rightSideMenu.setId("rightSideMenuBar");
             rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
-            HBox menuBar = new HBox(addButton, spacer, rightSideMenu);
+            HBox menuBar = new HBox(sendButton, addButton, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -687,6 +689,52 @@ public class WalletData extends Network implements NoteInterface {
             /*
              * Listeners
              */
+            sendButton.setOnAction((actionEvent) -> {
+                if (getNodeInterface() == null) {
+                    Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall/Enable '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
+                    nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
+                    nodeAlert.initOwner(m_walletStage);
+                    nodeAlert.show();
+                } else {
+
+                    m_walletStage.setScene(getSendScene(addressesData, m_walletStage, openWalletScene));
+
+                }
+
+            });
+            openWalletScene.focusOwnerProperty().addListener((e) -> {
+                if (openWalletScene.focusOwnerProperty().get() instanceof AddressData) {
+                    AddressData addressData = (AddressData) openWalletScene.focusOwnerProperty().get();
+
+                    addressesData.getSelectedAddressDataProperty().set(addressData);
+                    if (getNodeInterface() != null) {
+                        sendButton.setId("menuBtn");
+                        sendButton.setDisable(false);
+                    }
+                } else {
+                    if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
+                        Button focusedButton = (Button) openWalletScene.focusOwnerProperty().get();
+
+                        if (focusedButton.getUserData() != null) {
+                            String buttonData = (String) focusedButton.getUserData();
+                            if (!(buttonData.equals("sendButton"))) {
+                                addressesData.getSelectedAddressDataProperty().set(null);
+                                sendButton.setId("menuBtnDisabled");
+                                sendButton.setDisable(true);
+
+                            }
+                        } else {
+                            addressesData.getSelectedAddressDataProperty().set(null);
+                            sendButton.setId("menuBtnDisabled");
+                            sendButton.setDisable(true);
+                        }
+                    } else {
+                        addressesData.getSelectedAddressDataProperty().set(null);
+                        sendButton.setId("menuBtnDisabled");
+                        sendButton.setDisable(true);
+                    }
+                }
+            });
             ChangeListener<PriceQuote> quoteListener = (obs, oldValue, newQuote) -> {
                 addressesData.setQuote(newQuote);
             };
@@ -714,6 +762,136 @@ public class WalletData extends Network implements NoteInterface {
             m_walletStage.show();
         }
 
+    }
+
+    private Scene getSendScene(AddressesData addressesData, Stage openWalletStage, Scene openWalletScene) {
+
+        double sceneWidth = 800;
+        double sceneHeight = 500;
+        double imageWidth = 20;
+        double alertImageWidth = 75;
+
+        VBox layoutBox = new VBox();
+
+        Scene sendScene = new Scene(layoutBox, sceneWidth, sceneHeight);
+        sendScene.getStylesheets().add("/css/startWindow.css");
+
+        Button closeBtn = new Button();
+        closeBtn.setOnAction(closeEvent -> {
+            openWalletStage.setScene(openWalletScene);
+        });
+
+        Label titleLbl = new Label();
+        titleLbl.setFont(App.titleFont);
+        titleLbl.setTextFill(App.txtColor);
+        titleLbl.textProperty().bind(Bindings.concat(ErgoWallet.NAME, " - ", "Send Ergo", " - (", m_networkType.toString(), ")"));
+
+        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), titleLbl, closeBtn, m_walletStage);
+
+        Text sigmaText = new Text("Σ");
+        sigmaText.setFont(Font.font("OCR A Extended", FontWeight.BOLD, 140));
+        sigmaText.setFill(Color.WHITE);
+
+        HBox imageBox = new HBox(sigmaText);
+        imageBox.setAlignment(Pos.CENTER);
+        HBox.setHgrow(imageBox, Priority.ALWAYS);
+        imageBox.setPadding(NORMAL_INSETS);
+
+        Text subTitleText = new Text();
+        subTitleText.setFont(App.mainFont);
+        subTitleText.setFill(Color.WHITE);
+        subTitleText.textProperty().bind(Bindings.concat("Send"));
+
+        HBox subTitleBox = new HBox(subTitleText);
+        HBox.setHgrow(subTitleBox, Priority.ALWAYS);
+        subTitleBox.setAlignment(Pos.CENTER);
+        subTitleBox.setPadding(new Insets(0, 0, 15, 0));
+
+        Text fromCaret = new Text("> From:");
+        fromCaret.setFont(App.txtFont);
+        fromCaret.setFill(Color.WHITE);
+
+        Region fromRegion = new Region();
+        fromRegion.setPrefWidth(5);
+
+        Button fromAddressBtn = new Button();
+        fromAddressBtn.setId("rowBtn");
+        fromAddressBtn.textProperty().bind(Bindings.concat(addressesData.getSelectedAddressDataProperty().asString()));
+        fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
+        fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
+        fromAddressBtn.setPadding(new Insets(2, 5, 2, 10));
+        fromAddressBtn.setOnAction(closeEvent -> {
+            openWalletStage.setScene(openWalletScene);
+        });
+
+        Image fromImg = addressesData.getSelectedAddressDataProperty().get().getImageProperty().get();
+        fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
+
+        addressesData.getSelectedAddressDataProperty().get().getImageProperty().addListener(e -> {
+            Image img = addressesData.getSelectedAddressDataProperty().get().getImageProperty().get();
+            fromAddressBtn.setGraphic(IconButton.getIconView(img, img.getWidth()));
+        });
+
+
+        /*
+        addressField.setOnKeyPressed(key -> {
+            KeyCode keyCode = key.getCode();
+
+            if (keyCode == KeyCode.ENTER) {
+                String addressFieldText = addressField.getText();
+
+            }
+        });
+
+        addressField.focusedProperty().addListener(new ChangeListener<Boolean>() {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> arg0, Boolean oldPropertyValue, Boolean newPropertyValue) {
+                String addressFieldText = addressField.getText();
+
+                if (newPropertyValue) {
+
+                } else {
+
+                }
+            }
+        }); */
+        HBox fromAddressBox = new HBox(fromCaret, fromRegion, fromAddressBtn);
+        fromAddressBox.setPadding(new Insets(0, 5, 0, 15));
+        HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
+        fromAddressBox.setAlignment(Pos.CENTER_LEFT);
+
+        fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
+
+        Button sendButton = new Button();
+        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-redo-white-30.png"), 30));
+        sendButton.setFont(App.txtFont);
+        sendButton.setId("toolBtn");
+        sendButton.setDisable(true);
+        sendButton.setUserData("sendButton");
+        sendButton.setPadding(new Insets(3, 15, 3, 15));
+
+        Region sendBoxSpacer = new Region();
+        HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
+
+        HBox sendBox = new HBox(sendBoxSpacer, sendButton);
+        HBox.setHgrow(sendBox, Priority.ALWAYS);
+
+        VBox bodyBox = new VBox();
+
+        ScrollPane scrollPane = new ScrollPane(bodyBox);
+        scrollPane.setId("bodyBox");
+
+        HBox bodyLayoutBox = new HBox(scrollPane);
+        bodyLayoutBox.setPadding(SMALL_INSETS);
+
+        VBox footerBox = new VBox(sendBox);
+        HBox.setHgrow(footerBox, Priority.ALWAYS);
+
+        layoutBox.getChildren().addAll(titleBox, imageBox, subTitleBox, fromAddressBox, bodyLayoutBox, footerBox);
+
+        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(imageBox.heightProperty()).subtract(subTitleBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(footerBox.heightProperty()));
+        scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty());
+        return sendScene;
     }
 
     public NoteInterface getNodeInterface() {

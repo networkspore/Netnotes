@@ -79,7 +79,7 @@ public class AddressData extends IconButton {
 
     private static String NULL_ERG = "-.-- ERG";
 
-    public SimpleStringProperty lastUpdated = new SimpleStringProperty(Utils.formatDateTimeString(LocalDateTime.now()));
+    private SimpleStringProperty m_lastUpdated = new SimpleStringProperty(Utils.formatDateTimeString(LocalDateTime.now()));
     private boolean m_valid = false;
     private boolean m_quantityValid = false;
     private SimpleStringProperty m_name = new SimpleStringProperty();
@@ -130,7 +130,7 @@ public class AddressData extends IconButton {
         setPadding(new Insets(0, 10, 0, 10));
         setId("rowBtn");
 
-        textProperty().bind(Bindings.concat("> ", m_name, ":\n  ", getAddressMinimal(12)));
+        textProperty().bind(Bindings.concat("> ", m_name, ":\n  ", getAddress().toString()));
 
         update();
         updateBalance();
@@ -237,7 +237,7 @@ public class AddressData extends IconButton {
 
             Label titleLbl = new Label();
 
-            HBox titleBox = App.createLabeledTopBar(ErgoWallet.getSmallAppIcon(), titleLbl, closeBtn, m_addressStage);
+            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), titleLbl, closeBtn, m_addressStage);
             titleLbl.textProperty().bind(Bindings.concat("Ergo Wallet - ", m_name, " (", m_address.getNetworkType().toString(), "): ", getAddressMinimal(10)));
 
             HBox menuBar = new HBox();
@@ -358,7 +358,7 @@ public class AddressData extends IconButton {
              * **** BINDINGS ****
              */
             ergQuantityField.textProperty().bind(m_formattedQuantity);
-            lastUpdatedField.textProperty().bind(lastUpdated);
+            lastUpdatedField.textProperty().bind(m_lastUpdated);
             priceField.textProperty().bind(m_formattedPrice);
             balanceField.textProperty().bind(m_formattedTotal);
 
@@ -494,12 +494,16 @@ public class AddressData extends IconButton {
         return getFullAmountDouble() * getPrice();
     }
 
+    public SimpleStringProperty getLastUpdated() {
+        return m_lastUpdated;
+    }
+
     public void setLastUpdatedStringNow() {
         LocalDateTime now = LocalDateTime.now();
 
         DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss.SSSSS a");
 
-        lastUpdated.set(formater.format(now));
+        m_lastUpdated.set(formater.format(now));
     }
 
     public String getTotalAmountPriceString() {
@@ -525,7 +529,7 @@ public class AddressData extends IconButton {
         return new Image("/assets/unitErgo.png");
     }
 
-    private BufferedImage m_imgBuffer = null;
+    private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
 
     public void updateBufferedImage() {
 
@@ -631,14 +635,18 @@ public class AddressData extends IconButton {
 
         }
 
-        setImageBuffer(img);
+        setImageBuffer(SwingFXUtils.toFXImage(img, null));
 
     }
 
-    private void setImageBuffer(BufferedImage bufferedImage) {
-        m_imgBuffer = bufferedImage;
+    public SimpleObjectProperty<Image> getImageProperty() {
+        return m_imgBuffer;
+    }
 
-        Platform.runLater(() -> setGraphic(getIconView(SwingFXUtils.toFXImage(m_imgBuffer, null), m_imgBuffer.getWidth())));
+    private void setImageBuffer(Image image) {
+        m_imgBuffer.set(image == null ? null : image);
+
+        Platform.runLater(() -> setGraphic(m_imgBuffer.get() == null ? null : getIconView(m_imgBuffer.get(), m_imgBuffer.get().getWidth())));
         Platform.runLater(() -> setLastUpdatedStringNow());
     }
 
@@ -804,4 +812,9 @@ public class AddressData extends IconButton {
         return m_priceTargetCurrency;
     }
 
+    @Override
+    public String toString() {
+        // TODO Auto-generated method stub
+        return getText();
+    }
 }

@@ -136,7 +136,6 @@ public class App extends Application {
     public static Image lockDocumentImg = new Image("/assets/document-lock.png");
     public static Image ergoNetworkImg = new Image("/assets/globe-outline-ergo-150.png");
     public static Image arrowRightImg = new Image("/assets/arrow-forward-outline-white-20.png");
-    public static Image walletImg20 = new Image("/assets/wallet-outline-white-20.png");
     public static Image ergoWallet = new Image("/assets/ergo-wallet.png");
     public static Image atImage = new Image("/assets/at-white-240.png");
     public static Image branchImg = new Image("/assets/git-branch-outline-white-240.png");
@@ -974,7 +973,7 @@ public class App extends Application {
         return newTopBar;
     }
 
-    public static HBox createLabeledTopBar(Image iconImage, Label newTitleLbl, Button closeBtn, Stage theStage) {
+    public static HBox createTopBar(Image iconImage, Label newTitleLbl, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
         barIconView.setFitWidth(25);
@@ -1037,6 +1036,71 @@ public class App extends Application {
 
         return newTopBar;
     }
+
+    /*
+    public static HBox createLabeledTopBar(Image iconImage, Label newTitleLbl, Button closeBtn, Stage theStage) {
+
+        ImageView barIconView = new ImageView(iconImage);
+        barIconView.setFitWidth(25);
+        barIconView.setPreserveRatio(true);
+
+        // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
+        Region spacer = new Region();
+
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        newTitleLbl.setFont(titleFont);
+        newTitleLbl.setTextFill(txtColor);
+        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
+
+        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        ImageView closeImage = highlightedImageView(closeImg);
+        closeImage.setFitHeight(20);
+        closeImage.setFitWidth(20);
+        closeImage.setPreserveRatio(true);
+
+        closeBtn.setGraphic(closeImage);
+        closeBtn.setPadding(new Insets(0, 5, 0, 3));
+        closeBtn.setId("closeBtn");
+
+        ImageView minimizeImage = highlightedImageView(minimizeImg);
+        minimizeImage.setFitHeight(20);
+        minimizeImage.setFitWidth(20);
+        minimizeImage.setPreserveRatio(true);
+
+        Button minimizeBtn = new Button();
+        minimizeBtn.setId("toolBtn");
+        minimizeBtn.setGraphic(minimizeImage);
+        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
+        minimizeBtn.setOnAction(minEvent -> {
+            theStage.setIconified(true);
+        });
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, closeBtn);
+        newTopBar.setAlignment(Pos.CENTER_LEFT);
+        newTopBar.setPadding(new Insets(7, 8, 10, 10));
+        newTopBar.setId("topBar");
+
+        Delta dragDelta = new Delta();
+
+        newTopBar.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                // record a delta distance for the drag and drop operation.
+                dragDelta.x = theStage.getX() - mouseEvent.getScreenX();
+                dragDelta.y = theStage.getY() - mouseEvent.getScreenY();
+            }
+        });
+        newTopBar.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                theStage.setX(mouseEvent.getScreenX() + dragDelta.x);
+                theStage.setY(mouseEvent.getScreenY() + dragDelta.y);
+            }
+        });
+
+        return newTopBar;
+    } */
 
     public static Button createImageButton(Image image, String name) {
         ImageView btnImageView = new ImageView(image);
