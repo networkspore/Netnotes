@@ -36,6 +36,7 @@ import javafx.scene.control.ProgressIndicator;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.bouncycastle.jcajce.provider.digest.Blake2b.Blake2b256;
 
 import java.io.FilenameFilter;
 import at.favre.lib.crypto.bcrypt.BCrypt;
@@ -47,6 +48,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.netnotes.PriceAmount;
+import com.netnotes.PriceCurrency;
 import com.rfksystems.blake2b.Blake2b;
 
 public class Utils {
@@ -91,6 +94,16 @@ public class Utils {
 
         return Hex.encodeHexString(hashBytes);
 
+    }
+
+    public static byte[] digestBytesToBytes(byte[] bytes, String... instance) throws Exception {
+        String digestInstance = instance == null ? Blake2b.BLAKE2_B_256 : instance[0];
+
+        final MessageDigest digest = MessageDigest.getInstance(digestInstance);
+
+        digest.update(bytes);
+
+        return digest.digest();
     }
 
     public static Map<String, List<String>> parseArgs(String args[]) {
@@ -201,22 +214,49 @@ public class Utils {
 
     }
 
+    public static PriceAmount getAmountByString(String text, PriceCurrency priceCurrency) {
+        if (text != null && priceCurrency != null) {
+            text = text.replace(",", ".");
+
+            char[] ch = text.toCharArray();
+
+            for (int i = 0; i < ch.length; ++i) {
+                if (Character.isDigit(ch[i])) {
+                    ch[i] = Character.forDigit(Character.getNumericValue(ch[i]), 10);
+                }
+            }
+
+            text = new String(ch);
+
+            try {
+                double parsedDouble = Double.parseDouble(text);
+                return new PriceAmount(parsedDouble, priceCurrency);
+            } catch (NumberFormatException ex) {
+
+            }
+        }
+        return new PriceAmount(0, priceCurrency);
+    }
+
     public static String formatCryptoString(double price, String target, boolean valid) {
         String formatedDecimals = String.format("%.2f", price);
         String priceTotal = valid ? formatedDecimals : "-.--";
 
         switch (target) {
+            case "ERG":
+                priceTotal = (valid ? String.format("%.3f", price) : "-.--") + " ERG";
+                break;
             case "USD":
-                priceTotal = "$" + priceTotal;
+                priceTotal = "$ " + priceTotal;
                 break;
             case "USDT":
-                priceTotal = "$" + priceTotal;
+                priceTotal = priceTotal + " USDT";
                 break;
             case "EUR":
-                priceTotal = "€‎" + priceTotal;
+                priceTotal = "€‎ " + priceTotal;
                 break;
             case "BTC":
-                priceTotal = "₿" + (valid ? String.format("%.8f", price) : "-.--");
+                priceTotal = (valid ? String.format("%.8f", price) : "-.--") + " BTC";
                 break;
         }
 

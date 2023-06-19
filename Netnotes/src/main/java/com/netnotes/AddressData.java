@@ -100,7 +100,7 @@ public class AddressData extends IconButton {
     private ArrayList<TokenData> m_unconfirmedTokensList = new ArrayList<>();
     private Stage m_addressStage = null;
     private WalletData m_walletData;
-    File logFile;
+    private File logFile;
 
     private double m_price = 0;
     // private WalletData m_WalletData;
@@ -650,21 +650,13 @@ public class AddressData extends IconButton {
         Platform.runLater(() -> setLastUpdatedStringNow());
     }
 
-    private JsonObject getBalanceNote() {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("subject", "GET_BALANCE");
-        jsonObject.addProperty("address", m_address.toString());
-        jsonObject.addProperty("networkType", getNetworkType().toString());
-        return jsonObject;
-    }
-
     public boolean updateBalance() {
 
         NoteInterface explorerInterface = m_walletData.getExplorerInterface();
 
         if (explorerInterface != null) {
             return explorerInterface.sendNote(
-                    getBalanceNote(),
+                    ErgoExplorer.getBalanceNote(m_address.toString(), getNetworkType()),
                     success -> {
                         Object sourceObject = success.getSource().getValue();
 

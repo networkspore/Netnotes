@@ -53,4 +53,8 @@ public class PriceQuote {
         return priceQuoteObject;
     }
 
+    @Override
+    public String toString() {
+        return m_amount + " " + m_quoteCurrency + "-" + m_transactionCurrency;
+    }
 }

@@ -33,13 +33,15 @@ import javafx.event.EventHandler;
 
 public class ErgoNetwork extends Network implements NoteInterface {
 
-    public static String NAME = "Ergo Network";
-    public static String DESCRIPTION = "Ergo Network allows you to connect and configure access to am Ergo Node.";
-    public static String SUMMARY = "The Ergo Node is part of Ergo's peer-to-peer network which hosts and synchronises a copy of the entire blockchain, transactions are submitted to the Node via Wallets in order to be processed.";
+    public final static String NAME = "Ergo Network";
+    public final static String DESCRIPTION = "Ergo Network allows you to connect and configure access to am Ergo Node.";
+    public final static String SUMMARY = "The Ergo Node is part of Ergo's peer-to-peer network which hosts and synchronises a copy of the entire blockchain, transactions are submitted to the Node via Wallets in order to be processed.";
 
-    public static int MAINNET_PORT = 9053;
-    public static int TESTNET_PORT = 9052;
-    public static int EXTERNAL_PORT = 9030;
+    public final static ErgoCurrency ERG = new ErgoCurrency();
+
+    public final static int MAINNET_PORT = 9053;
+    public final static int TESTNET_PORT = 9052;
+    public final static int EXTERNAL_PORT = 9030;
 
     private String m_explorerId = null;
 

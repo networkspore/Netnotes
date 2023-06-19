@@ -33,6 +33,23 @@ public class Network extends IconButton {
         public static String NETWORK_TIMER = "NETWORK_TIMER";
     }
 
+    public static String getNetworkName(String networkId) {
+        switch (networkId) {
+            case "ERGO_NETWORK":
+                return ErgoNetwork.NAME;
+            case "ERGO_WALLET":
+                return ErgoWallet.NAME;
+            case "KUCOIN_EXCHANGE":
+                return KucoinExchange.NAME;
+            case "ERGO_EXPLORER":
+                return ErgoExplorer.NAME;
+            case "NETWORK_TIMER":
+                return NetworkTimer.NAME;
+            default:
+                return null;
+        }
+    }
+
     public Network(Image icon, String name, String id, NetworksData networksData) {
         super(icon);
         setName(name);

@@ -1,5 +1,8 @@
 package com.netnotes;
 
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -70,16 +73,24 @@ import javafx.stage.WindowEvent;
 
 public class WalletData extends Network implements NoteInterface {
 
+    public final static double MIN_WIDTH = 400;
+    public final static double MIN_HEIGHT = 275;
+    public final static double NORMAL_WIDTH = 720;
+    public final static double NORMAL_HEIGHT = 480;
+    private int m_maxWidth = 800;
+    private int m_maxHeight = 600;
+
+    private double m_sceneWidth = NORMAL_WIDTH;
+    private double m_sceneHeight = NORMAL_HEIGHT;
+
     private File logFile;
     private File m_walletFile = null;
     // private File m_walletDirectory;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
-    private Stage m_walletStage = null;
-    private Stage m_passwordStage = null;
-    // private String m_name;
 
-    private String m_nodeId;
+    // private String m_name;
+    private String m_networkNetworkeId;
     private String m_explorerId;
     private String m_marketId;
 
@@ -89,22 +100,23 @@ public class WalletData extends Network implements NoteInterface {
     private TimersList m_availableTimers;
 
     // private ErgoWallet m_ergoWallet;
-    public WalletData(String id, String name, File walletFile, String nodeId, String explorerId, String marketId, String timerId, JsonArray timersArray, NetworkType networkType, NoteInterface ergoWallet) {
+    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String networkId, String explorerId, String marketId, String timerId, JsonArray timersArray, NetworkType networkType, NoteInterface ergoWallet) {
         super(null, name, id, ergoWallet);
-        //   m_name = name;
-        //  m_ergoWallet = ergoWallet;
+
+        m_sceneWidth = sceneWidth;
+        m_sceneHeight = sceneHeight;
 
         logFile = new File("WalletData" + name + "-log.txt");
 
         try {
-            Files.writeString(logFile.toPath(), "ExchangeId: " + marketId + " nodeId: " + nodeId + " explorerId: " + explorerId + " networkType: " + networkType + " timers:" + (timersArray != null ? "\n" + timersArray.toString() : "null"));
+            Files.writeString(logFile.toPath(), "ExchangeId: " + marketId + " networkId: " + networkId + " explorerId: " + explorerId + " networkType: " + networkType + " timers:" + (timersArray != null ? "\n" + timersArray.toString() : "null"));
         } catch (IOException e) {
 
         }
         m_walletFile = walletFile;
         m_networkType = networkType;
 
-        m_nodeId = nodeId == null ? null : nodeId;
+        m_networkNetworkeId = networkId == null ? null : networkId;
         m_explorerId = explorerId == null ? null : explorerId;
         m_marketId = marketId == null ? null : marketId;
 
@@ -114,6 +126,14 @@ public class WalletData extends Network implements NoteInterface {
         });
         setIconStyle(IconStyle.ROW);
 
+    }
+
+    public int getWindowMaxWidth() {
+        return m_maxWidth;
+    }
+
+    public int getWindowMaxHeight() {
+        return m_maxHeight;
     }
 
     /*
@@ -202,8 +222,14 @@ public class WalletData extends Network implements NoteInterface {
         jsonObject.addProperty("file", m_walletFile.getAbsolutePath());
         jsonObject.addProperty("networkType", m_networkType.toString());
 
-        if (m_nodeId != null) {
-            jsonObject.addProperty("nodeId", m_nodeId);
+        JsonObject windowSize = new JsonObject();
+        windowSize.addProperty("width", m_sceneWidth);
+        windowSize.addProperty("height", m_sceneHeight);
+
+        jsonObject.add("windowSize", windowSize);
+
+        if (m_networkNetworkeId != null) {
+            jsonObject.addProperty("networkNetworkId", m_networkNetworkeId);
         }
         if (m_explorerId != null) {
             jsonObject.addProperty("explorerId", m_explorerId);
@@ -229,7 +255,8 @@ public class WalletData extends Network implements NoteInterface {
         } catch (IOException e) {
 
         }
-        openWallet();
+        openWallet(m_sceneWidth, m_sceneHeight);
+
     }
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
@@ -266,97 +293,110 @@ public class WalletData extends Network implements NoteInterface {
 
         return false;
     }
+    private GraphicsDevice m_gd;
 
-    public void openWallet() {
+    private void setDevice() {
+
+        Rectangle rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        m_maxWidth = rect.width; //gd.getDisplayMode().getWidth();
+        m_maxHeight = rect.height; //gd.getDisplayMode().getHeight();
+    }
+
+    public void openWallet(double walletSceneWidth, double walletSceneHeight) {
+
+        setDevice();
+        double maxWidth = walletSceneWidth > m_maxWidth ? m_maxWidth : walletSceneWidth;
+        double maxHeight = walletSceneHeight > m_maxHeight ? m_maxHeight : walletSceneHeight;
+
+        double sceneWidth = maxWidth < MIN_WIDTH ? MIN_WIDTH : maxWidth;
+        double sceneHeight = maxHeight < MIN_HEIGHT ? MIN_HEIGHT : maxHeight;
 
         try {
             Files.writeString(logFile.toPath(), "\nConfirming wallet password.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
         }
-        if (m_passwordStage == null) {
-            m_passwordStage = new Stage();
 
-            m_passwordStage.setResizable(false);
-            m_passwordStage.initStyle(StageStyle.UNDECORATED);
-            m_passwordStage.setTitle("Wallet file: Enter password");
+        Stage walletStage = new Stage();
+        walletStage.getIcons().add(ErgoWallet.getSmallAppIcon());
+        walletStage.initStyle(StageStyle.UNDECORATED);
+        walletStage.setTitle("Wallet file: Enter password");
 
-            Button closeBtn = new Button();
+        Button closeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), getName() + " - Enter password", closeBtn, m_passwordStage);
-            closeBtn.setOnAction(event -> {
-                m_passwordStage.close();
+        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), getName() + " - Enter password", closeBtn, walletStage);
+        closeBtn.setOnAction(event -> {
+            walletStage.close();
 
-            });
-            Button imageButton = App.createImageButton(ErgoWallet.getAppIcon(), "Wallet");
-            imageButton.setGraphicTextGap(10);
-            HBox imageBox = new HBox(imageButton);
-            imageBox.setAlignment(Pos.CENTER);
+        });
+        Button imageButton = App.createImageButton(ErgoWallet.getAppIcon(), "Wallet");
+        imageButton.setGraphicTextGap(10);
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
 
-            Text passwordTxt = new Text("> Enter password:");
-            passwordTxt.setFill(App.txtColor);
-            passwordTxt.setFont(App.txtFont);
+        Text passwordTxt = new Text("> Enter password:");
+        passwordTxt.setFill(App.txtColor);
+        passwordTxt.setFont(App.txtFont);
 
-            PasswordField passwordField = new PasswordField();
-            passwordField.setFont(App.txtFont);
-            passwordField.setId("passField");
-            HBox.setHgrow(passwordField, Priority.ALWAYS);
+        PasswordField passwordField = new PasswordField();
+        passwordField.setFont(App.txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
 
-            Platform.runLater(() -> passwordField.requestFocus());
+        Platform.runLater(() -> passwordField.requestFocus());
 
-            HBox passwordBox = new HBox(passwordTxt, passwordField);
-            passwordBox.setAlignment(Pos.CENTER_LEFT);
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
 
-            Button clickRegion = new Button();
-            clickRegion.setPrefWidth(Double.MAX_VALUE);
-            clickRegion.setId("transparentColor");
-            clickRegion.setPrefHeight(40);
+        Button clickRegion = new Button();
+        clickRegion.setPrefWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(40);
 
-            clickRegion.setOnAction(e -> {
-                passwordField.requestFocus();
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
 
-            });
+        });
 
-            VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
+        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
 
-            VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
-            VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            Scene passwordScene = new Scene(layoutVBox, 650, 375);
+        Scene passwordScene = new Scene(layoutVBox, sceneWidth, 300);
 
-            passwordScene.getStylesheets().add("/css/startWindow.css");
-            m_passwordStage.setScene(passwordScene);
+        passwordScene.getStylesheets().add("/css/startWindow.css");
+        walletStage.setScene(passwordScene);
 
-            passwordField.setOnKeyPressed(e -> {
+        passwordField.setOnKeyPressed(e -> {
 
-                KeyCode keyCode = e.getCode();
+            KeyCode keyCode = e.getCode();
 
-                if (keyCode == KeyCode.ENTER) {
+            if (keyCode == KeyCode.ENTER) {
 
+                try {
+
+                    Wallet wallet = Wallet.load(m_walletFile.toPath(), passwordField.getText());
+                    passwordField.setText("");
+
+                    walletStage.setScene(getWalletScene(wallet, sceneWidth, sceneHeight, passwordScene, walletStage));
+                    ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
+
+                } catch (Exception e1) {
+
+                    passwordField.setText("");
                     try {
+                        Files.writeString(logFile.toPath(), e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e2) {
 
-                        Wallet wallet = Wallet.load(m_walletFile.toPath(), passwordField.getText());
-                        showWalletStage(wallet);
-
-                        m_passwordStage.close();
-                        m_passwordStage = null;
-                    } catch (Exception e1) {
-
-                        passwordField.setText("");
-                        try {
-                            Files.writeString(logFile.toPath(), e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e2) {
-
-                        }
                     }
-
                 }
-            });
 
-            m_passwordStage.show();
-        } else {
-            m_passwordStage.show();
-        }
+            }
+        });
+        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
+
+        walletStage.show();
 
     }
 
@@ -395,507 +435,380 @@ public class WalletData extends Network implements NoteInterface {
         }
     }
 
-    private void showWalletStage(Wallet wallet) {
-        if (m_walletStage == null) {
+    private Scene getWalletScene(Wallet wallet, double sceneWidth, double sceneHeight, Scene passwordScene, Stage walletStage) {
 
-            AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
-            PriceQuote lastQuote = m_lastQuote.get();
-            if (lastQuote != null) {
-                long howOld = lastQuote.howOldMillis();
-                if (howOld < 30000) {
-                    addressesData.setQuote(m_lastQuote.get());
-                }
+        AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
+        PriceQuote lastQuote = m_lastQuote.get();
+        if (lastQuote != null) {
+            long howOld = lastQuote.howOldMillis();
+            if (howOld < 30000) {
+                addressesData.setQuote(m_lastQuote.get());
             }
-            getMarketQuote(getMarketInterface());
+        }
+        getMarketQuote(getMarketInterface());
 
-            try {
-                Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+        try {
+            Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+        String title = getName() + " - (" + m_networkType.toString() + ")";
+
+        double imageWidth = 25;
+        double alertImageWidth = 75;
+
+        //  PriceChart priceChart = null;
+        walletStage.setTitle(title);
+
+        Button closeBtn = new Button();
+        Button maximizeBtn = new Button();
+
+        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, maximizeBtn, closeBtn, walletStage);
+
+        Tooltip sendTip = new Tooltip("Send");
+        sendTip.setShowDelay(new javafx.util.Duration(100));
+        sendTip.setFont(App.txtFont);
+
+        Button sendButton = new Button();
+        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
+        sendButton.setId("menuBtn");
+        sendButton.setTooltip(sendTip);
+        sendButton.setDisable(true);
+        sendButton.setUserData("sendButton");
+
+        //   addressesData.currentAddressProperty
+        Tooltip addTip = new Tooltip("Add address");
+        addTip.setShowDelay(new javafx.util.Duration(100));
+        addTip.setFont(App.txtFont);
+
+        Button addButton = new Button();
+        addButton.setGraphic(IconButton.getIconView(new Image("/assets/git-branch-outline-white-30.png"), 30));
+        addButton.setId("menuBtn");
+        addButton.setTooltip(addTip);
+
+        Tooltip networkTip = new Tooltip("Select network");
+        networkTip.setShowDelay(new javafx.util.Duration(100));
+        networkTip.setFont(App.txtFont);
+
+        ImageView nodeView = IconButton.getIconView(new Image("/assets/node-30.png"), imageWidth);
+
+        MenuButton networkMenuBtn = new MenuButton();
+        networkMenuBtn.setGraphic(m_networkNetworkeId == null ? nodeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_networkNetworkeId, true).getIcon(), imageWidth));
+        networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
+        networkMenuBtn.setTooltip(networkTip);
+        networkMenuBtn.setUserData(m_networkNetworkeId);
+
+        MenuItem nodeNullMenuItem = new MenuItem("(none)");
+
+        nodeNullMenuItem.setOnAction(e -> {
+            removeNodeId();
+            networkMenuBtn.setGraphic(nodeView);
+            networkMenuBtn.setUserData(null);
+        });
+
+        MenuItem nodeMenuItem = new MenuItem(ErgoNetwork.NAME);
+        nodeMenuItem.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
+        nodeMenuItem.setOnAction(e -> {
+            setNodeId(NetworkID.ERGO_NETWORK);
+
+            networkMenuBtn.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
+            networkMenuBtn.setUserData(NetworkID.ERGO_NETWORK);
+            if (getNodeInterface() == null) {
+                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
+                nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
+                nodeAlert.initOwner(walletStage);
+                nodeAlert.show();
+            }
+        });
+
+        networkMenuBtn.getItems().addAll(nodeNullMenuItem, nodeMenuItem);
+
+        Tooltip explorerUrlTip = new Tooltip("Select explorer");
+        explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
+        explorerUrlTip.setFont(App.txtFont);
+
+        ImageView searchView = IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), imageWidth);
+
+        MenuButton explorerBtn = new MenuButton();
+        explorerBtn.setGraphic(m_explorerId == null ? searchView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerId, true).getIcon(), imageWidth));;
+        explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+        explorerBtn.setTooltip(explorerUrlTip);
+        explorerBtn.setUserData(m_explorerId);
+
+        MenuItem explorerNullMenuItem = new MenuItem("(none)");
+
+        explorerNullMenuItem.setOnAction(e -> {
+            removeExplorerId();
+            explorerBtn.setUserData(null);
+            explorerBtn.setGraphic(searchView);
+        });
+
+        MenuItem ergoExplorerMenuItem = new MenuItem(ErgoExplorer.NAME);
+        ergoExplorerMenuItem.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
+
+        ergoExplorerMenuItem.setOnAction(e -> {
+            setExplorerId(NetworkID.ERGO_EXPLORER);
+            explorerBtn.setUserData(NetworkID.ERGO_EXPLORER);
+            explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
+
+            addressesData.updateBalance();
+            if (getExplorerInterface() == null) {
+                Alert explorerAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall " + ErgoExplorer.NAME + " to use this feature.", ButtonType.OK);
+                explorerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), alertImageWidth));
+                explorerAlert.initOwner(walletStage);
+                explorerAlert.show();
+            } else {
 
             }
-            String title = getName() + " - (" + m_networkType.toString() + ")";
 
-            double sceneWidth = 450;
-            double sceneHeight = 525;
-            double imageWidth = 25;
-            double alertImageWidth = 75;
+        });
 
-            //  PriceChart priceChart = null;
-            m_walletStage = new Stage();
-            m_walletStage.setTitle(title);
-            m_walletStage.getIcons().add(ErgoWallet.getAppIcon());
-            m_walletStage.setResizable(false);
-            m_walletStage.initStyle(StageStyle.UNDECORATED);
+        explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
 
-            Button closeBtn = new Button();
-            closeBtn.setOnAction(closeEvent -> {
-
-                m_walletStage.close();
-                m_walletStage = null;
-            });
-
-            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), title, closeBtn, m_walletStage);
-
-            Tooltip sendTip = new Tooltip("Send");
-            sendTip.setShowDelay(new javafx.util.Duration(100));
-            sendTip.setFont(App.txtFont);
-
-            Button sendButton = new Button();
-            sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-redo-white-30.png"), 30));
-            sendButton.setId("menuBtn");
-            sendButton.setTooltip(sendTip);
-            sendButton.setDisable(true);
-            sendButton.setUserData("sendButton");
-
-            //   addressesData.currentAddressProperty
-            Tooltip addTip = new Tooltip("Add address");
-            addTip.setShowDelay(new javafx.util.Duration(100));
-            addTip.setFont(App.txtFont);
-
-            Button addButton = new Button();
-            addButton.setGraphic(IconButton.getIconView(new Image("/assets/git-branch-outline-white-30.png"), 30));
-            addButton.setId("menuBtn");
-            addButton.setTooltip(addTip);
-
-            Tooltip networkTip = new Tooltip("Select network");
-            networkTip.setShowDelay(new javafx.util.Duration(100));
-            networkTip.setFont(App.txtFont);
-
-            ImageView nodeView = IconButton.getIconView(new Image("/assets/node-30.png"), imageWidth);
-
-            MenuButton networkMenuBtn = new MenuButton();
-            networkMenuBtn.setGraphic(m_nodeId == null ? nodeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_nodeId, true).getIcon(), imageWidth));
-            networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
-            networkMenuBtn.setTooltip(networkTip);
-            networkMenuBtn.setUserData(m_nodeId);
-
-            MenuItem nodeNullMenuItem = new MenuItem("(none)");
-
-            nodeNullMenuItem.setOnAction(e -> {
-                removeNodeId();
-                networkMenuBtn.setGraphic(nodeView);
-                networkMenuBtn.setUserData(null);
-            });
-
-            MenuItem nodeMenuItem = new MenuItem(ErgoNetwork.NAME);
-            nodeMenuItem.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
-            nodeMenuItem.setOnAction(e -> {
-                setNodeId(NetworkID.ERGO_NETWORK);
-
-                networkMenuBtn.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
-                networkMenuBtn.setUserData(NetworkID.ERGO_NETWORK);
-                if (getNodeInterface() == null) {
-                    Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
-                    nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
-                    nodeAlert.initOwner(m_walletStage);
-                    nodeAlert.show();
-                }
-            });
-
-            networkMenuBtn.getItems().addAll(nodeNullMenuItem, nodeMenuItem);
-
-            Tooltip explorerUrlTip = new Tooltip("Select explorer");
-            explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
-            explorerUrlTip.setFont(App.txtFont);
-
-            ImageView searchView = IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), imageWidth);
-
-            MenuButton explorerBtn = new MenuButton();
-            explorerBtn.setGraphic(m_explorerId == null ? searchView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerId, true).getIcon(), imageWidth));;
-            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
-            explorerBtn.setTooltip(explorerUrlTip);
-            explorerBtn.setUserData(m_explorerId);
-
-            MenuItem explorerNullMenuItem = new MenuItem("(none)");
-
-            explorerNullMenuItem.setOnAction(e -> {
-                removeExplorerId();
-                explorerBtn.setUserData(null);
-                explorerBtn.setGraphic(searchView);
-            });
-
-            MenuItem ergoExplorerMenuItem = new MenuItem(ErgoExplorer.NAME);
-            ergoExplorerMenuItem.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
-
-            ergoExplorerMenuItem.setOnAction(e -> {
-                setExplorerId(NetworkID.ERGO_EXPLORER);
-                explorerBtn.setUserData(NetworkID.ERGO_EXPLORER);
-                explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
-
-                addressesData.updateBalance();
-                if (getExplorerInterface() == null) {
-                    Alert explorerAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall " + ErgoExplorer.NAME + " to use this feature.", ButtonType.OK);
-                    explorerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), alertImageWidth));
-                    explorerAlert.initOwner(m_walletStage);
-                    explorerAlert.show();
-                } else {
-
-                }
-
-            });
-
-            explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
-
-            /*
+        /*
             explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
               
-             */
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
+         */
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            Tooltip marketTip = new Tooltip("Select market");
-            marketTip.setShowDelay(new javafx.util.Duration(100));
-            marketTip.setFont(App.txtFont);
+        Tooltip marketTip = new Tooltip("Select market");
+        marketTip.setShowDelay(new javafx.util.Duration(100));
+        marketTip.setFont(App.txtFont);
 
-            ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), imageWidth);
+        ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), imageWidth);
 
-            MenuButton marketBtn = new MenuButton();
-            marketBtn.setUserData(m_marketId);
-            marketBtn.setGraphic(m_marketId == null ? exchangeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_marketId, true).getIcon(), imageWidth));
-            marketBtn.setTooltip(marketTip);
-            marketBtn.setPadding(new Insets(2, 0, 0, 0));
+        MenuButton marketBtn = new MenuButton();
+        marketBtn.setUserData(m_marketId);
+        marketBtn.setGraphic(m_marketId == null ? exchangeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_marketId, true).getIcon(), imageWidth));
+        marketBtn.setTooltip(marketTip);
+        marketBtn.setPadding(new Insets(2, 0, 0, 0));
 
-            MenuItem marketNullMenuItem = new MenuItem("(none)");
+        MenuItem marketNullMenuItem = new MenuItem("(none)");
 
-            marketNullMenuItem.setOnAction(e -> {
-                removeMarketId();
-                marketBtn.setUserData(null);
-                marketBtn.setGraphic(exchangeView);
-            });
+        marketNullMenuItem.setOnAction(e -> {
+            removeMarketId();
+            marketBtn.setUserData(null);
+            marketBtn.setGraphic(exchangeView);
+        });
 
-            MenuItem kucoinMenuItem = new MenuItem(KucoinExchange.NAME);
-            kucoinMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
-            kucoinMenuItem.setOnAction(e -> {
+        MenuItem kucoinMenuItem = new MenuItem(KucoinExchange.NAME);
+        kucoinMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+        kucoinMenuItem.setOnAction(e -> {
 
-                setMarketId(NetworkID.KUKOIN_EXCHANGE);
-                marketBtn.setUserData(NetworkID.KUKOIN_EXCHANGE);
-                marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+            setMarketId(NetworkID.KUKOIN_EXCHANGE);
+            marketBtn.setUserData(NetworkID.KUKOIN_EXCHANGE);
+            marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
 
-                getMarketQuote(getMarketInterface());
+            getMarketQuote(getMarketInterface());
 
-                if (getMarketInterface() == null) {
-                    Alert marketAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + KucoinExchange.NAME + "'' to use this feature.", ButtonType.OK);
-                    marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), alertImageWidth));
-                    marketAlert.initOwner(m_walletStage);
-                    marketAlert.show();
-                }
-            });
+            if (getMarketInterface() == null) {
+                Alert marketAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + KucoinExchange.NAME + "'' to use this feature.", ButtonType.OK);
+                marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), alertImageWidth));
+                marketAlert.initOwner(walletStage);
+                marketAlert.show();
+            }
+        });
 
-            marketBtn.getItems().addAll(marketNullMenuItem, kucoinMenuItem);
+        marketBtn.getItems().addAll(marketNullMenuItem, kucoinMenuItem);
 
-            Tooltip timerTip = new Tooltip("Select timer");
-            timerTip.setShowDelay(new javafx.util.Duration(100));
-            timerTip.setFont(App.txtFont);
+        Tooltip timerTip = new Tooltip("Select timer");
+        timerTip.setShowDelay(new javafx.util.Duration(100));
+        timerTip.setFont(App.txtFont);
 
-            ImageView timerView = IconButton.getIconView(new Image("/assets/timer-30.png"), imageWidth);
+        ImageView timerView = IconButton.getIconView(new Image("/assets/timer-30.png"), imageWidth);
 
-            MenuButton timerBtn = new MenuButton();
-            timerBtn.setGraphic(m_availableTimers.getTimerNetworkId() == null ? timerView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_availableTimers.getTimerNetworkId(), true).getIcon(), imageWidth));;
-            timerBtn.setPadding(new Insets(2, 0, 0, 0));
-            timerBtn.setTooltip(timerTip);
+        MenuButton timerBtn = new MenuButton();
+        timerBtn.setGraphic(m_availableTimers.getTimerNetworkId() == null ? timerView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_availableTimers.getTimerNetworkId(), true).getIcon(), imageWidth));;
+        timerBtn.setPadding(new Insets(2, 0, 0, 0));
+        timerBtn.setTooltip(timerTip);
 
-            MenuItem timerNullMenuItem = new MenuItem("(none)");
+        MenuItem timerNullMenuItem = new MenuItem("(none)");
 
-            timerNullMenuItem.setOnAction(e -> {
-                m_availableTimers.setTimerNetworkId(null);
-                timerBtn.setGraphic(timerView);
-            });
+        timerNullMenuItem.setOnAction(e -> {
+            m_availableTimers.setTimerNetworkId(null);
+            timerBtn.setGraphic(timerView);
+        });
 
-            MenuItem timerMenuItem = new MenuItem(NetworkTimer.NAME);
-            timerMenuItem.setGraphic(IconButton.getIconView(NetworkTimer.getSmallAppIcon(), imageWidth));
-            timerMenuItem.setOnAction(e -> {
+        MenuItem timerMenuItem = new MenuItem(NetworkTimer.NAME);
+        timerMenuItem.setGraphic(IconButton.getIconView(NetworkTimer.getSmallAppIcon(), imageWidth));
+        timerMenuItem.setOnAction(e -> {
 
-                m_availableTimers.setTimerNetworkId(NetworkID.NETWORK_TIMER);
-                timerBtn.setGraphic(IconButton.getIconView(NetworkTimer.getSmallAppIcon(), imageWidth));
+            m_availableTimers.setTimerNetworkId(NetworkID.NETWORK_TIMER);
+            timerBtn.setGraphic(IconButton.getIconView(NetworkTimer.getSmallAppIcon(), imageWidth));
 
-                if (getNetworksData().getNoteInterface(m_availableTimers.getTimerNetworkId()) == null) {
-                    Alert timerAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall " + NetworkTimer.NAME + " to use this feature.", ButtonType.OK);
-                    timerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), alertImageWidth));
-                    timerAlert.initOwner(m_walletStage);
-                    timerAlert.show();
-                }
-            });
+            if (getNetworksData().getNoteInterface(m_availableTimers.getTimerNetworkId()) == null) {
+                Alert timerAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall " + NetworkTimer.NAME + " to use this feature.", ButtonType.OK);
+                timerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), alertImageWidth));
+                timerAlert.initOwner(walletStage);
+                timerAlert.show();
+            }
+        });
 
-            timerBtn.getItems().addAll(timerNullMenuItem, timerMenuItem);
+        timerBtn.getItems().addAll(timerNullMenuItem, timerMenuItem);
 
-            HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn, timerBtn);
-            rightSideMenu.setId("rightSideMenuBar");
-            rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
+        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn, timerBtn);
+        rightSideMenu.setId("rightSideMenuBar");
+        rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
-            HBox menuBar = new HBox(sendButton, addButton, spacer, rightSideMenu);
-            HBox.setHgrow(menuBar, Priority.ALWAYS);
-            menuBar.setAlignment(Pos.CENTER_LEFT);
-            menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(5, 0, 5, 5));
+        HBox menuBar = new HBox(sendButton, addButton, spacer, rightSideMenu);
+        HBox.setHgrow(menuBar, Priority.ALWAYS);
+        menuBar.setAlignment(Pos.CENTER_LEFT);
+        menuBar.setId("menuBar");
+        menuBar.setPadding(new Insets(1, 0, 1, 5));
 
-            HBox paddingBox = new HBox(menuBar);
-            paddingBox.setPadding(new Insets(2, 5, 2, 5));
+        HBox paddingBox = new HBox(menuBar);
+        paddingBox.setPadding(new Insets(2, 5, 2, 5));
 
-            HBox timerMenu = m_availableTimers.createTimerMenu(explorerBtn, marketBtn);
+        HBox timerMenu = m_availableTimers.createTimerMenu(explorerBtn, marketBtn);
 
-            VBox menuVBox = new VBox(paddingBox, timerMenu);
+        VBox menuVBox = new VBox(paddingBox, timerMenu);
 
-            VBox layoutBox = addressesData.getAddressBox();
-            //layoutBox.setPadding(SMALL_INSETS);
+        VBox layoutBox = addressesData.getAddressBox();
+        //layoutBox.setPadding(SMALL_INSETS);
 
-            Font smallerFont = Font.font("OCR A Extended", 10);
+        Font smallerFont = Font.font("OCR A Extended", 10);
 
-            Text updatedTxt = new Text("Updated:");
-            updatedTxt.setFill(App.altColor);
-            updatedTxt.setFont(smallerFont);
+        Text updatedTxt = new Text("Updated:");
+        updatedTxt.setFill(App.altColor);
+        updatedTxt.setFont(smallerFont);
 
-            TextField lastUpdatedField = new TextField();
-            lastUpdatedField.setPrefWidth(160);
-            lastUpdatedField.setFont(smallerFont);
-            lastUpdatedField.setId("formField");
+        TextField lastUpdatedField = new TextField();
+        lastUpdatedField.setPrefWidth(160);
+        lastUpdatedField.setFont(smallerFont);
+        lastUpdatedField.setId("formField");
 
-            HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
-            updateBox.setAlignment(Pos.CENTER_RIGHT);
+        HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
+        updateBox.setAlignment(Pos.CENTER_RIGHT);
 
-            Region spacerRegion = new Region();
-            VBox.setVgrow(spacerRegion, Priority.ALWAYS);
+        Region spacerRegion = new Region();
+        VBox.setVgrow(spacerRegion, Priority.ALWAYS);
 
-            ScrollPane scrollPane = new ScrollPane(layoutBox);
-            scrollPane.setId("bodyBox");
-            TextField totalField = new TextField(Utils.formatCryptoString(0, m_quoteTransactionCurrency, false));
-            totalField.setId("priceField");
-            totalField.setEditable(false);
-            HBox.setHgrow(totalField, Priority.ALWAYS);
-            HBox summaryBox = new HBox(totalField);
-            HBox.setHgrow(summaryBox, Priority.ALWAYS);
-            summaryBox.setPadding(new Insets(5, 0, 0, 5));
+        ScrollPane scrollPane = new ScrollPane(layoutBox);
+        scrollPane.setId("bodyBox");
+        TextField totalField = new TextField(Utils.formatCryptoString(0, m_quoteTransactionCurrency, false));
+        totalField.setId("priceField");
+        totalField.setEditable(false);
+        HBox.setHgrow(totalField, Priority.ALWAYS);
+        HBox summaryBox = new HBox(totalField);
+        HBox.setHgrow(summaryBox, Priority.ALWAYS);
+        summaryBox.setPadding(new Insets(5, 0, 0, 5));
 
-            HBox scrollBox = new HBox(scrollPane);
-            HBox.setHgrow(scrollBox, Priority.ALWAYS);
-            scrollBox.setPadding(new Insets(5));
-            VBox bodyVBox = new VBox(titleBox, menuVBox, scrollBox, summaryBox, updateBox);
+        HBox scrollBox = new HBox(scrollPane);
+        HBox.setHgrow(scrollBox, Priority.ALWAYS);
+        scrollBox.setPadding(new Insets(5, 5, 0, 5));
+        VBox bodyVBox = new VBox(titleBox, menuVBox, scrollBox, summaryBox, updateBox);
 
-            Scene openWalletScene = new Scene(bodyVBox, sceneWidth, sceneHeight);
-            openWalletScene.getStylesheets().add("/css/startWindow.css");
-            m_walletStage.setScene(openWalletScene);
-            m_walletStage.show();
+        Scene openWalletScene = new Scene(bodyVBox, sceneWidth, sceneHeight);
 
-            layoutBox.prefWidthProperty().bind(openWalletScene.widthProperty().subtract(5));
+        layoutBox.prefWidthProperty().bind(openWalletScene.widthProperty().subtract(5));
 
-            addButton.setOnAction(e -> {
-                addressesData.addAddress();
-            });
+        addButton.setOnAction(e -> {
+            addressesData.addAddress();
+        });
 
-            HBox.setHgrow(layoutBox, Priority.ALWAYS);
+        HBox.setHgrow(layoutBox, Priority.ALWAYS);
 
-            scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty().subtract(10));
-            scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(updateBox.heightProperty()).subtract(summaryBox.heightProperty()));
+        scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty().subtract(10));
+        scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(updateBox.heightProperty()).subtract(summaryBox.heightProperty()));
 
-            /*
+        /*
              * Listeners
-             */
-            sendButton.setOnAction((actionEvent) -> {
-                if (getNodeInterface() == null) {
-                    Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall/Enable '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
-                    nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
-                    nodeAlert.initOwner(m_walletStage);
-                    nodeAlert.show();
-                } else {
+         */
+        sendButton.setOnAction((actionEvent) -> {
+            if (getNodeInterface() == null) {
+                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall/Enable '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
+                nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
+                nodeAlert.initOwner(walletStage);
+                nodeAlert.show();
+            } else {
+                walletStage.setScene(addressesData.getSendScene(openWalletScene, walletStage));
+                ResizeHelper.addResizeListener(walletStage, 400, 440, m_maxWidth, m_maxHeight);
+            }
 
-                    m_walletStage.setScene(getSendScene(addressesData, m_walletStage, openWalletScene));
+        });
+        openWalletScene.focusOwnerProperty().addListener((e) -> {
+            if (openWalletScene.focusOwnerProperty().get() instanceof AddressData) {
+                AddressData addressData = (AddressData) openWalletScene.focusOwnerProperty().get();
 
+                addressesData.getSelectedAddressDataProperty().set(addressData);
+                if (getNodeInterface() != null) {
+                    sendButton.setId("menuBtn");
+                    sendButton.setDisable(false);
                 }
+            } else {
+                if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
+                    Button focusedButton = (Button) openWalletScene.focusOwnerProperty().get();
 
-            });
-            openWalletScene.focusOwnerProperty().addListener((e) -> {
-                if (openWalletScene.focusOwnerProperty().get() instanceof AddressData) {
-                    AddressData addressData = (AddressData) openWalletScene.focusOwnerProperty().get();
-
-                    addressesData.getSelectedAddressDataProperty().set(addressData);
-                    if (getNodeInterface() != null) {
-                        sendButton.setId("menuBtn");
-                        sendButton.setDisable(false);
-                    }
-                } else {
-                    if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
-                        Button focusedButton = (Button) openWalletScene.focusOwnerProperty().get();
-
-                        if (focusedButton.getUserData() != null) {
-                            String buttonData = (String) focusedButton.getUserData();
-                            if (!(buttonData.equals("sendButton"))) {
-                                addressesData.getSelectedAddressDataProperty().set(null);
-                                sendButton.setId("menuBtnDisabled");
-                                sendButton.setDisable(true);
-
-                            }
-                        } else {
+                    if (focusedButton.getUserData() != null) {
+                        String buttonData = (String) focusedButton.getUserData();
+                        if (!(buttonData.equals("sendButton"))) {
                             addressesData.getSelectedAddressDataProperty().set(null);
                             sendButton.setId("menuBtnDisabled");
                             sendButton.setDisable(true);
+
                         }
                     } else {
                         addressesData.getSelectedAddressDataProperty().set(null);
                         sendButton.setId("menuBtnDisabled");
                         sendButton.setDisable(true);
                     }
+                } else {
+                    addressesData.getSelectedAddressDataProperty().set(null);
+                    sendButton.setId("menuBtnDisabled");
+                    sendButton.setDisable(true);
                 }
-            });
-            ChangeListener<PriceQuote> quoteListener = (obs, oldValue, newQuote) -> {
-                addressesData.setQuote(newQuote);
-            };
+            }
+        });
+        ChangeListener<PriceQuote> quoteListener = (obs, oldValue, newQuote) -> {
+            addressesData.setQuote(newQuote);
+        };
 
-            ChangeListener<Number> totalListener = (obs, oldValue, newValue) -> {
+        ChangeListener<Number> totalListener = (obs, oldValue, newValue) -> {
 
-                double updatedValue = newValue.doubleValue();
+            double updatedValue = newValue.doubleValue();
 
-                String formatedAmount = Utils.formatCryptoString(updatedValue, m_quoteTransactionCurrency, true);
-                PriceQuote quote = m_lastQuote.get();
-                Platform.runLater(() -> totalField.setText("Σ(" + (quote == null ? Utils.formatCryptoString(0, m_quoteTransactionCurrency, false) : Utils.formatCryptoString(quote.getAmount(), m_quoteTransactionCurrency, true)) + ") " + formatedAmount));
+            String formatedAmount = Utils.formatCryptoString(updatedValue, m_quoteTransactionCurrency, true);
+            PriceQuote quote = m_lastQuote.get();
+            Platform.runLater(() -> totalField.setText("Σ(" + (quote == null ? Utils.formatCryptoString(0, m_quoteTransactionCurrency, false) : Utils.formatCryptoString(quote.getAmount(), m_quoteTransactionCurrency, true)) + ") " + formatedAmount));
 
-                Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
-            };
+            Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
+        };
 
-            m_lastQuote.addListener(quoteListener);
-            addressesData.getTotalDoubleProperty().addListener(totalListener);
+        m_lastQuote.addListener(quoteListener);
+        addressesData.getTotalDoubleProperty().addListener(totalListener);
 
-            m_walletStage.setOnCloseRequest(event -> {
-                m_lastQuote.removeListener(quoteListener);
-                addressesData.getTotalDoubleProperty().removeListener(totalListener);
-            });
+        walletStage.setOnCloseRequest(event -> {
 
-        } else {
-            m_walletStage.show();
-        }
+            m_lastQuote.removeListener(quoteListener);
+            addressesData.getTotalDoubleProperty().removeListener(totalListener);
+        });
+
+        openWalletScene.getStylesheets().add("/css/startWindow.css");
+        closeBtn.setOnAction(closeEvent -> {
+
+            walletStage.close();
+
+        });
+
+        return openWalletScene;
 
     }
 
-    private Scene getSendScene(AddressesData addressesData, Stage openWalletStage, Scene openWalletScene) {
-
-        double sceneWidth = 800;
-        double sceneHeight = 500;
-        double imageWidth = 20;
-        double alertImageWidth = 75;
-
-        VBox layoutBox = new VBox();
-
-        Scene sendScene = new Scene(layoutBox, sceneWidth, sceneHeight);
-        sendScene.getStylesheets().add("/css/startWindow.css");
-
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-            openWalletStage.setScene(openWalletScene);
-        });
-
-        Label titleLbl = new Label();
-        titleLbl.setFont(App.titleFont);
-        titleLbl.setTextFill(App.txtColor);
-        titleLbl.textProperty().bind(Bindings.concat(ErgoWallet.NAME, " - ", "Send Ergo", " - (", m_networkType.toString(), ")"));
-
-        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), titleLbl, closeBtn, m_walletStage);
-
-        Text sigmaText = new Text("Σ");
-        sigmaText.setFont(Font.font("OCR A Extended", FontWeight.BOLD, 140));
-        sigmaText.setFill(Color.WHITE);
-
-        HBox imageBox = new HBox(sigmaText);
-        imageBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(imageBox, Priority.ALWAYS);
-        imageBox.setPadding(NORMAL_INSETS);
-
-        Text subTitleText = new Text();
-        subTitleText.setFont(App.mainFont);
-        subTitleText.setFill(Color.WHITE);
-        subTitleText.textProperty().bind(Bindings.concat("Send"));
-
-        HBox subTitleBox = new HBox(subTitleText);
-        HBox.setHgrow(subTitleBox, Priority.ALWAYS);
-        subTitleBox.setAlignment(Pos.CENTER);
-        subTitleBox.setPadding(new Insets(0, 0, 15, 0));
-
-        Text fromCaret = new Text("> From:");
-        fromCaret.setFont(App.txtFont);
-        fromCaret.setFill(Color.WHITE);
-
-        Region fromRegion = new Region();
-        fromRegion.setPrefWidth(5);
-
-        Button fromAddressBtn = new Button();
-        fromAddressBtn.setId("rowBtn");
-        fromAddressBtn.textProperty().bind(Bindings.concat(addressesData.getSelectedAddressDataProperty().asString()));
-        fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
-        fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
-        fromAddressBtn.setPadding(new Insets(2, 5, 2, 10));
-        fromAddressBtn.setOnAction(closeEvent -> {
-            openWalletStage.setScene(openWalletScene);
-        });
-
-        Image fromImg = addressesData.getSelectedAddressDataProperty().get().getImageProperty().get();
-        fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
-
-        addressesData.getSelectedAddressDataProperty().get().getImageProperty().addListener(e -> {
-            Image img = addressesData.getSelectedAddressDataProperty().get().getImageProperty().get();
-            fromAddressBtn.setGraphic(IconButton.getIconView(img, img.getWidth()));
-        });
-
-
-        /*
-        addressField.setOnKeyPressed(key -> {
-            KeyCode keyCode = key.getCode();
-
-            if (keyCode == KeyCode.ENTER) {
-                String addressFieldText = addressField.getText();
-
-            }
-        });
-
-        addressField.focusedProperty().addListener(new ChangeListener<Boolean>() {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> arg0, Boolean oldPropertyValue, Boolean newPropertyValue) {
-                String addressFieldText = addressField.getText();
-
-                if (newPropertyValue) {
-
-                } else {
-
-                }
-            }
-        }); */
-        HBox fromAddressBox = new HBox(fromCaret, fromRegion, fromAddressBtn);
-        fromAddressBox.setPadding(new Insets(0, 5, 0, 15));
-        HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
-        fromAddressBox.setAlignment(Pos.CENTER_LEFT);
-
-        fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-
-        Button sendButton = new Button();
-        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-redo-white-30.png"), 30));
-        sendButton.setFont(App.txtFont);
-        sendButton.setId("toolBtn");
-        sendButton.setDisable(true);
-        sendButton.setUserData("sendButton");
-        sendButton.setPadding(new Insets(3, 15, 3, 15));
-
-        Region sendBoxSpacer = new Region();
-        HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
-
-        HBox sendBox = new HBox(sendBoxSpacer, sendButton);
-        HBox.setHgrow(sendBox, Priority.ALWAYS);
-
-        VBox bodyBox = new VBox();
-
-        ScrollPane scrollPane = new ScrollPane(bodyBox);
-        scrollPane.setId("bodyBox");
-
-        HBox bodyLayoutBox = new HBox(scrollPane);
-        bodyLayoutBox.setPadding(SMALL_INSETS);
-
-        VBox footerBox = new VBox(sendBox);
-        HBox.setHgrow(footerBox, Priority.ALWAYS);
-
-        layoutBox.getChildren().addAll(titleBox, imageBox, subTitleBox, fromAddressBox, bodyLayoutBox, footerBox);
-
-        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(imageBox.heightProperty()).subtract(subTitleBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(footerBox.heightProperty()));
-        scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty());
-        return sendScene;
+    public String getNetworkNetworkId() {
+        return m_networkNetworkeId;
     }
 
     public NoteInterface getNodeInterface() {
-        return m_nodeId == null ? null : getNetworksData().getNoteInterface(m_nodeId);
+        return m_networkNetworkeId == null ? null : getNetworksData().getNoteInterface(m_networkNetworkeId);
+    }
+
+    public String getExplorerId() {
+        return m_explorerId;
+    }
+
+    public String getMarketId() {
+        return m_marketId;
     }
 
     public NoteInterface getExplorerInterface() {
@@ -908,7 +821,7 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     private void setNodeId(String nodeId) {
-        m_nodeId = nodeId;
+        m_networkNetworkeId = nodeId;
         getLastUpdated().set(LocalDateTime.now());
     }
 
@@ -923,7 +836,7 @@ public class WalletData extends Network implements NoteInterface {
     }
 
     private void removeNodeId() {
-        m_nodeId = null;
+        m_networkNetworkeId = null;
         getLastUpdated().set(LocalDateTime.now());
     }
 

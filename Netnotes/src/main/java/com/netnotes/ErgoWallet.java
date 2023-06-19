@@ -1,5 +1,7 @@
 package com.netnotes;
 
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,13 +43,13 @@ import javafx.event.EventHandler;
 
 public class ErgoWallet extends Network implements NoteInterface {
 
-    public static String DESCRIPTION = "Ergo Wallet allows you to create and manage wallets on the Ergo Blockchain.";
-    public static String SUMMARY = "Access can be controlled with the Ergo Wallet, in order to keep the wallet isolated, or access can be given to the Ergo Network in order to make transactions, or the Ergo Explorer to get your ERG ballance and to the KuCoin Exchange to get your ERG value real time.";
-    public static String NAME = "Ergo Wallet";
-    public static ExtensionFilter ergExt = new ExtensionFilter("Ergo Wallet", "*.erg");
-    public static final String SYMBOL = "ERG";
+    public final static String DESCRIPTION = "Ergo Wallet allows you to create and manage wallets on the Ergo Blockchain.";
+    public final static String SUMMARY = "Access can be controlled with the Ergo Wallet, in order to keep the wallet isolated, or access can be given to the Ergo Network in order to make transactions, or the Ergo Explorer to get your ERG ballance and to the KuCoin Exchange to get your ERG value real time.";
+    public final static String NAME = "Ergo Wallet";
+    public final static ExtensionFilter ergExt = new ExtensionFilter("Ergo Wallet", "*.erg");
+    public final static String SYMBOL = "ERG";
 
-    public static final Address DONATION_ADDRESS = Address.create("9h123xUZMi26FZrHuzsFfsTpfD3mMuTxQTNEhAjTpD83EPchePU");
+    public final static Address DONATION_ADDRESS = Address.create("9h123xUZMi26FZrHuzsFfsTpfD3mMuTxQTNEhAjTpD83EPchePU");
 
     private File logFile = new File("ergoWallet - log.txt");
 
@@ -144,6 +146,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void showWalletsStage() {
         if (m_walletsStage == null) {
+
             String title = getName() + ": Wallets";
             double walletsStageWidth = 310;
             double walletsStageHeight = 500;

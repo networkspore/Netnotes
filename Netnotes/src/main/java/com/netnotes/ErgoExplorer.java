@@ -1,19 +1,9 @@
 package com.netnotes;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.util.ArrayList;
-
 import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.grack.nanojson.JsonParserException;
-import com.satergo.ergo.ErgoNodeAccess;
 import com.utils.Utils;
 
 import javafx.concurrent.WorkerStateEvent;
@@ -22,14 +12,22 @@ import javafx.scene.image.Image;
 
 public class ErgoExplorer extends Network implements NoteInterface {
 
-    public static String DESCRIPTION = "Ergo Explorer allows you to explore and search the Ergo blockchain.";
-    public static String SUMMARY = "Installing the Ergo Explorer allows balance and transaction information to be looked up for wallet addresses.";
-    public static String NAME = "Ergo Explorer";
-    public static String ErgoMainnet_EXPLORER_URL = "https://api.ergoplatform.com";
-    public static String ErgoTestnet_EXPLORER_URL = "https://api-testnet.ergoplatform.com";
+    public final static String DESCRIPTION = "Ergo Explorer allows you to explore and search the Ergo blockchain.";
+    public final static String SUMMARY = "Installing the Ergo Explorer allows balance and transaction information to be looked up for wallet addresses.";
+    public final static String NAME = "Ergo Explorer";
+    public final static String ErgoMainnet_EXPLORER_URL = "https://api.ergoplatform.com";
+    public final static String ErgoTestnet_EXPLORER_URL = "https://api-testnet.ergoplatform.com";
 
     private String m_mainnetExplorerUrlString = ErgoMainnet_EXPLORER_URL;
     private String m_testnetExplorerUrlString = ErgoTestnet_EXPLORER_URL;
+
+    public static JsonObject getBalanceNote(String address, NetworkType networkType) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("subject", "GET_BALANCE");
+        jsonObject.addProperty("address", address);
+        jsonObject.addProperty("networkType", networkType.toString());
+        return jsonObject;
+    }
 
     public ErgoExplorer(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_EXPLORER, networksData);

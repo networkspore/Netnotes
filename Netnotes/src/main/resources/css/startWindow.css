@@ -29,7 +29,7 @@
     -fx-background-color:#FFFFFFDF;
     -fx-text-fill: #222222;
     -fx-background-radius: 10px;
-    -fx-alignment: center;
+
     -fx-opacity: .9;
     -fx-pref-height: 25px;
     -fx-font-size: 12px;
@@ -63,6 +63,20 @@
 }
 
 #rowBtn:hover{
+    -fx-text-fill: #FFFFFF;
+    -fx-background-color: #33333360;
+    -fx-opacity: 1;
+}
+
+#amountBtn {
+    -fx-text-fill: #999999;
+    -fx-font-size: 35px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-background-color: transparent;
+    -fx-opacity: .9;
+}
+
+#amountBtn:hover {
     -fx-text-fill: #FFFFFF;
     -fx-background-color: #33333360;
     -fx-opacity: 1;
@@ -122,6 +136,22 @@
     -fx-text-fill: white;
 }
 
+#amountField{
+    -fx-background-color: transparent;
+    -fx-text-fill: #777777;
+    -fx-font-size: 18px;
+    -fx-font-family: 'OCR A Extended';
+
+}
+
+#amountField:focused {
+    -fx-text-fill: white;
+}
+
+#amountField:focused:hover {
+    -fx-text-fill: white;
+}
+
 #formField {
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
@@ -144,6 +174,16 @@
 #gridPane {
     -fx-background-color: red;
 }
+
+#headingBox{
+    -fx-background-color:#33333370;
+    -fx-border-color: #000000;
+    -fx-border-width: 0 0 1px 0;
+    fx-border-style: solid;
+            
+}
+
+
 
 #menuVBox {
     -fx-background-color: linear-gradient(to bottom,
