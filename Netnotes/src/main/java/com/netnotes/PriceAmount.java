@@ -3,23 +3,40 @@ package com.netnotes;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
-import com.utils.Utils;
-
 public class PriceAmount {
 
-    private double m_amount;
+    private long m_amount;
     private PriceCurrency m_currency;
     private LocalDateTime m_created;
 
-    public PriceAmount(double amount, PriceCurrency currency) {
+    public PriceAmount(long amount, PriceCurrency currency) {
         m_amount = amount;
         m_currency = currency;
 
         m_created = LocalDateTime.now();
     }
 
-    public double getAmount() {
+    public PriceAmount(double amount, PriceCurrency currency) {
+        setDoubleAmount(amount);
+        m_currency = currency;
+    }
+
+    public void setLongAmount(long amount) {
+        m_amount = amount;
+    }
+
+    public long getLongAmount() {
         return m_amount;
+    }
+
+    public void setDoubleAmount(double amount) {
+        double precision = 10 ^ m_currency.getFractionalPrecision();
+        m_amount = (long) (precision * amount);
+    }
+
+    public double getDoubleAmount() {
+        double precision = 10 ^ m_currency.getFractionalPrecision();
+        return ((double) m_amount) / precision;
     }
 
     public PriceCurrency getCurrency() {
@@ -40,7 +57,7 @@ public class PriceAmount {
         DecimalFormat df = new DecimalFormat("0");
         df.setMaximumFractionDigits(precision);
 
-        return df.format(getAmount()) + " " + m_currency;
+        return df.format(getDoubleAmount()) + " " + m_currency;
     }
 
 }

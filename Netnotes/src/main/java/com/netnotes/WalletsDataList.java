@@ -55,7 +55,7 @@ public class WalletsDataList {
     private String m_selectedId;
     private VBox m_buttonGrid = null;
     //  private double m_width = 400;
-    private String m_direction = "column";
+    // private String m_direction = "column";
     private Stage m_addWalletStage = null;
     private ErgoWallet m_ergoWallet;
 

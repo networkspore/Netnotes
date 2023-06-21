@@ -158,6 +158,10 @@ public class AddressData extends IconButton {
     }*/
  /* return ;
         }); */
+    public String getNetworkNetworkId() {
+        return m_walletData.getNetworkNetworkId();
+    }
+
     private void update() {
         setFormattedQuantity();
         setFormattedPrice();
@@ -688,6 +692,12 @@ public class AddressData extends IconButton {
 
     public void setBalance(JsonObject jsonObject) {
         if (jsonObject != null) {
+            try {
+                Files.writeString(logFile.toPath(), jsonObject.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+
             JsonElement confirmedElement = jsonObject != null ? jsonObject.get("confirmed") : null;
             JsonElement unconfirmedElement = jsonObject.get("unconfirmed");
             if (confirmedElement != null && unconfirmedElement != null) {

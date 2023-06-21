@@ -70,7 +70,7 @@ public class AddressButton extends Button {
             Security.addProvider(new Blake2bProvider());
 
         }
-
+        setPadding(new Insets(0));
         m_networkType = networkType;
         // m_explorerId = explorerId;
         //  m_networksData = networksData;

@@ -1,5 +1,6 @@
 package com.netnotes;
 
+import java.awt.Menu;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -46,8 +47,8 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -203,13 +204,14 @@ public class AddressesData {
     }
 
     public Scene getSendScene(Scene parentScene, Stage parentStage) {
-
-        if (m_walletData.getNodeInterface() == null) {
+        NoteInterface networkInterface = m_walletData.getNodeInterface();
+        if (networkInterface == null) {
             return null;
         }
+
         String oldStageName = parentStage.getTitle();
 
-        String stageName = "Ergo Wallet" + " - " + "Send" + " - (" + m_networkType + ")";
+        String stageName = "Ergo Wallet - Send - " + networkInterface.getName() + " - (" + m_networkType + ")";
 
         parentStage.setTitle(stageName);
 
@@ -240,12 +242,12 @@ public class AddressesData {
             // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
         });
 
-        Tooltip networkTip = new Tooltip(m_walletData.getNodeInterface().getName());
+        Tooltip networkTip = new Tooltip(networkInterface.getName());
         networkTip.setShowDelay(new javafx.util.Duration(100));
         networkTip.setFont(App.txtFont);
 
         MenuButton networkMenuBtn = new MenuButton();
-        networkMenuBtn.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), m_walletData.getNodeInterface().getNetworkId(), true).getIcon(), 30));
+        networkMenuBtn.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), networkInterface.getNetworkId(), true).getIcon(), 30));
         networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
         networkMenuBtn.setTooltip(networkTip);
 
@@ -275,7 +277,7 @@ public class AddressesData {
         promptText.setFont(App.txtFont);
         promptText.setFill(Color.WHITE);
 
-        Text amountCaret = new Text("  Amount ");
+        Text amountCaret = new Text("Amount ");
         amountCaret.setFont(App.txtFont);
         amountCaret.setFill(Color.WHITE);
 
@@ -287,7 +289,9 @@ public class AddressesData {
         addTxBtn.setPadding(new Insets(3, 10, 3, 10));
 
         Button sendButton = new Button("Send");
-        AmountBox amountBox = new AmountBox(0, new ErgoCurrency(), amountCaret);
+        ImageView amountNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+
+        AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
 
         HBox promptBox = new HBox(promptText);
         promptBox.prefHeight(40);
@@ -296,20 +300,39 @@ public class AddressesData {
         promptBox.setPadding(new Insets(10, 15, 10, 15));
         promptBox.setId("headingBox");
 
-        Text fromCaret = new Text("  From   ");
+        ImageView fromNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+
+        Text fromCaret = new Text("From   ");
         fromCaret.setFont(App.txtFont);
         fromCaret.setFill(Color.WHITE);
 
-        Button fromAddressBtn = new Button("");
+        MenuButton fromAddressBtn = new MenuButton("");
         fromAddressBtn.setId("rowBtn");
         fromAddressBtn.textProperty().bind(Bindings.concat(getSelectedAddressDataProperty().asString()));
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
-        fromAddressBtn.setPadding(new Insets(2, 5, 2, 10));
-        fromAddressBtn.setOnAction(actionEvent -> {
 
-        });
+        for (AddressData addressItem : m_addressDataList) {
 
+            MenuItem addressMenuItem = new MenuItem(addressItem.getAddressString());
+            addressMenuItem.textProperty().bind(addressItem.textProperty());
+            Image addressImage = addressItem.getImageProperty().get();
+            addressMenuItem.setGraphic(IconButton.getIconView(addressImage, addressImage.getWidth()));
+
+            addressItem.getImageProperty().addListener((obs, oldVal, newVal) -> {
+                addressMenuItem.setGraphic(IconButton.getIconView(newVal, newVal.getWidth()));
+            });
+
+            fromAddressBtn.getItems().add(addressMenuItem);
+
+            addressMenuItem.setOnAction(actionEvent -> {
+                if (!(addressItem.getAddressString().equals(m_selectedAddressData.get().getAddressString()))) {
+                    m_selectedAddressData.set(addressItem);
+                }
+            });
+        }
+
+        // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
         Image fromImg = getSelectedAddressDataProperty().get().getImageProperty().get();
         fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
 
@@ -319,11 +342,15 @@ public class AddressesData {
         });
 
         HBox toAddressBox = new HBox();
-        toAddressBox.setPadding(new Insets(3, 15, 5, 15));
+        toAddressBox.setPadding(new Insets(3, 15, 5, 0));
         toAddressBox.setAlignment(Pos.CENTER_LEFT);
-        Text toCaret = new Text("  To     ");
+        Text toCaret = new Text("To     ");
         toCaret.setFont(App.txtFont);
         toCaret.setFill(Color.WHITE);
+
+        Button toEnterButton = new Button("[ ENTER ]");
+        toEnterButton.setFont(App.txtFont);
+        toEnterButton.setId("toolBtn");
 
         AddressButton toAddressBtn = new AddressButton("", m_networkType);
         toAddressBtn.setId("rowBtn");
@@ -335,7 +362,7 @@ public class AddressesData {
 
         ArrayList<PriceTransaction> transactionList = new ArrayList<PriceTransaction>();
 
-        TextArea toTextField = new TextArea();
+        TextField toTextField = new TextField();
         /*{
             @Override
             public void paste() {
@@ -384,99 +411,69 @@ public class AddressesData {
         toTextField.setPadding(new Insets(3, 10, 0, 0));
         HBox.setHgrow(toTextField, Priority.ALWAYS);
 
-        toAddressBtn.setOnMouseClicked(e -> {
+        toAddressBtn.setOnAction(e -> {
 
-            if (e.getButton() == MouseButton.PRIMARY) {
-                // toTextField.setText(toAddressBtn.getAddressString());
-                toAddressBox.getChildren().remove(toAddressBtn);
-                toAddressBox.getChildren().add(toTextField);
+            // toTextField.setText(toAddressBtn.getAddressString());
+            toAddressBox.getChildren().remove(toAddressBtn);
+            toAddressBox.getChildren().add(toTextField);
 
-                Platform.runLater(() -> toTextField.requestFocus());
-            }
+            Platform.runLater(() -> toTextField.requestFocus());
+
         });
 
         // toAddressBtn.textProperty().bind(toTextField.textProperty());
-        toAddressBox.getChildren().addAll(toCaret, toAddressBtn);
+        ImageView toNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+
+        toAddressBox.getChildren().addAll(toNotificationIcon, toCaret, toAddressBtn);
         // toTextField.setonkey
         toTextField.textProperty().addListener((obs, old, newVal) -> {
             String text = newVal.trim();
             if (text.length() > 5) {
+                if (!toAddressBox.getChildren().contains(toEnterButton)) {
+                    toAddressBox.getChildren().add(toEnterButton);
+                }
+
                 toAddressBtn.setAddressByString(text, onVerified -> {
 
                     Object object = onVerified.getSource().getValue();
 
                     if (object != null && (Boolean) object) {
 
-                        PriceAmount priceAmount = amountBox.getCurrentAmount();
-                        if (priceAmount != null && priceAmount.getAmount() != 0 && priceAmount.getCurrency() != null && priceAmount.getCurrency().networkId() != null && priceAmount.getCurrency().networkId().equals(m_walletData.getNetworkNetworkId())) {
-                            addTxBtn.setDisable(false);
-
-                            sendButton.setDisable(false);
-
-                            addTxBtn.setId("menuBtn");
-                            sendButton.setId("menuBtn");
-                        } else {
-                            addTxBtn.setDisable(true);
-                            addTxBtn.setId("menuBtnDisabled");
-                            if (transactionList.size() > 0) {
-                                sendButton.setDisable(false);
-                                sendButton.setId("menuBtn");
-                            } else {
-                                sendButton.setDisable(true);
-                                sendButton.setId("menuBtnDisabled");
-                            }
-                        }
                         toAddressBox.getChildren().remove(toTextField);
+                        if (toAddressBox.getChildren().contains(toEnterButton)) {
+                            toAddressBox.getChildren().remove(toEnterButton);
+                        }
                         toAddressBox.getChildren().add(toAddressBtn);
                     }
                 });
-            } else {
-                addTxBtn.setDisable(true);
-                addTxBtn.setId("menuBtnDisabled");
-
-                if (transactionList.size() > 0) {
-                    sendButton.setDisable(false);
-                    sendButton.setId("menuBtn");
-                } else {
-                    sendButton.setDisable(true);
-                    sendButton.setId("menuBtnDisabled");
-                }
             }
 
         });
+
+        toTextField.setOnKeyPressed((keyEvent) -> {
+            KeyCode keyCode = keyEvent.getCode();
+            if (keyCode == KeyCode.ENTER) {
+                String text = toTextField.getText();
+
+                toAddressBox.getChildren().remove(toTextField);
+
+                if (toAddressBox.getChildren().contains(toEnterButton)) {
+                    toAddressBox.getChildren().remove(toEnterButton);
+                }
+                toAddressBox.getChildren().add(toAddressBtn);
+            }
+        });
+
         toTextField.focusedProperty().addListener((obs, old, newPropertyValue) -> {
 
             if (newPropertyValue) {
 
             } else {
 
-                String text = toTextField.getText();
-                if (text.length() > 5) {
-                    toAddressBtn.setAddressByString(text, onVerified -> {
-                        if (toAddressBtn.getAddressValid()) {
-                            PriceAmount priceAmount = amountBox.getCurrentAmount();
-                            if (priceAmount != null && priceAmount.getAmount() != 0 && priceAmount.getCurrency() != null && priceAmount.getCurrency().networkId() != null && priceAmount.getCurrency().networkId().equals(m_walletData.getNetworkNetworkId())) {
-                                addTxBtn.setDisable(false);
-
-                                sendButton.setDisable(false);
-
-                                addTxBtn.setId("menuBtn");
-                                sendButton.setId("menuBtn");
-                            } else {
-                                addTxBtn.setDisable(true);
-                                addTxBtn.setId("menuBtnDisabled");
-                                if (transactionList.size() > 0) {
-                                    sendButton.setDisable(false);
-                                    sendButton.setId("menuBtn");
-                                } else {
-                                    sendButton.setDisable(true);
-                                    sendButton.setId("menuBtnDisabled");
-                                }
-                            }
-                        }
-                    });
-                }
                 toAddressBox.getChildren().remove(toTextField);
+                if (toAddressBox.getChildren().contains(toEnterButton)) {
+                    toAddressBox.getChildren().remove(toEnterButton);
+                }
                 toAddressBox.getChildren().add(toAddressBtn);
 
                 /* NoteInterface explorerInterface = m_walletData.getExplorerInterface();
@@ -487,41 +484,16 @@ public class AddressesData {
             }
         });
 
-        HBox fromAddressBox = new HBox(fromCaret, fromAddressBtn);
-        fromAddressBox.setPadding(new Insets(7, 15, 2, 15));
+        HBox fromAddressBox = new HBox(fromNotificationIcon, fromCaret, fromAddressBtn);
+        fromAddressBox.setPadding(new Insets(7, 15, 2, 0));
         HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
         fromAddressBox.setAlignment(Pos.CENTER_LEFT);
 
         /*    Region amountRegion = new Region();
         amountRegion.setPrefWidth(10);*/
-        amountBox.setPadding(new Insets(2, 15, 5, 15));
-        amountBox.currentAmountProperty().addListener((e) -> {
-            if (toAddressBtn.getAddressValid()) {
+        amountBoxes.setPadding(new Insets(2, 15, 5, 0));
 
-                PriceAmount priceAmount = amountBox.getCurrentAmount();
-                if (priceAmount != null && priceAmount.getAmount() != 0 && priceAmount.getCurrency() != null && priceAmount.getCurrency().networkId() != null && priceAmount.getCurrency().networkId().equals(m_walletData.getNetworkNetworkId())) {
-                    addTxBtn.setDisable(false);
-
-                    sendButton.setDisable(false);
-
-                    addTxBtn.setId("menuBtn");
-                    sendButton.setId("menuBtn");
-                } else {
-                    addTxBtn.setDisable(true);
-                    addTxBtn.setId("menuBtnDisabled");
-                    if (transactionList.size() > 0) {
-                        sendButton.setDisable(false);
-                        sendButton.setId("menuBtn");
-                    } else {
-                        sendButton.setDisable(true);
-                        sendButton.setId("menuBtnDisabled");
-                    }
-                }
-
-            }
-        });
         // amountBox.currentAmountProperty();
-
         sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
         sendButton.setFont(App.txtFont);
         sendButton.setId("menuBtnDisabled");
@@ -555,7 +527,7 @@ public class AddressesData {
         addBox.setAlignment(Pos.CENTER_LEFT);
         addBox.setPadding(new Insets(0, 20, 0, 0));
 
-        VBox bodyBox = new VBox(promptBox, fromAddressBox, toAddressBox, amountBox, addBox, scrollPaddingBox);
+        VBox bodyBox = new VBox(promptBox, fromAddressBox, toAddressBox, amountBoxes, addBox, scrollPaddingBox);
         bodyBox.setId("bodyBox");
         // bodyBox.setPadding(new Insets(5));
 
@@ -573,7 +545,7 @@ public class AddressesData {
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
         toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(promptBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(amountBox.heightProperty()).subtract(footerBox.heightProperty()));
+        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(promptBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(amountBoxes.heightProperty()).subtract(footerBox.heightProperty()));
         scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty());
 
         return sendScene;

@@ -1,8 +1,12 @@
 package com.netnotes;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Map;
 
 import org.ergoplatform.appkit.NetworkType;
 
@@ -37,17 +41,20 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public final static String DESCRIPTION = "Ergo Network allows you to connect and configure access to am Ergo Node.";
     public final static String SUMMARY = "The Ergo Node is part of Ergo's peer-to-peer network which hosts and synchronises a copy of the entire blockchain, transactions are submitted to the Node via Wallets in order to be processed.";
 
-    public final static ErgoCurrency ERG = new ErgoCurrency();
+    public final static PriceCurrency NATIVE_CURRENCY = new ErgoCurrency();
 
     public final static int MAINNET_PORT = 9053;
     public final static int TESTNET_PORT = 9052;
     public final static int EXTERNAL_PORT = 9030;
+
+    public final static File ERGO_NETWORK_DIR = new File("ErgoNetwork");
 
     private String m_explorerId = null;
 
     private String m_mainnetNodeId = null;
 
     private ArrayList<ErgoNodeData> m_nodesDataList = new ArrayList<>();
+    private ArrayList<PriceCurrency> m_supportedCurrencies = new ArrayList<>();
 
     public ErgoNetwork(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_NETWORK, networksData);
@@ -60,6 +67,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
         if (ergoNetworkJson != null) {
             JsonElement nodesElement = ergoNetworkJson.get("nodes");
             JsonElement mainnetNodeIdElement = ergoNetworkJson.get("mainnetNodeId");
+            JsonElement supportedCurrenciesElement = ergoNetworkJson.get("supportedCurrencies");
 
             m_mainnetNodeId = mainnetNodeIdElement == null ? null : mainnetNodeIdElement.getAsString();
 
@@ -71,6 +79,17 @@ public class ErgoNetwork extends Network implements NoteInterface {
                         m_nodesDataList.add(new ErgoNodeData(clientElement.getAsJsonObject(), this));
                     }
                 }
+            }
+
+            if (supportedCurrenciesElement == null) {
+                if (!ERGO_NETWORK_DIR.isDirectory()) {
+                    try {
+                        Files.createDirectory(ERGO_NETWORK_DIR.toPath());
+                    } catch (IOException e) {
+
+                    }
+                }
+
             }
         }
 

@@ -1,23 +1,34 @@
 package com.netnotes;
 
+import java.util.Map;
+
+import org.ergoplatform.appkit.ErgoToken;
+
+import com.netnotes.Network.NetworkID;
+
 import javafx.scene.image.Image;
 
 public class PriceCurrency {
 
+    private String m_tokenId;
     private String m_symbol;
     private String m_name;
     private String m_networkId;
     private String m_unitImageString;
-    private int m_fractionalPrecision = 3;
+    private int m_fractionalPrecision = 2;
 
-    public PriceCurrency(String name, String symbol, int fractionalPrecision, String networkId, String unitImageString) {
-
+    public PriceCurrency(String token_id, String name, String symbol, int fractionalPrecision, String networkId, String unitImageString) {
+        m_tokenId = token_id;
         m_name = name;
         m_symbol = symbol;
         m_networkId = networkId;
         m_unitImageString = unitImageString;
         m_fractionalPrecision = fractionalPrecision;
 
+    }
+
+    public String getTokenId() {
+        return m_tokenId;
     }
 
     public Image getUnitImage() {
@@ -36,7 +47,7 @@ public class PriceCurrency {
         return m_name;
     }
 
-    public String symbol() {
+    public String getSymbol() {
         return m_symbol;
     }
 

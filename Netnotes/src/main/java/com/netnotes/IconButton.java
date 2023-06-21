@@ -34,17 +34,24 @@ public class IconButton extends Button {
     public static Insets SMALL_INSETS = new Insets(SMALL_PADDING, SMALL_PADDING, SMALL_PADDING, SMALL_PADDING);
     public static Insets NORMAL_INSETS = new Insets(NORMAL_PADDING, NORMAL_PADDING, NORMAL_PADDING, NORMAL_PADDING);
 
+    public final static String DEFAULT_CURRENT_ID = "iconBtnCurrent";
+    public final static String DEFAULT_ID = "iconBtn";
+
+    private String m_defaultId = DEFAULT_ID;
+    private String m_currentId = DEFAULT_CURRENT_ID;
+
     private Image m_icon;
     private double m_imageWidth = 75;
     private String m_name = "";
     private String m_iconStyle = IconStyle.ICON;
-    private int m_open = 0;
+
     private boolean m_multipleInstances = false;
     private ChangeListener<Boolean> m_focusListener;
     //private EventHandler<MouseEvent> m_mouseEventHandler;
 
     public IconButton() {
         super();
+
         setId("iconBtn");
         setFont(App.txtFont);
         enableActions();
@@ -225,11 +232,20 @@ public class IconButton extends Button {
         return this;
     }
 
-    public void setCurrent(boolean value) {
+    public void setCurrent(boolean value, String... idString) {
+
+        if (idString != null && idString.length > 0) {
+            m_defaultId = idString[1];
+
+            if (idString.length > 1) {
+                m_currentId = idString[0];
+            }
+        }
+
         if (value) {
-            setId("iconBtnCurrent");
+            setId(m_currentId);
         } else {
-            setId("iconBtn");
+            setId(m_defaultId);
         }
     }
 

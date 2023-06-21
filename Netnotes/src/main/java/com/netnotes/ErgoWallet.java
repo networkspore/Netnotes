@@ -47,20 +47,21 @@ public class ErgoWallet extends Network implements NoteInterface {
     public final static String SUMMARY = "Access can be controlled with the Ergo Wallet, in order to keep the wallet isolated, or access can be given to the Ergo Network in order to make transactions, or the Ergo Explorer to get your ERG ballance and to the KuCoin Exchange to get your ERG value real time.";
     public final static String NAME = "Ergo Wallet";
     public final static ExtensionFilter ergExt = new ExtensionFilter("Ergo Wallet", "*.erg");
-    public final static String SYMBOL = "ERG";
 
-    public final static Address DONATION_ADDRESS = Address.create("9h123xUZMi26FZrHuzsFfsTpfD3mMuTxQTNEhAjTpD83EPchePU");
+    public final static String DONATION_ADDRESS_STRING = "9h123xUZMi26FZrHuzsFfsTpfD3mMuTxQTNEhAjTpD83EPchePU";
 
     private File logFile = new File("ergoWallet - log.txt");
 
-    private File m_walletsDir = new File(System.getProperty("user.dir") + "/wallets");
+    private File m_appDir = null;
+
+    private File m_walletsDir = null;
 
     private WalletsDataList m_walletsData;
     private Stage m_walletsStage = null;
 
     public ErgoWallet(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_WALLET, networksData);
-        createWalletDirectory();
+        setupWallet();
         m_walletsData = new WalletsDataList(null, m_walletsDir, this);
         m_walletsData.lastUpdated.addListener(e -> {
             getLastUpdated().set(LocalDateTime.now());
@@ -78,10 +79,24 @@ public class ErgoWallet extends Network implements NoteInterface {
         }
 
         JsonElement walletsElement = jsonObject.get("wallets");
-        JsonElement walletsDirElement = jsonObject.get("walletsDir");
+        JsonElement directoriesElement = jsonObject.get("directories");
 
-        m_walletsDir = walletsDirElement == null ? null : new File(walletsDirElement.getAsString());
-        createWalletDirectory();
+        if (directoriesElement != null && directoriesElement.isJsonObject()) {
+            JsonObject directoriesObject = directoriesElement.getAsJsonObject();
+            if (directoriesObject != null) {
+                JsonElement appDirElement = directoriesObject.get("app");
+                JsonElement walletsDirElement = directoriesObject.get("wallets");
+
+                m_appDir = appDirElement == null ? null : new File(appDirElement.getAsString());
+
+                m_walletsDir = walletsDirElement == null ? null : new File(walletsDirElement.getAsString());
+            }
+        }
+
+        if (m_appDir == null || m_walletsDir == null) {
+            setupWallet();
+        }
+
         if (walletsElement != null) {
             Timer initTimer = new Timer();
             ErgoWallet ergoWallet = this;
@@ -242,10 +257,22 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     }
 
-    public void createWalletDirectory() {
-        if (m_walletsDir == null) {
-            m_walletsDir = new File(System.getProperty("user.dir") + "/wallets");
+    public void setupWallet() {
+
+        m_appDir = m_appDir == null ? new File(System.getProperty("user.dir") + "/" + NAME) : m_appDir;
+
+        m_walletsDir = m_walletsDir == null ? new File(System.getProperty("user.dir") + "/" + NAME + "/wallets") : m_walletsDir;
+
+        if (!m_appDir.isDirectory()) {
+
+            try {
+                Files.createDirectories(m_appDir.toPath());
+            } catch (IOException e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.show();
+            }
         }
+
         if (!m_walletsDir.isDirectory()) {
             try {
                 Files.createDirectories(m_walletsDir.toPath());

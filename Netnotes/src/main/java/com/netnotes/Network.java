@@ -26,11 +26,12 @@ public class Network extends IconButton {
 
     public static class NetworkID {
 
-        public static String ERGO_NETWORK = "ERGO_NETWORK";
-        public static String ERGO_WALLET = "ERGO_WALLET";
-        public static String KUKOIN_EXCHANGE = "KUCOIN_EXCHANGE";
-        public static String ERGO_EXPLORER = "ERGO_EXPLORER";
-        public static String NETWORK_TIMER = "NETWORK_TIMER";
+        public final static String ERGO_NETWORK = "ERGO_NETWORK";
+        public final static String ERGO_WALLET = "ERGO_WALLET";
+        public final static String KUKOIN_EXCHANGE = "KUCOIN_EXCHANGE";
+        public final static String ERGO_EXPLORER = "ERGO_EXPLORER";
+        public final static String NETWORK_TIMER = "NETWORK_TIMER";
+        public final static String ERGO_TOKENS = "ERGO_TOKENS";
     }
 
     public static String getNetworkName(String networkId) {
@@ -45,6 +46,8 @@ public class Network extends IconButton {
                 return ErgoExplorer.NAME;
             case "NETWORK_TIMER":
                 return NetworkTimer.NAME;
+            case "ERGO_TOKENS":
+                return ErgoTokens.NAME;
             default:
                 return null;
         }

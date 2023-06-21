@@ -30,12 +30,13 @@ import javafx.stage.StageStyle;
 
 public class NetworksData {
 
-    public static String[] networkIds = new String[]{
+    public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
         NetworkID.ERGO_EXPLORER,
         NetworkID.ERGO_NETWORK,
         NetworkID.ERGO_WALLET,
         NetworkID.KUKOIN_EXCHANGE,
-        NetworkID.NETWORK_TIMER
+        NetworkID.NETWORK_TIMER,
+        NetworkID.ERGO_TOKENS
     };
 
     private ArrayList<NoteInterface> m_noteInterfaceList = new ArrayList<>();
@@ -44,8 +45,7 @@ public class NetworksData {
     private VBox m_networksBox;
     private double m_width;
 
-    private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
-
+    //  private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private double m_leftColumnWidth = 175;
 
     private VBox m_installedVBox = null;
@@ -82,7 +82,7 @@ public class NetworksData {
                     String networkId = networkIdElement.getAsString();
                     //   NoteInterface noteInterface;
                     try {
-                        Files.writeString(logFile.toPath(), "\ninstalling" + networkId + "\n");
+                        Files.writeString(logFile.toPath(), "\ninstalling: " + networkId + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e) {
 
                     }
@@ -101,6 +101,9 @@ public class NetworksData {
                             break;
                         case "NETWORK_TIMER":
                             addNoteInterface(new NetworkTimer(jsonObject, this));
+                            break;
+                        case "ERGO_TOKENS":
+                            addNoteInterface(new ErgoTokens(jsonObject, this));
                             break;
                     }
 
@@ -248,10 +251,28 @@ public class NetworksData {
                     InstallableIcon installable = (InstallableIcon) addNetworkScene.focusOwnerProperty().get();
 
                     m_focusedInstallable = installable;
+                } else {
+                    if (addNetworkScene.focusOwnerProperty().get() instanceof Button) {
+                        Button focusedButton = (Button) addNetworkScene.focusOwnerProperty().get();
+                        String buttonString = focusedButton.getText();
+                        if (!(buttonString.equals(installBtn.getText()) || buttonString.equals(removeBtn.getText()))) {
+
+                            m_focusedInstallable = null;
+
+                        }
+                    }
                 }
+
             });
 
             installBtn.setOnAction(e -> {
+
+                try {
+                    Files.writeString(logFile.toPath(), "installing: " + (m_focusedInstallable == null ? " null " : m_focusedInstallable.getText() + " nId: " + m_focusedInstallable.getNetworkId() + " installed: " + m_focusedInstallable.getInstalled()), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+
+                }
+
                 if (m_focusedInstallable != null && (!m_focusedInstallable.getInstalled())) {
                     installNetwork(m_focusedInstallable.getNetworkId());
                 }
@@ -293,7 +314,7 @@ public class NetworksData {
             double imageWidth = new IconButton().getImageWidth();
             double cellPadding = new IconButton().getPadding().getLeft();
             double cellWidth = imageWidth + (cellPadding * 2);
-            double numCells = networkIds.length - m_noteInterfaceList.size();
+            double numCells = INTALLABLE_NETWORK_IDS.length - m_noteInterfaceList.size();
             double boxWidth = m_addNetworkStage.getWidth() - 150;
 
             int floor = (int) Math.floor(boxWidth / (cellWidth + 20));
@@ -338,7 +359,7 @@ public class NetworksData {
 
     public void updateInstallables() {
         m_installables = new ArrayList<>();
-        for (String networkId : networkIds) {
+        for (String networkId : INTALLABLE_NETWORK_IDS) {
             NoteInterface noteInterface = getNoteInterface(networkId);
             boolean installed = !(noteInterface == null);
             InstallableIcon installableIcon = new InstallableIcon(this, networkId, installed);
@@ -397,6 +418,11 @@ public class NetworksData {
     }
 
     public void installNetwork(String networkId) {
+        try {
+            Files.writeString(logFile.toPath(), "\ninstalling " + networkId + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
 
         switch (networkId) {
             case "ERGO_EXPLORER":
@@ -413,6 +439,9 @@ public class NetworksData {
                 break;
             case "NETWORK_TIMER":
                 addNoteInterface(new NetworkTimer(this));
+                break;
+            case "ERGO_TOKENS":
+                addNoteInterface(new ErgoTokens(this));
                 break;
         }
         m_installedVBox.getChildren().clear();

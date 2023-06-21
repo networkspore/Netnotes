@@ -404,7 +404,7 @@ public class WalletData extends Network implements NoteInterface {
         JsonObject marketQuoteObject = new JsonObject();
         marketQuoteObject.addProperty("subject", "GET_QUOTE");
         marketQuoteObject.addProperty("transactionCurrency", m_quoteTransactionCurrency);
-        marketQuoteObject.addProperty("quoteCurrency", ErgoWallet.SYMBOL);
+        marketQuoteObject.addProperty("quoteCurrency", ErgoNetwork.NATIVE_CURRENCY.getSymbol());
 
         return marketQuoteObject;
     }
@@ -722,8 +722,11 @@ public class WalletData extends Network implements NoteInterface {
                 nodeAlert.initOwner(walletStage);
                 nodeAlert.show();
             } else {
-                walletStage.setScene(addressesData.getSendScene(openWalletScene, walletStage));
-                ResizeHelper.addResizeListener(walletStage, 400, 440, m_maxWidth, m_maxHeight);
+                Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
+                if (sendScene != null) {
+                    walletStage.setScene(sendScene);
+                    ResizeHelper.addResizeListener(walletStage, 400, 440, m_maxWidth, m_maxHeight);
+                }
             }
 
         });

@@ -92,6 +92,12 @@ public class InstallableIcon extends IconButton {
                 setDescription(NetworkTimer.DESCRIPTION);
                 setSummary(NetworkTimer.SUMMARY);
                 break;
+            case "ERGO_TOKENS":
+                setIcon(m_installed ? ErgoTokens.getSmallAppIcon() : ErgoTokens.getAppIcon());
+                setName(ErgoTokens.NAME);
+                setDescription(ErgoTokens.DESCRIPTION);
+                setSummary(ErgoTokens.SUMMARY);
+                break;
         }
 
     }
