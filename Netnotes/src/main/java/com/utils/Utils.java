@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -18,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +101,7 @@ public class Utils {
     }
 
     public static byte[] digestBytesToBytes(byte[] bytes, String... instance) throws Exception {
-        String digestInstance = instance == null ? Blake2b.BLAKE2_B_256 : instance[0];
+        String digestInstance = instance != null && instance.length > 0 ? instance[0] : Blake2b.BLAKE2_B_256;
 
         final MessageDigest digest = MessageDigest.getInstance(digestInstance);
 
@@ -450,5 +454,15 @@ public class Utils {
             default:
                 return null;
         }
+    }
+
+    public static byte[] charsToBytes(char[] chars) {
+
+        CharBuffer charBuffer = CharBuffer.wrap(chars);
+        ByteBuffer byteBuffer = Charset.forName("UTF-8").encode(charBuffer);
+        byte[] bytes = Arrays.copyOfRange(byteBuffer.array(),
+                byteBuffer.position(), byteBuffer.limit());
+        Arrays.fill(byteBuffer.array(), (byte) 0); // clear sensitive data
+        return bytes;
     }
 }

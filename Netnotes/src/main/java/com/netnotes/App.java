@@ -1,17 +1,11 @@
 package com.netnotes;
 
-import javafx.animation.Animation;
-import javafx.animation.FadeTransition;
 /**
  * Netnotes
  *
  */
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.concurrent.Task;
-import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 
@@ -21,7 +15,6 @@ import javafx.scene.image.Image;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert;
@@ -30,88 +23,57 @@ import javafx.scene.effect.ColorAdjust;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
-import javafx.scene.control.MenuButton;
-import javafx.scene.control.MenuItem;
 import javafx.scene.layout.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.FontWeight;
 import javafx.scene.paint.Color;
-import javafx.geometry.Bounds;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import javafx.stage.FileChooser.ExtensionFilter;
-import mslinks.ShellLinkException;
+
 import javafx.scene.input.KeyCode;
 
-import java.awt.image.BufferedImage;
-import java.awt.AlphaComposite;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.math.BigDecimal;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
+
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.text.DecimalFormat;
+import java.security.Security;
+import java.security.spec.KeySpec;
 import java.time.Duration;
-import java.time.LocalDateTime;
+
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
+
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.Optional;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.TreeMap;
 
-import java.util.Map.Entry;
-import java.util.stream.Stream;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
-import org.apache.commons.codec.DecoderException;
 import org.bouncycastle.util.encoders.Hex;
-import org.ergoplatform.ErgoAddress;
-import org.ergoplatform.appkit.*;
-import org.ergoplatform.restapi.client.WalletBox;
-import org.reactfx.util.FxTimer;
-import org.whispersystems.curve25519.java.open;
 
-import com.google.gson.JsonArray;
+import org.reactfx.util.FxTimer;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.netnotes.IconButton.IconStyle;
-import com.satergo.Wallet;
-import com.satergo.WalletKey.Failure;
-import com.satergo.ergo.ErgoInterface;
-import com.satergo.ergo.ErgoNodeAccess;
+import com.rfksystems.blake2b.security.Blake2bProvider;
+
 import com.utils.Utils;
-import javafx.embed.swing.SwingFXUtils;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
+
+import com.satergo.extra.AESEncryption;
 
 public class App extends Application {
 
@@ -278,7 +240,10 @@ public class App extends Application {
     }
 
     public void startApp(byte[] hashBytes, Stage appStage) {
+        if (Security.getProvider("BLAKE2B") == null) {
+            Security.addProvider(new Blake2bProvider());
 
+        }
         appStage.setTitle("Net Notes - Enter Password");
 
         Button closeBtn = new Button();
@@ -349,20 +314,42 @@ public class App extends Application {
                     statusStage.show();
 
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), hashBytes);
+                        char[] chars = passwordField.getText().toCharArray();
+                        Platform.runLater(() -> passwordField.setText(""));
+                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(chars, hashBytes);
                         statusStage.close();
                         if (result.verified) {
 
-                            openNetnotes(appStage);
+                            try {
+                                openNetnotes(createKey(chars), appStage);
+                                chars = null;
+                            } catch (Exception e1) {
+                                Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CLOSE);
+                                a.initOwner(appStage);
+                                a.show();
+                            }
 
-                        } else {
-                            passwordField.setText("");
                         }
                     });
                 }
             }
         });
         appStage.show();
+    }
+
+    private static SecretKey createKey(char[] chars) throws Exception {
+
+        byte[] charBytes = Utils.charsToBytes(chars);
+
+        charBytes = Utils.digestBytesToBytes(charBytes);
+
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+        KeySpec spec = new PBEKeySpec(chars, charBytes, 65536, 256);
+        SecretKey tmp = factory.generateSecret(spec);
+        SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
+
+        return secret;
     }
 
     public static void setStatusStage(Stage appStage, String title, String statusMessage) {
@@ -415,7 +402,7 @@ public class App extends Application {
     }
 
     // private static int createTries = 0;
-    private void openNetnotes(Stage appStage) {
+    private void openNetnotes(SecretKey appKey, Stage appStage) {
         File networksFile = new File(networksFileName);
         JsonObject networksObject = null;
         boolean notSetup = networksFile.isFile();
@@ -432,7 +419,7 @@ public class App extends Application {
             }
         }
 
-        m_networksData = new NetworksData(networksObject, networksFile);
+        m_networksData = new NetworksData(appKey, networksObject, networksFile);
 
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
@@ -908,6 +895,79 @@ public class App extends Application {
 
         return returnValue.equals("") ? null : returnValue;
 
+    }
+
+    public static HBox createTopBar(Image iconImage, Button maximizeBtn, Button closeBtn, Stage theStage) {
+
+        ImageView barIconView = new ImageView(iconImage);
+        barIconView.setFitWidth(25);
+        barIconView.setPreserveRatio(true);
+
+        // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
+        Region spacer = new Region();
+
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label newTitleLbl = new Label(theStage.titleProperty().get());
+        newTitleLbl.setFont(titleFont);
+        newTitleLbl.setTextFill(txtColor);
+        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
+        newTitleLbl.textProperty().bind(theStage.titleProperty());
+
+        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        ImageView closeImage = highlightedImageView(closeImg);
+        closeImage.setFitHeight(20);
+        closeImage.setFitWidth(20);
+        closeImage.setPreserveRatio(true);
+
+        closeBtn.setGraphic(closeImage);
+        closeBtn.setPadding(new Insets(0, 5, 0, 3));
+        closeBtn.setId("closeBtn");
+
+        ImageView minimizeImage = highlightedImageView(minimizeImg);
+        minimizeImage.setFitHeight(20);
+        minimizeImage.setFitWidth(20);
+        minimizeImage.setPreserveRatio(true);
+
+        Button minimizeBtn = new Button();
+        minimizeBtn.setId("toolBtn");
+        minimizeBtn.setGraphic(minimizeImage);
+        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
+        minimizeBtn.setOnAction(minEvent -> {
+            theStage.setIconified(true);
+        });
+
+        maximizeBtn.setId("toolBtn");
+        maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
+        maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
+        maximizeBtn.setOnAction(maxEvent -> {
+            theStage.setMaximized(!theStage.isMaximized());
+        });
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, maximizeBtn, closeBtn);
+        newTopBar.setAlignment(Pos.CENTER_LEFT);
+        newTopBar.setPadding(new Insets(7, 8, 10, 10));
+        newTopBar.setId("topBar");
+
+        Delta dragDelta = new Delta();
+
+        newTopBar.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                // record a delta distance for the drag and drop operation.
+                dragDelta.x = theStage.getX() - mouseEvent.getScreenX();
+                dragDelta.y = theStage.getY() - mouseEvent.getScreenY();
+            }
+        });
+        newTopBar.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                theStage.setX(mouseEvent.getScreenX() + dragDelta.x);
+                theStage.setY(mouseEvent.getScreenY() + dragDelta.y);
+            }
+        });
+
+        return newTopBar;
     }
 
     public static HBox createTopBar(Image iconImage, String titleString, Button maximizeBtn, Button closeBtn, Stage theStage) {

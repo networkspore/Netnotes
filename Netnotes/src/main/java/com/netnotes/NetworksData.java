@@ -1,11 +1,17 @@
 package com.netnotes;
 
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+
+import javax.crypto.SecretKey;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -44,7 +50,7 @@ public class NetworksData {
     private String m_selectedId;
     private VBox m_networksBox;
     private double m_width;
-
+    private SecretKey m_secretKey = null;
     //  private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private double m_leftColumnWidth = 175;
 
@@ -56,11 +62,13 @@ public class NetworksData {
 
     private InstallableIcon m_focusedInstallable = null;
 
+    private Rectangle m_rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+
     //  public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private File logFile = new File("networkData-log.txt");
 
-    public NetworksData(JsonObject networksObject, File networksFile) {
-
+    public NetworksData(SecretKey secretKey, JsonObject networksObject, File networksFile) {
+        m_secretKey = secretKey;
         m_networksFile = networksFile;
         m_networksBox = new VBox();
 
@@ -113,6 +121,10 @@ public class NetworksData {
 
         }
 
+    }
+
+    public Rectangle getMaximumWindowBounds() {
+        return m_rect;
     }
 
     public void clear() {
@@ -582,6 +594,10 @@ public class NetworksData {
 
         }
         return false;
+    }
+
+    public SecretKey getAppKey() {
+        return m_secretKey;
     }
 
     public void save() {

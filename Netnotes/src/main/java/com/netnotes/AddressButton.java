@@ -66,10 +66,7 @@ public class AddressButton extends Button {
 //String explorerId, NetworksData networksData
     public AddressButton(String addressString, NetworkType networkType, String... propmtString) {
         super();
-        if (Security.getProvider("BLAKE2B") == null) {
-            Security.addProvider(new Blake2bProvider());
 
-        }
         setPadding(new Insets(0));
         m_networkType = networkType;
         // m_explorerId = explorerId;

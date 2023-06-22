@@ -24,10 +24,23 @@ import com.google.gson.JsonObject;
 
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 public class ErgoTokens extends Network implements NoteInterface {
 
@@ -36,48 +49,157 @@ public class ErgoTokens extends Network implements NoteInterface {
     public final static String NAME = "Ergo Tokens";
 
     private File logFile = new File("ErgoTokens-log.txt");
+    private File m_dataFile = null;
     private File m_appDir = null;
-    private File m_tokensDir = null;
+    private Stage m_tokensStage = null;
 
-    private ArrayList<ErgoToken> m_tokensList = new ArrayList<>();
+    TokensList m_tokensList = null;
 
     public ErgoTokens(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
+
+        m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
+        setDataFile(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
     }
 
     public ErgoTokens(JsonObject jsonObject, NetworksData networksData) {
 
         super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
 
-        JsonElement directoriesElement = jsonObject.get("directories");
+        JsonElement appDirElement = jsonObject.get("appDir");
+        JsonElement dataElement = jsonObject.get("dataFile");
 
-        if (directoriesElement != null && directoriesElement.isJsonObject()) {
-            JsonObject directoriesObject = directoriesElement.getAsJsonObject();
-            if (directoriesObject != null) {
-                JsonElement appDirElement = directoriesObject.get("app");
-                JsonElement tokensDirElement = directoriesObject.get("tokens");
-                m_appDir = appDirElement == null ? null : new File(appDirElement.getAsString());
-                m_tokensDir = tokensDirElement == null ? null : new File(tokensDirElement.getAsString());
-            }
+        if (appDirElement == null) {
+            m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
+        } else {
+            m_appDir = new File(appDirElement.getAsString());
         }
 
+        if (dataElement == null) {
+            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+        } else {
+            m_dataFile = new File(dataElement.getAsString());
+        }
     }
 
     @Override
     public void open() {
-        try {
-            Files.writeString(logFile.toPath(), "\nOPEN " + getNetworkId(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
+
+        if (m_dataFile == null) {
 
         }
 
-        if (m_appDir == null || m_tokensDir == null) {
-            setupErgoTokens();
+        m_tokensList = new TokensList(getNetworksData().getAppKey(), this);
+
+        showTokensStage();
+    }
+
+    public void showTokensStage() {
+        if (m_tokensStage == null) {
+
+            String title = getName() + ": Tokens";
+            double tokensStageWidth = 310;
+            double tokensStageHeight = 500;
+            double buttonHeight = 100;
+
+            m_tokensStage = new Stage();
+            m_tokensStage.getIcons().add(getIcon());
+            m_tokensStage.setResizable(false);
+            m_tokensStage.initStyle(StageStyle.UNDECORATED);
+            m_tokensStage.setTitle(title);
+
+            Button closeBtn = new Button();
+            closeBtn.setOnAction(closeEvent -> {
+                m_tokensStage.close();
+                m_tokensStage = null;
+            });
+
+            HBox titleBox = App.createTopBar(getIcon(), title, closeBtn, m_tokensStage);
+
+            ImageView addImage = new ImageView(App.addImg);
+            addImage.setFitHeight(10);
+            addImage.setPreserveRatio(true);
+
+            Tooltip addTip = new Tooltip("New");
+            addTip.setShowDelay(new javafx.util.Duration(100));
+            addTip.setFont(App.txtFont);
+
+            VBox layoutVBox = new VBox(titleBox);
+            layoutVBox.setPadding(new Insets(0, 5, 0, 5));
+            VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+
+            VBox tokensBox = m_tokensList.getButtonGrid();
+
+            Region growRegion = new Region();
+
+            VBox.setVgrow(growRegion, Priority.ALWAYS);
+
+            VBox bodyBox = new VBox(tokensBox, growRegion);
+
+            ScrollPane scrollPane = new ScrollPane(bodyBox);
+
+            scrollPane.setId("bodyBox");
+
+            Button addButton = new Button("New");
+            // addButton.setGraphic(addImage);
+            addButton.setId("menuBarBtn");
+            addButton.setPadding(new Insets(2, 6, 2, 6));
+            addButton.setTooltip(addTip);
+            addButton.setPrefWidth(tokensStageWidth / 2);
+            addButton.setPrefHeight(buttonHeight);
+
+            Tooltip removeTip = new Tooltip("Remove");
+            removeTip.setShowDelay(new javafx.util.Duration(100));
+            removeTip.setFont(App.txtFont);
+
+            Button removeButton = new Button("Remove");
+            // removeButton.setGraphic(addImage);
+            removeButton.setId("menuBarBtnDisabled");
+            removeButton.setPadding(new Insets(2, 6, 2, 6));
+            removeButton.setTooltip(removeTip);
+            removeButton.setDisable(true);
+            removeButton.setPrefWidth(tokensStageWidth / 2);
+            removeButton.setPrefHeight(buttonHeight);
+
+            HBox menuBox = new HBox(addButton, removeButton);
+            menuBox.setId("blackMenu");
+            menuBox.setAlignment(Pos.CENTER_LEFT);
+            menuBox.setPadding(new Insets(5, 5, 5, 5));
+            menuBox.setPrefHeight(buttonHeight);
+
+            addButton.setOnAction(event -> {
+                //m_walletsData.showAddWalletStage();
+            });
+
+            layoutVBox.getChildren().addAll(scrollPane, menuBox);
+
+            Scene tokensScene = new Scene(layoutVBox, tokensStageWidth, tokensStageHeight);
+
+            scrollPane.prefViewportWidthProperty().bind(tokensScene.widthProperty());
+            scrollPane.prefViewportHeightProperty().bind(tokensScene.heightProperty().subtract(140));
+
+            tokensBox.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
+            //  bodyBox.prefHeightProperty().bind(tokensScene.heightProperty() - 40 - 100);
+            tokensScene.getStylesheets().add("/css/startWindow.css");
+            m_tokensStage.setScene(tokensScene);
+
+            m_tokensStage.show();
         } else {
-            if ((!m_appDir.isDirectory()) || (!m_tokensDir.isDirectory())) {
-                setupErgoTokens();
+            if (m_tokensStage.isIconified()) {
+                m_tokensStage.setIconified(false);
             }
+            m_tokensStage.show();
         }
+
+    }
+
+    private void setDataFile(String fileString) {
+        m_dataFile = new File(fileString);
+        getLastUpdated().set(LocalDateTime.now());
+    }
+
+    public File getDataFile() {
+        return m_dataFile;
     }
 
     @Override
@@ -94,188 +216,24 @@ public class ErgoTokens extends Network implements NoteInterface {
         return new Image("/assets/diamond-30.png");
     }
 
-    public void setupErgoTokens() {
+    public File getAppDir() {
+        return m_appDir;
+    }
 
-        m_appDir = m_appDir == null ? new File(System.getProperty("user.dir") + "/" + NAME) : m_appDir;
+    public void setAppDir(String string) {
+        m_appDir = new File(string);
 
-        m_tokensDir = m_tokensDir == null ? new File(System.getProperty("user.dir") + "/" + NAME + "/tokens") : m_tokensDir;
-
-        try {
-            Files.writeString(logFile.toPath(), "\nSETUP \n appDir:" + m_appDir.getAbsolutePath() + "\ntokensDir: " + m_tokensDir.getAbsolutePath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
-
-        if (!m_appDir.isDirectory()) {
-
-            try {
-                Files.createDirectories(m_appDir.toPath());
-            } catch (IOException e) {
-                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                a.show();
-            }
-        }
-        boolean createdtokensDirectory = false;
-        if (!m_tokensDir.isDirectory()) {
-            try {
-                Files.createDirectories(m_tokensDir.toPath());
-                createdtokensDirectory = true;
-
-            } catch (IOException e) {
-                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                a.show();
-            }
-        }
-
-        if (m_tokensDir.isDirectory() && createdtokensDirectory) {
-            try {
-                Files.writeString(logFile.toPath(), "\nUnzipping", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-
-            }
-            //    ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-
-            // new InputStreamReader();
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("assets/currencyIcons.zip");
-            try {
-                Files.writeString(logFile.toPath(), "\n" + is.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-
-            }
-
-            ZipInputStream zipStream = null;
-            try {
-                zipStream = new ZipInputStream(is);
-
-                String tokensPathString = m_tokensDir.getAbsolutePath() + "\\";
-                if (zipStream != null) {
-                    // Enumeration<? extends ZipEntry> entries = zipFile.entries();
-
-                    ZipEntry entry;
-                    while ((entry = zipStream.getNextEntry()) != null) {
-
-                        String entryName = entry.getName();
-
-                        try {
-                            Files.writeString(logFile.toPath(), "\n" + entryName, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e) {
-
-                        }
-
-                        int indexOfDir = entryName.lastIndexOf("/");
-
-                        if (indexOfDir != entryName.length() - 1) {
-
-                            int indexOfExt = entryName.lastIndexOf(".");
-
-                            String fileName = entryName.substring(0, indexOfExt);
-
-                            File newDirFile = new File(tokensPathString + "\\" + fileName);
-                            if (!newDirFile.isDirectory()) {
-                                Files.createDirectory(newDirFile.toPath());
-                            }
-
-                            File entryFile = new File(tokensPathString + "\\" + fileName + "\\" + entryName);
-                            OutputStream outStream = null;
-                            try {
-
-                                outStream = new FileOutputStream(entryFile);
-                                //outStream.write(buffer);
-
-                                byte[] buffer = new byte[8 * 1024];
-                                int bytesRead;
-                                while ((bytesRead = zipStream.read(buffer)) != -1) {
-                                    outStream.write(buffer, 0, bytesRead);
-                                }
-
-                                addToken(fileName, entryFile);
-
-                            } catch (IOException ex) {
-                                try {
-                                    Files.writeString(logFile.toPath(), "\n" + ex.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                } catch (IOException e1) {
-
-                                }
-                            } finally {
-                                if (outStream != null) {
-                                    outStream.close();
-                                }
-                            }
-                        }
-
-                    }
-                }
-            } catch (IOException e) {
-                try {
-                    Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e1) {
-
-                }
-            } finally {
-                if (zipStream != null) {
-
-                    try {
-                        zipStream.close();
-                    } catch (IOException e2) {
-                        try {
-                            Files.writeString(logFile.toPath(), "\n" + e2.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e1) {
-
-                        }
-                    }
-
-                }
-            }
-
-        }
         getLastUpdated().set(LocalDateTime.now());
     }
 
     @Override
     public JsonObject getJsonObject() {
         JsonObject json = super.getJsonObject();
-        json.add("directories", getDirectoriesJson());
-        json.add("tokens", getTokensJsonArray());
+        json.addProperty("appDir", m_appDir.getAbsolutePath());
+        if (m_dataFile != null) {
+            json.addProperty("dataFile", m_dataFile.getAbsolutePath());
+        }
         return json;
-    }
-
-    public JsonArray getTokensJsonArray() {
-        JsonArray jsonArray = new JsonArray();
-        for (ErgoToken ergoToken : m_tokensList) {
-            jsonArray.add(ergoToken.getJsonObject());
-        }
-        return jsonArray;
-    }
-
-    public ErgoToken getErgoToken(String tokenid) {
-
-        for (int i = 0; i < m_tokensList.size(); i++) {
-            ErgoToken ergToken = m_tokensList.get(i);
-            if (ergToken.getTokenId().equals(tokenid)) {
-                return ergToken;
-            }
-        }
-        return null;
-    }
-
-    public void addToken(String key, File imageFile) {
-        ErgoToken tokenIcon = new ErgoToken(key, imageFile);
-        if (tokenIcon != null) {
-            m_tokensList.add(tokenIcon);
-        }
-
-    }
-
-    public JsonObject getDirectoriesJson() {
-
-        m_appDir = m_appDir == null ? new File(System.getProperty("user.dir") + "/" + NAME) : m_appDir;
-
-        m_tokensDir = m_tokensDir == null ? new File(System.getProperty("user.dir") + "/" + NAME + "/tokens") : m_tokensDir;
-
-        JsonObject dirJsonObject = new JsonObject();
-        dirJsonObject.addProperty("app", m_appDir.getAbsolutePath());
-        dirJsonObject.addProperty("tokens", m_tokensDir.getAbsolutePath());
-        return dirJsonObject;
     }
 
 }
