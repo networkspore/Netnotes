@@ -44,6 +44,7 @@ public class IconButton extends Button {
     private double m_imageWidth = 75;
     private String m_name = "";
     private String m_iconStyle = IconStyle.ICON;
+    private boolean m_open = false;
 
     private boolean m_multipleInstances = false;
     private ChangeListener<Boolean> m_focusListener;
@@ -116,11 +117,15 @@ public class IconButton extends Button {
     }
 
     public void open() {
-
+        m_open = true;
     }
 
     public void close() {
+        m_open = false;
+    }
 
+    public boolean isOpen() {
+        return m_open;
     }
 
     public boolean getMultipleInstances() {

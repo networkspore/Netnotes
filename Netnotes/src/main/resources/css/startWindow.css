@@ -296,6 +296,10 @@
     -fx-opacity: 1;
 }
 
+#centeredTextArea *.text {
+    -fx-text-alignment: center;
+}
+
 #menuBox {
     -fx-background-color: linear-gradient(to top,  #ffffff01,#ffffff02, #11111105 );
 }

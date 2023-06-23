@@ -5,6 +5,7 @@ package com.netnotes;
  *
  */
 import javafx.application.Application;
+import javafx.application.HostServices;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -123,6 +124,8 @@ public class App extends Application {
     private File currentJar = null;
 
     private NetworksData m_networksData;
+
+    private HostServices m_networkServices = getHostServices();
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -419,7 +422,7 @@ public class App extends Application {
             }
         }
 
-        m_networksData = new NetworksData(appKey, networksObject, networksFile);
+        m_networksData = new NetworksData(appKey, m_networkServices, networksObject, networksFile);
 
         Button closeBtn = new Button();
         Button settingsBtn = new Button();

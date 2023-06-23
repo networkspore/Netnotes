@@ -21,11 +21,27 @@ public class ErgoExplorer extends Network implements NoteInterface {
     private String m_mainnetExplorerUrlString = ErgoMainnet_EXPLORER_URL;
     private String m_testnetExplorerUrlString = ErgoTestnet_EXPLORER_URL;
 
-    public static JsonObject getBalanceNote(String address, NetworkType networkType) {
+    public static JsonObject getBalanceNote(String address, NetworkType... networkType) {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("subject", "GET_BALANCE");
         jsonObject.addProperty("address", address);
-        jsonObject.addProperty("networkType", networkType.toString());
+        if (networkType != null && networkType.length > 0) {
+            jsonObject.addProperty("networkType", networkType[0].toString());
+        } else {
+            jsonObject.addProperty("networkType", NetworkType.MAINNET.toString());
+        }
+        return jsonObject;
+    }
+
+    public static JsonObject getIssuedTokensNote(String tokenId, NetworkType... networkType) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("subject", "GET_ISSUED_TOKENS");
+        jsonObject.addProperty("tokenId", tokenId);
+        if (networkType != null && networkType.length > 0) {
+            jsonObject.addProperty("networkType", networkType[0].toString());
+        } else {
+            jsonObject.addProperty("networkType", NetworkType.MAINNET.toString());
+        }
         return jsonObject;
     }
 
@@ -41,7 +57,7 @@ public class ErgoExplorer extends Network implements NoteInterface {
         JsonElement testnetExplorerUrlElement = jsonObject.get("testnetExplorerURL");
 
         m_mainnetExplorerUrlString = explorerURLElement != null ? explorerURLElement.getAsString() : ErgoMainnet_EXPLORER_URL;
-        m_testnetExplorerUrlString = testnetExplorerUrlElement != null ? explorerURLElement.getAsString() : ErgoMainnet_EXPLORER_URL;
+        m_testnetExplorerUrlString = testnetExplorerUrlElement != null ? testnetExplorerUrlElement.getAsString() : ErgoTestnet_EXPLORER_URL;
 
     }
 
@@ -56,18 +72,27 @@ public class ErgoExplorer extends Network implements NoteInterface {
     @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjecElement = note.get("subject");
+        JsonElement networkTypeElement = note.get("networkType");
         if (subjecElement != null) {
             switch (subjecElement.getAsString()) {
                 case "GET_BALANCE":
 
                     JsonElement addressElement = note.get("address");
                     if (addressElement != null) {
-                        JsonElement networkTypeElement = note.get("networkType");
+
                         String networkType = networkTypeElement != null ? networkTypeElement.getAsString() : NetworkType.MAINNET.toString();
                         String address = addressElement != null ? addressElement.getAsString() : null;
 
                         getBalance(networkType, address, onSucceeded, onFailed);
                         return true;
+                    }
+                    break;
+                case "GET_ISSUED_TOKENS":
+                    JsonElement tokenIdElement = note.get("tokenId");
+                    if (tokenIdElement != null) {
+                        String networkType = networkTypeElement != null ? networkTypeElement.getAsString() : NetworkType.MAINNET.toString();
+                        String tokenId = tokenIdElement.getAsString();
+                        getIssuedTokens(networkType, tokenId, onSucceeded, onFailed);
                     }
                     break;
             }
@@ -80,9 +105,15 @@ public class ErgoExplorer extends Network implements NoteInterface {
         return m_mainnetExplorerUrlString;
     }
 
+    public void getIssuedTokens(String networkType, String tokenId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        String urlString = networkType.equals(NetworkType.MAINNET.toString()) ? m_mainnetExplorerUrlString : m_testnetExplorerUrlString;
+        urlString += "/api/v1/tokens/" + tokenId;
+        Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
+    }
+
     public void getBalance(String networkType, String address, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
-        String urlString = networkType == NetworkType.MAINNET.toString() ? m_mainnetExplorerUrlString : m_testnetExplorerUrlString;
+        String urlString = networkType.equals(NetworkType.MAINNET.toString()) ? m_mainnetExplorerUrlString : m_testnetExplorerUrlString;
         urlString += "/api/v1/addresses/" + address + "/balance/total";
 
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);

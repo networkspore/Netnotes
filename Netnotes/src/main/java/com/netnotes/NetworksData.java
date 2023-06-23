@@ -19,6 +19,7 @@ import com.google.gson.JsonObject;
 
 import com.netnotes.Network.NetworkID;
 
+import javafx.application.HostServices;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -63,14 +64,16 @@ public class NetworksData {
     private InstallableIcon m_focusedInstallable = null;
 
     private Rectangle m_rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    private HostServices m_hostServices;
 
     //  public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private File logFile = new File("networkData-log.txt");
 
-    public NetworksData(SecretKey secretKey, JsonObject networksObject, File networksFile) {
+    public NetworksData(SecretKey secretKey, HostServices hostServices, JsonObject networksObject, File networksFile) {
         m_secretKey = secretKey;
         m_networksFile = networksFile;
         m_networksBox = new VBox();
+        m_hostServices = hostServices;
 
         try {
             Files.writeString(logFile.toPath(), "networks data\n");
@@ -123,6 +126,10 @@ public class NetworksData {
 
     }
 
+    public HostServices getHostServices() {
+        return m_hostServices;
+    }
+
     public Rectangle getMaximumWindowBounds() {
         return m_rect;
     }
@@ -145,22 +152,16 @@ public class NetworksData {
         // int i = 0;
 
         String networkId = noteInterface.getNetworkId();
-        for (NoteInterface checkInterface : m_noteInterfaceList) {
-            if (checkInterface.getNetworkId().equals(networkId)) {
-                try {
-                    Files.writeString(logFile.toPath(), "\n" + networkId + " Exists install cancelled");
-                } catch (IOException e) {
 
-                }
-                return false;
-            }
+        if (getNoteInterface(networkId) == null) {
+            m_noteInterfaceList.add(noteInterface);
+            noteInterface.addUpdateListener((obs, oldValue, newValue) -> save());
+
+            updateNetworksGrid();
+
+            return true;
         }
-        m_noteInterfaceList.add(noteInterface);
-        noteInterface.addUpdateListener((obs, oldValue, newValue) -> save());
-
-        updateNetworksGrid();
-
-        return true;
+        return false;
     }
 
     public VBox getNetworksBox(double width) {
@@ -546,19 +547,13 @@ public class NetworksData {
     }
 
     public NoteInterface getNoteInterface(String networkId) {
+        if (networkId != null) {
+            for (int i = 0; i < m_noteInterfaceList.size(); i++) {
+                NoteInterface noteInterface = m_noteInterfaceList.get(i);
 
-        for (NoteInterface noteInterface : m_noteInterfaceList) {
-            if (noteInterface.getNetworkId().equals(networkId)) {
-                return noteInterface;
-            }
-        }
-        return null;
-    }
-
-    public NoteInterface getNoteIntefaceByName(String name) {
-        for (NoteInterface noteInterface : m_noteInterfaceList) {
-            if (noteInterface.getName().equals(name)) {
-                return noteInterface;
+                if (noteInterface.getNetworkId().equals(networkId)) {
+                    return noteInterface;
+                }
             }
         }
         return null;

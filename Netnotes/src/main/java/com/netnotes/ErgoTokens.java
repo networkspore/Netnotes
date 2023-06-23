@@ -17,6 +17,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 import org.apache.commons.io.IOUtils;
+import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -31,6 +32,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -50,24 +52,42 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     private File logFile = new File("ErgoTokens-log.txt");
     private File m_dataFile = null;
+    private File m_testnetDataFile = null;
     private File m_appDir = null;
     private Stage m_tokensStage = null;
 
     TokensList m_tokensList = null;
 
+    ArrayList<NoteInterface> m_openTokens = new ArrayList<NoteInterface>();
+
+    private NetworkType m_networkType = NetworkType.MAINNET;
+    private String m_explorerId = NetworkID.ERGO_EXPLORER;
+
     public ErgoTokens(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
 
         m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
+        m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
         setDataFile(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+
     }
 
     public ErgoTokens(JsonObject jsonObject, NetworksData networksData) {
 
         super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
 
+        JsonElement networkTypeElement = jsonObject.get("networkType");
         JsonElement appDirElement = jsonObject.get("appDir");
         JsonElement dataElement = jsonObject.get("dataFile");
+        JsonElement testnetDataElement = jsonObject.get("testnetDataFile");
+
+        if (networkTypeElement != null) {
+            String networkTypeString = networkTypeElement.getAsString();
+
+            if (networkTypeElement.equals(NetworkType.TESTNET.toString())) {
+                m_networkType = NetworkType.TESTNET;
+            }
+        }
 
         if (appDirElement == null) {
             m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
@@ -80,25 +100,42 @@ public class ErgoTokens extends Network implements NoteInterface {
         } else {
             m_dataFile = new File(dataElement.getAsString());
         }
+
+        if (testnetDataElement == null) {
+            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+        } else {
+            m_testnetDataFile = new File(testnetDataElement.getAsString());
+        }
     }
 
     @Override
     public void open() {
 
-        if (m_dataFile == null) {
-
-        }
-
         m_tokensList = new TokensList(getNetworksData().getAppKey(), this);
-
         showTokensStage();
+    }
+
+    public NoteInterface getExplorerInterface() {
+        if (m_explorerId != null) {
+            return getNetworksData().getNoteInterface(m_explorerId);
+        }
+        return null;
+    }
+
+    public void setNetworkType(NetworkType networkType) {
+        m_networkType = networkType;
+        getLastUpdated().set(LocalDateTime.now());
+        m_tokensList.update(getNetworksData().getAppKey());
+    }
+
+    public NetworkType getNetworkType() {
+        return m_networkType;
     }
 
     public void showTokensStage() {
         if (m_tokensStage == null) {
 
-            String title = getName() + ": Tokens";
-            double tokensStageWidth = 310;
+            double tokensStageWidth = 340;
             double tokensStageHeight = 500;
             double buttonHeight = 100;
 
@@ -106,15 +143,55 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_tokensStage.getIcons().add(getIcon());
             m_tokensStage.setResizable(false);
             m_tokensStage.initStyle(StageStyle.UNDECORATED);
-            m_tokensStage.setTitle(title);
+            m_tokensStage.setTitle(getName() + ": Tokens -" + (m_networkType == NetworkType.MAINNET ? "(MAINNET)" : "(TESTNET)"));
 
             Button closeBtn = new Button();
             closeBtn.setOnAction(closeEvent -> {
                 m_tokensStage.close();
                 m_tokensStage = null;
+                m_tokensList.shutdownNow();
             });
 
-            HBox titleBox = App.createTopBar(getIcon(), title, closeBtn, m_tokensStage);
+            Button maxBtn = new Button();
+
+            HBox titleBox = App.createTopBar(getIcon(), maxBtn, closeBtn, m_tokensStage);
+
+            Tooltip toggleTip = new Tooltip((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
+            toggleTip.setShowDelay(new javafx.util.Duration(100));
+            toggleTip.setFont(App.txtFont);
+
+            Button toggleNetworkTypeBtn = new Button();
+            toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
+            toggleNetworkTypeBtn.setId("menuBtn");
+            toggleNetworkTypeBtn.setTooltip(toggleTip);
+            toggleNetworkTypeBtn.setOnAction(e -> {
+                setNetworkType(m_networkType == NetworkType.MAINNET ? NetworkType.TESTNET : NetworkType.MAINNET);
+                toggleTip.setText((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
+                toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
+                m_tokensStage.setTitle(getName() + ": Tokens -" + (m_networkType == NetworkType.MAINNET ? "(MAINNET)" : "(TESTNET)"));
+            });
+
+            Tooltip explorerTip = new Tooltip(getExplorerInterface() == null ? "Explorer disabled" : getExplorerInterface().getName());
+            explorerTip.setShowDelay(new javafx.util.Duration(100));
+            explorerTip.setFont(App.txtFont);
+
+            MenuButton explorerBtn = new MenuButton();
+            explorerBtn.setGraphic(getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(getNetworksData(), getExplorerInterface().getNetworkId(), true).getIcon(), 30));
+            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+            explorerBtn.setTooltip(explorerTip);
+
+            HBox rightSideMenu = new HBox(explorerBtn);
+            rightSideMenu.setId("rightSideMenuBar");
+            rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            HBox menuBar = new HBox(toggleNetworkTypeBtn, spacer, rightSideMenu);
+            HBox.setHgrow(menuBar, Priority.ALWAYS);
+            menuBar.setAlignment(Pos.CENTER_LEFT);
+            menuBar.setId("menuBar");
+            menuBar.setPadding(new Insets(1, 0, 1, 5));
 
             ImageView addImage = new ImageView(App.addImg);
             addImage.setFitHeight(10);
@@ -171,12 +248,12 @@ public class ErgoTokens extends Network implements NoteInterface {
                 //m_walletsData.showAddWalletStage();
             });
 
-            layoutVBox.getChildren().addAll(scrollPane, menuBox);
+            layoutVBox.getChildren().addAll(menuBar, scrollPane, menuBox);
 
             Scene tokensScene = new Scene(layoutVBox, tokensStageWidth, tokensStageHeight);
 
             scrollPane.prefViewportWidthProperty().bind(tokensScene.widthProperty());
-            scrollPane.prefViewportHeightProperty().bind(tokensScene.heightProperty().subtract(140));
+            scrollPane.prefViewportHeightProperty().bind(tokensScene.heightProperty().subtract(menuBar.heightProperty()).subtract(menuBox.heightProperty()));
 
             tokensBox.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
             //  bodyBox.prefHeightProperty().bind(tokensScene.heightProperty() - 40 - 100);
@@ -200,6 +277,15 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     public File getDataFile() {
         return m_dataFile;
+    }
+
+    public File getTestnetDataFile() {
+        return m_testnetDataFile;
+    }
+
+    private void setTestnetDataFile(String fileString) {
+        m_testnetDataFile = new File(fileString);
+        getLastUpdated().set(LocalDateTime.now());
     }
 
     @Override
