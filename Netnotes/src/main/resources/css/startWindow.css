@@ -298,6 +298,7 @@
 
 #centeredTextArea *.text {
     -fx-text-alignment: center;
+    -fx-background-color: #33333350;
 }
 
 #menuBox {

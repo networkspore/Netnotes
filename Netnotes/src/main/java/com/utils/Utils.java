@@ -100,6 +100,22 @@ public class Utils {
 
     }
 
+    public static JsonObject getNetworkTypeObject() {
+        JsonObject getExplorerObject = new JsonObject();
+
+        getExplorerObject.addProperty("subject", "GET_NETWORK_TYPE");
+
+        return getExplorerObject;
+    }
+
+    public static JsonObject getExplorerInterfaceIdObject() {
+        JsonObject getExplorerObject = new JsonObject();
+
+        getExplorerObject.addProperty("subject", "GET_EXPLORER_INTERFACE_ID");
+
+        return getExplorerObject;
+    }
+
     public static byte[] digestBytesToBytes(byte[] bytes, String... instance) throws Exception {
         String digestInstance = instance != null && instance.length > 0 ? instance[0] : Blake2b.BLAKE2_B_256;
 

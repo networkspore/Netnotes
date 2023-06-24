@@ -33,15 +33,12 @@ public class ErgoExplorer extends Network implements NoteInterface {
         return jsonObject;
     }
 
-    public static JsonObject getIssuedTokensNote(String tokenId, NetworkType... networkType) {
+    public static JsonObject getTokenInfoObject(String tokenId, NetworkType networkType) {
         JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("subject", "GET_ISSUED_TOKENS");
+        jsonObject.addProperty("subject", "GET_TOKEN_INFO");
         jsonObject.addProperty("tokenId", tokenId);
-        if (networkType != null && networkType.length > 0) {
-            jsonObject.addProperty("networkType", networkType[0].toString());
-        } else {
-            jsonObject.addProperty("networkType", NetworkType.MAINNET.toString());
-        }
+        jsonObject.addProperty("networkType", networkType.toString());
+
         return jsonObject;
     }
 
@@ -87,12 +84,15 @@ public class ErgoExplorer extends Network implements NoteInterface {
                         return true;
                     }
                     break;
-                case "GET_ISSUED_TOKENS":
+                case "GET_TOKEN_INFO":
                     JsonElement tokenIdElement = note.get("tokenId");
-                    if (tokenIdElement != null) {
-                        String networkType = networkTypeElement != null ? networkTypeElement.getAsString() : NetworkType.MAINNET.toString();
+                    if (tokenIdElement != null && networkTypeElement != null) {
+                        String networktypeString = networkTypeElement.getAsString();
+
+                        NetworkType networkType = networktypeString.equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : NetworkType.TESTNET;
                         String tokenId = tokenIdElement.getAsString();
-                        getIssuedTokens(networkType, tokenId, onSucceeded, onFailed);
+
+                        getTokenInfo(tokenId, networkType, onSucceeded, onFailed);
                     }
                     break;
             }
@@ -105,8 +105,8 @@ public class ErgoExplorer extends Network implements NoteInterface {
         return m_mainnetExplorerUrlString;
     }
 
-    public void getIssuedTokens(String networkType, String tokenId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        String urlString = networkType.equals(NetworkType.MAINNET.toString()) ? m_mainnetExplorerUrlString : m_testnetExplorerUrlString;
+    public void getTokenInfo(String tokenId, NetworkType networkType, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        String urlString = networkType == NetworkType.MAINNET ? m_mainnetExplorerUrlString : m_testnetExplorerUrlString;
         urlString += "/api/v1/tokens/" + tokenId;
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
     }
