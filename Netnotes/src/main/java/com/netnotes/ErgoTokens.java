@@ -323,7 +323,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
             addButton.setOnAction(actionEvent -> {
-                m_tokensStage.setScene(tokensList.getExistingTokenScene(m_networkType, m_tokensStage, tokensScene));
+                m_tokensStage.setScene(tokensList.getExistingTokenScene(null, m_networkType, m_tokensStage, tokensScene));
                 ResizeHelper.addResizeListener(m_tokensStage, 450, 575, rect.getWidth(), rect.getHeight());
             });
 
@@ -367,6 +367,13 @@ public class ErgoTokens extends Network implements NoteInterface {
 
         if (subjectElement != null) {
             switch (subjectElement.getAsString()) {
+                case "GET_ERGO_TOKENS_STAGE":
+                    if (m_tokensStage == null) {
+                        open();
+                    }
+                    Utils.returnObject(m_tokensStage, onSucceeded, onFailed);
+                    break;
+
                 case "GET_DATAFILE_LOCATION":
                     if (networkTypeElement != null) {
                         String networkTypeString = networkTypeElement.getAsString();

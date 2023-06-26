@@ -188,6 +188,7 @@ public class Network extends IconButton {
 
     public void remove() {
         removeUpdateListener();
+
     }
 
 }

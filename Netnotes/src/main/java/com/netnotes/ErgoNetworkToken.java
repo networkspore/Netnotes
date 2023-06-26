@@ -60,6 +60,8 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
     private Stage m_ergoTokenStage = null;
 
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
+    private SimpleObjectProperty<JsonObject> m_cmdProperty = new SimpleObjectProperty<JsonObject>(null);
+    private ChangeListener<JsonObject> m_cmdListener;
 
     public ErgoNetworkToken(String name, String tokenId, JsonObject jsonObject, NoteInterface noteInterface) {
         super(null, name, tokenId, noteInterface);
@@ -119,7 +121,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         setIconStyle(IconStyle.ROW);
 
         m_imageFile = imageFile;
-
+        setGraphicTextGap(15);
     }
 
     @Override
@@ -273,7 +275,20 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            HBox menuBar = new HBox(spacer, rightSideMenu);
+            Tooltip editTip = new Tooltip("Edit");
+            editTip.setShowDelay(new javafx.util.Duration(100));
+            editTip.setFont(App.txtFont);
+
+            Button editButton = new Button();
+            editButton.setGraphic(IconButton.getIconView(new Image("/assets/options-outline-white-30.png"), 30));
+            editButton.setId("menuBtn");
+            editButton.setTooltip(editTip);
+            editButton.setOnAction(e -> {
+                m_cmdProperty.set(getEditTokenJson());
+
+            });
+
+            HBox menuBar = new HBox(editButton, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -416,6 +431,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         JsonObject jsonObject = super.getJsonObject();
         jsonObject.addProperty("imageString", m_imageFile.getAbsolutePath());
         jsonObject.addProperty("url", m_urlString);
+        jsonObject.addProperty("tokenId", getTokenId());
         jsonObject.addProperty("sceneWidth", m_sceneWidth.get());
         jsonObject.addProperty("sceneHeight", m_sceneHeight.get());
         jsonObject.addProperty("networkType", m_networkType.toString());
@@ -437,6 +453,13 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         return m_urlString;
     }
 
+    public JsonObject getEditTokenJson() {
+        JsonObject editObject = new JsonObject();
+        editObject.addProperty("subject", "EDIT");
+        editObject.addProperty("timeStamp", Utils.getNowEpochMillis());
+        return editObject;
+    }
+
     @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjectElement = note.get("subject");
@@ -448,6 +471,21 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             }
         }
         return false;
+    }
+
+    public void addCmdListener(ChangeListener<JsonObject> cmdListener) {
+        m_cmdListener = cmdListener;
+        if (m_cmdListener != null) {
+            m_cmdProperty.addListener(m_cmdListener);
+        }
+        // m_lastUpdated.addListener();
+    }
+
+    public void removeCmdListener() {
+        if (m_cmdListener != null) {
+            m_cmdProperty.removeListener(m_cmdListener);
+            m_cmdListener = null;
+        }
     }
 
     @Override
