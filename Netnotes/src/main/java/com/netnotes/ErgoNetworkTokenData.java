@@ -49,6 +49,10 @@ public class ErgoNetworkTokenData {
         //  }
     }
 
+    public String getTokenId() {
+        return m_id;
+    }
+
     public long timeStamp() {
         return m_timeStampEpochMillis;
     }
@@ -59,10 +63,6 @@ public class ErgoNetworkTokenData {
 
     public String getExplorerId() {
         return m_explorerId;
-    }
-
-    public String getTokenId() {
-        return m_id;
     }
 
     public String getBoxId() {

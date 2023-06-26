@@ -157,9 +157,15 @@ public class ErgoTokens extends Network implements NoteInterface {
         if (m_tokensStage == null) {
 
             TokensList tokensList = new TokensList(m_networkType, this);
-            /*  tokensList.addUpdateListener((obs, oldVal, newVal) -> {
-                save(getNetworksData().getAppKey(), tokensList.getTunnelNoteInterfaces(), m_networkType);
-            }); */
+            tokensList.addUpdateListener((obs, oldVal, newVal) -> {
+                ArrayList<NoteInterface> list = tokensList.getTunnelNoteInterfaces();
+                try {
+                    Files.writeString(logFile.toPath(), "\nSaving updates", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+
+                }
+                save(getNetworksData().getAppKey(), list, m_networkType);
+            });
 
             double tokensStageWidth = 375;
             double tokensStageHeight = 500;
@@ -302,10 +308,6 @@ public class ErgoTokens extends Network implements NoteInterface {
             menuBox.setPadding(new Insets(5, 5, 5, 5));
             menuBox.setPrefHeight(buttonHeight);
 
-            addButton.setOnAction(event -> {
-                //m_walletsData.showAddWalletStage();
-            });
-
             layoutVBox.getChildren().addAll(menuBar, scrollPane, menuBox);
 
             Scene tokensScene = new Scene(layoutVBox, tokensStageWidth, tokensStageHeight);
@@ -319,6 +321,11 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_tokensStage.setScene(tokensScene);
 
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
+
+            addButton.setOnAction(actionEvent -> {
+                m_tokensStage.setScene(tokensList.getExistingTokenScene(m_networkType, m_tokensStage, tokensScene));
+                ResizeHelper.addResizeListener(m_tokensStage, 450, 575, rect.getWidth(), rect.getHeight());
+            });
 
             ResizeHelper.addResizeListener(m_tokensStage, tokensStageWidth, tokensStageHeight, rect.width, rect.height);
             m_tokensStage.setOnCloseRequest(windowEvent -> {

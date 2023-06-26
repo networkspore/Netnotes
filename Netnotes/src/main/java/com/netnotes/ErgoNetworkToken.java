@@ -125,7 +125,14 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
     @Override
     public void open() {
         super.open();
-        updateExplorerTokenInfo();
+        ErgoNetworkTokenData tokenData = m_ergoNetworkTokenData.get();
+        if (tokenData == null) {
+            updateTokenInfo();
+        } else {
+            if (m_ergoNetworkTokenData.get().timeStamp() == 0) {
+                updateTokenInfo();
+            }
+        }
         showTokenStage();
     }
 
@@ -133,7 +140,11 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         return m_explorerVerified;
     }
 
-    public void updateExplorerTokenInfo() {
+    public NetworkType getNetworkType() {
+        return m_networkType;
+    }
+
+    public void updateTokenInfo() {
 
         getParentInterface().sendNote(Utils.getExplorerInterfaceIdObject(), success -> {
             WorkerStateEvent event = success;
@@ -180,6 +191,10 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         }, failed -> {
         });
 
+    }
+
+    public SimpleObjectProperty<ErgoNetworkTokenData> tokenDataProperty() {
+        return m_ergoNetworkTokenData;
     }
 
     public void showTokenStage() {
@@ -418,6 +433,10 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         return getNetworkId();
     }
 
+    public String getUrlString() {
+        return m_urlString;
+    }
+
     @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjectElement = note.get("subject");
@@ -429,6 +448,11 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             }
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return getName();
     }
 
 }

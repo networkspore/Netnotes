@@ -1,34 +1,9 @@
 package com.netnotes;
 
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-
-import java.awt.image.BufferedImage;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.regex.Pattern;
 
-import com.utils.Utils;
-
-import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.SimpleObjectProperty;
-import javafx.embed.swing.SwingFXUtils;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.MenuButton;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Alert.AlertType;
-import javafx.scene.image.Image;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.KeyCode;
+
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;

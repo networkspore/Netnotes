@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -47,6 +48,7 @@ import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import mslinks.ShellLinkException;
 import mslinks.ShellLinkHelper;
+import scala.util.Try;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -480,5 +482,46 @@ public class Utils {
                 byteBuffer.position(), byteBuffer.limit());
         Arrays.fill(byteBuffer.array(), (byte) 0); // clear sensitive data
         return bytes;
+    }
+
+    public static void checkAddress(String addressString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        Task<byte[]> task = new Task<byte[]>() {
+            @Override
+            public byte[] call() throws Exception {
+
+                byte[] addressBytes = null;
+
+                Try<byte[]> bytes = scorex.util.encode.Base58.decode(addressString);
+
+                addressBytes = bytes.get();
+
+                byte[] checksumBytes = new byte[]{addressBytes[addressBytes.length - 4], addressBytes[addressBytes.length - 3], addressBytes[addressBytes.length - 2], addressBytes[addressBytes.length - 1]};
+
+                byte[] testBytes = new byte[addressBytes.length - 4];
+
+                for (int i = 0; i < addressBytes.length - 4; i++) {
+                    testBytes[i] = addressBytes[i];
+                }
+
+                byte[] hashBytes = Utils.digestBytesToBytes(testBytes, Blake2b.BLAKE2_B_256);
+
+                if (!(checksumBytes[0] == hashBytes[0]
+                        && checksumBytes[1] == hashBytes[1]
+                        && checksumBytes[2] == hashBytes[2]
+                        && checksumBytes[3] == hashBytes[3])) {
+                    return null;
+                }
+
+                return addressBytes;
+            }
+        };
+
+        task.setOnSucceeded(onSucceeded);
+
+        task.setOnFailed(onFailed);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
     }
 }

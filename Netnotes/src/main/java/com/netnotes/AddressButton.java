@@ -109,25 +109,22 @@ public class AddressButton extends Button {
 
         if (addressString.length() > 5) {
             //^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$
-            if (Pattern.matches("^[A-HJ-NP-Za-km-z1-9]*$", addressString)) {
-                checkAddress(addressString, successEvent -> {
-                    WorkerStateEvent workerEvent = successEvent;
-                    Object workerObject = workerEvent.getSource().getValue();
-                    if (workerObject != null && workerObject instanceof byte[]) {
 
-                        byte[] addressBytes = (byte[]) workerObject;
+            checkAddress(addressString, successEvent -> {
+                WorkerStateEvent workerEvent = successEvent;
+                Object workerObject = workerEvent.getSource().getValue();
+                if (workerObject != null && workerObject instanceof byte[]) {
 
-                        Utils.returnObject(updateAddress(addressBytes, addressString), onSucceeded, null);
+                    byte[] addressBytes = (byte[]) workerObject;
 
-                    } else {
-                        setDefault("");
-                    }
-                }, failure -> {
+                    Utils.returnObject(updateAddress(addressBytes, addressString), onSucceeded, null);
+
+                } else {
                     setDefault("");
-                });
-            } else {
+                }
+            }, failure -> {
                 setDefault("");
-            }
+            });
 
         } else {
             setDefault("");

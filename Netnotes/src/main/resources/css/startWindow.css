@@ -170,6 +170,9 @@
 #transparentColor {
     -fx-background-color: transparent;
 }
+#whiteColor {
+    -fx-background-color: white;
+}
 
 #gridPane {
     -fx-background-color: red;

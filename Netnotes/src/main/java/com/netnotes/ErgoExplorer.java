@@ -15,6 +15,9 @@ public class ErgoExplorer extends Network implements NoteInterface {
     public final static String DESCRIPTION = "Ergo Explorer allows you to explore and search the Ergo blockchain.";
     public final static String SUMMARY = "Installing the Ergo Explorer allows balance and transaction information to be looked up for wallet addresses.";
     public final static String NAME = "Ergo Explorer";
+    public final static String MAINNET_EXPLORER_URL = "https://explorer.ergoplatform.com/";
+    public final static String TESTNET_EXPLORER_URL = "https://testnet.ergoplatform.com/";
+
     public final static String ErgoMainnet_EXPLORER_URL = "https://api.ergoplatform.com";
     public final static String ErgoTestnet_EXPLORER_URL = "https://api-testnet.ergoplatform.com";
 
