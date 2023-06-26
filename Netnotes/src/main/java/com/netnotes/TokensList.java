@@ -70,10 +70,9 @@ public class TokensList extends Network {
     private ArrayList<ErgoNetworkToken> m_networkTokenList = new ArrayList<>();
     private VBox m_buttonGrid = null;
     private SimpleDoubleProperty m_sceneWidth = new SimpleDoubleProperty(600);
-    private SimpleDoubleProperty m_sceneHeight = new SimpleDoubleProperty(585);
+    private SimpleDoubleProperty m_sceneHeight = new SimpleDoubleProperty(630);
 
-    private SimpleObjectProperty<ErgoNetworkToken> m_ergoNetworkToken = new SimpleObjectProperty<ErgoNetworkToken>(null);
-
+    //private SimpleObjectProperty<ErgoNetworkToken> m_ergoNetworkToken = new SimpleObjectProperty<ErgoNetworkToken>(null);
     public TokensList(NetworkType networkType, NoteInterface noteInterface) {
         super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", noteInterface);
 
@@ -87,10 +86,9 @@ public class TokensList extends Network {
 
     }
 
-    public SimpleObjectProperty<ErgoNetworkToken> getTokenProperty() {
+    /* public SimpleObjectProperty<ErgoNetworkToken> getTokenProperty() {
         return m_ergoNetworkToken;
-    }
-
+    }*/
     public void getFile(NetworkType networkType) {
         if (getParentInterface().getNetworksData().getNoteInterface(NetworkID.ERGO_TOKENS) != null) {
             getParentInterface().getNetworksData().getNoteInterface(NetworkID.ERGO_TOKENS).sendNote(getDataFileLocation(networkType), onSuccess -> {
@@ -268,7 +266,7 @@ public class TokensList extends Network {
                                             sourceStage.setScene(getExistingTokenScene(token, networkType, sourceStage, sourceScene));
                                             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
-                                            ResizeHelper.addResizeListener(sourceStage, 600, 585, rect.getWidth(), rect.getHeight());
+                                            ResizeHelper.addResizeListener(sourceStage, 500, 615, rect.getWidth(), rect.getHeight());
                                         }
                                     }, failed -> {
                                     });
@@ -286,10 +284,14 @@ public class TokensList extends Network {
         if (networkId != null) {
             ErgoNetworkToken networkToken = getErgoToken(networkId);
             if (networkToken != null) {
+
                 networkToken.removeUpdateListener();
                 networkToken.removeCmdListener();
-                m_networkTokenList.remove(networkToken);
+                networkToken.sendNote(getShutdownObject(), null, null);
 
+                m_networkTokenList.remove(networkToken);
+                updateGrid();
+                getLastUpdated().set(LocalDateTime.now());
             }
         }
     }

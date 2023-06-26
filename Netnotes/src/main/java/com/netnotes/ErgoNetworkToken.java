@@ -391,7 +391,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             m_ergoTokenStage.setScene(tokenScene);
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
-            ResizeHelper.addResizeListener(m_ergoTokenStage, 300, 400, rect.getWidth(), rect.getHeight());
+            ResizeHelper.addResizeListener(m_ergoTokenStage, 300, 600, rect.getWidth(), rect.getHeight());
             m_ergoTokenStage.show();
 
             urlLink.maxWidthProperty().bind(tokenScene.widthProperty().multiply(0.75));

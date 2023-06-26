@@ -19,6 +19,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -168,7 +169,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             });
 
             double tokensStageWidth = 375;
-            double tokensStageHeight = 500;
+            double tokensStageHeight = 600;
             double buttonHeight = 100;
 
             m_tokensStage = new Stage();
@@ -294,15 +295,37 @@ public class ErgoTokens extends Network implements NoteInterface {
             removeTip.setFont(App.txtFont);
 
             Button removeButton = new Button("Remove");
-            // removeButton.setGraphic(addImage);
+
             removeButton.setId("menuBarBtnDisabled");
             removeButton.setPadding(new Insets(2, 6, 2, 6));
             removeButton.setTooltip(removeTip);
             removeButton.setDisable(true);
             removeButton.setPrefWidth(tokensStageWidth / 2);
             removeButton.setPrefHeight(buttonHeight);
+            removeButton.setUserData(null);
+
+            removeButton.setOnAction(action -> {
+                Object removeButtonData = removeButton.getUserData();
+
+                if (removeButtonData != null && removeButtonData instanceof ErgoNetworkToken) {
+                    ErgoNetworkToken selectedToken = (ErgoNetworkToken) removeButtonData;
+
+                    Alert a = new Alert(AlertType.NONE, "Would you like to remove '" + selectedToken.getName() + "' from Ergo Tokens?", ButtonType.NO, ButtonType.YES);
+                    a.initOwner(m_tokensStage);
+                    a.setTitle("Remove Token - " + selectedToken.getName());
+                    a.setGraphic(IconButton.getIconView(selectedToken.getIcon(), 40));
+                    a.setHeaderText("Remove Token");
+                    Optional<ButtonType> result = a.showAndWait();
+
+                    if (result.isPresent() && result.get() == ButtonType.YES) {
+
+                        tokensList.removeToken(selectedToken.getNetworkId());
+                    }
+                }
+            });
 
             HBox menuBox = new HBox(addButton, removeButton);
+            HBox.setHgrow(menuBox, Priority.ALWAYS);
             menuBox.setId("blackMenu");
             menuBox.setAlignment(Pos.CENTER_LEFT);
             menuBox.setPadding(new Insets(5, 5, 5, 5));
@@ -312,8 +335,28 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             Scene tokensScene = new Scene(layoutVBox, tokensStageWidth, tokensStageHeight);
 
+            tokensScene.focusOwnerProperty().addListener((e) -> {
+                Object focusOwnerObject = tokensScene.focusOwnerProperty().get();
+                if (focusOwnerObject instanceof ErgoNetworkToken) {
+                    removeButton.setUserData(focusOwnerObject);
+                    removeButton.setDisable(false);
+                    removeButton.setId("menuBarBtn");
+                } else {
+                    if (focusOwnerObject instanceof Button && ((Button) focusOwnerObject).getText().equals("Remove")) {
+
+                    } else {
+                        removeButton.setUserData(null);
+                        removeButton.setDisable(true);
+                        removeButton.setId("menuBarBtnDisabled");
+                    }
+                }
+            });
+
             scrollPane.prefViewportWidthProperty().bind(tokensScene.widthProperty());
             scrollPane.prefViewportHeightProperty().bind(tokensScene.heightProperty().subtract(menuBar.heightProperty()).subtract(menuBox.heightProperty()));
+
+            addButton.prefWidthProperty().bind(menuBox.widthProperty().divide(2));
+            removeButton.prefWidthProperty().bind(menuBox.widthProperty().divide(2));
 
             tokensBox.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
             //  bodyBox.prefHeightProperty().bind(tokensScene.heightProperty() - 40 - 100);
@@ -324,10 +367,10 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             addButton.setOnAction(actionEvent -> {
                 m_tokensStage.setScene(tokensList.getExistingTokenScene(null, m_networkType, m_tokensStage, tokensScene));
-                ResizeHelper.addResizeListener(m_tokensStage, 450, 575, rect.getWidth(), rect.getHeight());
+                ResizeHelper.addResizeListener(m_tokensStage, 500, 620, rect.getWidth(), rect.getHeight());
             });
 
-            ResizeHelper.addResizeListener(m_tokensStage, tokensStageWidth, tokensStageHeight, rect.width, rect.height);
+            ResizeHelper.addResizeListener(m_tokensStage, 300, 400, rect.width, rect.height);
             m_tokensStage.setOnCloseRequest(windowEvent -> {
                 tokensList.closeAll();
                 tokensList.removeUpdateListener();
