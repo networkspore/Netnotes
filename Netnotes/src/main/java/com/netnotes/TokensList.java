@@ -401,7 +401,7 @@ public class TokensList extends Network {
         File tokenImageFile = token != null && token.getImageFile() != null && token.getImageFile().isFile() ? token.getImageFile() : null;
         ImageView imageView = IconButton.getIconView(tokenImageFile == null ? getParentInterface().getButton().getIcon() : new Image(tokenImageFile.toString()), 135);
 
-        Button imageBtn = new Button(token.getName());
+        Button imageBtn = new Button(token.getName().equals("") ? "New Token" : token.getName());
         imageBtn.setContentDisplay(ContentDisplay.TOP);
         imageBtn.setGraphicTextGap(20);
         imageBtn.setFont(App.mainFont);
@@ -539,6 +539,12 @@ public class TokensList extends Network {
         nameBox.setAlignment(Pos.CENTER_LEFT);
         nameBox.setPadding(new Insets(5, 0, 5, 0));
 
+        Button nameEnterBtn = new Button("[ Enter ]");
+        nameEnterBtn.setFont(App.txtFont);
+        nameEnterBtn.setId("toolBtn");
+        nameEnterBtn.setPadding(new Insets(5, 5, 5, 5));
+        nameEnterBtn.prefWidth(75);
+
         nameButton.setOnAction(event -> {
             nameBox.getChildren().remove(nameButton);
             nameBox.getChildren().add(nameField);
@@ -556,6 +562,46 @@ public class TokensList extends Network {
                 String text = nameField.getText();
 
                 nameButton.setText(text.equals("") ? "Enter name" : text);
+                imageBtn.setText(nameField.getText().equals("") ? "New Token" : nameField.getText());
+                if (nameBox.getChildren().contains(nameEnterBtn)) {
+                    nameBox.getChildren().remove(nameEnterBtn);
+                }
+            }
+        });
+
+        nameField.setOnKeyPressed(keyEvent -> {
+            KeyCode keyCode = keyEvent.getCode();
+
+            if (keyCode == KeyCode.ENTER) {
+                nameBox.getChildren().remove(nameField);
+                nameBox.getChildren().add(nameButton);
+                nameSpacerBtn.setId("transparentColor");
+                String text = nameField.getText();
+
+                nameButton.setText(text.equals("") ? "Enter name" : text);
+                imageBtn.setText(nameField.getText().equals("") ? "New Token" : nameField.getText());
+                if (nameBox.getChildren().contains(nameEnterBtn)) {
+                    nameBox.getChildren().remove(nameEnterBtn);
+                }
+            }
+        });
+
+        nameField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!nameBox.getChildren().contains(nameEnterBtn)) {
+                nameBox.getChildren().add(nameEnterBtn);
+            }
+        });
+
+        nameEnterBtn.setOnAction(action -> {
+            nameBox.getChildren().remove(nameField);
+            nameBox.getChildren().add(nameButton);
+            nameSpacerBtn.setId("transparentColor");
+            String text = nameField.getText();
+
+            nameButton.setText(text.equals("") ? "Enter name" : text);
+            imageBtn.setText(nameField.getText().equals("") ? "New Token" : nameField.getText());
+            if (nameBox.getChildren().contains(nameEnterBtn)) {
+                nameBox.getChildren().remove(nameEnterBtn);
             }
         });
 
@@ -807,9 +853,10 @@ public class TokensList extends Network {
                         ErgoNetworkToken oldToken = getErgoToken(newToken.getTokenId());
 
                         if (oldToken != null) {
-                            Alert tokenAlert = new Alert(AlertType.NONE, "Warning\n\n\nToken Id already in Ergo Tokens. \n\nWould you like to replace the token?", ButtonType.NO, ButtonType.YES);
+                            Alert tokenAlert = new Alert(AlertType.NONE, "Warning\n\n\nA token named '" + oldToken.getName() + "' exists with this token Id. Would you like to overwrite it?\n\n(Token Id:" + oldToken.getTokenId() + ")", ButtonType.NO, ButtonType.YES);
                             tokenAlert.initOwner(parentStage);
                             tokenAlert.setGraphic(IconButton.getIconView(new Image(newToken.getImageFile().getAbsolutePath()), 40));
+                            tokenAlert.setTitle("Replace or skip");
                             Optional<ButtonType> result = tokenAlert.showAndWait();
                             if (result.isPresent() && result.get() == ButtonType.YES) {
                                 m_networkTokenList.set(m_networkTokenList.indexOf(oldToken), newToken);
@@ -822,6 +869,7 @@ public class TokensList extends Network {
                             if (getTokenByName(newToken.getName()) != null) {
                                 Alert tokenAlert = new Alert(AlertType.NONE, "Token name already exists in Ergo Tokens. \n\nPlease enter a new name.", ButtonType.OK);
                                 tokenAlert.initOwner(parentStage);
+                                tokenAlert.setTitle("Cancel");
                                 tokenAlert.setGraphic(IconButton.getIconView(getParentInterface().getButton().getIcon(), 75));
                             } else {
                                 m_networkTokenList.add(newToken);
