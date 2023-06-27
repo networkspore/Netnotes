@@ -59,6 +59,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -83,11 +84,26 @@ public class ErgoTokens extends Network implements NoteInterface {
         super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
 
         m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
-        m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
-        setDataFile(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
-        File tokensDir = new File(m_appDir.getAbsolutePath() + "\\tokens");
 
-        setupTokens(getNetworksData().getAppKey(), tokensDir);
+        if (!m_appDir.isDirectory()) {
+
+            try {
+                Files.createDirectories(m_appDir.toPath());
+            } catch (IOException e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.show();
+            }
+            File tokensDir = new File(m_appDir.getAbsolutePath() + "\tokens");
+
+            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+
+            setupTokens(tokensDir);
+        } else {
+            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+        }
+
     }
 
     public ErgoTokens(JsonObject jsonObject, NetworksData networksData) {
@@ -105,30 +121,51 @@ public class ErgoTokens extends Network implements NoteInterface {
             }
         }
 
-        if (appDirElement == null) {
-            m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
-        } else {
+        if (appDirElement != null) {
             m_appDir = new File(appDirElement.getAsString());
-        }
-
-        if (dataElement == null) {
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
         } else {
-            m_dataFile = new File(dataElement.getAsString());
+
+            m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
         }
 
-        if (testnetDataElement == null) {
-            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+        if (!m_appDir.isDirectory()) {
+
+            try {
+                Files.createDirectories(m_appDir.toPath());
+            } catch (IOException e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.show();
+            }
+            File tokensDir = new File(m_appDir.getAbsolutePath() + "\tokens");
+
+            if (dataElement == null) {
+                m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+            } else {
+                m_dataFile = new File(dataElement.getAsString());
+            }
+
+            if (testnetDataElement == null) {
+                m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+            } else {
+                m_testnetDataFile = new File(testnetDataElement.getAsString());
+            }
+
+            setupTokens(tokensDir);
         } else {
-            m_testnetDataFile = new File(testnetDataElement.getAsString());
+
+            if (dataElement == null) {
+                m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+            } else {
+                m_dataFile = new File(dataElement.getAsString());
+            }
+
+            if (testnetDataElement == null) {
+                m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+            } else {
+                m_testnetDataFile = new File(testnetDataElement.getAsString());
+            }
         }
 
-        File tokensDir = new File(m_appDir.getAbsolutePath() + "\\tokens");
-
-        if (!tokensDir.isDirectory()) {
-
-            setupTokens(getNetworksData().getAppKey(), tokensDir);
-        }
     }
 
     @Override
@@ -159,13 +196,13 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             TokensList tokensList = new TokensList(m_networkType, this);
             tokensList.addUpdateListener((obs, oldVal, newVal) -> {
-                ArrayList<NoteInterface> list = tokensList.getTunnelNoteInterfaces();
+
                 try {
                     Files.writeString(logFile.toPath(), "\nSaving updates", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e) {
 
                 }
-                save(getNetworksData().getAppKey(), list, m_networkType);
+                save(getNetworksData().getAppKey(), tokensList.getJsonObject(), m_networkType);
             });
 
             double tokensStageWidth = 375;
@@ -188,6 +225,31 @@ public class ErgoTokens extends Network implements NoteInterface {
             Button maxBtn = new Button();
 
             HBox titleBox = App.createTopBar(getIcon(), maxBtn, closeBtn, m_tokensStage);
+
+            Tooltip loadTip = new Tooltip("Load from file...");
+            loadTip.setShowDelay(new javafx.util.Duration(100));
+            loadTip.setFont(App.txtFont);
+
+            Button loadBtn = new Button();
+            loadBtn.setGraphic(null);
+
+            Tooltip saveTip = new Tooltip("Save to file...");
+            saveTip.setShowDelay(new javafx.util.Duration(100));
+            saveTip.setFont(App.txtFont);
+
+            Button saveBtn = new Button();
+            saveBtn.setGraphic(null);
+
+            saveBtn.setOnAction(action -> {
+                FileChooser chooser = new FileChooser();
+                chooser.setTitle("Save tokens file...");
+                chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("text/json", "*.json"));
+                File saveFile = chooser.showSaveDialog(m_tokensStage);
+
+                if (saveFile != null) {
+
+                }
+            });
 
             Tooltip toggleTip = new Tooltip((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
             toggleTip.setShowDelay(new javafx.util.Duration(100));
@@ -385,22 +447,12 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     }
 
-    private void setDataFile(String fileString) {
-        m_dataFile = new File(fileString);
-        getLastUpdated().set(LocalDateTime.now());
-    }
-
     public File getDataFile() {
         return m_dataFile;
     }
 
     public File getTestnetDataFile() {
         return m_testnetDataFile;
-    }
-
-    private void setTestnetDataFile(String fileString) {
-        m_testnetDataFile = new File(fileString);
-        getLastUpdated().set(LocalDateTime.now());
     }
 
     @Override
@@ -472,17 +524,8 @@ public class ErgoTokens extends Network implements NoteInterface {
         return json;
     }
 
-    public void setupTokens(SecretKey appKey, File tokensDir) {
+    public void setupTokens(File tokensDir) {
 
-        if (!m_appDir.isDirectory()) {
-
-            try {
-                Files.createDirectories(m_appDir.toPath());
-            } catch (IOException e) {
-                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                a.show();
-            }
-        }
         boolean createdtokensDirectory = false;
         if (!tokensDir.isDirectory()) {
             try {
@@ -496,7 +539,7 @@ public class ErgoTokens extends Network implements NoteInterface {
         }
 
         if (tokensDir.isDirectory() && createdtokensDirectory) {
-            ArrayList<NoteInterface> ergoTokenList = new ArrayList<NoteInterface>();
+            ArrayList<ErgoNetworkToken> ergoTokenList = new ArrayList<ErgoNetworkToken>();
             try {
                 Files.writeString(logFile.toPath(), "\nUnzipping", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
@@ -586,11 +629,10 @@ public class ErgoTokens extends Network implements NoteInterface {
                 }
             }
 
-            //  }
-            if (ergoTokenList.size() > 0) {
-                save(appKey, ergoTokenList, NetworkType.MAINNET);
-            }
+            TokensList tokensList = new TokensList(ergoTokenList, m_networkType, this);
+            save(getNetworksData().getAppKey(), tokensList.getJsonObject(), m_networkType);
         }
+
     }
 
     public ErgoNetworkToken createToken(String key, File imageFile) {
@@ -689,23 +731,7 @@ public class ErgoTokens extends Network implements NoteInterface {
         return ergoToken;
     }
 
-    public void save(SecretKey appKey, ArrayList<NoteInterface> tokensList, NetworkType networkType) {
-
-        JsonArray jsonArray = new JsonArray();
-
-        for (int i = 0; i < tokensList.size(); i++) {
-            NoteInterface ergoNetworkToken = tokensList.get(i);
-            JsonObject json = ergoNetworkToken.getJsonObject();
-            JsonElement networkTypeElement = json.get("networkType");
-            NetworkType jsonNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : NetworkType.TESTNET;
-            if (jsonNetworkType == networkType) {
-                jsonArray.add(json);
-            }
-
-        }
-
-        JsonObject listJson = new JsonObject();
-        listJson.add("data", jsonArray);
+    public void save(SecretKey appKey, JsonObject listJson, NetworkType networkType) {
 
         String tokenString = listJson.toString();
 
