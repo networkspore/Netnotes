@@ -97,7 +97,6 @@ public class App extends Application {
     public static Image globeImg = new Image("/assets/globe-outline-white-120.png");
     public static Image settingsImg = new Image("/assets/settings-outline-white-120.png");
     public static Image lockDocumentImg = new Image("/assets/document-lock.png");
-    public static Image ergoNetworkImg = new Image("/assets/globe-outline-ergo-150.png");
     public static Image arrowRightImg = new Image("/assets/arrow-forward-outline-white-20.png");
     public static Image ergoWallet = new Image("/assets/ergo-wallet.png");
     public static Image atImage = new Image("/assets/at-white-240.png");
@@ -1258,16 +1257,6 @@ public class App extends Application {
         System.exit(0);
     }
 
-    /* 
-    private static void updateMainLayout(){
-        if(defaultWallet == null)
-        {
-            imageView.setImage(new Image("/assets/add-circle-outline-white-256.png"));
-
-        }else{
-            imageView.setImage(new Image("/assets/ergo-white-256.png"));
-        }
-    }*/
     public static ImageView highlightedImageView(Image image) {
 
         ImageView imageView = new ImageView(image);

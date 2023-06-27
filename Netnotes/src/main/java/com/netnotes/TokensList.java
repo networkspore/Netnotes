@@ -71,19 +71,25 @@ public class TokensList extends Network {
     private VBox m_buttonGrid = null;
     private SimpleDoubleProperty m_sceneWidth = new SimpleDoubleProperty(600);
     private SimpleDoubleProperty m_sceneHeight = new SimpleDoubleProperty(630);
+    private NetworkType m_networkType;
 
-    //private SimpleObjectProperty<ErgoNetworkToken> m_ergoNetworkToken = new SimpleObjectProperty<ErgoNetworkToken>(null);
     public TokensList(NetworkType networkType, NoteInterface noteInterface) {
         super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", noteInterface);
-
-        try {
-            Files.writeString(logFile.toPath(), "\n" + getName(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
+        m_networkType = networkType;
 
         getFile(networkType);
 
+    }
+
+    public TokensList(ArrayList<ErgoNetworkToken> networkTokenList, NetworkType networkType, NoteInterface noteInterface) {
+        super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", noteInterface);
+        m_networkType = networkType;
+
+        for (ErgoNetworkToken networkToken : networkTokenList) {
+
+            addToken(networkToken, false);
+
+        }
     }
 
     /* public SimpleObjectProperty<ErgoNetworkToken> getTokenProperty() {
@@ -149,8 +155,10 @@ public class TokensList extends Network {
     }
 
     public void setNetworkType(NetworkType networkType) {
+
         closeAll();
         m_networkTokenList.clear();
+        m_networkType = networkType;
 
         getFile(networkType);
 
@@ -232,6 +240,10 @@ public class TokensList extends Network {
     }
 
     public void addToken(ErgoNetworkToken networkToken) {
+        addToken(networkToken, true);
+    }
+
+    public void addToken(ErgoNetworkToken networkToken, boolean update) {
 
         if (networkToken != null) {
             if (getErgoToken(networkToken.getNetworkId()) == null) {
@@ -275,6 +287,9 @@ public class TokensList extends Network {
                         }
                     }
                 });
+            }
+            if (update) {
+                getLastUpdated().set(LocalDateTime.now());
             }
         }
 
@@ -336,6 +351,90 @@ public class TokensList extends Network {
 
     }
 
+    public boolean importJson(Stage callingStage, File file) {
+        boolean updated = false;
+
+        if (file != null && file.isFile()) {
+            JsonObject fileJson = null;
+            try {
+                String fileString = Files.readString(file.toPath());
+                JsonElement jsonElement = new JsonParser().parse(fileString);
+                if (jsonElement != null && jsonElement.isJsonObject()) {
+                    fileJson = jsonElement.getAsJsonObject();
+                }
+            } catch (JsonParseException | IOException e) {
+                Alert noFile = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
+                noFile.setHeaderText("Load Error");
+                noFile.initOwner(callingStage);
+                noFile.setTitle("Import JSON - Load Error");
+                noFile.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), 30));
+                noFile.show();
+            }
+            if (fileJson != null) {
+                JsonElement dataElement = fileJson.get("data");
+
+                if (dataElement != null && dataElement.isJsonArray()) {
+                    JsonArray dataArray = dataElement.getAsJsonArray();
+
+                    for (JsonElement tokenObjectElement : dataArray) {
+                        if (tokenObjectElement.isJsonObject()) {
+                            JsonObject tokenJson = tokenObjectElement.getAsJsonObject();
+
+                            JsonElement nameElement = tokenJson.get("name");
+                            JsonElement tokenIdElement = tokenJson.get("tokenId");
+                            if (nameElement != null && tokenIdElement != null) {
+                                String tokenId = tokenIdElement.getAsString();
+                                String name = nameElement.getAsString();
+                                ErgoNetworkToken oldToken = getErgoToken(tokenId);
+                                if (oldToken == null) {
+                                    ErgoNetworkToken nameToken = getTokenByName(name);
+                                    if (nameToken == null) {
+                                        updated = true;
+                                        addToken(new ErgoNetworkToken(name, tokenId, tokenJson, getParentInterface()), false);
+                                    } else {
+                                        Alert nameAlert = new Alert(AlertType.NONE, "Token:\n\n'" + tokenJson.toString() + "'\n\nName is used by another tokenId. Token will not be loaded.", ButtonType.OK);
+                                        nameAlert.setHeaderText("Token Conflict");
+                                        nameAlert.setTitle("Import JSON - Token Conflict");
+                                        nameAlert.initOwner(callingStage);
+                                        nameAlert.showAndWait();
+                                    }
+                                } else {
+                                    ErgoNetworkToken newToken = new ErgoNetworkToken(name, tokenId, tokenJson, getParentInterface());
+
+                                    Alert nameAlert = new Alert(AlertType.NONE, "Existing Token:\n\n'" + oldToken.getName() + "' exists, overwrite token with '" + newToken.getName() + "'?", ButtonType.YES, ButtonType.NO);
+                                    nameAlert.setHeaderText("Resolve Conflict");
+                                    nameAlert.initOwner(callingStage);
+                                    nameAlert.setTitle("Import JSON - Resolve Conflict");
+                                    Optional<ButtonType> result = nameAlert.showAndWait();
+
+                                    if (result.isPresent() && result.get() == ButtonType.YES) {
+                                        m_networkTokenList.set(m_networkTokenList.indexOf(oldToken), newToken);
+                                        updated = true;
+                                    }
+                                }
+                            } else {
+                                Alert noFile = new Alert(AlertType.NONE, "Token:\n" + tokenJson.toString() + "\n\nMissing name and/or tokenId properties and cannote be loaded.\n\nContinue?", ButtonType.YES, ButtonType.NO);
+                                noFile.setHeaderText("Encoding Error");
+                                noFile.initOwner(callingStage);
+                                noFile.setTitle("Import JSON - Encoding Error");
+                                Optional<ButtonType> result = noFile.showAndWait();
+
+                                if (result.isPresent() && result.get() == ButtonType.NO) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+        if (updated) {
+            updateGrid();
+        }
+        return updated;
+    }
+
     private void openJson(JsonObject json) {
         m_networkTokenList.clear();
 
@@ -356,10 +455,10 @@ public class TokensList extends Network {
                 if (objElement.isJsonObject()) {
                     JsonObject objJson = objElement.getAsJsonObject();
                     JsonElement nameElement = objJson.get("name");
-                    JsonElement tokenIdElement = objJson.get("networkId");
+                    JsonElement tokenIdElement = objJson.get("tokenId");
 
                     if (nameElement != null && nameElement.isJsonPrimitive() && tokenIdElement != null && tokenIdElement.isJsonPrimitive()) {
-                        addToken(new ErgoNetworkToken(nameElement.getAsString(), tokenIdElement.getAsString(), objJson, getParentInterface()));
+                        addToken(new ErgoNetworkToken(nameElement.getAsString(), tokenIdElement.getAsString(), objJson, getParentInterface()), false);
                     }
 
                 }
@@ -974,6 +1073,29 @@ public class TokensList extends Network {
         imageFileBtn.setOnAction(imageClickEvent);
 
         return tokenEditorScene;
+    }
+
+    @Override
+    public JsonObject getJsonObject() {
+        JsonObject tokensListJson = super.getJsonObject();
+
+        JsonArray jsonArray = new JsonArray();
+
+        for (int i = 0; i < m_networkTokenList.size(); i++) {
+            NoteInterface ergoNetworkToken = m_networkTokenList.get(i);
+
+            JsonObject json = ergoNetworkToken.getJsonObject();
+            JsonElement networkTypeElement = json.get("networkType");
+            NetworkType jsonNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : NetworkType.TESTNET;
+            if (jsonNetworkType == m_networkType) {
+                jsonArray.add(json);
+            }
+
+        }
+
+        tokensListJson.add("data", jsonArray);
+
+        return tokensListJson;
     }
 
 }

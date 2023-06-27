@@ -428,10 +428,11 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
     }
 
     public JsonObject getJsonObject() {
-        JsonObject jsonObject = super.getJsonObject();
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("name", getName());
+        jsonObject.addProperty("tokenId", getTokenId());
         jsonObject.addProperty("imageString", m_imageFile.getAbsolutePath());
         jsonObject.addProperty("url", m_urlString);
-        jsonObject.addProperty("tokenId", getTokenId());
         jsonObject.addProperty("sceneWidth", m_sceneWidth.get());
         jsonObject.addProperty("sceneHeight", m_sceneHeight.get());
         jsonObject.addProperty("networkType", m_networkType.toString());

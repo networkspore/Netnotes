@@ -98,7 +98,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
 
-            setupTokens(tokensDir);
+            setupTokens(networksData.getAppKey(), tokensDir);
         } else {
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
             m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
@@ -136,7 +136,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                 a.show();
             }
-            File tokensDir = new File(m_appDir.getAbsolutePath() + "\tokens");
+            File tokensDir = new File(m_appDir.getAbsolutePath() + "/tokens");
 
             if (dataElement == null) {
                 m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
@@ -150,7 +150,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 m_testnetDataFile = new File(testnetDataElement.getAsString());
             }
 
-            setupTokens(tokensDir);
+            setupTokens(getNetworksData().getAppKey(), tokensDir);
         } else {
 
             if (dataElement == null) {
@@ -226,30 +226,44 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             HBox titleBox = App.createTopBar(getIcon(), maxBtn, closeBtn, m_tokensStage);
 
-            Tooltip loadTip = new Tooltip("Load from file...");
-            loadTip.setShowDelay(new javafx.util.Duration(100));
-            loadTip.setFont(App.txtFont);
+            MenuButton menuBtn = new MenuButton();
+            menuBtn.setGraphic(IconButton.getIconView(new Image("/assets/menu-outline-30.png"), 30));
 
-            Button loadBtn = new Button();
-            loadBtn.setGraphic(null);
-
-            Tooltip saveTip = new Tooltip("Save to file...");
-            saveTip.setShowDelay(new javafx.util.Duration(100));
-            saveTip.setFont(App.txtFont);
-
-            Button saveBtn = new Button();
-            saveBtn.setGraphic(null);
-
-            saveBtn.setOnAction(action -> {
+            MenuItem importBtn = new MenuItem(" Import JSON...");
+            importBtn.setId("menuBtn");
+            importBtn.setOnAction(action -> {
                 FileChooser chooser = new FileChooser();
-                chooser.setTitle("Save tokens file...");
+                chooser.setTitle("Import JSON File...");
+                chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("text/json", "*.json"));
+                File openFile = chooser.showOpenDialog(m_tokensStage);
+                if (openFile != null) {
+                    if (tokensList.importJson(m_tokensStage, openFile)) {
+                        save(getNetworksData().getAppKey(), tokensList.getJsonObject(), m_networkType);
+                    }
+                }
+            });
+
+            MenuItem exportBtn = new MenuItem(" Export JSON...");
+            exportBtn.setId("menuBtn");
+            exportBtn.setOnAction(action -> {
+                FileChooser chooser = new FileChooser();
+                chooser.setTitle("Export JSON file...");
                 chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("text/json", "*.json"));
                 File saveFile = chooser.showSaveDialog(m_tokensStage);
 
                 if (saveFile != null) {
+                    try {
+                        Files.writeString(saveFile.toPath(), tokensList.getJsonObject().toString());
+                    } catch (IOException e) {
+                        Alert writeAlert = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
+                        writeAlert.initOwner(m_tokensStage);
+                        writeAlert.setGraphic(IconButton.getIconView(getIcon(), 75));
 
+                    }
                 }
             });
+
+            menuBtn.getItems().addAll(importBtn, exportBtn);
 
             Tooltip toggleTip = new Tooltip((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
             toggleTip.setShowDelay(new javafx.util.Duration(100));
@@ -314,7 +328,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            HBox menuBar = new HBox(toggleNetworkTypeBtn, spacer, rightSideMenu);
+            HBox menuBar = new HBox(menuBtn, toggleNetworkTypeBtn, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -524,8 +538,16 @@ public class ErgoTokens extends Network implements NoteInterface {
         return json;
     }
 
-    public void setupTokens(File tokensDir) {
+    public void setupTokens(SecretKey appKey, File tokensDir) {
+        if (!m_appDir.isDirectory()) {
 
+            try {
+                Files.createDirectories(m_appDir.toPath());
+            } catch (IOException e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.show();
+            }
+        }
         boolean createdtokensDirectory = false;
         if (!tokensDir.isDirectory()) {
             try {
@@ -630,7 +652,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             }
 
             TokensList tokensList = new TokensList(ergoTokenList, m_networkType, this);
-            save(getNetworksData().getAppKey(), tokensList.getJsonObject(), m_networkType);
+            save(appKey, tokensList.getJsonObject(), m_networkType);
         }
 
     }

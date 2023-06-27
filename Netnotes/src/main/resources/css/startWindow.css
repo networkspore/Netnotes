@@ -251,16 +251,16 @@
 }
 
 #menuBtn:hover {
-    -fx-background-color: #77777750;
+   
     -fx-opacity: 1;
 }
 
 .menu-button {
     -fx-opacity: .6;
     -fx-shape: "...";
-    -fx-background-color: #77777715;
-    -fx-background-radius: 10 10 10 10;
-    -fx-border-radius: 10 10 10 10;
+    -fx-background-color: transparent;
+    -fx-background-radius: 0 0 0 0;
+    -fx-border-radius: 0 0 0 0;
      
 }
 .menu-button>.arrow-button {
@@ -272,10 +272,13 @@
 }
 
 .menu-button:hover {
+    -fx-background-color: #77777750;
     -fx-opacity: 1;
+    
 }
 
 .menu-button:focus {
+    -fx-background-color: #77777750;
     -fx-opacity: 1;
 }
 
@@ -326,6 +329,7 @@
 }
 
 #menuBarBtn{
+    -fx-border-radius: 0 0 0 0;
     -fx-background-color: transparent;
     -fx-opacity: .8;
     -fx-shape: "...";
