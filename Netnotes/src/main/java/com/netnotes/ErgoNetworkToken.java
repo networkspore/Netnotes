@@ -63,12 +63,10 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
     private SimpleObjectProperty<JsonObject> m_cmdProperty = new SimpleObjectProperty<JsonObject>(null);
     private ChangeListener<JsonObject> m_cmdListener;
 
-    public ErgoNetworkToken(String name, String tokenId, JsonObject jsonObject, NoteInterface noteInterface) {
+    public ErgoNetworkToken(String name, String tokenId, NetworkType networkType, JsonObject jsonObject, NoteInterface noteInterface) {
         super(null, name, tokenId, noteInterface);
 
         JsonElement imageStringElement = jsonObject.get("imageString");
-
-        JsonElement networkTypeElement = jsonObject.get("networkType");
         JsonElement urlElement = jsonObject.get("url");
         JsonElement sceneWidthElement = jsonObject.get("sceneWidth");
         JsonElement sceneHeightElement = jsonObject.get("sceneHeight");
@@ -90,7 +88,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             m_imageFile = new File(imageStringElement.getAsString());
         }
 
-        m_networkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.toString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
+        m_networkType = networkType;
 
         Image image = m_imageFile != null && m_imageFile.isFile() ? new Image(m_imageFile.getAbsolutePath()) : null;
 
@@ -431,7 +429,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("name", getName());
         jsonObject.addProperty("tokenId", getTokenId());
-        jsonObject.addProperty("imageString", m_imageFile.getAbsolutePath());
+        jsonObject.addProperty("imageString", m_imageFile.getPath());
         jsonObject.addProperty("url", m_urlString);
         jsonObject.addProperty("sceneWidth", m_sceneWidth.get());
         jsonObject.addProperty("sceneHeight", m_sceneHeight.get());

@@ -118,6 +118,8 @@ public class ErgoTokens extends Network implements NoteInterface {
         if (networkTypeElement != null) {
             if (networkTypeElement.getAsString().equals(NetworkType.TESTNET.toString())) {
                 m_networkType = NetworkType.TESTNET;
+            } else {
+                m_networkType = NetworkType.MAINNET;
             }
         }
 
@@ -237,9 +239,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("text/json", "*.json"));
                 File openFile = chooser.showOpenDialog(m_tokensStage);
                 if (openFile != null) {
-                    if (tokensList.importJson(m_tokensStage, openFile)) {
-                        save(getNetworksData().getAppKey(), tokensList.getJsonObject(), m_networkType);
-                    }
+                    tokensList.importJson(m_tokensStage, openFile);
                 }
             });
 
@@ -249,6 +249,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 FileChooser chooser = new FileChooser();
                 chooser.setTitle("Export JSON file...");
                 chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("text/json", "*.json"));
+                chooser.setInitialFileName("ergoTokens-" + m_networkType);
                 File saveFile = chooser.showSaveDialog(m_tokensStage);
 
                 if (saveFile != null) {
@@ -274,10 +275,13 @@ public class ErgoTokens extends Network implements NoteInterface {
             toggleNetworkTypeBtn.setId("menuBtn");
             toggleNetworkTypeBtn.setTooltip(toggleTip);
             toggleNetworkTypeBtn.setOnAction(e -> {
+
                 setNetworkType(m_networkType == NetworkType.MAINNET ? NetworkType.TESTNET : NetworkType.MAINNET);
+
                 toggleTip.setText((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
                 toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
                 m_tokensStage.setTitle(getName() + ": Tokens " + (m_networkType == NetworkType.MAINNET ? "(MAINNET)" : "(TESTNET)"));
+
                 tokensList.setNetworkType(m_networkType);
             });
 
@@ -529,6 +533,7 @@ public class ErgoTokens extends Network implements NoteInterface {
     public JsonObject getJsonObject() {
         JsonObject json = super.getJsonObject();
         json.addProperty("appDir", m_appDir.getAbsolutePath());
+        json.addProperty("networkType", m_networkType.toString());
         if (m_dataFile != null) {
             json.addProperty("dataFile", m_dataFile.getAbsolutePath());
         }

@@ -159,8 +159,9 @@ public class TokensList extends Network {
         closeAll();
         m_networkTokenList.clear();
         m_networkType = networkType;
-
+        setName("Ergo Tokens - List (" + networkType.toString() + ")");
         getFile(networkType);
+        updateGrid();
 
     }
 
@@ -172,7 +173,7 @@ public class TokensList extends Network {
                 JsonElement jsonElement = new JsonParser().parse(Files.readString(filePath));
 
                 if (jsonElement != null && jsonElement.isJsonObject()) {
-                    openJson(jsonElement.getAsJsonObject());
+                    openJson(jsonElement.getAsJsonObject(), NetworkType.TESTNET);
                 }
             } catch (JsonParseException | IOException e) {
                 try {
@@ -202,7 +203,7 @@ public class TokensList extends Network {
             // VBox.setVgrow(m_buttonGrid, Priority.ALWAYS);
 
             for (int i = 0; i < numCells; i++) {
-                NoteInterface networkToken = m_networkTokenList.get(i);
+                ErgoNetworkToken networkToken = m_networkTokenList.get(i);
 
                 IconButton rowButton = networkToken.getButton();
 
@@ -295,6 +296,24 @@ public class TokensList extends Network {
 
     }
 
+    public void removeToken(String networkId, boolean update) {
+        if (networkId != null) {
+            ErgoNetworkToken networkToken = getErgoToken(networkId);
+            if (networkToken != null) {
+
+                networkToken.removeUpdateListener();
+                networkToken.removeCmdListener();
+                networkToken.sendNote(getShutdownObject(), null, null);
+
+                m_networkTokenList.remove(networkToken);
+                if (update) {
+                    updateGrid();
+                    getLastUpdated().set(LocalDateTime.now());
+                }
+            }
+        }
+    }
+
     public void removeToken(String networkId) {
         if (networkId != null) {
             ErgoNetworkToken networkToken = getErgoToken(networkId);
@@ -333,7 +352,7 @@ public class TokensList extends Network {
             try {
                 JsonElement jsonElement = new JsonParser().parse(new String(AESEncryption.decryptData(iv, appKey, encryptedData)));
                 if (jsonElement != null && jsonElement.isJsonObject()) {
-                    openJson(jsonElement.getAsJsonObject());
+                    openJson(jsonElement.getAsJsonObject(), NetworkType.MAINNET);
                 }
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
@@ -351,91 +370,140 @@ public class TokensList extends Network {
 
     }
 
-    public boolean importJson(Stage callingStage, File file) {
+    public void importJson(Stage callingStage, File file) {
         boolean updated = false;
-
         if (file != null && file.isFile()) {
-            JsonObject fileJson = null;
+            String contentType = null;
             try {
-                String fileString = Files.readString(file.toPath());
-                JsonElement jsonElement = new JsonParser().parse(fileString);
-                if (jsonElement != null && jsonElement.isJsonObject()) {
-                    fileJson = jsonElement.getAsJsonObject();
-                }
-            } catch (JsonParseException | IOException e) {
-                Alert noFile = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
-                noFile.setHeaderText("Load Error");
-                noFile.initOwner(callingStage);
-                noFile.setTitle("Import JSON - Load Error");
-                noFile.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), 30));
-                noFile.show();
+                contentType = Files.probeContentType(file.toPath());
+
+            } catch (IOException e) {
+
             }
-            if (fileJson != null) {
-                JsonElement dataElement = fileJson.get("data");
 
-                if (dataElement != null && dataElement.isJsonArray()) {
-                    JsonArray dataArray = dataElement.getAsJsonArray();
+            if (contentType != null && (contentType.equals("application/json") || contentType.substring(0, 4).equals("text"))) {
 
-                    for (JsonElement tokenObjectElement : dataArray) {
-                        if (tokenObjectElement.isJsonObject()) {
-                            JsonObject tokenJson = tokenObjectElement.getAsJsonObject();
+                JsonObject fileJson = null;
+                try {
+                    String fileString = Files.readString(file.toPath());
+                    JsonElement jsonElement = new JsonParser().parse(fileString);
+                    if (jsonElement != null && jsonElement.isJsonObject()) {
+                        fileJson = jsonElement.getAsJsonObject();
+                    }
+                } catch (JsonParseException | IOException e) {
+                    Alert noFile = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
+                    noFile.setHeaderText("Load Error");
+                    noFile.initOwner(callingStage);
+                    noFile.setTitle("Import JSON - Load Error");
+                    noFile.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), 30));
+                    noFile.show();
+                }
+                if (fileJson != null) {
+                    JsonElement networkTypeElement = fileJson.get("networkType");
+                    JsonElement dataElement = fileJson.get("data");
+                    NetworkType networkType = null;
 
-                            JsonElement nameElement = tokenJson.get("name");
-                            JsonElement tokenIdElement = tokenJson.get("tokenId");
-                            if (nameElement != null && tokenIdElement != null) {
-                                String tokenId = tokenIdElement.getAsString();
-                                String name = nameElement.getAsString();
-                                ErgoNetworkToken oldToken = getErgoToken(tokenId);
-                                if (oldToken == null) {
-                                    ErgoNetworkToken nameToken = getTokenByName(name);
-                                    if (nameToken == null) {
-                                        updated = true;
-                                        addToken(new ErgoNetworkToken(name, tokenId, tokenJson, getParentInterface()), false);
-                                    } else {
-                                        Alert nameAlert = new Alert(AlertType.NONE, "Token:\n\n'" + tokenJson.toString() + "'\n\nName is used by another tokenId. Token will not be loaded.", ButtonType.OK);
-                                        nameAlert.setHeaderText("Token Conflict");
-                                        nameAlert.setTitle("Import JSON - Token Conflict");
-                                        nameAlert.initOwner(callingStage);
-                                        nameAlert.showAndWait();
-                                    }
-                                } else {
-                                    ErgoNetworkToken newToken = new ErgoNetworkToken(name, tokenId, tokenJson, getParentInterface());
+                    if (networkTypeElement != null && networkTypeElement.isJsonPrimitive()) {
+                        String networkTypeString = networkTypeElement.getAsString();
+                        networkType = networkTypeString.equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : networkTypeString.equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : null;
 
-                                    Alert nameAlert = new Alert(AlertType.NONE, "Existing Token:\n\n'" + oldToken.getName() + "' exists, overwrite token with '" + newToken.getName() + "'?", ButtonType.YES, ButtonType.NO);
-                                    nameAlert.setHeaderText("Resolve Conflict");
-                                    nameAlert.initOwner(callingStage);
-                                    nameAlert.setTitle("Import JSON - Resolve Conflict");
-                                    Optional<ButtonType> result = nameAlert.showAndWait();
+                    }
 
-                                    if (result.isPresent() && result.get() == ButtonType.YES) {
-                                        m_networkTokenList.set(m_networkTokenList.indexOf(oldToken), newToken);
-                                        updated = true;
-                                    }
-                                }
-                            } else {
-                                Alert noFile = new Alert(AlertType.NONE, "Token:\n" + tokenJson.toString() + "\n\nMissing name and/or tokenId properties and cannote be loaded.\n\nContinue?", ButtonType.YES, ButtonType.NO);
-                                noFile.setHeaderText("Encoding Error");
-                                noFile.initOwner(callingStage);
-                                noFile.setTitle("Import JSON - Encoding Error");
-                                Optional<ButtonType> result = noFile.showAndWait();
-
-                                if (result.isPresent() && result.get() == ButtonType.NO) {
-                                    break;
-                                }
-                            }
+                    if (networkType == null) {
+                        Alert a = new Alert(AlertType.NONE, "Network Type is not specified.", ButtonType.OK);
+                        a.initOwner(callingStage);
+                        a.setHeaderText("Network Type");
+                        a.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), 40));
+                        a.show();
+                        return;
+                    } else {
+                        if (networkType != m_networkType) {
+                            Alert a = new Alert(AlertType.NONE, "JSON network type is: " + networkType.toString() + ". Import into " + m_networkType.toString() + " canceled.", ButtonType.OK);
+                            a.initOwner(callingStage);
+                            a.setHeaderText("Network Type Mismatch");
+                            a.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), 40));
+                            a.showAndWait();
+                            return;
                         }
                     }
 
+                    if (dataElement != null && dataElement.isJsonArray()) {
+                        JsonArray dataArray = dataElement.getAsJsonArray();
+
+                        for (JsonElement tokenObjectElement : dataArray) {
+                            if (tokenObjectElement.isJsonObject()) {
+                                JsonObject tokenJson = tokenObjectElement.getAsJsonObject();
+
+                                JsonElement nameElement = tokenJson.get("name");
+                                JsonElement tokenIdElement = tokenJson.get("tokenId");
+
+                                if (nameElement != null && tokenIdElement != null) {
+                                    String tokenId = tokenIdElement.getAsString();
+                                    String name = nameElement.getAsString();
+                                    ErgoNetworkToken oldToken = getErgoToken(tokenId);
+                                    if (oldToken == null) {
+                                        ErgoNetworkToken nameToken = getTokenByName(name);
+                                        if (nameToken == null) {
+                                            updated = true;
+                                            addToken(new ErgoNetworkToken(name, tokenId, networkType, tokenJson, getParentInterface()), false);
+                                        } else {
+                                            Alert nameAlert = new Alert(AlertType.NONE, "Token:\n\n'" + tokenJson.toString() + "'\n\nName is used by another tokenId. Token will not be loaded.", ButtonType.OK);
+                                            nameAlert.setHeaderText("Token Conflict");
+                                            nameAlert.setTitle("Import JSON - Token Conflict");
+                                            nameAlert.initOwner(callingStage);
+                                            nameAlert.showAndWait();
+                                        }
+                                    } else {
+                                        ErgoNetworkToken newToken = new ErgoNetworkToken(name, tokenId, networkType, tokenJson, getParentInterface());
+
+                                        Alert nameAlert = new Alert(AlertType.NONE, "Existing Token:\n\n'" + oldToken.getName() + "' exists, overwrite token with '" + newToken.getName() + "'?", ButtonType.YES, ButtonType.NO);
+                                        nameAlert.setHeaderText("Resolve Conflict");
+                                        nameAlert.initOwner(callingStage);
+                                        nameAlert.setTitle("Import JSON - Resolve Conflict");
+                                        Optional<ButtonType> result = nameAlert.showAndWait();
+
+                                        if (result.isPresent() && result.get() == ButtonType.YES) {
+                                            removeToken(oldToken.getNetworkId(), false);
+
+                                            addToken(newToken, false);
+
+                                            updated = true;
+                                        }
+                                    }
+                                } else {
+                                    Alert noFile = new Alert(AlertType.NONE, "Token:\n" + tokenJson.toString() + "\n\nMissing name and/or tokenId properties and cannote be loaded.\n\nContinue?", ButtonType.YES, ButtonType.NO);
+                                    noFile.setHeaderText("Encoding Error");
+                                    noFile.initOwner(callingStage);
+                                    noFile.setTitle("Import JSON - Encoding Error");
+                                    Optional<ButtonType> result = noFile.showAndWait();
+
+                                    if (result.isPresent() && result.get() == ButtonType.NO) {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                    }
                 }
+            } else {
+                Alert tAlert = new Alert(AlertType.NONE, "File content type: " + contentType + " not supported.\n\nContent type: text/plain or application/json required.", ButtonType.OK);
+                tAlert.setHeaderText("Content Type Mismatch");
+                tAlert.initOwner(callingStage);
+                tAlert.setTitle("Import JSON - Content Type Mismatch");
+                tAlert.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), 30));
+                tAlert.show();
+
             }
         }
         if (updated) {
             updateGrid();
+            getLastUpdated().set(LocalDateTime.now());
         }
-        return updated;
+
     }
 
-    private void openJson(JsonObject json) {
+    private void openJson(JsonObject json, NetworkType networkType) {
         m_networkTokenList.clear();
 
         try {
@@ -443,10 +511,11 @@ public class TokensList extends Network {
         } catch (IOException e) {
 
         }
+        JsonElement networkTypeElement = json.get("networkType");
 
         JsonElement dataElement = json.get("data");
 
-        if (dataElement != null && dataElement.isJsonArray()) {
+        if (dataElement != null && dataElement.isJsonArray() && networkTypeElement != null) {
 
             JsonArray dataArray = dataElement.getAsJsonArray();
 
@@ -458,7 +527,7 @@ public class TokensList extends Network {
                     JsonElement tokenIdElement = objJson.get("tokenId");
 
                     if (nameElement != null && nameElement.isJsonPrimitive() && tokenIdElement != null && tokenIdElement.isJsonPrimitive()) {
-                        addToken(new ErgoNetworkToken(nameElement.getAsString(), tokenIdElement.getAsString(), objJson, getParentInterface()), false);
+                        addToken(new ErgoNetworkToken(nameElement.getAsString(), tokenIdElement.getAsString(), networkType, objJson, getParentInterface()), false);
                     }
 
                 }
@@ -958,7 +1027,9 @@ public class TokensList extends Network {
                             tokenAlert.setTitle("Replace or skip");
                             Optional<ButtonType> result = tokenAlert.showAndWait();
                             if (result.isPresent() && result.get() == ButtonType.YES) {
-                                m_networkTokenList.set(m_networkTokenList.indexOf(oldToken), newToken);
+                                removeToken(oldToken.getNetworkId(), false);
+
+                                addToken(newToken, false);
                                 updateGrid();
                                 getLastUpdated().set(LocalDateTime.now());
                                 parentStage.setScene(parentScene);
@@ -1078,18 +1149,12 @@ public class TokensList extends Network {
     @Override
     public JsonObject getJsonObject() {
         JsonObject tokensListJson = super.getJsonObject();
-
+        tokensListJson.addProperty("networkType", m_networkType.toString());
         JsonArray jsonArray = new JsonArray();
 
         for (int i = 0; i < m_networkTokenList.size(); i++) {
-            NoteInterface ergoNetworkToken = m_networkTokenList.get(i);
-
-            JsonObject json = ergoNetworkToken.getJsonObject();
-            JsonElement networkTypeElement = json.get("networkType");
-            NetworkType jsonNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : NetworkType.TESTNET;
-            if (jsonNetworkType == m_networkType) {
-                jsonArray.add(json);
-            }
+            ErgoNetworkToken ergoNetworkToken = m_networkTokenList.get(i);
+            jsonArray.add(ergoNetworkToken.getJsonObject());
 
         }
 
