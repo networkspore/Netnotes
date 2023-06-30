@@ -23,6 +23,7 @@ public class Network extends IconButton {
     private NoteInterface m_parentInterface = null;
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private ChangeListener<LocalDateTime> m_changeListener = null;
+    private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
 
     public static class NetworkID {
 
@@ -32,6 +33,7 @@ public class Network extends IconButton {
         public final static String ERGO_EXPLORER = "ERGO_EXPLORER";
         public final static String NETWORK_TIMER = "NETWORK_TIMER";
         public final static String ERGO_TOKENS = "ERGO_TOKENS";
+
     }
 
     public static String getNetworkName(String networkId) {
@@ -48,7 +50,9 @@ public class Network extends IconButton {
                 return NetworkTimer.NAME;
             case "ERGO_TOKENS":
                 return ErgoTokens.NAME;
+
             default:
+
                 return null;
         }
     }
@@ -68,46 +72,9 @@ public class Network extends IconButton {
 
     }
 
-    public String getFullNetworkId() {
-        String fullNetworkId = m_networkId;
-        NoteInterface parent = m_parentInterface;
-        while (parent != null) {
-            fullNetworkId = parent.getNetworkId() + "." + fullNetworkId;
-            parent = parent.getParentInterface();
-        }
-        return fullNetworkId;
-    }
-
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
         return false;
-    }
-
-    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int indexOfNetworkID = fullNetworkId.indexOf(getNetworkId());
-
-        int indexOfperiod = fullNetworkId.indexOf(".", indexOfNetworkID);
-
-        if (indexOfperiod == -1) {
-            return sendNote(note, onSucceeded, onFailed);
-        } else {
-            int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
-            String tunnelID;
-
-            if (indexOfSecondPeriod == -1) {
-                tunnelID = fullNetworkId.substring(indexOfperiod);
-            } else {
-                tunnelID = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
-            }
-
-            NoteInterface tunnelInterface = getTunnelNoteInterface(tunnelID);
-            if (tunnelInterface != null) {
-                return tunnelInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
-            }
-        }
-
-        return false;
-
     }
 
     public NoteInterface getParentInterface() {
@@ -191,4 +158,55 @@ public class Network extends IconButton {
 
     }
 
+    private SimpleObjectProperty<JsonObject> m_cmdProperty = new SimpleObjectProperty<JsonObject>(null);
+    private ChangeListener<JsonObject> m_cmdListener;
+
+    public SimpleObjectProperty<JsonObject> cmdProperty() {
+        return m_cmdProperty;
+    }
+
+    public void addCmdListener(ChangeListener<JsonObject> cmdListener) {
+        m_cmdListener = cmdListener;
+        if (m_cmdListener != null) {
+            m_cmdProperty.addListener(m_cmdListener);
+        }
+        // m_lastUpdated.addListener();
+    }
+
+    public void removeCmdListener() {
+        if (m_cmdListener != null) {
+            m_cmdProperty.removeListener(m_cmdListener);
+            m_cmdListener = null;
+        }
+    }
+
+    private ChangeListener<LocalDateTime> m_shutdownListener;
+
+    public SimpleObjectProperty<LocalDateTime> shutdownNowProperty() {
+        return m_shutdownNow;
+    }
+
+    public void addShutdownListener(ChangeListener<LocalDateTime> shutdownListener) {
+        m_shutdownListener = shutdownListener;
+        if (m_shutdownListener != null) {
+
+            m_shutdownNow.addListener(shutdownListener);
+        }
+        // m_lastUpdated.addListener();
+    }
+
+    public void removeShutdownListener() {
+        if (m_shutdownListener != null) {
+            m_shutdownNow.removeListener(m_shutdownListener);
+            m_shutdownListener = null;
+        }
+    }
+
+    @Override
+    public void close() {
+        // TODO Auto-generated method stub
+        super.close();
+
+        shutdownNowProperty().set(LocalDateTime.now());
+    }
 }

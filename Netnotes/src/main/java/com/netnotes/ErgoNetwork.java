@@ -2,36 +2,16 @@ package com.netnotes;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
+
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Map;
-
-import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.satergo.ergo.ErgoInterface;
 
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.input.KeyCode;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
+
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 
@@ -54,7 +34,6 @@ public class ErgoNetwork extends Network implements NoteInterface {
     private String m_mainnetNodeId = null;
 
     private ArrayList<ErgoNodeData> m_nodesDataList = new ArrayList<>();
-    private ArrayList<PriceCurrency> m_supportedCurrencies = new ArrayList<>();
 
     public ErgoNetwork(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_NETWORK, networksData);

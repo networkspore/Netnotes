@@ -16,8 +16,6 @@ public interface NoteInterface {
 
     String getNetworkId();
 
-    String getFullNetworkId();
-
     SimpleObjectProperty<LocalDateTime> getLastUpdated();
 
     boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed);
@@ -36,5 +34,4 @@ public interface NoteInterface {
 
     void remove();
 
-    boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed);
 }

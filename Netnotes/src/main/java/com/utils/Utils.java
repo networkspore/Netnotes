@@ -3,16 +3,22 @@ package com.utils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -27,21 +33,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URLConnection;
 
+import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.bouncycastle.jcajce.provider.digest.Blake2b.Blake2b256;
+import org.ergoplatform.appkit.NetworkType;
 
 import java.io.FilenameFilter;
 import at.favre.lib.crypto.bcrypt.BCrypt;
@@ -57,6 +76,7 @@ import com.google.gson.JsonParser;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
 import com.rfksystems.blake2b.Blake2b;
+import com.satergo.extra.AESEncryption;
 
 public class Utils {
     // Security.addProvider(new Blake2bProvider());
@@ -118,7 +138,7 @@ public class Utils {
         return getExplorerObject;
     }
 
-    public static byte[] digestBytesToBytes(byte[] bytes, String... instance) throws Exception {
+    public static byte[] digestBytesToBytes(byte[] bytes, String... instance) throws NoSuchAlgorithmException {
         String digestInstance = instance != null && instance.length > 0 ? instance[0] : Blake2b.BLAKE2_B_256;
 
         final MessageDigest digest = MessageDigest.getInstance(digestInstance);
@@ -287,6 +307,11 @@ public class Utils {
 
     public static long getNowEpochMillis() {
         Instant instant = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant();
+        return instant.toEpochMilli();
+    }
+
+    public static long getNowEpochMillis(LocalDateTime now) {
+        Instant instant = now.atZone(ZoneId.systemDefault()).toInstant();
         return instant.toEpochMilli();
     }
 
@@ -474,6 +499,10 @@ public class Utils {
         }
     }
 
+    public static LocalDateTime getLocalDateTimeFromLong(long millis) {
+        return Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
     public static byte[] charsToBytes(char[] chars) {
 
         CharBuffer charBuffer = CharBuffer.wrap(chars);
@@ -524,4 +553,78 @@ public class Utils {
         t.setDaemon(true);
         t.start();
     }
+
+    public static JsonObject getCmdObject(String subject) {
+        JsonObject cmdObject = new JsonObject();
+        cmdObject.addProperty("subject", subject);
+        cmdObject.addProperty("timeStamp", getNowEpochMillis());
+        return cmdObject;
+    }
+
+    public static void saveJson(SecretKey appKey, JsonObject listJson, File dataFile) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException {
+
+        String tokenString = listJson.toString();
+
+        SecureRandom secureRandom = SecureRandom.getInstanceStrong();
+        byte[] iV = new byte[12];
+        secureRandom.nextBytes(iV);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
+
+        cipher.init(Cipher.ENCRYPT_MODE, appKey, parameterSpec);
+
+        byte[] encryptedData = cipher.doFinal(tokenString.getBytes());
+
+        if (dataFile.isFile()) {
+            Files.delete(dataFile.toPath());
+        }
+
+        FileOutputStream outputStream = new FileOutputStream(dataFile);
+        FileChannel fc = outputStream.getChannel();
+
+        ByteBuffer byteBuffer = ByteBuffer.wrap(iV);
+
+        fc.write(byteBuffer);
+
+        int written = 0;
+        int bufferLength = 1024 * 8;
+
+        while (written < encryptedData.length) {
+
+            if (written + bufferLength > encryptedData.length) {
+                byteBuffer = ByteBuffer.wrap(encryptedData, written, encryptedData.length - written);
+            } else {
+                byteBuffer = ByteBuffer.wrap(encryptedData, written, bufferLength);
+            }
+
+            written += fc.write(byteBuffer);
+        }
+
+        outputStream.close();
+
+    }
+
+    public static JsonObject readJsonFile(SecretKey appKey, Path filePath) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
+
+        byte[] fileBytes;
+
+        fileBytes = Files.readAllBytes(filePath);
+
+        byte[] iv = new byte[]{
+            fileBytes[0], fileBytes[1], fileBytes[2], fileBytes[3],
+            fileBytes[4], fileBytes[5], fileBytes[6], fileBytes[7],
+            fileBytes[8], fileBytes[9], fileBytes[10], fileBytes[11]
+        };
+
+        ByteBuffer encryptedData = ByteBuffer.wrap(fileBytes, 12, fileBytes.length - 12);
+
+        JsonElement jsonElement = new JsonParser().parse(new String(AESEncryption.decryptData(iv, appKey, encryptedData)));
+        if (jsonElement != null && jsonElement.isJsonObject()) {
+            return jsonElement.getAsJsonObject();
+        }
+
+        return null;
+    }
+
 }

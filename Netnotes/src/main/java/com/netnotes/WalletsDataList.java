@@ -845,22 +845,4 @@ public class WalletsDataList {
 
     }
 
-    public boolean sendToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int indexOfperiod = fullNetworkId.indexOf(".");
-
-        int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
-        String walletID;
-        if (indexOfSecondPeriod == -1) {
-            walletID = fullNetworkId.substring(indexOfperiod);
-        } else {
-            walletID = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
-        }
-        NoteInterface walletInterface = getNoteInterface(walletID);
-
-        if (walletInterface != null) {
-            walletInterface.sendNoteToFullNetworkId(note, walletID, onSucceeded, onFailed);
-        }
-        return false;
-    }
-
 }

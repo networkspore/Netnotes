@@ -1,47 +1,27 @@
 package com.netnotes;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.text.DecimalFormat;
+
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+
 import java.util.ArrayList;
-import java.util.HexFormat;
-import java.util.NavigableMap;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.TreeMap;
-import java.util.Map.Entry;
 
 import javax.imageio.ImageIO;
 
 import org.ergoplatform.appkit.Address;
-import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.NetworkType;
-import org.ergoplatform.appkit.SignedTransaction;
-import org.ergoplatform.appkit.UnsignedTransaction;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
-import com.netnotes.Network.NetworkID;
-import com.satergo.Wallet;
-import com.satergo.WalletKey;
-import com.satergo.WalletKey.Local;
 import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
 
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.SimpleBooleanProperty;
+
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.concurrent.Task;
+
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
@@ -50,45 +30,39 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 
-public class AddressData extends IconButton {
+public class AddressData extends Network implements NoteInterface {
 
     private static String NULL_ERG = "-.-- ERG";
 
-    private SimpleStringProperty m_lastUpdated = new SimpleStringProperty(Utils.formatDateTimeString(LocalDateTime.now()));
     private boolean m_valid = false;
     private boolean m_quantityValid = false;
-    private SimpleStringProperty m_name = new SimpleStringProperty();
+
     private int m_index;
     private Address m_address;
-
-    private SimpleStringProperty m_formattedQuantity = new SimpleStringProperty();
-    private SimpleStringProperty m_formattedPrice = new SimpleStringProperty();
-    private SimpleStringProperty m_formattedTotal = new SimpleStringProperty();
 
     private long m_confirmedNanoErgs = 0;
     private long m_unconfirmedNanoErgs = 0;
@@ -102,16 +76,20 @@ public class AddressData extends IconButton {
     private WalletData m_walletData;
     private File logFile;
 
+    private AddressAmountsList m_amountsList;
+    private AddressAmountsList m_unconfirmedAmountsList;
+
     private double m_price = 0;
     // private WalletData m_WalletData;
 
     public AddressData(String name, int index, Address address, NetworkType networktype, WalletData walletData) {
-        super();
+        super(null, name, address.toString(), walletData);
 
-        logFile = new File("address - " + address.toString() + "-log.txt");
-        //    m_WalletData = walletData;
         m_walletData = walletData;
-        m_name.set(name);
+
+        m_amountsList = new AddressAmountsList(this);
+        m_unconfirmedAmountsList = new AddressAmountsList(this);
+
         m_index = index;
         m_address = address;
 
@@ -119,21 +97,23 @@ public class AddressData extends IconButton {
         addressTip.setShowDelay(new javafx.util.Duration(100));
         addressTip.setFont(App.txtFont);
         //  HBox.setHgrow(this, Priority.ALWAYS);
-        setPrefHeight(40);
+
         // setPrefWidth(width);
         // setImageWidth(150);
-
-        setContentDisplay(ContentDisplay.LEFT);
-        setAlignment(Pos.CENTER_LEFT);
-
         setTooltip(addressTip);
         setPadding(new Insets(0, 10, 0, 10));
         setId("rowBtn");
+        setText(getButtonText());
 
-        textProperty().bind(Bindings.concat("> ", m_name, ":\n  ", getAddress().toString()));
-
+        setContentDisplay(ContentDisplay.LEFT);
+        setAlignment(Pos.CENTER_LEFT);
+        setTextAlignment(TextAlignment.LEFT);
         update();
         updateBalance();
+    }
+
+    public String getButtonText() {
+        return "  " + getName() + "\n    " + getAddressString();
     }
 
     /*public boolean donate(){
@@ -163,9 +143,6 @@ public class AddressData extends IconButton {
     }
 
     private void update() {
-        setFormattedQuantity();
-        setFormattedPrice();
-        setFormattedTotal();
 
         updateBufferedImage();
 
@@ -194,41 +171,19 @@ public class AddressData extends IconButton {
         }
     }
 
-    public void setFormattedQuantity() {
-
-        m_formattedQuantity.set(getQuantityString());
-    }
-
-    public void setFormattedPrice() {
-        m_formattedPrice.set(getPriceString());
-    }
-
-    public void setFormattedTotal() {
-        m_formattedTotal.set(getFormmatedTotal());
-    }
-
     @Override
     public void open() {
+        super.open();
         showAddressStage();
 
     }
 
-    /* public void updateBalance(long nanoErgs, ArrayList<TokenData> confirmedTokenList, long unconfirmedNanoErgs, ArrayList<TokenData> unconfirmedTokenList) {
-        m_valid = true;
-        m_confirmedNanoErgs = nanoErgs;
-        m_unconfirmedNanoErgs = unconfirmedNanoErgs;
-        m_confirmedTokensList = confirmedTokenList;
-        m_unconfirmedTokensList = unconfirmedTokenList;
-        lastUpdated.set(LocalDateTime.now());
-    } */
     private void showAddressStage() {
         if (m_addressStage == null) {
-            // String title = "Ergo Wallet - " + m_name.get();
-            String infoString = ": " + getAddressMinimal(16) + " - (";
+            NoteInterface networkInterface = m_walletData.getNodeInterface();
 
             m_addressStage = new Stage();
-            m_addressStage.titleProperty().bind(Bindings.concat("Ergo Wallet - ", m_name, infoString, m_address.getNetworkType().toString(), ")"));
-            // m_addressStage.setTitle(title);
+            // 
             m_addressStage.getIcons().add(ErgoWallet.getAppIcon());
             m_addressStage.setResizable(false);
             m_addressStage.initStyle(StageStyle.UNDECORATED);
@@ -237,118 +192,131 @@ public class AddressData extends IconButton {
             closeBtn.setOnAction(closeEvent -> {
                 m_addressStage.close();
                 m_addressStage = null;
+                removeShutdownListener();
             });
 
-            Label titleLbl = new Label();
+            addShutdownListener((obs, oldVal, newVal) -> {
+                Platform.runLater(() -> closeBtn.fire());
+            });
 
-            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), titleLbl, closeBtn, m_addressStage);
-            titleLbl.textProperty().bind(Bindings.concat("Ergo Wallet - ", m_name, " (", m_address.getNetworkType().toString(), "): ", getAddressMinimal(10)));
+            Button maximizeBtn = new Button();
 
-            HBox menuBar = new HBox();
+            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), maximizeBtn, closeBtn, m_addressStage);
+
+            Tooltip sendTip = new Tooltip("Send");
+            sendTip.setShowDelay(new javafx.util.Duration(100));
+            sendTip.setFont(App.txtFont);
+
+            m_addressStage.setTitle(getName() + " - " + getAddressMinimal(16) + " - (" + getNetworkType().toString() + ")");
+
+            Button sendButton = new Button();
+            sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
+            sendButton.setId("menuBtn");
+            sendButton.setTooltip(sendTip);
+            sendButton.setOnAction(e -> {
+
+                cmdProperty().set(Utils.getCmdObject("SEND"));
+                // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
+            });
+
+            Tooltip networkTip = new Tooltip(networkInterface.getName());
+            networkTip.setShowDelay(new javafx.util.Duration(100));
+            networkTip.setFont(App.txtFont);
+
+            MenuButton networkMenuBtn = new MenuButton();
+            networkMenuBtn.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), networkInterface.getNetworkId(), true).getIcon(), 30));
+            networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
+            networkMenuBtn.setTooltip(networkTip);
+
+            Tooltip explorerTip = new Tooltip(m_walletData.getExplorerInterface() == null ? "Explorer disabled" : m_walletData.getExplorerInterface().getName());
+            explorerTip.setShowDelay(new javafx.util.Duration(100));
+            explorerTip.setFont(App.txtFont);
+
+            MenuButton explorerBtn = new MenuButton();
+            explorerBtn.setGraphic(m_walletData.getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), m_walletData.getExplorerInterface().getNetworkId(), true).getIcon(), 30));
+            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+            explorerBtn.setTooltip(explorerTip);
+
+            HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn);
+            rightSideMenu.setId("rightSideMenuBar");
+            rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            HBox menuBar = new HBox(sendButton, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(5, 5, 5, 5));
+            menuBar.setPadding(new Insets(1, 0, 1, 5));
 
             HBox paddingBox = new HBox(menuBar);
             paddingBox.setPadding(new Insets(2, 5, 2, 5));
 
-            TextField addressNameTxt = new TextField();
-            addressNameTxt.setId("textField");
-            addressNameTxt.setFont(App.txtFont);
-            addressNameTxt.setEditable(false);
-            addressNameTxt.textProperty().bind(Bindings.concat("> ", m_name, " (", m_address.getNetworkType().toString(), "):"));
-            HBox.setHgrow(addressNameTxt, Priority.ALWAYS);
-
-            HBox addressNameBox = new HBox(addressNameTxt);
-            addressNameBox.setAlignment(Pos.CENTER_LEFT);
-            HBox.setHgrow(addressNameBox, Priority.ALWAYS);
-
-            Text addressTxt = new Text("   Address:");
-            addressTxt.setFont(App.txtFont);
-            addressTxt.setFill(App.formFieldColor);
-
+            //////////////////////////////////////////////////////////********************************** *///////////////////////////////////
             TextField addressField = new TextField(getAddressString());
-            addressField.setEditable(false);
-
-            addressField.setFont(App.txtFont);
             addressField.setId("formField");
+            addressField.setFont(App.txtFont);
+            addressField.setEditable(false);
             HBox.setHgrow(addressField, Priority.ALWAYS);
+            addressField.setPadding(new Insets(0, 0, 0, 0));
 
-            HBox addressBox = new HBox(addressTxt, addressField);
-            addressBox.setAlignment(Pos.CENTER_LEFT);
+            TextField nameField = new TextField(getName());
+            nameField.setId("textField");
+            nameField.setFont(App.txtFont);
+            nameField.setEditable(false);
+            nameField.setPadding(new Insets(5, 10, 5, 0));
+            nameField.setPrefWidth(105);
 
-            Text ergQuantityTxt = new Text("   Balance:");
-            ergQuantityTxt.setFont(App.txtFont);
-            ergQuantityTxt.setFill(App.formFieldColor);
+            HBox nameBox = new HBox(nameField);
+            nameBox.setPrefHeight(40);
+            nameBox.setAlignment(Pos.TOP_RIGHT);
+            HBox.setHgrow(nameBox, Priority.ALWAYS);
 
-            /*
-            try {
-                Files.writeString(logFile.toPath(), "erg quantity:" + ergQuantityString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            ImageView imgView = new ImageView();
+            imgView.setFitHeight(40);
+            imgView.setPreserveRatio(true);
+            imgView.setImage(m_imgBuffer.get());
+            imgView.imageProperty().bind(m_imgBuffer);
 
-            } catch (IOException e) {
+            HBox headingBox = new HBox(imgView, addressField, nameBox);
+            headingBox.setMinHeight(40);
+            headingBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(headingBox, Priority.ALWAYS);
+            headingBox.setPadding(new Insets(10, 15, 10, 15));
+            headingBox.setId("headingBox");
 
-            } */
-            TextField ergQuantityField = new TextField();
-            ergQuantityField.setEditable(false);
-            ergQuantityField.setFont(App.txtFont);
-            ergQuantityField.setId("formField");
-            HBox.setHgrow(ergQuantityField, Priority.ALWAYS);
+            VBox bodyVBox = m_amountsList.getGridBox();
+            bodyVBox.setPadding(new Insets(0, 20, 20, 20));
+            HBox.setHgrow(bodyVBox, Priority.ALWAYS);
+            bodyVBox.setId("bodyBox");
 
-            HBox ergQuantityBox = new HBox(ergQuantityTxt, ergQuantityField);
-            ergQuantityBox.setAlignment(Pos.CENTER_LEFT);
+            ScrollPane scrollPane = new ScrollPane(bodyVBox);
 
-            Text priceTxt = new Text("   Price: ");
-            priceTxt.setFont(App.txtFont);
-            priceTxt.setFill(App.formFieldColor);
+            Font smallerFont = Font.font("OCR A Extended", 10);
 
-            TextField priceField = new TextField();
-            priceField.setEditable(false);
-            /*
-            try {
-                Files.writeString(logFile.toPath(), "price :" + priceString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            } catch (IOException e) {
-
-            } */
-
-            priceField.setFont(App.txtFont);
-            priceField.setId("formField");
-            HBox.setHgrow(priceField, Priority.ALWAYS);
-
-            HBox priceBox = new HBox(priceTxt, priceField);
-            priceBox.setAlignment(Pos.CENTER_LEFT);
-
-            Text balanceTxt = new Text("   Total:");
-            balanceTxt.setFont(App.txtFont);
-            balanceTxt.setFill(App.formFieldColor);
-
-            TextField balanceField = new TextField();
-            balanceField.setEditable(false);
-            balanceField.setFont(App.txtFont);
-            balanceField.setId("formField");
-
-            HBox.setHgrow(balanceField, Priority.ALWAYS);
-
-            HBox balanceBox = new HBox(balanceTxt, balanceField);
-            balanceBox.setAlignment(Pos.CENTER_LEFT);
-
-            Text lastUpdatedTxt = new Text("   Updated:");
+            Text lastUpdatedTxt = new Text("Updated ");
             lastUpdatedTxt.setFill(App.formFieldColor);
-            lastUpdatedTxt.setFont(App.txtFont);
+            lastUpdatedTxt.setFont(smallerFont);
 
             TextField lastUpdatedField = new TextField();
             lastUpdatedField.setEditable(false);
             lastUpdatedField.setId("formField");
-            lastUpdatedField.setFont(App.txtFont);
-            HBox.setHgrow(lastUpdatedField, Priority.ALWAYS);
+            lastUpdatedField.setFont(smallerFont);
+            lastUpdatedField.setPrefWidth(60);
 
             HBox lastUpdatedBox = new HBox(lastUpdatedTxt, lastUpdatedField);
-            lastUpdatedBox.setAlignment(Pos.CENTER_LEFT);
+            lastUpdatedBox.setAlignment(Pos.CENTER_RIGHT);
+            HBox.setHgrow(lastUpdatedBox, Priority.ALWAYS);
 
-            VBox bodyVBox = new VBox(addressNameBox, addressBox, ergQuantityBox, priceBox, balanceBox, lastUpdatedBox);
-            bodyVBox.setPadding(new Insets(0, 20, 0, 20));
-            VBox layoutVBox = new VBox(titleBox, paddingBox, bodyVBox);
+            VBox footerVBox = new VBox(lastUpdatedBox);
+            HBox.setHgrow(footerVBox, Priority.ALWAYS);
+
+            VBox bodyPaddingBox = new VBox(nameBox, scrollPane, footerVBox);
+            HBox.setHgrow(bodyPaddingBox, Priority.ALWAYS);
+            bodyPaddingBox.setPadding(new Insets(5, 5, 5, 5));
+
+            VBox layoutVBox = new VBox(titleBox, paddingBox, bodyPaddingBox);
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
             Scene addressScene = new Scene(layoutVBox, 650, 500);
@@ -358,13 +326,17 @@ public class AddressData extends IconButton {
             m_addressStage.setScene(addressScene);
             m_addressStage.show();
 
-            /**
-             * **** BINDINGS ****
-             */
-            ergQuantityField.textProperty().bind(m_formattedQuantity);
-            lastUpdatedField.textProperty().bind(m_lastUpdated);
-            priceField.textProperty().bind(m_formattedPrice);
-            balanceField.textProperty().bind(m_formattedTotal);
+            scrollPane.prefViewportWidthProperty().bind(addressScene.widthProperty());
+            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(nameBox.heightProperty()).subtract(footerVBox.heightProperty()).subtract(10));
+
+            //ergQuantityField.textProperty().bind(m_formattedQuantity);
+            //  lastUpdatedField.textProperty().bind(Bindings.concat(getLastUpdated().asString("%1$TH:%1$TM:%1$TS")));
+            //  priceField.textProperty().bind(m_formattedPrice);
+            //  balanceField.textProperty().bind(m_formattedTotal);
+            m_addressStage.setOnCloseRequest((closeRequest) -> {
+                removeShutdownListener();
+                m_addressStage = null;
+            });
 
             /* 
             addressData.getPriceChart().lastUpdated.addListener(updated -> {
@@ -398,17 +370,6 @@ public class AddressData extends IconButton {
             }
         }*/
         return false;
-    }
-
-    @Override
-    public String getName() {
-        return m_name.get();
-    }
-
-    @Override
-    public void setName(String name) {
-        super.setName(name);
-        m_name.set(name);
     }
 
     public int getIndex() {
@@ -475,39 +436,8 @@ public class AddressData extends IconButton {
         return m_price;
     }
 
-    public void setQuote(PriceQuote quote) {
-
-        if (quote.getQuoteCurrency().equals(m_priceBaseCurrency)) {
-            if (quote.howOldMillis() < 60000) {
-                m_valid = true;
-            }
-            m_priceTargetCurrency = quote.getTransactionCurrency();
-            setPrice(quote.getAmount());
-        }
-
-    }
-
-    public void setPrice(double price) {
-        m_price = price;
-        setFormattedPrice();
-        setFormattedTotal();
-        updateBufferedImage();
-    }
-
     public double getTotalAmountPrice() {
         return getFullAmountDouble() * getPrice();
-    }
-
-    public SimpleStringProperty getLastUpdated() {
-        return m_lastUpdated;
-    }
-
-    public void setLastUpdatedStringNow() {
-        LocalDateTime now = LocalDateTime.now();
-
-        DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss.SSSSS a");
-
-        m_lastUpdated.set(formater.format(now));
     }
 
     public String getTotalAmountPriceString() {
@@ -651,7 +581,7 @@ public class AddressData extends IconButton {
         m_imgBuffer.set(image == null ? null : image);
 
         Platform.runLater(() -> setGraphic(m_imgBuffer.get() == null ? null : getIconView(m_imgBuffer.get(), m_imgBuffer.get().getWidth())));
-        Platform.runLater(() -> setLastUpdatedStringNow());
+        Platform.runLater(() -> getLastUpdated().set(LocalDateTime.now()));
     }
 
     public boolean updateBalance() {
@@ -766,35 +696,11 @@ public class AddressData extends IconButton {
         JsonObject jsonObj = new JsonObject();
         jsonObj.addProperty("id", m_address.toString());
         jsonObj.addProperty("tickerName", m_priceBaseCurrency);
-        jsonObj.addProperty("name", m_name.get());
+        jsonObj.addProperty("name", getName());
         jsonObj.addProperty("address", m_address.toString());
         jsonObj.addProperty("networkType", m_address.getNetworkType().toString());
         jsonObj.addProperty("explorerValidated", m_quantityValid);
         jsonObj.addProperty("marketValidated", m_valid);
-
-        JsonObject formattedData = new JsonObject();
-        formattedData.addProperty("quantity", m_formattedQuantity.get());
-        formattedData.addProperty("price", m_formattedPrice.get());
-        formattedData.addProperty("total", m_formattedTotal.get());
-
-        JsonObject priceObj = new JsonObject();
-        priceObj.addProperty("price", getPrice());
-        priceObj.addProperty("quoteCurrency", getPriceTargetCurrency());
-        priceObj.addProperty("total", getTotalAmountPrice());
-        priceObj.add("formattedData", formattedData);
-
-        jsonObj.add("priceData", priceObj);
-
-        JsonObject confirmedObj = new JsonObject();
-        confirmedObj.addProperty("nanoErgs", m_confirmedNanoErgs);
-        confirmedObj.add("tokens", getConfirmedTokenJsonArray());
-
-        JsonObject unconfirmedObj = new JsonObject();
-        unconfirmedObj.addProperty("nanoErgs", m_unconfirmedNanoErgs);
-        unconfirmedObj.add("tokens", getUnconfirmedTokenJsonArray());
-
-        jsonObj.add("confirmed", confirmedObj);
-        jsonObj.add("unconfirmed", unconfirmedObj);
 
         return jsonObj;
 

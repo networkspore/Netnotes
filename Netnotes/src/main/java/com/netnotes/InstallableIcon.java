@@ -98,6 +98,7 @@ public class InstallableIcon extends IconButton {
                 setDescription(ErgoTokens.DESCRIPTION);
                 setSummary(ErgoTokens.SUMMARY);
                 break;
+
         }
 
     }

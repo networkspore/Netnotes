@@ -63,7 +63,7 @@ public class ErgoNodeData extends IconButton {
 
         JsonObject getExplorerUrlObject = new JsonObject();
         getExplorerUrlObject.addProperty("subject", "GET_EXPLORER_URL");
-        getExplorerUrlObject.addProperty("fullNetworkId", m_ergoNetwork.getNetworkId());
+        getExplorerUrlObject.addProperty("networkId", m_ergoNetwork.getNetworkId());
         getExplorerUrlObject.addProperty("networkType", m_networkType.toString());
         return getExplorerUrlObject;
     }

@@ -26,7 +26,6 @@ public class TimersList {
     private File logFile;
     public SimpleObjectProperty<LocalDateTime> lastUpdatedProperty = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private String m_timerNetworkId;
-    private String m_fullNetworkId;
     private ArrayList<JsonObject> m_availableTimers = new ArrayList<>();
     private JsonArray m_subscribedTimers = new JsonArray();
 
@@ -37,12 +36,11 @@ public class TimersList {
 
     private ArrayList<NoteInterface> m_noteInterfaces = new ArrayList<>();
 
-    public TimersList(String timerNetworkId, String fullNetworkId, JsonArray subscribedTimersArray, NetworksData networksData) {
+    public TimersList(String timerNetworkId, JsonArray subscribedTimersArray, NetworksData networksData) {
         m_timerNetworkId = timerNetworkId;
-        m_fullNetworkId = fullNetworkId;
         m_networksData = networksData;
         m_timerMenuHBox.setAlignment(Pos.CENTER_LEFT);
-        logFile = new File("timerList-" + fullNetworkId + ".txt");
+        logFile = new File("timerList.txt");
         if (subscribedTimersArray != null) {
             for (JsonElement jsonObjectElement : subscribedTimersArray) {
                 if (jsonObjectElement.isJsonObject()) {
@@ -387,7 +385,6 @@ public class TimersList {
         if (timerInterface != null) {
             JsonObject unsubscribeJson = new JsonObject();
             unsubscribeJson.addProperty("subject", "UNSUBSCRIBE");
-            unsubscribeJson.addProperty("fullNetworkId", m_fullNetworkId);
             unsubscribeJson.addProperty("timerId", timerId);
 
             return timerInterface.sendNote(unsubscribeJson, null, null);
@@ -401,7 +398,6 @@ public class TimersList {
         if (timerInterface != null) {
             JsonObject subscribeJson = new JsonObject();
             subscribeJson.addProperty("subject", "SUBSCRIBE");
-            subscribeJson.addProperty("fullNetworkId", m_fullNetworkId);
             subscribeJson.addProperty("timerId", timerId);
 
             return timerInterface.sendNote(subscribeJson, null, null);
@@ -412,7 +408,6 @@ public class TimersList {
     public JsonObject getOpenObject() {
         JsonObject getTimersObject = new JsonObject();
         getTimersObject.addProperty("subject", "OPEN");
-        getTimersObject.addProperty("fullNetworkId", m_fullNetworkId);
 
         return getTimersObject;
     }
@@ -420,7 +415,6 @@ public class TimersList {
     public JsonObject getTimersObject() {
         JsonObject getTimersObject = new JsonObject();
         getTimersObject.addProperty("subject", "GET_TIMERS");
-        getTimersObject.addProperty("fullNetworkId", m_fullNetworkId);
 
         return getTimersObject;
     }

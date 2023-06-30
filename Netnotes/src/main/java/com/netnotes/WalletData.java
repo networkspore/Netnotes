@@ -92,7 +92,7 @@ public class WalletData extends Network implements NoteInterface {
     // private String m_name;
     private String m_networkNetworkeId;
     private String m_explorerId;
-    private String m_marketId;
+    private String m_chartsId;
 
     private String m_quoteTransactionCurrency = "USD";
     private SimpleObjectProperty<PriceQuote> m_lastQuote = new SimpleObjectProperty<PriceQuote>(null);
@@ -100,7 +100,7 @@ public class WalletData extends Network implements NoteInterface {
     private TimersList m_availableTimers;
 
     // private ErgoWallet m_ergoWallet;
-    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String networkId, String explorerId, String marketId, String timerId, JsonArray timersArray, NetworkType networkType, NoteInterface ergoWallet) {
+    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String networkId, String explorerId, String chartsId, String timerId, JsonArray timersArray, NetworkType networkType, NoteInterface ergoWallet) {
         super(null, name, id, ergoWallet);
 
         m_sceneWidth = sceneWidth;
@@ -108,19 +108,14 @@ public class WalletData extends Network implements NoteInterface {
 
         logFile = new File("WalletData" + name + "-log.txt");
 
-        try {
-            Files.writeString(logFile.toPath(), "ExchangeId: " + marketId + " networkId: " + networkId + " explorerId: " + explorerId + " networkType: " + networkType + " timers:" + (timersArray != null ? "\n" + timersArray.toString() : "null"));
-        } catch (IOException e) {
-
-        }
         m_walletFile = walletFile;
         m_networkType = networkType;
 
         m_networkNetworkeId = networkId == null ? null : networkId;
         m_explorerId = explorerId == null ? null : explorerId;
-        m_marketId = marketId == null ? null : marketId;
+        m_chartsId = chartsId == null ? null : chartsId;
 
-        m_availableTimers = new TimersList(timerId, getFullNetworkId(), timersArray, getNetworksData());
+        m_availableTimers = new TimersList(timerId, timersArray, getNetworksData());
         m_availableTimers.lastUpdatedProperty.addListener(e -> {
             getLastUpdated().set(LocalDateTime.now());
         });
@@ -136,59 +131,7 @@ public class WalletData extends Network implements NoteInterface {
         return m_maxHeight;
     }
 
-    /*
-    private void subscribePriceTimer() {
-        if (m_timerNetworkId != null && m_priceTimerId != null && m_marketId != null) {
-            NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerNetworkId);
-
-            if (timerInterface != null) {
-
-                timers
-
-                JsonObject subscribeJson = new JsonObject();
-                subscribeJson.addProperty("subject", "SUBSCRIBE");
-                subscribeJson.addProperty("fullNetworkId", getFullNetworkId());
-                subscribeJson.addProperty("timerId", m_priceTimerId);
-
-                if (!timerInterface.sendNote(subscribeJson, null, null)) {
-
-                    try {
-                        Files.writeString(logFile.toPath(), "\nFailed to subscribe:\n" + subscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-
-                    }
-
-                }
-
-            }
-        }
-    } */
- /*
-    private void subscribeQuantityTimer() {
-        if (m_timerNetworkId != null && m_quantityTimerId != null) {
-            NoteInterface timerInterface = getNetworksData().getNoteInterface(m_timerNetworkId);
-
-            if (timerInterface != null) {
-
-                JsonObject subscribeJson = new JsonObject();
-                subscribeJson.addProperty("subject", "SUBSCRIBE");
-                subscribeJson.addProperty("fullNetworkId", getFullNetworkId());
-                subscribeJson.addProperty("timerId", m_priceTimerId.get());
-
-                if (!timerInterface.sendNote(subscribeJson, null, null)) {
-
-                    try {
-                        Files.writeString(logFile.toPath(), "\nQuantity did not subscribe (may already be subscribed):\n" + subscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-
-                    }
-
-                }
-
-            }
-        }
-    } */
-    private void unsubscribeTimer(String networkId, String timerId, String fullNetworkId) {
+    private void unsubscribeTimer(String networkId, String timerId) {
         if (networkId != null && timerId != null) {
             NoteInterface timerInterface = getNetworksData().getNoteInterface(networkId);
 
@@ -196,7 +139,6 @@ public class WalletData extends Network implements NoteInterface {
 
                 JsonObject unsubscribeJson = new JsonObject();
                 unsubscribeJson.addProperty("subject", "UNSUBSCRIBE");
-                unsubscribeJson.addProperty("fullNetworkId", fullNetworkId);
                 unsubscribeJson.addProperty("timerId", timerId);
 
                 if (!timerInterface.sendNote(unsubscribeJson, null, null)) {
@@ -234,8 +176,8 @@ public class WalletData extends Network implements NoteInterface {
         if (m_explorerId != null) {
             jsonObject.addProperty("explorerId", m_explorerId);
         }
-        if (m_marketId != null) {
-            jsonObject.addProperty("marketId", m_marketId);
+        if (m_chartsId != null) {
+            jsonObject.addProperty("chartsId", m_chartsId);
         }
         if (m_availableTimers.getTimerNetworkId() != null) {
             jsonObject.addProperty("timerId", m_availableTimers.getTimerNetworkId());
@@ -293,18 +235,9 @@ public class WalletData extends Network implements NoteInterface {
 
         return false;
     }
-    private GraphicsDevice m_gd;
-
-    private void setDevice() {
-
-        Rectangle rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        m_maxWidth = rect.width; //gd.getDisplayMode().getWidth();
-        m_maxHeight = rect.height; //gd.getDisplayMode().getHeight();
-    }
 
     public void openWallet(double walletSceneWidth, double walletSceneHeight) {
 
-        setDevice();
         double maxWidth = walletSceneWidth > m_maxWidth ? m_maxWidth : walletSceneWidth;
         double maxHeight = walletSceneHeight > m_maxHeight ? m_maxHeight : walletSceneHeight;
 
@@ -400,52 +333,9 @@ public class WalletData extends Network implements NoteInterface {
 
     }
 
-    public JsonObject getMarketQuoteObject() {
-        JsonObject marketQuoteObject = new JsonObject();
-        marketQuoteObject.addProperty("subject", "GET_QUOTE");
-        marketQuoteObject.addProperty("transactionCurrency", m_quoteTransactionCurrency);
-        marketQuoteObject.addProperty("quoteCurrency", ErgoNetwork.NATIVE_CURRENCY.getSymbol());
-
-        return marketQuoteObject;
-    }
-
-    private void getMarketQuote(NoteInterface marketInterface) {
-        try {
-            Files.writeString(logFile.toPath(), "\nGetting " + (marketInterface == null ? "null" : marketInterface.getName()) + " quote:", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
-        if (marketInterface != null) {
-            marketInterface.sendNote(getMarketQuoteObject(), success -> {
-                Object sourceValue = success.getSource().getValue();
-                if (sourceValue != null) {
-                    PriceQuote quote = (PriceQuote) sourceValue;
-                    m_lastQuote.set(quote);
-
-                    try {
-                        Files.writeString(logFile.toPath(), "\nGot price quote:\n" + quote.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-
-                    }
-
-                }
-            }, failed -> {
-
-            });
-        }
-    }
-
     private Scene getWalletScene(Wallet wallet, double sceneWidth, double sceneHeight, Scene passwordScene, Stage walletStage) {
 
-        AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
-        PriceQuote lastQuote = m_lastQuote.get();
-        if (lastQuote != null) {
-            long howOld = lastQuote.howOldMillis();
-            if (howOld < 30000) {
-                addressesData.setQuote(m_lastQuote.get());
-            }
-        }
-        getMarketQuote(getMarketInterface());
+        AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType, walletStage);
 
         try {
             Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -572,45 +462,46 @@ public class WalletData extends Network implements NoteInterface {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Tooltip marketTip = new Tooltip("Select market");
+        Tooltip marketTip = new Tooltip("Ergot Charts: " + m_chartsId == null ? "Disabled" : "Enabled");
         marketTip.setShowDelay(new javafx.util.Duration(100));
         marketTip.setFont(App.txtFont);
 
         ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), imageWidth);
 
-        MenuButton marketBtn = new MenuButton();
-        marketBtn.setUserData(m_marketId);
-        marketBtn.setGraphic(m_marketId == null ? exchangeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_marketId, true).getIcon(), imageWidth));
-        marketBtn.setTooltip(marketTip);
-        marketBtn.setPadding(new Insets(2, 0, 0, 0));
+        MenuButton chartsBtn = new MenuButton();
+        chartsBtn.setUserData(m_chartsId);
+        /// chartsBtn.setGraphic()
+        chartsBtn.setPadding(new Insets(2, 0, 0, 0));
 
-        MenuItem marketNullMenuItem = new MenuItem("(none)");
+        MenuItem chartsNullMenuItem = new MenuItem("(none)");
 
-        marketNullMenuItem.setOnAction(e -> {
-            removeMarketId();
-            marketBtn.setUserData(null);
-            marketBtn.setGraphic(exchangeView);
+        chartsNullMenuItem.setOnAction(e -> {
+            removeChartsId();
+            chartsBtn.setUserData(null);
+            chartsBtn.setGraphic(exchangeView);
         });
 
-        MenuItem kucoinMenuItem = new MenuItem(KucoinExchange.NAME);
-        kucoinMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
-        kucoinMenuItem.setOnAction(e -> {
+        MenuItem kuCoinExchangeMenuItem = new MenuItem(KucoinExchange.NAME);
+        kuCoinExchangeMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+        kuCoinExchangeMenuItem.setOnAction(e -> {
 
-            setMarketId(NetworkID.KUKOIN_EXCHANGE);
-            marketBtn.setUserData(NetworkID.KUKOIN_EXCHANGE);
-            marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+            setChartsId(NetworkID.KUKOIN_EXCHANGE);
+            chartsBtn.setUserData(NetworkID.KUKOIN_EXCHANGE);
+            chartsBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
 
-            getMarketQuote(getMarketInterface());
+            NoteInterface chartInterface = getExchangeInterface();
 
-            if (getMarketInterface() == null) {
+            if (getExchangeInterface() == null) {
                 Alert marketAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + KucoinExchange.NAME + "'' to use this feature.", ButtonType.OK);
                 marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), alertImageWidth));
                 marketAlert.initOwner(walletStage);
                 marketAlert.show();
+            } else {
+                getExchangeClient(chartInterface);
             }
         });
 
-        marketBtn.getItems().addAll(marketNullMenuItem, kucoinMenuItem);
+        chartsBtn.getItems().addAll(chartsNullMenuItem, kuCoinExchangeMenuItem);
 
         Tooltip timerTip = new Tooltip("Select timer");
         timerTip.setShowDelay(new javafx.util.Duration(100));
@@ -647,7 +538,7 @@ public class WalletData extends Network implements NoteInterface {
 
         timerBtn.getItems().addAll(timerNullMenuItem, timerMenuItem);
 
-        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn, timerBtn);
+        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, chartsBtn, timerBtn);
         rightSideMenu.setId("rightSideMenuBar");
         rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
@@ -660,7 +551,7 @@ public class WalletData extends Network implements NoteInterface {
         HBox paddingBox = new HBox(menuBar);
         paddingBox.setPadding(new Insets(2, 5, 2, 5));
 
-        HBox timerMenu = m_availableTimers.createTimerMenu(explorerBtn, marketBtn);
+        HBox timerMenu = m_availableTimers.createTimerMenu(explorerBtn);
 
         VBox menuVBox = new VBox(paddingBox, timerMenu);
 
@@ -763,9 +654,6 @@ public class WalletData extends Network implements NoteInterface {
                 }
             }
         });
-        ChangeListener<PriceQuote> quoteListener = (obs, oldValue, newQuote) -> {
-            addressesData.setQuote(newQuote);
-        };
 
         ChangeListener<Number> totalListener = (obs, oldValue, newValue) -> {
 
@@ -778,12 +666,10 @@ public class WalletData extends Network implements NoteInterface {
             Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
         };
 
-        m_lastQuote.addListener(quoteListener);
         addressesData.getTotalDoubleProperty().addListener(totalListener);
 
         walletStage.setOnCloseRequest(event -> {
 
-            m_lastQuote.removeListener(quoteListener);
             addressesData.getTotalDoubleProperty().removeListener(totalListener);
         });
 
@@ -810,17 +696,17 @@ public class WalletData extends Network implements NoteInterface {
         return m_explorerId;
     }
 
-    public String getMarketId() {
-        return m_marketId;
+    public String getExchangeId() {
+        return m_chartsId;
     }
 
     public NoteInterface getExplorerInterface() {
         return m_explorerId == null ? null : getNetworksData().getNoteInterface(m_explorerId);
     }
 
-    public NoteInterface getMarketInterface() {
+    public NoteInterface getExchangeInterface() {
 
-        return m_marketId == null ? null : getNetworksData().getNoteInterface(m_marketId);
+        return m_chartsId == null ? null : getNetworksData().getNoteInterface(m_chartsId);
     }
 
     private void setNodeId(String nodeId) {
@@ -833,8 +719,13 @@ public class WalletData extends Network implements NoteInterface {
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setMarketId(String marketId) {
-        m_marketId = marketId;
+    private void setChartsId(String chartsId) {
+        m_chartsId = chartsId;
+        getLastUpdated().set(LocalDateTime.now());
+    }
+
+    private void removeChartsId() {
+        m_chartsId = null;
         getLastUpdated().set(LocalDateTime.now());
     }
 
@@ -848,39 +739,11 @@ public class WalletData extends Network implements NoteInterface {
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void removeMarketId() {
-        m_marketId = null;
-        getLastUpdated().set(LocalDateTime.now());
-    }
-
-    @Override
-    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int indexOfNetworkID = fullNetworkId.indexOf(getNetworkId());
-
-        int indexOfperiod = fullNetworkId.indexOf(".", indexOfNetworkID);
-
-        if (indexOfperiod == -1) {
-            return sendNote(note, onSucceeded, onFailed);
-        } else {
-            int indexOfSecondPeriod = fullNetworkId.indexOf(".", indexOfperiod + 1);
-            String tunnelId;
-
-            if (indexOfSecondPeriod == -1) {
-                tunnelId = fullNetworkId.substring(indexOfperiod);
-            } else {
-                tunnelId = fullNetworkId.substring(indexOfperiod, indexOfSecondPeriod);
-            }
-
-            NoteInterface addressInterface = getTunnelNoteInterface(tunnelId);
-            if (addressInterface != null) {
-                return addressInterface.sendNoteToFullNetworkId(note, fullNetworkId, onSucceeded, onFailed);
-
-            }
-        }
-
-        return false;
+    private void getExchangeClient(NoteInterface noteInterface) {
 
     }
+
+
     /* private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {
 
         //   BufferedImage imageBuffer = addressData.getBufferedImage();

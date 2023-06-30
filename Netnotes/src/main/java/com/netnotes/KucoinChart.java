@@ -5,10 +5,9 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
-
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 
@@ -19,33 +18,38 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
 
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
-import javafx.concurrent.WorkerStateEvent;
+
 import javafx.embed.swing.SwingFXUtils;
-import javafx.event.EventHandler;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 
-public class PriceChart implements NoteInterface {
+import javafx.scene.text.Text;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
-    private static String NAME = "Price chart";
+public class KucoinChart {
 
     private File logFile = new File("pricechart-log.txt");
 
     private NumberClass m_numberClass = new NumberClass();
 
-    private String m_uuid;
-
     private ArrayList<PriceData> m_priceList = new ArrayList<>();
 
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
     private ChangeListener<LocalDateTime> m_changeListener = null;
+    private Stage m_stage = null;
 
     private boolean m_valid = false;
     private Font m_headingFont = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 18);
@@ -56,183 +60,62 @@ public class PriceChart implements NoteInterface {
     private int m_cellWidth = 20;
     private int m_chartHeight = 800;
     private String m_msg = "Getting price information";
-    private String m_timeSpan;
-    private String m_symbol;
+    private String m_timeSpan = "30min";
     private double m_currentPrice = 0;
     private BufferedImage m_img = null;
-    private NoteInterface m_noteInterface;
-    private String m_exchangeNetworkId;
 
-    public PriceChart(NoteInterface noteInterface, String exchangeNetworkID, String symbol, String timeSpan) {
+    private KucoinExchange m_kucoinExchange;
 
-        m_noteInterface = noteInterface;
+    public KucoinChart(KucoinExchange kucoinExchange, JsonObject jsonObject) {
+        m_kucoinExchange = kucoinExchange;
 
-        m_uuid = noteInterface.getNetworkId() + ":" + FriendlyId.createFriendlyId();
-        m_timeSpan = timeSpan;
-        m_symbol = symbol;
+        if (jsonObject != null) {
+            JsonElement timeSpanElement = jsonObject.get("timeSpan");
 
-        m_exchangeNetworkId = exchangeNetworkID;
-        updatePriceDataList();
-    }
-
-    public PriceChart(JsonObject jsonObject, NoteInterface noteInterface) {
-        m_noteInterface = noteInterface;
-
-        JsonElement uuidElement = jsonObject == null ? null : jsonObject.get("uuid");
-        JsonElement symbolElement = jsonObject == null ? null : jsonObject.get("symbol");
-        JsonElement timeSpanElement = jsonObject == null ? null : jsonObject.get("timeSpan");
-        JsonElement exchangeIdElement = jsonObject == null ? null : jsonObject.get("exchangeNetworkId");
-
-        m_uuid = uuidElement == null ? noteInterface.getNetworkId() + ":" + FriendlyId.createFriendlyId() : uuidElement.getAsString();
-        m_timeSpan = timeSpanElement == null ? "30min" : timeSpanElement.getAsString();
-        m_symbol = symbolElement == null ? "ERG-USDT" : symbolElement.getAsString();
-        m_exchangeNetworkId = exchangeIdElement == null ? null : exchangeIdElement.getAsString();
-
-        updatePriceDataList();
-    }
-
-    public String getName() {
-        return NAME;
-    }
-
-    public String getNetworkId() {
-        return m_uuid;
-    }
-
-    public NoteInterface getParentInterface() {
-        return m_noteInterface;
-    }
-
-    public String getFullNetworkId() {
-        String fullNetworkId = m_uuid;
-        NoteInterface parent = m_noteInterface;
-        while (parent != null) {
-            fullNetworkId = parent.getNetworkId() + "." + fullNetworkId;
-            parent = parent.getParentInterface();
+            m_timeSpan = timeSpanElement == null ? "30min" : timeSpanElement.getAsString();
         }
-        return fullNetworkId;
-    }
 
-    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-
-        JsonElement subjectElement = note.get("subject");
-        JsonElement topicElement = note.get("topic");
-        JsonElement tunnelIdElement = note.get("tunnelId");
-
-        if (subjectElement != null && topicElement != null && tunnelIdElement != null) {
-            String tunnelId = tunnelIdElement.getAsString();
-            if (tunnelId.equals(getFullNetworkId())) {
-                String subjectString = subjectElement.getAsString();
-                String topicString = topicElement.getAsString();
-
-                switch (subjectString) {
-                    case "trade.candles.update":
-
-                        JsonElement dataElement = note.get("data");
-                        if (dataElement != null) {
-                            JsonArray dataArray = dataElement.getAsJsonArray();
-
-                            /*for (WebClientListener messagelistener : listeners) {
-
-                                                messagelistener.updatePriceData(tunnelId, topicString, priceData);
-                                            }*/
-                            return true;
-                        }
-
-                        break;
-                    default:
-                        /*for (WebClientListener messagelistener : listeners) {
-
-                                            messagelistener.message(tunnelId, messageObject);
-                                        }*/
-                        break;
-                }
-            }
-        }
-        return false;
     }
 
     public JsonObject getJsonObject() {
-        return null;
-    }
-
-    public IconButton getButton() {
-        return null;
-    }
-
-    public NetworksData getNetworksData() {
-        return m_noteInterface.getNetworksData();
-    }
-
-    public boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        return false;
-    }
-
-    private JsonObject getPriceDataListJson() {
         JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("subject", "GET_CANDLES_DATASET");
-        jsonObject.addProperty("symbol", m_symbol);
+
         jsonObject.addProperty("timeSpan", m_timeSpan);
+
         return jsonObject;
     }
 
-    public void updatePriceDataList() {
-        if (m_exchangeNetworkId != null) {
-            m_noteInterface.getNetworksData().sendNoteToNetworkId(getPriceDataListJson(), m_exchangeNetworkId, success -> {
-                ByteArrayOutputStream output = (ByteArrayOutputStream) success.getSource().getValue();
+    public void updatePriceDataList(JsonArray jsonArray) {
 
-                if (output != null) {
-                    String outputString = output.toString();
-                    JsonObject json = null;
-                    try {
-                        json = new JsonParser().parse(outputString).getAsJsonObject();
-                    } catch (JsonParseException e) {
+        NumberClass numberClass = new NumberClass();
 
-                    }
+        ArrayList<PriceData> tmpPriceList = new ArrayList<>();
 
-                    if (json != null) {
-                        NumberClass numberClass = new NumberClass();
+        jsonArray.forEach(dataElement -> {
 
-                        ArrayList<PriceData> tmpPriceList = new ArrayList<>();
-                        JsonArray jsonArray = json.get("data").getAsJsonArray();
+            JsonArray dataArray = dataElement.getAsJsonArray();
 
-                        jsonArray.forEach(dataElement -> {
+            PriceData priceData = new PriceData(dataArray);
+            if (numberClass.low.get() == 0) {
+                numberClass.low.set(priceData.getLow());
+            }
 
-                            JsonArray dataArray = dataElement.getAsJsonArray();
+            numberClass.sum.set(numberClass.sum.get() + priceData.getClose());
+            numberClass.count.set(numberClass.count.get() + 1);
+            tmpPriceList.add(priceData);
+            if (priceData.getHigh() > numberClass.high.get()) {
+                numberClass.high.set(priceData.getHigh());
+            }
+            if (priceData.getLow() < numberClass.low.get()) {
+                numberClass.low.set(priceData.getLow());
+            }
+        });
 
-                            PriceData priceData = new PriceData(dataArray);
-                            if (numberClass.low.get() == 0) {
-                                numberClass.low.set(priceData.getLow());
-                            }
+        Collections.reverse(tmpPriceList);
+        m_priceList = tmpPriceList;
 
-                            numberClass.sum.set(numberClass.sum.get() + priceData.getClose());
-                            numberClass.count.set(numberClass.count.get() + 1);
-                            tmpPriceList.add(priceData);
-                            if (priceData.getHigh() > numberClass.high.get()) {
-                                numberClass.high.set(priceData.getHigh());
-                            }
-                            if (priceData.getLow() < numberClass.low.get()) {
-                                numberClass.low.set(priceData.getLow());
-                            }
-                        });
+        updateBufferedImage();
 
-                        Collections.reverse(tmpPriceList);
-                        m_priceList = tmpPriceList;
-                        m_valid = true;
-                    } else {
-                        m_valid = false;
-                    }
-                    updateBufferedImage();
-                } else {
-
-                }
-            }, e -> {
-
-            });
-        } else {
-            m_valid = false;
-            updateBufferedImage();
-        }
     }
 
     private void updateCandleData(PriceData priceData) {
@@ -295,14 +178,6 @@ public class PriceChart implements NoteInterface {
         m_timeSpan = timespan;
     }
 
-    public String getSymbol() {
-        return m_symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        m_symbol = symbol;
-    }
-
     public void setLabelFont(Font font) {
         m_labelFont = font;
     }
@@ -323,7 +198,7 @@ public class PriceChart implements NoteInterface {
         m_headingFont = font;
     }
 
-    public Font getFont() {
+    public Font getHeadingFont() {
         return m_headingFont;
     }
 

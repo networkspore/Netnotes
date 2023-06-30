@@ -2,23 +2,17 @@ package com.netnotes;
 
 import scala.util.Try;
 
-import java.security.Security;
-
 import java.time.LocalDateTime;
-
-import java.util.regex.Pattern;
 
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
 
 import com.rfksystems.blake2b.Blake2b;
 
-import com.rfksystems.blake2b.security.Blake2bProvider;
-
 import com.utils.Utils;
 
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
+
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
@@ -26,20 +20,13 @@ import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.Alert;
+
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Tooltip;
+
 import javafx.scene.image.Image;
 
 import scorex.util.encode.Base58;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
-import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -53,7 +40,7 @@ public class AddressButton extends Button {
     // private boolean m_valid = false;
     private boolean m_ergValid = false;
     private String m_addressType;
-    private SimpleStringProperty m_name = new SimpleStringProperty();
+    private String m_name = DEFAULT_TEXT;
 
     private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
 
@@ -64,7 +51,7 @@ public class AddressButton extends Button {
     private SimpleStringProperty m_addressString = new SimpleStringProperty("");
 
 //String explorerId, NetworksData networksData
-    public AddressButton(String addressString, NetworkType networkType, String... propmtString) {
+    public AddressButton(String addressString, NetworkType networkType) {
         super();
 
         setPadding(new Insets(0));
@@ -72,17 +59,6 @@ public class AddressButton extends Button {
         // m_explorerId = explorerId;
         //  m_networksData = networksData;
 
-        if (propmtString != null) {
-            String fullPromptString = "";
-            for (String prompt : propmtString) {
-
-                fullPromptString = fullPromptString + prompt;
-
-            }
-            m_name.set(fullPromptString);
-        } else {
-            m_name.set(DEFAULT_TEXT);
-        }
         //   setIconStyle(IconStyle.ROW);
         //  HBox.setHgrow(this, Priority.ALWAYS);
         setPrefHeight(40);
@@ -91,7 +67,7 @@ public class AddressButton extends Button {
 
         // setIconStyle(IconStyle.ROW);
         // 
-        textProperty().bind(Bindings.concat("> ", m_name, "\n  ", m_addressString));
+        setText(getButtonText());
 
         setAddressByString(addressString, e -> {
             //success?
@@ -99,6 +75,10 @@ public class AddressButton extends Button {
 
         updateBufferedImage();
 
+    }
+
+    public String getButtonText() {
+        return "> " + m_name + "\n  " + m_addressString;
     }
 
     /*
@@ -167,7 +147,8 @@ public class AddressButton extends Button {
             m_addressBytes = addressBytes;
 
             if (networkType != m_networkType) {
-                m_name.set(networkType.toString() + " - INVALID");
+                m_name = ErgoNetwork.NAME + " - (" + networkType + ") [" + type + "]";
+                setText(getButtonText());
                 m_addressString.set("");
                 updateBufferedImage();
                 return false;
@@ -176,7 +157,9 @@ public class AddressButton extends Button {
             m_addressType = type;
             m_ergValid = true;
 
-            m_name.set(ErgoNetwork.NAME + " - (" + networkType + ") [" + type + "]");
+            m_name = ErgoNetwork.NAME + " - (" + networkType + ") [" + type + "]";
+            setText(getButtonText());
+
             m_addressString.set(addressString);
             m_address.set(Address.create(addressString));
             updateBufferedImage();
@@ -237,7 +220,8 @@ public class AddressButton extends Button {
     public void setDefault(String addressString) {
         m_addressBytes = null;
         m_ergValid = false;
-        m_name.set(DEFAULT_TEXT);
+        m_name = DEFAULT_TEXT;
+        setText(getButtonText());
         m_addressString.set(addressString);
         updateBufferedImage();
     }

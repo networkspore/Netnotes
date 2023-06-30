@@ -5,11 +5,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
@@ -18,10 +16,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+
 import java.util.zip.ZipInputStream;
 
 import javax.crypto.BadPaddingException;
@@ -31,13 +28,11 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
-import org.apache.commons.io.IOUtils;
 import org.ergoplatform.appkit.NetworkType;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.netnotes.Network.NetworkID;
+
 import com.utils.Utils;
 
 import javafx.concurrent.WorkerStateEvent;
@@ -75,15 +70,13 @@ public class ErgoTokens extends Network implements NoteInterface {
     private File m_appDir = null;
     private Stage m_tokensStage = null;
 
-    ArrayList<NoteInterface> m_openTokens = new ArrayList<NoteInterface>();
-
     private NetworkType m_networkType = NetworkType.MAINNET;
     private String m_explorerId = NetworkID.ERGO_EXPLORER;
 
     public ErgoTokens(NetworksData networksData) {
         super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
 
-        m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
+        m_appDir = new File(System.getProperty("user.dir") + "/" + NAME);
 
         if (!m_appDir.isDirectory()) {
 
@@ -95,13 +88,13 @@ public class ErgoTokens extends Network implements NoteInterface {
             }
             File tokensDir = new File(m_appDir.getAbsolutePath() + "\tokens");
 
-            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
+            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
+            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
             setupTokens(networksData.getAppKey(), tokensDir);
         } else {
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
-            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
+            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
         }
 
     }
@@ -438,7 +431,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             addButton.prefWidthProperty().bind(menuBox.widthProperty().divide(2));
             removeButton.prefWidthProperty().bind(menuBox.widthProperty().divide(2));
 
-            tokensBox.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
+            tokensBox.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty().subtract(40));
             //  bodyBox.prefHeightProperty().bind(tokensScene.heightProperty() - 40 - 100);
             tokensScene.getStylesheets().add("/css/startWindow.css");
             m_tokensStage.setScene(tokensScene);

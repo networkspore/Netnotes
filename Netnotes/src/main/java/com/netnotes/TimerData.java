@@ -31,8 +31,7 @@ public class TimerData {
     private NetworkTimer m_timerNetwork;
     private ScheduledExecutorService m_executorService = Executors.newScheduledThreadPool(1);
 
-    private ArrayList<String> m_subscribers = new ArrayList<>();
-
+    //private ArrayList<String> m_subscribers = new ArrayList<>();
     public JsonObject getTimeObject() {
         JsonObject timeObject = getJsonObject();
         timeObject.addProperty("subject", "TIME");
@@ -45,25 +44,7 @@ public class TimerData {
     private final Runnable m_task = new Runnable() {
         @Override
         public void run() {
-            ArrayList<String> itemsToRemove = new ArrayList<>();
 
-            ArrayList<String> subscribers = new ArrayList<>(m_subscribers);
-            for (int i = 0; i < subscribers.size(); i++) {
-                String fullNetworkId = subscribers.get(i);
-
-                boolean succeeded = m_timerNetwork.getNetworksData().sendNoteToFullNetworkId(getTimeObject(), fullNetworkId, null, null);
-                if (!succeeded) {
-                    try {
-                        Files.writeString(logFile.toPath(), "\nfullNetworkId not found: " + fullNetworkId + " unsubscribe:\n" + fullNetworkId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-
-                    }
-                    itemsToRemove.add(fullNetworkId);
-                }
-            }
-            for (String itemId : itemsToRemove) {
-                unsubscribe(itemId);
-            }
         }
     };
 
@@ -99,59 +80,6 @@ public class TimerData {
         jsonObject.addProperty("timeUnit", Utils.timeUnitToString(m_timeUnit));
 
         return jsonObject;
-    }
-
-    public String findSubscriber(String fullNetworkId) {
-        for (String subscriber : m_subscribers) {
-            if (subscriber.equals(fullNetworkId)) {
-                return subscriber;
-            }
-        }
-        return null;
-    }
-
-    public boolean subscribe(String fullNetworkId) {
-
-        if (findSubscriber(fullNetworkId) != null) {
-            return false;
-        }
-
-        m_subscribers.add(fullNetworkId);
-
-        if (!m_started) {
-            startTimer();
-        }
-        return true;
-    }
-
-    public boolean unsubscribe(String fullNetworkId) {
-        boolean found = false;
-        for (int i = 0; i < m_subscribers.size(); i++) {
-            String subscriber = m_subscribers.get(i);
-
-            if (fullNetworkId.equals(subscriber)) {
-                m_subscribers.remove(i);
-                found = true;
-                break;
-            }
-
-        }
-
-        if (m_subscribers.size() == 0) {
-
-            m_executorService.shutdown();
-            try {
-                if (!m_executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                    m_executorService.shutdownNow();
-                }
-            } catch (InterruptedException ex) {
-                m_executorService.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-
-            m_started = false;
-        }
-        return found;
     }
 
     private void startTimer() {

@@ -3,6 +3,8 @@ package com.netnotes;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
+import javafx.beans.property.SimpleStringProperty;
+
 public class PriceAmount {
 
     private long m_amount;

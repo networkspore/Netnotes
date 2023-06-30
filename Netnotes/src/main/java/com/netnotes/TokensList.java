@@ -140,17 +140,10 @@ public class TokensList extends Network {
         return getTokensFileObject;
     }
 
-    public JsonObject getShutdownObject() {
-        JsonObject shutdownObject = new JsonObject();
-        shutdownObject.addProperty("subject", "SHUTDOWN_NOW");
-        shutdownObject.addProperty("caller", getParentInterface().getNetworkId());
-        return shutdownObject;
-    }
-
     public void closeAll() {
         for (int i = 0; i < m_networkTokenList.size(); i++) {
-            NoteInterface networkToken = m_networkTokenList.get(i);
-            networkToken.sendNote(getShutdownObject(), null, null);
+            ErgoNetworkToken networkToken = m_networkTokenList.get(i);
+            networkToken.close();
         }
     }
 
@@ -303,7 +296,7 @@ public class TokensList extends Network {
 
                 networkToken.removeUpdateListener();
                 networkToken.removeCmdListener();
-                networkToken.sendNote(getShutdownObject(), null, null);
+                networkToken.close();
 
                 m_networkTokenList.remove(networkToken);
                 if (update) {
@@ -321,7 +314,7 @@ public class TokensList extends Network {
 
                 networkToken.removeUpdateListener();
                 networkToken.removeCmdListener();
-                networkToken.sendNote(getShutdownObject(), null, null);
+                networkToken.close();
 
                 m_networkTokenList.remove(networkToken);
                 updateGrid();

@@ -1,12 +1,7 @@
 package com.netnotes;
 
-import java.awt.Menu;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 import java.util.ArrayList;
 
 import org.ergoplatform.appkit.Address;
@@ -17,10 +12,7 @@ import org.ergoplatform.appkit.Parameters;
 import org.ergoplatform.appkit.SignedTransaction;
 import org.ergoplatform.appkit.UnsignedTransaction;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
 
 import com.satergo.Wallet;
 import com.satergo.WalletKey;
@@ -32,9 +24,7 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
+
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -45,7 +35,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Label;
+
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
@@ -53,16 +43,15 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.Clipboard;
+
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseButton;
+
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
+
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
@@ -73,47 +62,61 @@ public class AddressesData {
     private VBox m_addressBox;
     private Wallet m_wallet;
     private WalletData m_walletData;
-
-    private double m_imageWidth = 40;
-    private double m_alertImageWidth = 75;
+    private Stage m_walletStage;
 
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
     private SimpleDoubleProperty m_totalQuote = new SimpleDoubleProperty(0);
 
     private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
-    public AddressesData(String id, Wallet wallet, WalletData walletData, NetworkType networkType) {
+    public AddressesData(String id, Wallet wallet, WalletData walletData, NetworkType networkType, Stage walletStage) {
         logFile = new File("addressesData-" + walletData.getNetworkId() + ".txt");
         m_wallet = wallet;
         m_walletData = walletData;
         m_networkType = networkType;
-
+        m_walletStage = walletStage;
         //wallet.transact(networkType, id, null)
         m_wallet.myAddresses.forEach((index, name) -> {
-            AddressData addressData = null;
+
             try {
+
                 Address address = wallet.publicAddress(m_networkType, index);
-                addressData = new AddressData(name, index, address, m_networkType, walletData);
+                AddressData addressData = new AddressData(name, index, address, m_networkType, walletData);
 
-            } catch (Failure e) {
-
-            }
-            if (addressData != null) {
                 m_addressDataList.add(addressData);
-                addressData.getLastUpdated().addListener((a, b, c) -> {
+                addressData.addUpdateListener((a, b, c) -> {
                     double total = calculateCurrentTotal();
-                    try {
-                        Files.writeString(logFile.toPath(), c + total, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
 
-                    }
                     m_totalQuote.set(total);
                 });
+                addressData.addCmdListener((obs, oldVal, newVal) -> {
+                    if (newVal != null && newVal.get("subject") != null) {
+                        String subject = newVal.get("subject").getAsString();
+                        switch (subject) {
+                            case "SEND":
+
+                                m_selectedAddressData.set(addressData);
+                                m_walletStage.setScene(getSendScene(m_walletStage.getScene(), m_walletStage));
+                                m_walletStage.show();
+                                closeAll();
+                                break;
+                        }
+                    }
+                });
+            } catch (Failure e) {
+
             }
 
         });
         m_addressBox = new VBox();
         updateAddressBox();
+    }
+
+    public void closeAll() {
+        for (int i = 0; i < m_addressDataList.size(); i++) {
+            AddressData addressData = m_addressDataList.get(i);
+            addressData.close();
+        }
     }
 
     public SimpleObjectProperty<AddressData> getSelectedAddressDataProperty() {
@@ -143,11 +146,7 @@ public class AddressesData {
             if (addressData != null) {
                 m_addressDataList.add(addressData);
                 addressData.getLastUpdated().addListener((a, b, c) -> {
-                    try {
-                        Files.writeString(logFile.toPath(), c, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
 
-                    }
                     m_totalQuote.set(calculateCurrentTotal());
                 });
                 updateAddressBox();
@@ -158,9 +157,7 @@ public class AddressesData {
     public VBox getAddressBox() {
 
         updateAddressBox();
-        //    lastUpdated.addListener(e -> {
-        //      updateNetworksGrid();
-        //   });
+
         return m_addressBox;
     }
 
@@ -180,16 +177,6 @@ public class AddressesData {
 
             addressData.updateBalance();
         }
-    }
-
-    public void setQuote(PriceQuote quote) {
-
-        for (int i = 0; i < m_addressDataList.size(); i++) {
-            AddressData addressData = m_addressDataList.get(i);
-            addressData.setQuote(quote);
-
-        }
-
     }
 
     public double calculateCurrentTotal() {

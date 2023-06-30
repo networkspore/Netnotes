@@ -65,6 +65,7 @@ public class NetworksData {
 
     private Rectangle m_rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
     private HostServices m_hostServices;
+    private File m_appDir;
 
     //  public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private File logFile = new File("networkData-log.txt");
@@ -74,6 +75,7 @@ public class NetworksData {
         m_networksFile = networksFile;
         m_networksBox = new VBox();
         m_hostServices = hostServices;
+        m_appDir = new File(System.getProperty("user.dir"));
 
         try {
             Files.writeString(logFile.toPath(), "networks data\n");
@@ -116,6 +118,7 @@ public class NetworksData {
                         case "ERGO_TOKENS":
                             addNoteInterface(new ErgoTokens(jsonObject, this));
                             break;
+
                     }
 
                 }
@@ -124,6 +127,10 @@ public class NetworksData {
 
         }
 
+    }
+
+    public File getAppDir() {
+        return m_appDir;
     }
 
     public HostServices getHostServices() {
@@ -376,7 +383,11 @@ public class NetworksData {
             NoteInterface noteInterface = getNoteInterface(networkId);
             boolean installed = !(noteInterface == null);
             InstallableIcon installableIcon = new InstallableIcon(this, networkId, installed);
+            try {
+                Files.writeString(logFile.toPath(), "\nupdate installables " + networkId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
 
+            }
             m_installables.add(installableIcon);
         }
     }
@@ -456,6 +467,7 @@ public class NetworksData {
             case "ERGO_TOKENS":
                 addNoteInterface(new ErgoTokens(this));
                 break;
+
         }
         m_installedVBox.getChildren().clear();
         m_notInstalledVBox.getChildren().clear();
@@ -566,29 +578,6 @@ public class NetworksData {
                 noteInterface.sendNote(note, onSucceeded, onFailed);
             }
         });
-    }
-
-    public boolean sendNoteToFullNetworkId(JsonObject note, String tunnelId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int index = tunnelId.indexOf(".");
-
-        NoteInterface networkInterface;
-        if (index == -1) {
-            networkInterface = getNoteInterface(tunnelId);
-            if (networkInterface != null) {
-                return networkInterface.sendNote(note, onSucceeded, onFailed);
-            }
-        } else {
-            String networkId = tunnelId.substring(0, index);
-            networkInterface = getNoteInterface(networkId);
-
-            networkInterface.sendNoteToFullNetworkId(note, tunnelId, onSucceeded, onFailed);
-
-            if (networkInterface != null) {
-                return networkInterface.sendNote(note, onSucceeded, onFailed);
-            }
-
-        }
-        return false;
     }
 
     public SecretKey getAppKey() {

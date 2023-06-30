@@ -178,12 +178,11 @@ public class NetworkTimer extends Network implements NoteInterface {
 
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjectElement = note.get("subject");
-        JsonElement fullNetworkIdElement = note.get("fullNetworkId");
         JsonElement timerIdElement = note.get("timerId");
 
-        if (subjectElement != null && subjectElement.isJsonPrimitive() && fullNetworkIdElement != null && fullNetworkIdElement.isJsonPrimitive()) {
+        if (subjectElement != null && subjectElement.isJsonPrimitive()) {
             String subject = subjectElement.getAsString();
-            String fullNetworkID = fullNetworkIdElement.getAsString();
+
             try {
                 Files.writeString(logFile.toPath(), "\n" + note.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
@@ -196,37 +195,10 @@ public class NetworkTimer extends Network implements NoteInterface {
                     return true; // break;
 
                 case "UNSUBSCRIBE":
-                    if (timerIdElement != null && timerIdElement.isJsonPrimitive()) {
-                        String timerId = timerIdElement.getAsString();
-                        for (int i = 0; i < m_timersList.size(); i++) {
 
-                            TimerData timerData = m_timersList.get(i);
-
-                            if (timerData.getTimerId().equals(timerId)) {
-
-                                return timerData.unsubscribe(fullNetworkID);
-                            }
-
-                        }
-                    }
                     break;
                 case "SUBSCRIBE":
 
-                    if (timerIdElement != null && timerIdElement.isJsonPrimitive()) {
-
-                        String timerId = timerIdElement.getAsString();
-
-                        for (int i = 0; i < m_timersList.size(); i++) {
-                            TimerData timerData = m_timersList.get(i);
-
-                            if (timerData.getTimerId().equals(timerId)) {
-
-                                return timerData.subscribe(fullNetworkID);
-
-                            }
-
-                        }
-                    }
                     break;
                 case "GET_TIMERS":
 

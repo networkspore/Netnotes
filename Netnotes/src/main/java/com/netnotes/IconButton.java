@@ -297,4 +297,9 @@ public class IconButton extends Button {
         setGraphic(getIconView(m_icon, m_imageWidth));
     }
 
+    @Override
+    public String toString() {
+        // TODO Auto-generated method stub
+        return m_name != null ? m_name : "";
+    }
 }

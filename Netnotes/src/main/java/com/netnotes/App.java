@@ -45,7 +45,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.security.Security;
 import java.security.spec.KeySpec;
 import java.time.Duration;
@@ -73,8 +72,6 @@ import com.rfksystems.blake2b.security.Blake2bProvider;
 import com.utils.Utils;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
-
-import com.satergo.extra.AESEncryption;
 
 public class App extends Application {
 

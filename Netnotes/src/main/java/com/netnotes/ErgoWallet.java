@@ -293,15 +293,4 @@ public class ErgoWallet extends Network implements NoteInterface {
         return false;
     }
 
-    @Override
-    public boolean sendNoteToFullNetworkId(JsonObject note, String fullNetworkId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        int indexOfperiod = fullNetworkId.indexOf(".");
-
-        if (indexOfperiod == -1) {
-            return sendNote(note, onSucceeded, onFailed);
-        }
-
-        return m_walletsData.sendToFullNetworkId(note, fullNetworkId, null, null);
-
-    }
 }

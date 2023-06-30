@@ -59,10 +59,6 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
     private Stage m_ergoTokenStage = null;
 
-    private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
-    private SimpleObjectProperty<JsonObject> m_cmdProperty = new SimpleObjectProperty<JsonObject>(null);
-    private ChangeListener<JsonObject> m_cmdListener;
-
     public ErgoNetworkToken(String name, String tokenId, NetworkType networkType, JsonObject jsonObject, NoteInterface noteInterface) {
         super(null, name, tokenId, noteInterface);
 
@@ -90,9 +86,21 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
         m_networkType = networkType;
 
-        Image image = m_imageFile != null && m_imageFile.isFile() ? new Image(m_imageFile.getAbsolutePath()) : null;
+        if (m_imageFile != null && m_imageFile.isFile()) {
+            String contentType = null;
+            try {
+                contentType = Files.probeContentType(m_imageFile.toPath());
+                contentType = contentType.split("/")[0];
+            } catch (IOException e) {
 
-        setIcon(image);
+            }
+
+            if (contentType != null && contentType.equals("image")) {
+                Image image = new Image(m_imageFile.getAbsolutePath());
+                setIcon(image);
+            }
+
+        }
 
         setIconStyle(IconStyle.ROW);
         setGraphicTextGap(15);
@@ -250,11 +258,6 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
                 }
             };
 
-            ChangeListener<LocalDateTime> shutdownListener = (obs, oldVal, newVal) -> {
-
-                Platform.runLater(() -> closeBtn.fire());
-            };
-
             HBox titleBox = App.createTopBar(getIcon(), maximizeBtn, closeBtn, m_ergoTokenStage);
 
             Tooltip explorerTip = new Tooltip();
@@ -282,7 +285,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             editButton.setId("menuBtn");
             editButton.setTooltip(editTip);
             editButton.setOnAction(e -> {
-                m_cmdProperty.set(getEditTokenJson());
+                cmdProperty().set(getEditTokenJson());
 
             });
 
@@ -398,10 +401,14 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             descriptionTextArea.prefHeightProperty().bind(tokenScene.heightProperty().subtract(titleBox.heightProperty()).subtract(imageBox.heightProperty()).subtract(promptBox.heightProperty()).subtract(footerHBox.heightProperty()));
 
             m_ergoNetworkTokenData.addListener(tokenDataListener);
-            m_shutdownNow.addListener(shutdownListener);
+
+            addShutdownListener((obs, oldVal, newVal) -> {
+
+                Platform.runLater(() -> closeBtn.fire());
+            });
 
             m_ergoTokenStage.setOnCloseRequest(e -> {
-                m_shutdownNow.removeListener(shutdownListener);
+                removeShutdownListener();
                 m_ergoNetworkTokenData.removeListener(tokenDataListener);
                 close();
                 m_ergoTokenStage = null;
@@ -409,7 +416,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             });
 
             closeBtn.setOnAction(event -> {
-                m_shutdownNow.removeListener(shutdownListener);
+                removeShutdownListener();
                 m_ergoNetworkTokenData.removeListener(tokenDataListener);
                 close();
 
@@ -457,34 +464,6 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         editObject.addProperty("subject", "EDIT");
         editObject.addProperty("timeStamp", Utils.getNowEpochMillis());
         return editObject;
-    }
-
-    @Override
-    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        JsonElement subjectElement = note.get("subject");
-        if (subjectElement != null) {
-            switch (subjectElement.getAsString()) {
-                case "SHUTDOWN_NOW":
-                    m_shutdownNow.set(LocalDateTime.now());
-                    return true;
-            }
-        }
-        return false;
-    }
-
-    public void addCmdListener(ChangeListener<JsonObject> cmdListener) {
-        m_cmdListener = cmdListener;
-        if (m_cmdListener != null) {
-            m_cmdProperty.addListener(m_cmdListener);
-        }
-        // m_lastUpdated.addListener();
-    }
-
-    public void removeCmdListener() {
-        if (m_cmdListener != null) {
-            m_cmdProperty.removeListener(m_cmdListener);
-            m_cmdListener = null;
-        }
     }
 
     @Override
