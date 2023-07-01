@@ -25,11 +25,13 @@ import com.utils.Utils;
 
 import io.circe.Json;
 import javafx.beans.binding.Bindings;
+import javafx.collections.ListChangeListener.Change;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -175,12 +177,25 @@ public class KucoinExchange extends Network implements NoteInterface {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            HBox menuBar = new HBox();
+            Tooltip refreshTip = new Tooltip("Refresh");
+            refreshTip.setShowDelay(new javafx.util.Duration(100));
+            refreshTip.setFont(App.txtFont);
+
+            Button refreshButton = new Button();
+            refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), 30));
+            refreshButton.setId("menuBtn");
+
+            HBox menuBar = new HBox(refreshButton);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
-            menuBar.setPrefHeight(30);
+
+            VBox favoritesVBox = kucoinData.getFavoriteGridBox();
+
+            ScrollPane favoriteScroll = new ScrollPane(favoritesVBox);
+            favoriteScroll.setPadding(SMALL_INSETS);
+            favoriteScroll.setId("bodyBox");
 
             VBox chartList = kucoinData.getGridBox();
 
@@ -190,6 +205,31 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             VBox bodyPaddingBox = new VBox(scrollPane);
             bodyPaddingBox.setPadding(SMALL_INSETS);
+
+            Button paddingBtn = new Button();
+            paddingBtn.prefHeight(5);
+            paddingBtn.setId("transparentColor");
+            paddingBtn.setDisable(true);
+            paddingBtn.setPadding(new Insets(0));
+            HBox paddingRegion = new HBox(paddingBtn);
+
+            favoritesVBox.getChildren().addListener((Change<? extends Node> changeEvent) -> {
+                int numFavorites = favoritesVBox.getChildren().size();
+                if (numFavorites > 0) {
+                    if (!bodyPaddingBox.getChildren().contains(favoriteScroll)) {
+
+                        bodyPaddingBox.getChildren().clear();
+                        bodyPaddingBox.getChildren().addAll(favoriteScroll, paddingRegion, scrollPane);
+                    }
+                    int favoritesHeight = numFavorites * 40 + 40;
+                    favoriteScroll.setPrefViewportHeight(favoritesHeight > 175 ? 175 : favoritesHeight);
+                } else {
+                    if (bodyPaddingBox.getChildren().contains(favoriteScroll)) {
+                        bodyPaddingBox.getChildren().clear();
+                        bodyPaddingBox.getChildren().add(scrollPane);
+                    }
+                }
+            });
 
             Font smallerFont = Font.font("OCR A Extended", 10);
 
@@ -222,10 +262,13 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             bodyPaddingBox.prefWidthProperty().bind(m_appStage.widthProperty());
             scrollPane.prefViewportWidthProperty().bind(m_appStage.widthProperty());
-            scrollPane.prefHeightProperty().bind(m_appStage.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(footerVBox.heightProperty()));
+
+            favoriteScroll.prefViewportWidthProperty().bind(m_appStage.widthProperty());
+
+            scrollPane.prefViewportHeightProperty().bind(m_appStage.heightProperty().subtract(favoriteScroll.heightProperty()).subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(footerVBox.heightProperty()));
 
             chartList.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty().subtract(40));
-
+            favoritesVBox.prefWidthProperty().bind(favoriteScroll.prefViewportWidthProperty().subtract(40));
             lastUpdatedField.textProperty().bind(kucoinData.getLastUpdated().asString());
 
             ResizeHelper.addResizeListener(m_appStage, 250, 300, rect.getWidth() / 3, rect.getHeight());

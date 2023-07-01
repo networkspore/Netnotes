@@ -5,13 +5,16 @@ import java.awt.Rectangle;
 import com.netnotes.IconButton.IconStyle;
 
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
@@ -22,16 +25,21 @@ public class KucoinMarketItem {
 
     private String m_id;
     private String m_name;
-    private KucoinExchange m_kucoinExchange = null;
+    private KuCoinDataList m_dataList = null;
     private SimpleObjectProperty<KucoinTickerData> m_tickerDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
+    private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
 
-    public KucoinMarketItem(String id, String name, KucoinTickerData tickerData, KucoinExchange kucoinExchange) {
+    public KucoinMarketItem(String id, String name, boolean favorite, KucoinTickerData tickerData, KuCoinDataList dataList) {
         m_id = id;
         m_name = name;
-        m_kucoinExchange = kucoinExchange;
+        m_dataList = dataList;
         m_tickerDataProperty.set(tickerData);
+        m_isFavorite.set(favorite);
+    }
 
+    public SimpleBooleanProperty isFavoriteProperty() {
+        return m_isFavorite;
     }
 
     public String getId() {
@@ -46,6 +54,23 @@ public class KucoinMarketItem {
 
         KucoinTickerData data = m_tickerDataProperty.get();
 
+        Button favoriteBtn = new Button();
+        favoriteBtn.setId("menuBtn");
+        favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
+        favoriteBtn.setOnAction(e -> {
+            boolean newVal = !m_isFavorite.get();
+            m_isFavorite.set(newVal);
+            if (newVal) {
+                m_dataList.addFavorite(m_id, true);
+            } else {
+                m_dataList.removeFavorite(m_id, true);
+            }
+        });
+
+        m_isFavorite.addListener((obs, oldVal, newVal) -> {
+            favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
+        });
+
         TextField symbolField = new TextField(m_id);
         symbolField.setFont(App.txtFont);
         symbolField.setId("rowField");
@@ -57,8 +82,9 @@ public class KucoinMarketItem {
         priceField.setEditable(false);
         priceField.textProperty().bind(m_tickerDataProperty.asString());
 
-        HBox rowBox = new HBox(symbolField, priceField);
+        HBox rowBox = new HBox(favoriteBtn, symbolField, priceField);
         rowBox.setId("rowBtn");
+        rowBox.setAlignment(Pos.CENTER_LEFT);
 
         if (data != null) {
             double changePrice = data.getChangePrice();
@@ -99,8 +125,8 @@ public class KucoinMarketItem {
             m_stage = new Stage();
             m_stage.getIcons().add(ErgoWallet.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
-            m_stage.setTitle(m_kucoinExchange.getName() + " - " + m_name);
-            m_stage.titleProperty().bind(Bindings.concat(m_kucoinExchange.getName(), " - ", m_name));
+            m_stage.setTitle(m_dataList.getKucoinExchange().getName() + " - " + m_name);
+            m_stage.titleProperty().bind(Bindings.concat(m_dataList.getKucoinExchange().getName(), " - ", m_name));
 
             Text promptText = new Text("");
             TextArea descriptionTextArea = new TextArea();
@@ -128,7 +154,7 @@ public class KucoinMarketItem {
 
             //   Stage appStage = m_kucoinExchange.getAppStage();
             //      appStage.setX(0);
-            Rectangle rect = m_kucoinExchange.getNetworksData().getMaximumWindowBounds();
+            Rectangle rect = m_dataList.getNetworksData().getMaximumWindowBounds();
 
             double sceneWidth = 800;
             double sceneHeight = 800;
