@@ -1,41 +1,66 @@
 package com.netnotes;
 
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.netnotes.IconButton.IconStyle;
+import com.utils.Utils;
 
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-public class KucoinMarketItem {
+public class KucoinMarketItem implements MessageInterface {
 
+    private File logFile;
     private String m_id;
     private String m_name;
     private KuCoinDataList m_dataList = null;
     private SimpleObjectProperty<KucoinTickerData> m_tickerDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
     private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
+    private ChangeListener<JsonObject> m_socketMsgListener;
 
     public KucoinMarketItem(String id, String name, boolean favorite, KucoinTickerData tickerData, KuCoinDataList dataList) {
+
         m_id = id;
         m_name = name;
         m_dataList = dataList;
         m_tickerDataProperty.set(tickerData);
         m_isFavorite.set(favorite);
+
+    }
+
+    public ChangeListener<JsonObject> getSocketChangeListener() {
+        return m_socketMsgListener;
     }
 
     public SimpleBooleanProperty isFavoriteProperty() {
@@ -44,6 +69,10 @@ public class KucoinMarketItem {
 
     public String getId() {
         return m_id;
+    }
+
+    public String getName() {
+        return m_name;
     }
 
     public SimpleObjectProperty<KucoinTickerData> tickerDataProperty() {
@@ -70,101 +99,240 @@ public class KucoinMarketItem {
         m_isFavorite.addListener((obs, oldVal, newVal) -> {
             favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
         });
+        Image buttonImage = data == null ? null : getButtonImage(data);
 
-        TextField symbolField = new TextField(m_id);
-        symbolField.setFont(App.txtFont);
-        symbolField.setId("rowField");
-        symbolField.setEditable(false);
+        Button rowButton = new IconButton() {
+            @Override
+            public void open() {
+                showStage();
+            }
+        };
+        rowButton.setContentDisplay(ContentDisplay.LEFT);
+        rowButton.setAlignment(Pos.CENTER_LEFT);
+        rowButton.setGraphic(buttonImage == null ? null : IconButton.getIconView(buttonImage, buttonImage.getWidth()));
+        rowButton.setId("rowBtn");
 
-        TextField priceField = new TextField(data != null ? data.toString() : "-.--");
-        priceField.setFont(App.txtFont);
-        priceField.setId("rowField");
-        priceField.setEditable(false);
-        priceField.textProperty().bind(m_tickerDataProperty.asString());
+        HBox rowBox = new HBox(favoriteBtn, rowButton);
 
-        HBox rowBox = new HBox(favoriteBtn, symbolField, priceField);
-        rowBox.setId("rowBtn");
+        rowButton.prefWidthProperty().bind(rowBox.widthProperty().subtract(favoriteBtn.widthProperty()));
+
         rowBox.setAlignment(Pos.CENTER_LEFT);
 
-        if (data != null) {
-            double changePrice = data.getChangePrice();
-            if (changePrice > 0) {
-                priceField.setId("rowFieldGreen");
-            } else {
-                if (changePrice == 0) {
-                    priceField.setId("rowField");
-                } else {
-                    priceField.setId("rowFieldRed");
-                }
-            }
-        }
-
         m_tickerDataProperty.addListener((obs, oldVal, newVal) -> {
-            if (data != null) {
-                double changePrice = data.getChangePrice();
-                if (changePrice > 0) {
-                    priceField.setId("rowFieldGreen");
-                } else {
-                    if (changePrice == 0) {
-                        priceField.setId("rowField");
-                    } else {
-                        priceField.setId("rowFieldRed");
-                    }
-                }
-            }
+            Image img = newVal == null ? null : getButtonImage(newVal);
+            rowButton.setGraphic(img == null ? null : IconButton.getIconView(img, img.getWidth()));
         });
 
-        symbolField.prefWidthProperty().bind(rowBox.widthProperty().divide(2));
-        priceField.prefWidthProperty().bind(rowBox.widthProperty().divide(2));
         return rowBox;
+    }
+
+    private Image getButtonImage(KucoinTickerData data) {
+        if (data == null) {
+            return null;
+        }
+        int height = 30;
+
+        String symbolString = String.format("%-18s", data.getSymbol());
+        String lastString = data.getLastString();
+
+        boolean positive = data.getChangeRate() > 0;
+        boolean neutral = data.getChangeRate() == 0;
+
+        //    java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 30);
+        java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 15);
+
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setFont(font);
+
+        FontMetrics fm = g2d.getFontMetrics();
+
+        int symbolWidth = fm.stringWidth(symbolString);
+        int lastWidth = fm.stringWidth(lastString);
+        int fontAscent = fm.getAscent();
+        int fontHeight = fm.getHeight();
+        int stringY = ((height - fontHeight) / 2) + fontAscent;
+        int colPadding = 5;
+
+        //  adrBuchImg.getScaledInstance(width, height, java.awt.Image.SCALE_AREA_AVERAGING);
+        img = new BufferedImage(symbolWidth + colPadding + lastWidth, height, BufferedImage.TYPE_INT_ARGB);
+        g2d = img.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
+        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+
+        // g2d.drawImage(unitImage, 0, (height / 2) - (unitImage.getHeight() / 2), unitImage.getWidth(), unitImage.getHeight(), null);
+        g2d.setFont(font);
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawString(symbolString, 0, stringY);
+
+        if (neutral) {
+
+            g2d.setColor(App.NEUTRAL_COLOR);
+        } else {
+            g2d.setColor(positive ? App.POSITIVE_COLOR : App.NEGATIVE_COLOR);
+        }
+
+        g2d.drawString(lastString, symbolWidth + colPadding, stringY);
+
+        g2d.dispose();
+
+        return SwingFXUtils.toFXImage(img, null);
     }
 
     public void showStage() {
         if (m_stage == null) {
+            logFile = new File("marketItem-" + m_id + ".txt");
+            double sceneWidth = 800;
+            double sceneHeight = 800;
 
             m_stage = new Stage();
             m_stage.getIcons().add(ErgoWallet.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
-            m_stage.setTitle(m_dataList.getKucoinExchange().getName() + " - " + m_name);
-            m_stage.titleProperty().bind(Bindings.concat(m_dataList.getKucoinExchange().getName(), " - ", m_name));
+            m_stage.setTitle(m_dataList.getKucoinExchange().getName() + " - " + m_name + (m_tickerDataProperty.get() != null ? " - " + m_tickerDataProperty.get().getLastString() + "" : ""));
 
-            Text promptText = new Text("");
+            Button maximizeBtn = new Button();
+            Button closeBtn = new Button();
+            Button fillRightBtn = new Button();
+
+            HBox titleBox = App.createTopBar(KucoinExchange.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
+
+            Button favoriteBtn = new Button();
+            favoriteBtn.setId("menuBtn");
+            favoriteBtn.setContentDisplay(ContentDisplay.LEFT);
+            favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
+            favoriteBtn.setOnAction(e -> {
+                boolean newVal = !m_isFavorite.get();
+                m_isFavorite.set(newVal);
+                if (newVal) {
+                    m_dataList.addFavorite(m_id, true);
+                } else {
+                    m_dataList.removeFavorite(m_id, true);
+                }
+            });
+
+            m_isFavorite.addListener((obs, oldVal, newVal) -> {
+                favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
+            });
+
+            Text headingText = new Text(m_name);
+            headingText.setFont(App.txtFont);
+            headingText.setFill(Color.WHITE);
+
+            Region headingSpacerL = new Region();
+
+            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText);
+            headingBox.prefHeight(40);
+            headingBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(headingBox, Priority.ALWAYS);
+            headingBox.setPadding(new Insets(10, 0, 10, 0));
+            headingBox.setId("headingBox");
+
+            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
+
             TextArea descriptionTextArea = new TextArea();
 
             Label emissionLbl = new Label();
             TextField emissionAmountField = new TextField();
-            Button closeBtn = new Button();
-            Button maximizeBtn = new Button();
 
-            //    if (m_tickerDataProperty.get() != null) {
-            //   } else {
-            //   }
+            ChartView chartView = new ChartView(sceneWidth - 100, sceneHeight - 200);
+
+            HBox chartBox = new HBox();
+            chartBox.setAlignment(Pos.CENTER);
+            HBox.setHgrow(chartBox, Priority.ALWAYS);
+            m_dataList.getKucoinExchange().getCandlesDataset(m_id, "30min", onSuccess -> {
+                WorkerStateEvent worker = onSuccess;
+                Object sourceObject = worker.getSource().getValue();
+
+                if (sourceObject != null && sourceObject instanceof JsonObject) {
+
+                    JsonObject sourceJson = (JsonObject) sourceObject;
+
+                    try {
+                        Files.writeString(logFile.toPath(), sourceJson.toString());
+                    } catch (IOException e1) {
+
+                    }
+                    JsonElement msgElement = sourceJson.get("msg");
+                    JsonElement dataElement = sourceJson.get("data");
+
+                    if (dataElement != null && dataElement.isJsonArray()) {
+                        chartView.setPriceDataList(dataElement.getAsJsonArray());
+                    } else {
+                        if (msgElement != null && msgElement.isJsonPrimitive()) {
+                            chartView.setMsg(msgElement.toString());
+                        }
+                    }
+
+                }
+            }, onFailed -> {
+
+            });
+            //  getCandlesDataset(symbolElement.getAsString(), timeSpanElement.getAsString(), onSucceeded, onFailed);
+
+            VBox paddingBox = new VBox(headingBox, chartBox);
+
+            paddingBox.setPadding(new Insets(0, 5, 5, 5));
+
+            VBox layoutBox = new VBox(titleBox, paddingBox);
+
+            //   Stage appStage = m_kucoinExchange.getAppStage();
+            //      appStage.setX(0);
+            Rectangle rect = m_dataList.getNetworksData().getMaximumWindowBounds();
+
+            Scene mainScene = new Scene(layoutBox, sceneWidth, sceneHeight);
+            mainScene.getStylesheets().add("/css/startWindow.css");
+            m_stage.setScene(mainScene);
+
+            chartBox.getChildren().add(chartView.getChartBox(m_stage));
+
+            ResizeHelper.addResizeListener(m_stage, 600, 800, rect.getWidth(), rect.getHeight());
+            m_stage.show();
+
             ChangeListener<KucoinTickerData> tickerListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
-                    KucoinTickerData tickerData = newVal;
+
+                    m_stage.setTitle(m_dataList.getKucoinExchange().getName() + " - " + m_name + (newVal != null ? " - " + newVal.getLastString() + "" : ""));
 
                 } else {
 
                 }
             };
 
-            HBox titleBox = App.createTopBar(KucoinExchange.getSmallAppIcon(), maximizeBtn, closeBtn, m_stage);
+            m_tickerDataProperty.addListener(tickerListener);
 
-            VBox layoutBox = new VBox(titleBox);
+            m_stage.setOnCloseRequest(e -> {
+                m_tickerDataProperty.removeListener(tickerListener);
+                m_stage.close();
+                m_stage = null;
+            });
 
-            //   Stage appStage = m_kucoinExchange.getAppStage();
-            //      appStage.setX(0);
-            Rectangle rect = m_dataList.getNetworksData().getMaximumWindowBounds();
+            closeBtn.setOnAction(e -> {
+                m_tickerDataProperty.removeListener(tickerListener);
+                m_stage.close();
+                m_stage = null;
+            });
 
-            double sceneWidth = 800;
-            double sceneHeight = 800;
+            fillRightBtn.setOnAction(e -> {
+                KucoinExchange ex = m_dataList.getKucoinExchange();
+                if (ex.getAppStage() != null) {
+                    Stage exStage = ex.getAppStage();
 
-            Scene mainScene = new Scene(layoutBox, sceneWidth, sceneHeight);
+                    ex.cmdObjectProperty().set(Utils.getCmdObject("MAXIMIZE_STAGE_LEFT"));
 
-            m_stage.setScene(mainScene);
+                    m_stage.setX(exStage.getWidth());
+                    m_stage.setY(0);
+                    m_stage.setWidth(rect.getWidth() - exStage.getWidth());
+                    m_stage.setHeight(rect.getHeight());
+                }
 
-            ResizeHelper.addResizeListener(m_stage, 600, 800, rect.getWidth(), rect.getHeight());
-            m_stage.show();
+            });
+
         } else {
             m_stage.show();
         }

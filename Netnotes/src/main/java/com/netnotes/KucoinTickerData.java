@@ -188,6 +188,6 @@ public class KucoinTickerData {
 
     @Override
     public String toString() {
-        return getLastString();
+        return getSymbol() + " - " + getLastString();
     }
 }

@@ -84,6 +84,10 @@ public class App extends Application {
     public static Color altColor = Color.web("#777777");
     public static Color formFieldColor = new Color(.8, .8, .8, .9);
 
+    public static java.awt.Color POSITIVE_COLOR = new java.awt.Color(0x028A0F);
+    public static java.awt.Color NEGATIVE_COLOR = new java.awt.Color(0x9A2A2A);
+    public static java.awt.Color NEUTRAL_COLOR = new java.awt.Color(0x111111);
+
     public static Image icon = new Image("/assets/icon20.png");
     public static Image logo = new Image("/assets/icon256.png");
     public static Image ergoLogo = new Image("/assets/ergo-network.png");
@@ -284,7 +288,7 @@ public class App extends Application {
         VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 330);
+        Scene passwordScene = new Scene(layoutVBox, 600, 320);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(passwordScene);
@@ -894,6 +898,83 @@ public class App extends Application {
 
         return returnValue.equals("") ? null : returnValue;
 
+    }
+
+    public static HBox createTopBar(Image iconImage, Button fillRightBtn, Button maximizeBtn, Button closeBtn, Stage theStage) {
+
+        ImageView barIconView = new ImageView(iconImage);
+        barIconView.setFitWidth(25);
+        barIconView.setPreserveRatio(true);
+
+        // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
+        Region spacer = new Region();
+
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label newTitleLbl = new Label(theStage.titleProperty().get());
+        newTitleLbl.setFont(titleFont);
+        newTitleLbl.setTextFill(txtColor);
+        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
+        newTitleLbl.textProperty().bind(theStage.titleProperty());
+
+        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        ImageView closeImage = highlightedImageView(closeImg);
+        closeImage.setFitHeight(20);
+        closeImage.setFitWidth(20);
+        closeImage.setPreserveRatio(true);
+
+        closeBtn.setGraphic(closeImage);
+        closeBtn.setPadding(new Insets(0, 5, 0, 3));
+        closeBtn.setId("closeBtn");
+
+        ImageView minimizeImage = highlightedImageView(minimizeImg);
+        minimizeImage.setFitHeight(20);
+        minimizeImage.setFitWidth(20);
+        minimizeImage.setPreserveRatio(true);
+
+        Button minimizeBtn = new Button();
+        minimizeBtn.setId("toolBtn");
+        minimizeBtn.setGraphic(minimizeImage);
+        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
+        minimizeBtn.setOnAction(minEvent -> {
+            theStage.setIconified(true);
+        });
+
+        maximizeBtn.setId("toolBtn");
+        maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
+        maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
+        maximizeBtn.setOnAction(maxEvent -> {
+            theStage.setMaximized(!theStage.isMaximized());
+        });
+
+        fillRightBtn.setId("toolBtn");
+        fillRightBtn.setGraphic(IconButton.getIconView(new Image("/assets/fillRight.png"), 20));
+        fillRightBtn.setPadding(new Insets(0, 3, 0, 3));
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, fillRightBtn, minimizeBtn, maximizeBtn, closeBtn);
+        newTopBar.setAlignment(Pos.CENTER_LEFT);
+        newTopBar.setPadding(new Insets(7, 8, 10, 10));
+        newTopBar.setId("topBar");
+
+        Delta dragDelta = new Delta();
+
+        newTopBar.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                // record a delta distance for the drag and drop operation.
+                dragDelta.x = theStage.getX() - mouseEvent.getScreenX();
+                dragDelta.y = theStage.getY() - mouseEvent.getScreenY();
+            }
+        });
+        newTopBar.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                theStage.setX(mouseEvent.getScreenX() + dragDelta.x);
+                theStage.setY(mouseEvent.getScreenY() + dragDelta.y);
+            }
+        });
+
+        return newTopBar;
     }
 
     public static HBox createTopBar(Image iconImage, Button maximizeBtn, Button closeBtn, Stage theStage) {

@@ -1,6 +1,7 @@
 package com.netnotes;
 
 import java.awt.Rectangle;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -12,6 +13,8 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+
+import javax.swing.event.ChangeEvent;
 
 import org.ergoplatform.appkit.NetworkType;
 import org.java_websocket.client.WebSocketClient;
@@ -25,9 +28,12 @@ import com.utils.Utils;
 
 import io.circe.Json;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener.Change;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
+import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -46,6 +52,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -68,7 +75,12 @@ public class KucoinExchange extends Network implements NoteInterface {
     private Stage m_appStage = null;
 
     private static long MIN_QUOTE_MILLIS = 5000;
+
     private ArrayList<PriceQuote> m_quotes = new ArrayList<PriceQuote>();
+    private SimpleObjectProperty<JsonObject> m_cmdObjectProperty = new SimpleObjectProperty<>(null);
+
+    private ArrayList<MessageInterface> m_msgListeners = new ArrayList<>();
+    private SimpleObjectProperty<JsonObject> m_socketMsg = new SimpleObjectProperty<>(null);
 
     public KucoinExchange(NetworksData networksData) {
         this(null, networksData);
@@ -79,6 +91,34 @@ public class KucoinExchange extends Network implements NoteInterface {
         super(getAppIcon(), NAME, NetworkID.KUKOIN_EXCHANGE, networksData);
 
         setup(jsonObject);
+    }
+
+    public SimpleObjectProperty<JsonObject> cmdObjectProperty() {
+
+        return m_cmdObjectProperty;
+    }
+
+    public void addMsgListenr(MessageInterface item) {
+        if (!m_msgListeners.contains(item)) {
+            if (m_msgListeners.size() == 0) {
+                connectToExchange();
+            }
+
+            m_msgListeners.add(item);
+            m_socketMsg.addListener(item.getSocketChangeListener());
+
+        }
+    }
+
+    public void removeMsgListener(MessageInterface item) {
+        if (m_msgListeners.contains(item)) {
+            m_msgListeners.remove(item);
+            m_socketMsg.removeListener(item.getSocketChangeListener());
+            if (m_msgListeners.size() == 0) {
+                disconnectFromExchange();
+            }
+        }
+
     }
 
     public File getAppDir() {
@@ -153,7 +193,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             KuCoinDataList kucoinData = new KuCoinDataList(this);
 
             double appStageWidth = 450;
-            double appStageHeight = 480;
+            double appStageHeight = 600;
 
             m_appStage = new Stage();
             m_appStage.getIcons().add(getIcon());
@@ -170,9 +210,10 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             Button maxBtn = new Button();
 
-            HBox titleBox = App.createTopBar(getIcon(), maxBtn, closeBtn, m_appStage);
+            HBox titleBox = App.createTopBar(getSmallAppIcon(), maxBtn, closeBtn, m_appStage);
+            titleBox.setPadding(new Insets(7, 8, 5, 10));
 
-            m_appStage.titleProperty().bind(Bindings.concat(NAME, " - ", kucoinData.sortOrderProperty()));
+            m_appStage.titleProperty().bind(Bindings.concat(NAME, " - ", kucoinData.statusProperty()));
 
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -184,17 +225,34 @@ public class KucoinExchange extends Network implements NoteInterface {
             Button refreshButton = new Button();
             refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), 30));
             refreshButton.setId("menuBtn");
+            EventHandler<ActionEvent> refreshAction = e -> {
+                refreshButton.setDisable(true);
+                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-active-30.png"), 30));
+                kucoinData.updateTickers();
+            };
+            refreshButton.setOnAction(refreshAction);
 
-            HBox menuBar = new HBox(refreshButton);
+            TextField searchField = new TextField();
+            searchField.setId("urlField");
+            searchField.setPrefWidth(200);
+            searchField.setPadding(new Insets(2, 10, 3, 10));
+            searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+                kucoinData.setSearchText(searchField.getText());
+            });
+
+            Region menuBarRegion = new Region();
+            HBox.setHgrow(menuBarRegion, Priority.ALWAYS);
+
+            HBox menuBar = new HBox(refreshButton, menuBarRegion, searchField);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 5));
+            menuBar.setPadding(new Insets(1, 10, 1, 5));
 
             VBox favoritesVBox = kucoinData.getFavoriteGridBox();
 
             ScrollPane favoriteScroll = new ScrollPane(favoritesVBox);
-            favoriteScroll.setPadding(SMALL_INSETS);
+            favoriteScroll.setPadding(new Insets(5, 0, 5, 5));
             favoriteScroll.setId("bodyBox");
 
             VBox chartList = kucoinData.getGridBox();
@@ -206,31 +264,6 @@ public class KucoinExchange extends Network implements NoteInterface {
             VBox bodyPaddingBox = new VBox(scrollPane);
             bodyPaddingBox.setPadding(SMALL_INSETS);
 
-            Button paddingBtn = new Button();
-            paddingBtn.prefHeight(5);
-            paddingBtn.setId("transparentColor");
-            paddingBtn.setDisable(true);
-            paddingBtn.setPadding(new Insets(0));
-            HBox paddingRegion = new HBox(paddingBtn);
-
-            favoritesVBox.getChildren().addListener((Change<? extends Node> changeEvent) -> {
-                int numFavorites = favoritesVBox.getChildren().size();
-                if (numFavorites > 0) {
-                    if (!bodyPaddingBox.getChildren().contains(favoriteScroll)) {
-
-                        bodyPaddingBox.getChildren().clear();
-                        bodyPaddingBox.getChildren().addAll(favoriteScroll, paddingRegion, scrollPane);
-                    }
-                    int favoritesHeight = numFavorites * 40 + 40;
-                    favoriteScroll.setPrefViewportHeight(favoritesHeight > 175 ? 175 : favoritesHeight);
-                } else {
-                    if (bodyPaddingBox.getChildren().contains(favoriteScroll)) {
-                        bodyPaddingBox.getChildren().clear();
-                        bodyPaddingBox.getChildren().add(scrollPane);
-                    }
-                }
-            });
-
             Font smallerFont = Font.font("OCR A Extended", 10);
 
             Text lastUpdatedTxt = new Text("Updated ");
@@ -241,7 +274,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             lastUpdatedField.setEditable(false);
             lastUpdatedField.setId("formField");
             lastUpdatedField.setFont(smallerFont);
-            lastUpdatedField.setPrefWidth(150);
+            lastUpdatedField.setPrefWidth(165);
 
             HBox lastUpdatedBox = new HBox(lastUpdatedTxt, lastUpdatedField);
             lastUpdatedBox.setAlignment(Pos.CENTER_RIGHT);
@@ -251,27 +284,110 @@ public class KucoinExchange extends Network implements NoteInterface {
             HBox.setHgrow(footerVBox, Priority.ALWAYS);
             footerVBox.setPadding(SMALL_INSETS);
 
-            VBox layoutBox = new VBox(titleBox, menuBar, bodyPaddingBox, footerVBox);
+            VBox headerVBox = new VBox(titleBox);
+            headerVBox.setPadding(new Insets(0, 5, 0, 5));
+            headerVBox.setAlignment(Pos.TOP_CENTER);
+
+            VBox layoutBox = new VBox(headerVBox, bodyPaddingBox, footerVBox);
+
+            HBox menuPaddingBox = new HBox(menuBar);
+            menuPaddingBox.setPadding(new Insets(0, 0, 0, 0));
+
+            kucoinData.statusProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null && !(newVal.equals("Loading..."))) {
+                    if (!headerVBox.getChildren().contains(menuPaddingBox)) {
+                        headerVBox.getChildren().add(1, menuPaddingBox);
+
+                    }
+
+                } else {
+                    if (headerVBox.getChildren().contains(menuPaddingBox)) {
+                        headerVBox.getChildren().remove(menuPaddingBox);
+
+                    }
+
+                }
+            });
+
+            favoritesVBox.getChildren().addListener((Change<? extends Node> changeEvent) -> {
+                int numFavorites = favoritesVBox.getChildren().size();
+                if (numFavorites > 0) {
+                    if (!headerVBox.getChildren().contains(favoriteScroll)) {
+
+                        headerVBox.getChildren().add(favoriteScroll);
+                        menuPaddingBox.setPadding(new Insets(0, 0, 5, 0));
+                    }
+                    int favoritesHeight = numFavorites * 40 + 21;
+                    favoriteScroll.setPrefViewportHeight(favoritesHeight > 175 ? 175 : favoritesHeight);
+                } else {
+                    if (headerVBox.getChildren().contains(favoriteScroll)) {
+
+                        headerVBox.getChildren().remove(favoriteScroll);
+                        menuPaddingBox.setPadding(new Insets(0, 0, 0, 0));
+                    }
+                }
+            });
+
+            Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
             Scene appScene = new Scene(layoutBox, appStageWidth, appStageHeight);
             appScene.getStylesheets().add("/css/startWindow.css");
             m_appStage.setScene(appScene);
             m_appStage.show();
 
-            Rectangle rect = getNetworksData().getMaximumWindowBounds();
-
             bodyPaddingBox.prefWidthProperty().bind(m_appStage.widthProperty());
             scrollPane.prefViewportWidthProperty().bind(m_appStage.widthProperty());
 
             favoriteScroll.prefViewportWidthProperty().bind(m_appStage.widthProperty());
 
-            scrollPane.prefViewportHeightProperty().bind(m_appStage.heightProperty().subtract(favoriteScroll.heightProperty()).subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(footerVBox.heightProperty()));
+            scrollPane.prefViewportHeightProperty().bind(m_appStage.heightProperty().subtract(headerVBox.heightProperty()).subtract(footerVBox.heightProperty()));
 
             chartList.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty().subtract(40));
             favoritesVBox.prefWidthProperty().bind(favoriteScroll.prefViewportWidthProperty().subtract(40));
-            lastUpdatedField.textProperty().bind(kucoinData.getLastUpdated().asString());
 
-            ResizeHelper.addResizeListener(m_appStage, 250, 300, rect.getWidth() / 3, rect.getHeight());
+            kucoinData.getLastUpdated().addListener((obs, oldVal, newVal) -> {
+                refreshButton.setDisable(false);
+                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), 30));
+                String dateString = Utils.formatDateTimeString(newVal);
+
+                lastUpdatedField.setText(dateString);
+            });
+
+            double maxWidth = rect.getWidth() / 2;
+
+            ResizeHelper.addResizeListener(m_appStage, 250, 300, maxWidth, rect.getHeight());
+
+            maxBtn.setOnAction(e -> {
+                if (m_appStage.getX() != 0 || m_appStage.getY() != 0 || m_appStage.getHeight() != rect.getHeight()) {
+
+                    m_appStage.setX(0);
+                    m_appStage.setY(0);
+                    m_appStage.setHeight(rect.getHeight());
+                } else {
+                    m_appStage.setWidth(appStageWidth);
+                    m_appStage.setHeight(appStageHeight);
+
+                    m_appStage.setX((rect.getWidth() / 2) - (appStageWidth / 2));
+                    m_appStage.setY((rect.getHeight() / 2) - (appStageHeight / 2));
+                }
+
+            });
+
+            m_cmdObjectProperty.addListener((obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    JsonElement subjectElement = newVal.get("subject");
+                    if (subjectElement != null && subjectElement.isJsonPrimitive()) {
+                        switch (subjectElement.getAsString()) {
+                            case "MAXIMIZE_STAGE_LEFT":
+                                m_appStage.setX(0);
+                                m_appStage.setY(0);
+                                m_appStage.setHeight(rect.getHeight());
+                                m_appStage.show();
+                                break;
+                        }
+                    }
+                }
+            });
 
         } else {
             m_appStage.show();
@@ -328,6 +444,10 @@ public class KucoinExchange extends Network implements NoteInterface {
         return json;
     }
 
+    private void disconnectFromExchange() {
+
+    }
+
     private void openKucoinSocket(String tokenString, String endpointURL, int pingInterval) {
 
         URI uri;
@@ -352,43 +472,53 @@ public class KucoinExchange extends Network implements NoteInterface {
                 } catch (IOException e1) {
 
                 }
+                if (s != null) {
+                    JsonElement messageElement = new JsonParser().parse(s);
+                    if (messageElement != null && messageElement.isJsonObject()) {
+                        JsonObject messageObject = messageElement.getAsJsonObject();
+                        if (messageObject != null) {
 
-                JsonObject messageObject = new JsonParser().parse(s).getAsJsonObject();
-                JsonElement typeElement = messageObject.get("type");
+                            JsonElement typeElement = messageObject.get("type");
 
-                if (typeElement != null) {
-                    String type = typeElement.getAsString();
+                            if (typeElement != null) {
+                                String type = typeElement.getAsString();
 
-                    switch (type) {
-                        case "welcome":
-                            m_webClient.setPong(System.currentTimeMillis());
-                            m_webClient.setReady(true);
+                                switch (type) {
+                                    case "welcome":
+                                        m_webClient.setPong(System.currentTimeMillis());
+                                        m_webClient.setReady(true);
 
-                            m_webClient.startPinging();
+                                        m_webClient.startPinging();
+                                        m_socketMsg.set(Utils.getCmdObject("ready"));
+                                        break;
+                                    case "pong":
+                                        m_webClient.setPong(System.currentTimeMillis());
+                                        break;
+                                    case "message":
+                                        /*JsonElement tunnelIdElement = messageObject.get("tunnelId");
 
-                            break;
-                        case "pong":
-                            m_webClient.setPong(System.currentTimeMillis());
-                            break;
-                        case "message":
-                            JsonElement tunnelIdElement = messageObject.get("tunnelId");
+                                        if (tunnelIdElement != null) {
 
-                            if (tunnelIdElement != null) {
+                                            String tunnelId = tunnelIdElement.getAsString();
 
-                                String tunnelId = tunnelIdElement.getAsString();
+                                        }*/
+                                        m_socketMsg.set(messageObject);
+                                        break;
 
+                                }
                             }
 
-                            break;
-
+                        }
                     }
+
                 }
+
             }
 
             @Override
             public void onClose(int i, String s, boolean b) {
                 m_webClient.setReady(false);
-
+                m_socketMsg.set(Utils.getCmdObject("close"));
                 /*ArrayList<WebClientListener> listeners = getMessageListeners();
                 for (WebClientListener messagelistener : listeners) {
 

@@ -226,6 +226,10 @@
    
 }
 
+
+
+
+
 #hGradient {
     -fx-background-color: linear-gradient(to right, #111111AA, #77777740, #111111AA);
 }
@@ -248,6 +252,7 @@
 }
 
 #menuBtn {
+   
     -fx-background-color: transparent;
     -fx-opacity: .6;
 }

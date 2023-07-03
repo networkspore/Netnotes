@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -53,6 +55,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
     private int m_sortMethod = 0;
     private boolean m_sortDirection = false;
+    private String m_searchText = null;
 
     public KuCoinDataList(KucoinExchange kuCoinCharts) {
         super(null, "Ergo Charts List", "KUCOIN_CHARTS_LIST", kuCoinCharts);
@@ -165,7 +168,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
         }
     }
 
-    public SimpleStringProperty sortOrderProperty() {
+    public SimpleStringProperty statusProperty() {
         return m_statusMsg;
     }
 
@@ -460,6 +463,40 @@ public class KuCoinDataList extends Network implements NoteInterface {
         m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
     }
 
+    public void setSearchText(String text) {
+        m_searchText = text.equals("") ? null : text;
+
+        updateGridBox();
+
+    }
+
+    public String getSearchText() {
+        return m_searchText;
+    }
+
+    private void doSearch(ArrayList<KucoinMarketItem> marketItems, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        Task<KucoinMarketItem[]> task = new Task<KucoinMarketItem[]>() {
+            @Override
+            public KucoinMarketItem[] call() {
+                List<KucoinMarketItem> searchResultsList = marketItems.stream().filter(marketItem -> marketItem.getSymbol().contains(m_searchText.toUpperCase())).collect(Collectors.toList());
+
+                KucoinMarketItem[] results = new KucoinMarketItem[searchResultsList.size()];
+
+                searchResultsList.toArray(results);
+
+                return results;
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+    }
+
     public void updateGridBox() {
         m_favoriteGridBox.getChildren().clear();
         m_gridBox.getChildren().clear();
@@ -473,20 +510,42 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
                 m_favoriteGridBox.getChildren().add(m_favoritesList.get(i));
             }
+            if (m_searchText == null) {
+                for (int i = 0; i < numCells; i++) {
+                    KucoinMarketItem marketItem = m_marketsList.get(i);
 
-            for (int i = 0; i < numCells; i++) {
-                KucoinMarketItem marketItem = m_marketsList.get(i);
+                    HBox rowBox = marketItem.getRowBox();
 
-                HBox rowBox = marketItem.getRowBox();
+                    m_gridBox.getChildren().add(rowBox);
 
-                m_gridBox.getChildren().add(rowBox);
+                }
+            } else {
+
+                // List<KucoinMarketItem> searchResultsList = m_marketsList.stream().filter(marketItem -> marketItem.getSymbol().contains(m_searchText.toUpperCase())).collect(Collectors.toList());
+                doSearch(m_marketsList, onSuccess -> {
+                    WorkerStateEvent event = onSuccess;
+                    Object sourceObject = event.getSource().getValue();
+
+                    if (sourceObject instanceof KucoinMarketItem[]) {
+                        KucoinMarketItem[] searchResults = (KucoinMarketItem[]) sourceObject;
+                        int numResults = searchResults.length > 100 ? 100 : searchResults.length;
+
+                        for (int i = 0; i < numResults; i++) {
+                            KucoinMarketItem marketItem = searchResults[i];
+
+                            HBox rowBox = marketItem.getRowBox();
+
+                            m_gridBox.getChildren().add(rowBox);
+                        }
+                    }
+                }, onFailed -> {
+                });
 
             }
         } else {
             HBox imageBox = new HBox();
             imageBox.setAlignment(Pos.CENTER);
             HBox.setHgrow(imageBox, Priority.ALWAYS);
-            imageBox.setPrefHeight(250);
 
             if (m_notConnected) {
                 Button notConnectedBtn = new Button("No Connection");

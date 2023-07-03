@@ -260,9 +260,9 @@ public class AddressesData {
         menuBar.setId("menuBar");
         menuBar.setPadding(new Insets(1, 0, 1, 5));
 
-        Text promptText = new Text("Send");
-        promptText.setFont(App.txtFont);
-        promptText.setFill(Color.WHITE);
+        Text headingText = new Text("Send");
+        headingText.setFont(App.txtFont);
+        headingText.setFill(Color.WHITE);
 
         Text amountCaret = new Text("Amount ");
         amountCaret.setFont(App.txtFont);
@@ -280,12 +280,12 @@ public class AddressesData {
 
         AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
 
-        HBox promptBox = new HBox(promptText);
-        promptBox.prefHeight(40);
-        promptBox.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(promptBox, Priority.ALWAYS);
-        promptBox.setPadding(new Insets(10, 15, 10, 15));
-        promptBox.setId("headingBox");
+        HBox headingBox = new HBox(headingText);
+        headingBox.prefHeight(40);
+        headingBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(headingBox, Priority.ALWAYS);
+        headingBox.setPadding(new Insets(10, 15, 10, 15));
+        headingBox.setId("headingBox");
 
         ImageView fromNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
 
@@ -514,7 +514,7 @@ public class AddressesData {
         addBox.setAlignment(Pos.CENTER_LEFT);
         addBox.setPadding(new Insets(0, 20, 0, 0));
 
-        VBox bodyBox = new VBox(promptBox, fromAddressBox, toAddressBox, amountBoxes, addBox, scrollPaddingBox);
+        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox, amountBoxes, addBox, scrollPaddingBox);
         bodyBox.setId("bodyBox");
         // bodyBox.setPadding(new Insets(5));
 
@@ -532,7 +532,7 @@ public class AddressesData {
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
         toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(promptBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(amountBoxes.heightProperty()).subtract(footerBox.heightProperty()));
+        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(amountBoxes.heightProperty()).subtract(footerBox.heightProperty()));
         scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty());
 
         return sendScene;
