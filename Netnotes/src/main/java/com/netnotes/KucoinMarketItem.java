@@ -372,16 +372,19 @@ public class KucoinMarketItem {
             m_tickerDataProperty.addListener(tickerListener);
 
             Runnable closable = () -> {
-                exchange.unsubscribeToCandles(m_id, m_symbol, m_timeSpan);
+                exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan);
                 m_tickerDataProperty.removeListener(tickerListener);
                 exchange.removeMsgListener(msgInterface);
-                m_stage.close();
+
                 m_stage = null;
             };
 
             m_stage.setOnCloseRequest(e -> closable.run());
 
-            closeBtn.setOnAction(e -> closable.run());
+            closeBtn.setOnAction(e -> {
+                m_stage.close();
+                closable.run();
+            });
 
             fillRightBtn.setOnAction(e -> {
 

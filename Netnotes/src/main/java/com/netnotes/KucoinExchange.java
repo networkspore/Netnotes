@@ -117,7 +117,9 @@ public class KucoinExchange extends Network implements NoteInterface {
         if (m_msgListeners.contains(item)) {
             m_msgListeners.remove(item);
             m_socketMsg.removeListener(item.getSocketChangeListener());
-
+            if (m_msgListeners.size() == 0) {
+                m_websocketClient.close();
+            }
         }
 
     }
@@ -194,7 +196,11 @@ public class KucoinExchange extends Network implements NoteInterface {
         if (m_openTunnels == 5) {
             return false;
         }
+        try {
+            Files.writeString(logFile.toPath(), "opening tunnel " + tunnelId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }
         m_openTunnels += 1;
         m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"openTunnel\", \"newTunnelId\": \"" + tunnelId + "\", \"response\": true}");
 
@@ -204,6 +210,12 @@ public class KucoinExchange extends Network implements NoteInterface {
     public boolean closeTunnel(String tunnelId) {
         if (m_openTunnels > 0) {
             m_openTunnels -= 1;
+        }
+
+        try {
+            Files.writeString(logFile.toPath(), "closing tunnel" + tunnelId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
         }
         m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"closeTunnel\", \"tunnelId\": \"" + tunnelId + "\", \"response\": true}");
 
@@ -661,6 +673,8 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             @Override
             public void close() {
+                m_pingTimer.cancel();
+                m_pingTimer.purge();
 
                 super.close();
             }
@@ -724,8 +738,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             @Override
             public void onClose(int i, String s, boolean b) {
-                m_pingTimer.cancel();
-                m_pingTimer.purge();
+
                 m_socketMsg.set(Utils.getCmdObject("close"));
                 m_connectionStatus.set(0);
                 /*ArrayList<WebClientListener> listeners = getMessageListeners();
