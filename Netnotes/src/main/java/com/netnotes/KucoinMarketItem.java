@@ -8,12 +8,18 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 
+import org.reactfx.util.FxTimer;
+
+import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.netnotes.IconButton.IconStyle;
 import com.utils.Utils;
 
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -38,20 +44,25 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-public class KucoinMarketItem implements MessageInterface {
+public class KucoinMarketItem {
 
     private File logFile;
     private String m_id;
+    private String m_symbol;
     private String m_name;
+    private String m_timeSpan = "30min";
     private KuCoinDataList m_dataList = null;
     private SimpleObjectProperty<KucoinTickerData> m_tickerDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
     private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
     private ChangeListener<JsonObject> m_socketMsgListener;
 
-    public KucoinMarketItem(String id, String name, boolean favorite, KucoinTickerData tickerData, KuCoinDataList dataList) {
+    private NoteInterface m_parentInterface;
 
+    public KucoinMarketItem(NoteInterface parentInterface, String id, String symbol, String name, boolean favorite, KucoinTickerData tickerData, KuCoinDataList dataList) {
+        m_parentInterface = parentInterface;
         m_id = id;
+        m_symbol = symbol;
         m_name = name;
         m_dataList = dataList;
         m_tickerDataProperty.set(tickerData);
@@ -75,6 +86,10 @@ public class KucoinMarketItem implements MessageInterface {
         return m_name;
     }
 
+    public String getTimeSpan() {
+        return m_timeSpan;
+    }
+
     public SimpleObjectProperty<KucoinTickerData> tickerDataProperty() {
         return m_tickerDataProperty;
     }
@@ -90,9 +105,9 @@ public class KucoinMarketItem implements MessageInterface {
             boolean newVal = !m_isFavorite.get();
             m_isFavorite.set(newVal);
             if (newVal) {
-                m_dataList.addFavorite(m_id, true);
+                m_dataList.addFavorite(m_symbol, true);
             } else {
-                m_dataList.removeFavorite(m_id, true);
+                m_dataList.removeFavorite(m_symbol, true);
             }
         });
 
@@ -187,14 +202,16 @@ public class KucoinMarketItem implements MessageInterface {
 
     public void showStage() {
         if (m_stage == null) {
-            logFile = new File("marketItem-" + m_id + ".txt");
+            logFile = new File("marketItem-" + m_symbol + ".txt");
             double sceneWidth = 800;
             double sceneHeight = 800;
 
+            KucoinExchange exchange = m_dataList.getKucoinExchange();
+
             m_stage = new Stage();
-            m_stage.getIcons().add(ErgoWallet.getSmallAppIcon());
+            m_stage.getIcons().add(KucoinExchange.getAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
-            m_stage.setTitle(m_dataList.getKucoinExchange().getName() + " - " + m_name + (m_tickerDataProperty.get() != null ? " - " + m_tickerDataProperty.get().getLastString() + "" : ""));
+            m_stage.setTitle(exchange.getName() + " - " + m_name + (m_tickerDataProperty.get() != null ? " - " + m_tickerDataProperty.get().getLastString() + "" : ""));
 
             Button maximizeBtn = new Button();
             Button closeBtn = new Button();
@@ -210,9 +227,9 @@ public class KucoinMarketItem implements MessageInterface {
                 boolean newVal = !m_isFavorite.get();
                 m_isFavorite.set(newVal);
                 if (newVal) {
-                    m_dataList.addFavorite(m_id, true);
+                    m_dataList.addFavorite(m_symbol, true);
                 } else {
-                    m_dataList.removeFavorite(m_id, true);
+                    m_dataList.removeFavorite(m_symbol, true);
                 }
             });
 
@@ -235,7 +252,7 @@ public class KucoinMarketItem implements MessageInterface {
 
             headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
 
-            TextArea descriptionTextArea = new TextArea();
+            TextArea informationTextArea = new TextArea();
 
             Label emissionLbl = new Label();
             TextField emissionAmountField = new TextField();
@@ -245,7 +262,44 @@ public class KucoinMarketItem implements MessageInterface {
             HBox chartBox = new HBox();
             chartBox.setAlignment(Pos.CENTER);
             HBox.setHgrow(chartBox, Priority.ALWAYS);
-            m_dataList.getKucoinExchange().getCandlesDataset(m_id, "30min", onSuccess -> {
+
+            ChangeListener<JsonObject> socketMsgListener = (obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    try {
+                        Files.writeString(logFile.toPath(), "\nnewMsg" + newVal.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e1) {
+
+                    }
+                    JsonElement subjectElement = newVal.get("subject");
+
+                    String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
+
+                    if (subject != null) {
+                        switch (subject) {
+                            case "message":
+
+                                break;
+                        }
+                    }
+                }
+            };
+
+            MessageInterface msgInterface = new MessageInterface() {
+                @Override
+                public String getId() {
+                    return getId();
+                }
+
+                @Override
+                public ChangeListener<JsonObject> getSocketChangeListener() {
+                    return socketMsgListener;
+                }
+
+            };
+
+            exchange.addMsgListenr(msgInterface);
+
+            exchange.getCandlesDataset(m_symbol, m_timeSpan, onSuccess -> {
                 WorkerStateEvent worker = onSuccess;
                 Object sourceObject = worker.getSource().getValue();
 
@@ -253,27 +307,38 @@ public class KucoinMarketItem implements MessageInterface {
 
                     JsonObject sourceJson = (JsonObject) sourceObject;
 
-                    try {
-                        Files.writeString(logFile.toPath(), sourceJson.toString());
-                    } catch (IOException e1) {
-
-                    }
                     JsonElement msgElement = sourceJson.get("msg");
                     JsonElement dataElement = sourceJson.get("data");
 
-                    if (dataElement != null && dataElement.isJsonArray()) {
-                        chartView.setPriceDataList(dataElement.getAsJsonArray());
+                    if (msgElement != null && msgElement.isJsonPrimitive()) {
+                        chartView.setMsg(msgElement.toString());
                     } else {
-                        if (msgElement != null && msgElement.isJsonPrimitive()) {
-                            chartView.setMsg(msgElement.toString());
+                        if (dataElement != null && dataElement.isJsonArray()) {
+
+                            chartView.setPriceDataList(dataElement.getAsJsonArray());
+                            if (exchange.isClientReady()) {
+                                Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan));
+                            } else {
+                                FxTimer.runLater(Duration.ofMillis(1000), () -> {
+                                    if (exchange.isClientReady()) {
+                                        Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan));
+                                    }
+                                });
+                            }
+                            //    if (get) {
+
+                            //    exchange.subscribeToCandles(m_symbol, m_timeSpan);
+                            //   }
+                        } else {
+
                         }
+
                     }
 
                 }
             }, onFailed -> {
 
             });
-            //  getCandlesDataset(symbolElement.getAsString(), timeSpanElement.getAsString(), onSucceeded, onFailed);
 
             VBox paddingBox = new VBox(headingBox, chartBox);
 
@@ -297,7 +362,7 @@ public class KucoinMarketItem implements MessageInterface {
             ChangeListener<KucoinTickerData> tickerListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
 
-                    m_stage.setTitle(m_dataList.getKucoinExchange().getName() + " - " + m_name + (newVal != null ? " - " + newVal.getLastString() + "" : ""));
+                    m_stage.setTitle(exchange.getName() + " - " + m_name + (newVal != null ? " - " + newVal.getLastString() + "" : ""));
 
                 } else {
 
@@ -306,24 +371,24 @@ public class KucoinMarketItem implements MessageInterface {
 
             m_tickerDataProperty.addListener(tickerListener);
 
-            m_stage.setOnCloseRequest(e -> {
+            Runnable closable = () -> {
+                exchange.unsubscribeToCandles(m_id, m_symbol, m_timeSpan);
                 m_tickerDataProperty.removeListener(tickerListener);
+                exchange.removeMsgListener(msgInterface);
                 m_stage.close();
                 m_stage = null;
-            });
+            };
 
-            closeBtn.setOnAction(e -> {
-                m_tickerDataProperty.removeListener(tickerListener);
-                m_stage.close();
-                m_stage = null;
-            });
+            m_stage.setOnCloseRequest(e -> closable.run());
+
+            closeBtn.setOnAction(e -> closable.run());
 
             fillRightBtn.setOnAction(e -> {
-                KucoinExchange ex = m_dataList.getKucoinExchange();
-                if (ex.getAppStage() != null) {
-                    Stage exStage = ex.getAppStage();
 
-                    ex.cmdObjectProperty().set(Utils.getCmdObject("MAXIMIZE_STAGE_LEFT"));
+                if (exchange.getAppStage() != null) {
+                    Stage exStage = exchange.getAppStage();
+
+                    exchange.cmdObjectProperty().set(Utils.getCmdObject("MAXIMIZE_STAGE_LEFT"));
 
                     m_stage.setX(exStage.getWidth());
                     m_stage.setY(0);
@@ -339,7 +404,7 @@ public class KucoinMarketItem implements MessageInterface {
     }
 
     public String getSymbol() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getSymbol() : m_id;
+        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getSymbol() : m_symbol;
     }
 
     public String getSymbolName() {

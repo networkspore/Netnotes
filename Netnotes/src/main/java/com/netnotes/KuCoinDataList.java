@@ -20,6 +20,7 @@ import javax.crypto.NoSuchPaddingException;
 
 import org.ergoplatform.appkit.NetworkType;
 
+import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -186,7 +187,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
         if (symbol != null) {
 
             for (KucoinMarketItem item : m_marketsList) {
-                if (item.getId().equals(symbol)) {
+                if (item.getSymbol().equals(symbol)) {
                     return item;
                 }
             }
@@ -255,11 +256,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                                 JsonObject tickerJson = tickerObjectElement.getAsJsonObject();
                                 JsonElement symbolElement = tickerJson.get("symbol");
                                 if (symbolElement != null && symbolElement.isJsonPrimitive()) {
-                                    try {
-                                        Files.writeString(logFile.toPath(), "\n" + i + ": item " + symbolElement.getAsString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                    } catch (IOException e) {
 
-                                    }
                                     String symbolString = symbolElement.getAsString();
 
                                     KucoinTickerData tickerData = new KucoinTickerData(symbolString, tickerJson);
@@ -277,8 +274,8 @@ public class KuCoinDataList extends Network implements NoteInterface {
                                     }
 
                                     if (init) {
-
-                                        m_marketsList.add(new KucoinMarketItem(symbolString, symbolString, isFavorite, tickerData, getKuCoinDataList()));
+                                        String id = FriendlyId.createFriendlyId();
+                                        m_marketsList.add(new KucoinMarketItem(m_kucoinExchange, id, symbolString, symbolString, isFavorite, tickerData, getKuCoinDataList()));
                                     } else {
                                         KucoinMarketItem item = getMarketItem(symbolString);
                                         item.tickerDataProperty().set(tickerData);

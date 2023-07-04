@@ -8,8 +8,6 @@ public interface MessageInterface {
 
     String getId();
 
-    String getName();
-
     ChangeListener<JsonObject> getSocketChangeListener();
 
 }

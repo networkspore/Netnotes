@@ -80,6 +80,11 @@ public class KucoinWebClient implements WebClient {
 
     public void requestSocket(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
+        try {
+            Files.writeString(logFile.toPath(), "Requesting socket: " + PUBLIC_TOKEN_URL, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e1) {
+
+        }
         Task<JsonObject> task = new Task<JsonObject>() {
             @Override
             public JsonObject call() {
@@ -122,7 +127,7 @@ public class KucoinWebClient implements WebClient {
                     String jsonString = outputStream.toString();
 
                     try {
-                        Files.writeString(logFile.toPath(), "\nPriceChart - json string1:\n" + jsonString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        Files.writeString(logFile.toPath(), "\nKucoin post results:\n" + jsonString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e1) {
 
                     }
@@ -151,38 +156,6 @@ public class KucoinWebClient implements WebClient {
 
     public void setReady(boolean ready) {
         m_ready = ready;
-    }
-
-    public void startPinging() {
-
-        if (m_websocketClient != null) {
-            JsonObject pingMessageObj = new JsonObject();
-            pingMessageObj.addProperty("id", getClientId());
-            pingMessageObj.addProperty("type", "ping");
-
-            String pingString = pingMessageObj.toString();
-
-            m_pingTimer = new Timer("pingTimer:" + getClientId(), true);
-
-            TimerTask pingTask = new TimerTask() {
-
-                @Override
-                public void run() {
-                    long sinceLastPong = System.currentTimeMillis() - m_pong;
-
-                    if (sinceLastPong < m_pingInterval * 3) {
-                        m_websocketClient.send(pingString);
-                    } else {
-                        if (m_websocketClient != null) {
-                            m_websocketClient.close();
-                            m_pingTimer.cancel();
-                            m_pingTimer.purge();
-                        }
-                    }
-                }
-            };
-            m_pingTimer.schedule(pingTask, 0, m_pingInterval);
-        }
     }
 
     public String createMessageString(String type, String topic, boolean response, String id) {
@@ -229,6 +202,13 @@ public class KucoinWebClient implements WebClient {
     }
 
     public void subscribeToCandles(String tunnelId, String symbol, String timespan) {
+
+        try {
+            Files.writeString(logFile.toPath(), "\nSubscribing to " + symbol + " - " + timespan + " id: " + tunnelId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+
         String topic = "/market/candles:" + symbol + "_" + timespan;
 
         m_websocketClient.send(createMessageString(tunnelId, "subscribe", topic, true));
