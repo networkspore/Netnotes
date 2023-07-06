@@ -145,6 +145,9 @@ public class KucoinMarketItem {
         return rowBox;
     }
 
+    public static int FILL_COLOR = 0xffffffff;
+    public static java.awt.Color WHITE_COLOR = new java.awt.Color(FILL_COLOR, true);
+
     private Image getButtonImage(KucoinTickerData data) {
         if (data == null) {
             return null;
@@ -176,28 +179,41 @@ public class KucoinMarketItem {
         //  adrBuchImg.getScaledInstance(width, height, java.awt.Image.SCALE_AREA_AVERAGING);
         img = new BufferedImage(symbolWidth + colPadding + lastWidth, height, BufferedImage.TYPE_INT_ARGB);
         g2d = img.createGraphics();
-        g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+        /*g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
         g2d.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
         g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);*/
 
         // g2d.drawImage(unitImage, 0, (height / 2) - (unitImage.getHeight() / 2), unitImage.getWidth(), unitImage.getHeight(), null);
         g2d.setFont(font);
-        g2d.setColor(java.awt.Color.WHITE);
+        g2d.setColor(WHITE_COLOR);
         g2d.drawString(symbolString, 0, stringY);
 
         if (neutral) {
 
-            g2d.setColor(KucoinExchange.NEUTRAL_COLOR);
-        } else {
-            g2d.setColor(positive ? KucoinExchange.POSITIVE_COLOR : KucoinExchange.NEGATIVE_COLOR);
-        }
+            g2d.drawString(lastString, symbolWidth + colPadding, stringY);
 
-        g2d.drawString(lastString, symbolWidth + colPadding, stringY);
+        } else {
+
+            g2d.drawString(lastString, symbolWidth + colPadding, stringY);
+
+            // positive ? KucoinExchange.POSITIVE_COLOR : KucoinExchange.NEGATIVE_COLOR
+            //int direction, boolean fillInverse, int fillColor, Color color1, Color color2, BufferedImage img, int x1, int y1, int x2, int y2
+            int x1 = symbolWidth + colPadding;
+            int y1 = (height / 2) - (fontHeight / 2);
+            int x2 = x1 + lastWidth;
+            int y2 = y1 + fontHeight;
+            java.awt.Color color1 = positive ? KucoinExchange.POSITIVE_COLOR : KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR;
+            java.awt.Color color2 = positive ? KucoinExchange.POSITIVE_HIGHLIGHT_COLOR : KucoinExchange.NEGATIVE_COLOR;
+
+            Drawing.drawBarFillColor(positive ? 0 : 1, false, FILL_COLOR, color1.getRGB(), color2.getRGB(), img, x1, y1, x2, y2);
+
+            // Drawing.drawBar(color1, color2, img, x1, y1, x2, y2);
+        }
 
         g2d.dispose();
 

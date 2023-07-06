@@ -52,6 +52,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -71,7 +72,8 @@ public class KucoinExchange extends Network implements NoteInterface {
     public static java.awt.Color POSITIVE_HIGHLIGHT_COLOR = new java.awt.Color(0xff3dd9a4, true);
     public static java.awt.Color POSITIVE_COLOR = new java.awt.Color(0xff028A0F, true);
 
-    public static java.awt.Color NEGATIVE_COLOR = new java.awt.Color(0x9A2A2A);
+    public static java.awt.Color NEGATIVE_COLOR = new java.awt.Color(0xff9A2A2A, true);
+    public static java.awt.Color NEGATIVE_HIGHLIGHT_COLOR = new java.awt.Color(0xffe96d71, true);
     public static java.awt.Color NEUTRAL_COLOR = new java.awt.Color(0x111111);
 
     private WebSocketClient m_websocketClient = null;
