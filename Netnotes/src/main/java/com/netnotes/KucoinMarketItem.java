@@ -10,18 +10,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.ArrayList;
 
 import org.reactfx.util.FxTimer;
 
 import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.netnotes.IconButton.IconStyle;
 import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
@@ -32,6 +35,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
@@ -188,9 +192,9 @@ public class KucoinMarketItem {
 
         if (neutral) {
 
-            g2d.setColor(App.NEUTRAL_COLOR);
+            g2d.setColor(KucoinExchange.NEUTRAL_COLOR);
         } else {
-            g2d.setColor(positive ? App.POSITIVE_COLOR : App.NEGATIVE_COLOR);
+            g2d.setColor(positive ? KucoinExchange.POSITIVE_COLOR : KucoinExchange.NEGATIVE_COLOR);
         }
 
         g2d.drawString(lastString, symbolWidth + colPadding, stringY);
@@ -256,12 +260,19 @@ public class KucoinMarketItem {
 
             Label emissionLbl = new Label();
             TextField emissionAmountField = new TextField();
+            SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth);
+            SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 200);
 
-            ChartView chartView = new ChartView(sceneWidth - 100, sceneHeight - 200);
+            ChartView chartView = new ChartView(chartWidth, chartHeight);
 
-            HBox chartBox = new HBox();
-            chartBox.setAlignment(Pos.CENTER);
-            HBox.setHgrow(chartBox, Priority.ALWAYS);
+            HBox chartBox = chartView.getChartBox();
+            chartBox.setId("bodyBox");
+            HBox bodyHBox = new HBox(chartBox);
+
+            HBox.setHgrow(bodyHBox, Priority.ALWAYS);
+            bodyHBox.setAlignment(Pos.BOTTOM_RIGHT);
+
+            int symbolLength = getSymbol().length();
 
             ChangeListener<JsonObject> socketMsgListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
@@ -271,13 +282,46 @@ public class KucoinMarketItem {
 
                     }
                     JsonElement subjectElement = newVal.get("subject");
+                    JsonElement topicElement = newVal.get("topic");
+                    JsonElement dataElement = newVal.get("data");
 
                     String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
+                    String topic = topicElement != null && topicElement.isJsonPrimitive() ? topicElement.getAsString() : null;
 
-                    if (subject != null) {
+                    if (subject != null && topic != null) {
                         switch (subject) {
-                            case "message":
+                            case "trade.candles.update":
+                                String topicHeader = "/market/candles:";
+                                String topicBody = topic.substring(topicHeader.length());
+                                int indexOfunderscore = topicBody.indexOf("_");
 
+                                if (topicHeader.equals(topic.substring(0, topicHeader.length())) && symbolLength == indexOfunderscore && getSymbol().equals(topicBody.substring(0, indexOfunderscore))) {
+
+                                    String topicFooter = topicBody.substring(indexOfunderscore + 1);
+                                    if (m_timeSpan.equals(topicFooter)) {
+                                        JsonObject dataObject = dataElement != null && dataElement.isJsonObject() ? dataElement.getAsJsonObject() : null;
+                                        if (dataObject != null) {
+                                            JsonElement candlesElement = dataObject.get("candles");
+
+                                            JsonArray dataArray = candlesElement != null && candlesElement.isJsonArray() ? candlesElement.getAsJsonArray() : null;
+
+                                            if (dataArray != null) {
+                                                try {
+                                                    Files.writeString(logFile.toPath(), "\nupdating candles: \n" + dataArray.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                } catch (IOException e2) {
+
+                                                }
+                                                PriceData priceData = new PriceData(dataArray);
+
+                                                chartView.updateCandleData(priceData);
+
+                                            }
+
+                                            //  new KucoinTickerData(topic, newVal)
+                                        }
+                                    }
+
+                                }
                                 break;
                         }
                     }
@@ -314,6 +358,12 @@ public class KucoinMarketItem {
                         chartView.setMsg(msgElement.toString());
                     } else {
                         if (dataElement != null && dataElement.isJsonArray()) {
+                            JsonArray dataElementArray = dataElement.getAsJsonArray();
+                            try {
+                                Files.writeString(logFile.toPath(), "ArraySize: " + dataElementArray.size());
+                            } catch (IOException e1) {
+
+                            }
 
                             chartView.setPriceDataList(dataElement.getAsJsonArray());
                             if (exchange.isClientReady()) {
@@ -340,7 +390,7 @@ public class KucoinMarketItem {
 
             });
 
-            VBox paddingBox = new VBox(headingBox, chartBox);
+            VBox paddingBox = new VBox(headingBox, bodyHBox);
 
             paddingBox.setPadding(new Insets(0, 5, 5, 5));
 
@@ -354,9 +404,10 @@ public class KucoinMarketItem {
             mainScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(mainScene);
 
-            chartBox.getChildren().add(chartView.getChartBox(m_stage));
+            chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(40));
+            chartWidth.bind(mainScene.widthProperty().subtract(15));
 
-            ResizeHelper.addResizeListener(m_stage, 600, 800, rect.getWidth(), rect.getHeight());
+            ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
             m_stage.show();
 
             ChangeListener<KucoinTickerData> tickerListener = (obs, oldVal, newVal) -> {

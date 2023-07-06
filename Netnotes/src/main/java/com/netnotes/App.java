@@ -84,10 +84,6 @@ public class App extends Application {
     public static Color altColor = Color.web("#777777");
     public static Color formFieldColor = new Color(.8, .8, .8, .9);
 
-    public static java.awt.Color POSITIVE_COLOR = new java.awt.Color(0x028A0F);
-    public static java.awt.Color NEGATIVE_COLOR = new java.awt.Color(0x9A2A2A);
-    public static java.awt.Color NEUTRAL_COLOR = new java.awt.Color(0x111111);
-
     public static Image icon = new Image("/assets/icon20.png");
     public static Image logo = new Image("/assets/icon256.png");
     public static Image ergoLogo = new Image("/assets/ergo-network.png");

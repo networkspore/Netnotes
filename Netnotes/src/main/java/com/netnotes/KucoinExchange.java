@@ -68,6 +68,12 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     private File logFile = new File("kucoinExchange-log.txt");
 
+    public static java.awt.Color POSITIVE_HIGHLIGHT_COLOR = new java.awt.Color(0xff3dd9a4, true);
+    public static java.awt.Color POSITIVE_COLOR = new java.awt.Color(0xff028A0F, true);
+
+    public static java.awt.Color NEGATIVE_COLOR = new java.awt.Color(0x9A2A2A);
+    public static java.awt.Color NEUTRAL_COLOR = new java.awt.Color(0x111111);
+
     private WebSocketClient m_websocketClient = null;
 
     private File m_appDir = null;
@@ -191,6 +197,15 @@ public class KucoinExchange extends Network implements NoteInterface {
     }
 
     private int m_openTunnels = 0;
+
+    public void subscribeLevel2Depth5(String tunnelId, String symbol) {
+
+        m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"tunnelId\": \"" + tunnelId + "\", \"type\": \"subscribe\", \"/spotMarket/level2Depth5:" + symbol + "\", \"response\": true}");
+    }
+
+    public void unsubscribeLevel2Depth5(String tunnelId, String symbol) {
+        m_websocketClient.send(createMessageString(tunnelId, "unsubscribe", "/spotMarket/level2Depth5:" + symbol, true));
+    }
 
     public boolean openTunnel(String tunnelId) {
         if (m_openTunnels == 5) {
@@ -964,6 +979,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     public String createMessageString(String type, String topic, boolean response) {
 
         JsonObject messageObj = new JsonObject();
+        messageObj.addProperty("id", m_clientId);
         messageObj.addProperty("type", type);
         messageObj.addProperty("topic", topic);
         messageObj.addProperty("response", response);
@@ -986,6 +1002,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     public String createMessageString(String tunnelId, String type, String topic, boolean response) {
 
         JsonObject messageObj = new JsonObject();
+        messageObj.addProperty("id", m_clientId);
         messageObj.addProperty("type", type);
         messageObj.addProperty("topic", topic);
         messageObj.addProperty("tunnelId", tunnelId);
