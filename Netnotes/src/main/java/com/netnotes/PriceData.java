@@ -39,7 +39,11 @@ public class PriceData {
             JsonElement volumeElement = jsonArray.size() > 5 ? jsonArray.get(5) : null;
             JsonElement turnOverElement = jsonArray.size() > 6 ? jsonArray.get(6) : null;
 
-            m_timestamp = timestampElement != null && timestampElement.isJsonPrimitive() ? timestampElement.getAsLong() : 0;
+            if (timestampElement != null && timestampElement.isJsonPrimitive()) {
+                String timestampString = timestampElement.getAsString();
+                long timestamp = timestampElement.getAsLong();
+                m_timestamp = timestampString.length() == 10 ? timestamp * 1000 : timestamp;
+            }
             m_open = openElement != null && openElement.isJsonPrimitive() ? openElement.getAsDouble() : 0;
             m_close = closeElement != null && closeElement.isJsonPrimitive() ? closeElement.getAsDouble() : 0;
             m_high = highElement != null && highElement.isJsonPrimitive() ? highElement.getAsDouble() : 0;
@@ -55,7 +59,7 @@ public class PriceData {
     }
 
     public static LocalDateTime nanosToTimeUTC(long timestamp) {
-        Instant timeInstant = Instant.ofEpochMilli(timestamp / 1_000).plusNanos(timestamp % 1_000);
+        Instant timeInstant = Instant.ofEpochMilli(timestamp * 1000);
 
         return LocalDateTime.ofInstant(timeInstant, ZoneId.of("UTC"));
     }

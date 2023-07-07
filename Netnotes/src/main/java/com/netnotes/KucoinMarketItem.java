@@ -229,7 +229,7 @@ public class KucoinMarketItem {
             KucoinExchange exchange = m_dataList.getKucoinExchange();
 
             m_stage = new Stage();
-            m_stage.getIcons().add(KucoinExchange.getAppIcon());
+            m_stage.getIcons().add(KucoinExchange.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
             m_stage.setTitle(exchange.getName() + " - " + m_name + (m_tickerDataProperty.get() != null ? " - " + m_tickerDataProperty.get().getLastString() + "" : ""));
 
@@ -329,7 +329,7 @@ public class KucoinMarketItem {
                                                 }
                                                 PriceData priceData = new PriceData(dataArray);
 
-                                                chartView.updateCandleData(priceData);
+                                                chartView.updateCandleData(priceData, m_timeSpan);
 
                                             }
 
@@ -381,7 +381,7 @@ public class KucoinMarketItem {
 
                             }
 
-                            chartView.setPriceDataList(dataElement.getAsJsonArray());
+                            chartView.setPriceDataList(dataElement.getAsJsonArray(), m_timeSpan);
                             if (exchange.isClientReady()) {
                                 Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan));
                             } else {

@@ -13,15 +13,24 @@ import java.io.IOException;
 
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
+import java.util.TimeZone;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.satergo.WalletKey.Local;
+import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
@@ -79,8 +88,6 @@ public class ChartView {
 
     public JsonObject getJsonObject() {
         JsonObject jsonObject = new JsonObject();
-
-        //   jsonObject.addProperty("timeSpan", m_timeSpan);
         return jsonObject;
     }
 
@@ -124,8 +131,8 @@ public class ChartView {
 
     }
 
-    public void setPriceDataList(JsonArray jsonArray) {
-
+    public void setPriceDataList(JsonArray jsonArray, String timeSpan) {
+        m_timeSpan = timeSpan;
         if (jsonArray != null && jsonArray.size() > 0) {
             m_valid = 1;
             m_msg = "Loading";
@@ -163,10 +170,11 @@ public class ChartView {
         }
         m_lastUpdated.set(LocalDateTime.now());
     }
+    private String m_timeSpan = "";
 
-    public void updateCandleData(PriceData priceData) {
+    public void updateCandleData(PriceData priceData, String timeSpan) {
         int priceListSize = m_priceList.size();
-
+        m_timeSpan = timeSpan;
         if (priceListSize > 0) {
             int lastIndex = m_priceList.size() - 1;
             PriceData lastData = m_priceList.get(lastIndex);
@@ -293,6 +301,7 @@ public class ChartView {
         m_lastUpdated.set(LocalDateTime.now());
     }*/
     private double m_lastClose = 0;
+    private int m_labelSpacingSize = 150;
 
     public BufferedImage getBufferedImage() {
 
@@ -336,7 +345,7 @@ public class ChartView {
             FontMetrics fm = g2d.getFontMetrics();
             String measureString = "0.00000000";
             int stringWidth = fm.stringWidth(measureString);
-
+            int amTextWidth = fm.stringWidth(" a.m.");
             int labelAscent = fm.getAscent();
             int labelHeight = fm.getHeight();
 
@@ -348,8 +357,7 @@ public class ChartView {
             double scale = (0.6d * (double) chartHeight) / totalHigh;
             double totalRange = (totalHigh - totalLow) * scale;
 
-            double rangePercent = totalRange / chartHeight;
-
+            // double rangePercent = totalRange / chartHeight;
             Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
 
             int cellWidth = m_cellWidth;
@@ -379,6 +387,10 @@ public class ChartView {
 
             int halfCellWidth = cellWidth / 2;
 
+            int rows = m_priceList.size() - i;
+
+            int rowLabelSpacing = (int) Math.floor(rows / ((rows * cellWidth) / m_labelSpacingSize));
+
             while (i < m_priceList.size()) {
                 PriceData priceData = m_priceList.get(i);
 
@@ -400,6 +412,32 @@ public class ChartView {
                 neutral = close == open;
 
                 closeY = (int) (close * scale);
+                if (i % rowLabelSpacing == 0) {
+                    switch (m_timeSpan) {
+                        case "30min":
+
+                            long timestamp = priceData.getTimestamp();
+
+                            Date date = new Date(timestamp);
+
+                            Drawing.fillAreaDotted(2, img, 0x10ffffff, x + halfCellWidth - 1, 0, x + halfCellWidth, chartHeight);
+                            Drawing.fillArea(img, 0x80000000, x + halfCellWidth - 1, chartHeight, x + halfCellWidth + 1, chartHeight + 4);
+
+                            DateFormat formatter = new SimpleDateFormat("hh:mm a");
+                            formatter.setTimeZone(TimeZone.getDefault());
+
+                            String timeString = formatter.format(date);
+                            int timeStringWidth = fm.stringWidth(timeString);
+                            g2d.setColor(Color.WHITE);
+                            int timeStringX = x - ((timeStringWidth - amTextWidth) / 2);
+                            if (timeStringX > -1) {
+                                g2d.drawString(timeString, timeStringX, chartHeight + 4 + (labelHeight / 2) + labelAscent);
+                            }
+                            break;
+                    }
+
+                }
+
                 Drawing.fillArea(img, 0xffffffff, x + halfCellWidth - 1, chartHeight - highY, x + halfCellWidth, chartHeight - lowY);
 
                 if (neutral) {
@@ -446,8 +484,10 @@ public class ChartView {
                         Drawing.fillArea(img, RGBhighlight, x, y1, x + cellWidth, y1 + 1);
                         Drawing.fillArea(img, garnetRed.getRGB(), x + cellWidth - 1, y1, x + cellWidth, y2);
 
+                        Drawing.fillArea(img, garnetRed.getRGB(), x + 1, y2, x + cellWidth - 1, y2 + 1);
                     }
                 }
+
                 i++;
             }
 
@@ -501,7 +541,7 @@ public class ChartView {
             y2 = y2 + 1;
 
             Drawing.drawBar(1, 0x90000000, RGBhighlight, img, x1, y1 - 1, x2, y1 + 3);
-            Drawing.drawBar(0x80555555, RGBhighlight, img, x1, y1 + 3, x1 + 2, y2 - 1);
+            Drawing.drawBar(0x80555555, RGBhighlight, img, x1 - 2, y1 + 3, x1 + 1, y2 - 1);
             Drawing.drawBar(0x80555555, RGBhighlight, img, x2, y1 + 4, x2 - 2, y2);
             Drawing.drawBar(1, 0x50ffffff, RGBhighlight, img, x1, y2 - 1, x2, y2);
 
@@ -530,7 +570,7 @@ public class ChartView {
 
             Drawing.fillArea(img, borderColor, chartWidth, 0, chartWidth + 1, chartHeight);//(width - scaleColWidth, 0, width - 1, chartHeight - 1);
 
-            for (int x = 0; x < width - scaleColWidth - 6; x++) {
+            for (int x = 0; x < width - scaleColWidth - 7; x++) {
                 int p = img.getRGB(x, y);
 
                 p = (0xFFFFFF - p) | 0xFF000000;

@@ -293,7 +293,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             double appStageHeight = 600;
 
             m_appStage = new Stage();
-            m_appStage.getIcons().add(KucoinExchange.getAppIcon());
+            m_appStage.getIcons().add(KucoinExchange.getSmallAppIcon());
             m_appStage.initStyle(StageStyle.UNDECORATED);
             m_appStage.setTitle(NAME);
 
