@@ -53,7 +53,7 @@ public class ChartView {
     private Font m_headingFont = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 18);
 
     private Color m_backgroundColor = new Color(1f, 1f, 1f, 0f);
-    private Font m_labelFont = new Font("Arial", java.awt.Font.BOLD, 12);
+    private Font m_labelFont = new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 12);
 
     private double m_scale = 0;
     private int m_defaultCellWidth = 20;
@@ -282,7 +282,7 @@ public class ChartView {
         return m_cellPadding + m_cellWidth;
     }
 
-    private java.awt.Color m_scaleBgColor = new Color(0x33333350, true);
+    /*private java.awt.Color m_scaleBgColor = new Color(0x33333350, true);
 
     public java.awt.Color getScaleBgColor() {
         return m_scaleBgColor;
@@ -291,11 +291,15 @@ public class ChartView {
     public void setScaleBgColor(Color scaleBgColor) {
         m_scaleBgColor = scaleBgColor;
         m_lastUpdated.set(LocalDateTime.now());
-    }
-
+    }*/
     private double m_lastClose = 0;
 
     public BufferedImage getBufferedImage() {
+
+        int greenHighlightRGB = 0x504bbd94;
+        int greenHighlightRGB2 = 0x80028a0f;
+        int redRGBhighlight = 0x50e96d71;
+        int redRGBhighlight2 = 0x809a2a2a;
 
         int priceListSize = getPriceListSize();
         int totalCellWidth = getTotalCellWidth();
@@ -327,11 +331,6 @@ public class ChartView {
 
             // double low = m_numberClass.low.get();
             //   double average = m_numberClass.getAverage();
-            double scale = (0.6d * (double) height) / totalHigh;
-            double totalRange = (totalHigh - totalLow) * scale;
-
-            double rangePercent = totalRange / height;
-
             g2d.setFont(m_labelFont);
             g2d.setColor(Color.WHITE);
             FontMetrics fm = g2d.getFontMetrics();
@@ -342,17 +341,23 @@ public class ChartView {
             int labelHeight = fm.getHeight();
 
             int scaleColWidth = stringWidth + 5;
-            int scaleRowHeight = 30;
 
             int chartWidth = width - scaleColWidth;
-            int chartHeight = height - scaleRowHeight;
+            int chartHeight = height - scaleColWidth;
+
+            double scale = (0.6d * (double) chartHeight) / totalHigh;
+            double totalRange = (totalHigh - totalLow) * scale;
+
+            double rangePercent = totalRange / chartHeight;
+
+            Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
 
             int cellWidth = m_cellWidth;
             int numCells = (int) Math.floor((width - scaleColWidth) / totalCellWidth);
             int j = 0;
             int i = numCells > priceListSize ? 0 : priceListSize - numCells;
 
-            Color green = KucoinExchange.POSITIVE_COLOR;
+            //    Color green = KucoinExchange.POSITIVE_COLOR;
             Color highlightGreen = KucoinExchange.POSITIVE_HIGHLIGHT_COLOR;
             Color garnetRed = KucoinExchange.NEGATIVE_COLOR;
             Color highlightRed = KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR;
@@ -360,15 +365,8 @@ public class ChartView {
             Color overlayRed = new Color(garnetRed.getRed(), garnetRed.getGreen(), garnetRed.getBlue(), 0x70);
             Color overlayRedHighlight = new Color(highlightRed.getRed(), highlightRed.getGreen(), highlightRed.getBlue(), 0x70);
 
-            Color overlayGreen = new Color(green.getRed(), green.getGreen(), green.getBlue(), 0x70);
-            Color overlayGreenHighlight = new Color(highlightGreen.getRed(), highlightGreen.getGreen(), highlightGreen.getBlue(), 0x70);
-
-            try {
-                Files.writeString(logFile.toPath(), "\ntotalHigh: " + totalHigh + "scale: " + scale + " cellWidth: " + cellWidth + " numCells: " + numCells + " width: " + width + " height: " + height);
-            } catch (IOException e) {
-
-            }
-
+            //    Color overlayGreen = new Color(green.getRed(), green.getGreen(), green.getBlue(), 0x70);
+            //    Color overlayGreenHighlight = new Color(highlightGreen.getRed(), highlightGreen.getGreen(), highlightGreen.getBlue(), 0x70);
             boolean positive = false;
             boolean neutral = false;
 
@@ -386,10 +384,12 @@ public class ChartView {
 
                 int x = ((priceListWidth < chartWidth) ? (chartWidth - priceListWidth) : 0) + (j * (cellWidth + m_cellPadding));
                 j++;
-                open = m_lastClose;
+
                 double low = priceData.getLow();
                 double high = priceData.getHigh();
-                open = priceData.getOpen();
+                double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : priceData.getOpen();
+
+                open = open != prevClose ? prevClose : priceData.getOpen();
                 close = priceData.getClose();
 
                 int lowY = (int) (low * scale);
@@ -400,57 +400,44 @@ public class ChartView {
                 neutral = close == open;
 
                 closeY = (int) (close * scale);
-                Drawing.fillArea(img, 0xffffffff, x + halfCellWidth - 1, height - highY, x + halfCellWidth, height - lowY);
+                Drawing.fillArea(img, 0xffffffff, x + halfCellWidth - 1, chartHeight - highY, x + halfCellWidth, chartHeight - lowY);
 
                 if (neutral) {
                     //  g2d.setStroke(new BasicStroke(2));
                     //  double barHeight = (close - open) * scale;
                     //  g2d.setColor(Color.white);
-                    //    g2d.drawLine(x + halfCellWidth, height - highY, x + halfCellWidth, height - closeY - 1);
-                    //    g2d.drawLine(x + halfCellWidth, height - openY, x + halfCellWidth, height - lowY);
+                    //    g2d.drawLine(x + halfCellWidth, chartHeight - highY, x + halfCellWidth, chartHeight - closeY - 1);
+                    //    g2d.drawLine(x + halfCellWidth, chartHeight - openY, x + halfCellWidth, chartHeight - lowY);
                     // g2d.setColor(Color.gray);
-                    //  g2d.drawRect(x, height - closeY, cellWidth, (int) barHeight);
+                    //  g2d.drawRect(x, chartHeight - closeY, cellWidth, (int) barHeight);
                     //  open = m_lastClose != 0 ? open = m_lastClose : open;
 
-                    Drawing.drawBar(1, Color.lightGray, Color.gray, img, x, height - openY - 1, x + cellWidth, height - closeY);
+                    Drawing.drawBar(1, Color.lightGray, Color.gray, img, x, chartHeight - openY - 1, x + cellWidth, chartHeight - closeY);
                 } else {
                     if (positive) {
-                        //      g2d.setStroke(new BasicStroke(2));
-                        // double barHeight = (close - open) * scale;
-                        //     g2d.setColor(Color.white);
 
-                        //  g2d.drawLine(x + halfCellWidth, height - highY, x + halfCellWidth, height - closeY - 1);
-                        //  g2d.drawLine(x + halfCellWidth, height - openY, x + halfCellWidth, height - lowY);
-                        //  g2d.setStroke(new BasicStroke(1));
-                        // g2d.setColor(green);
-                        int y1 = height - closeY;
-                        int y2 = height - openY;
+                        int y1 = chartHeight - closeY;
+                        int y2 = chartHeight - openY;
 
-                        Drawing.drawBar(1, highlightGreen, green, img, x, y1, x + cellWidth, y2);
-                        // drawBar(0, overlayGreenHighlight, overlayGreen, img, x, y1, x + halfCellWidth, y2);
-                        Drawing.drawBar(0, overlayGreen, overlayGreenHighlight, img, x + halfCellWidth, y1, x + cellWidth, y2);
+                        int x2 = x + cellWidth;
+                        Drawing.drawBar(1, 0xff000000, 0xff111111, img, x, y1, x2, y2);
+                        Drawing.drawBar(1, greenHighlightRGB, 0xff000000, img, x, y1, x2, y2);
+                        Drawing.drawBar(0, 0x104bbd94, 0x004bbd94, img, x, y1, x2, y2);
 
                         int RGBhighlight = highlightGreen.getRGB();
 
-                        Drawing.fillArea(img, RGBhighlight, x, y1, x + 1, y2);
-                        Drawing.fillArea(img, RGBhighlight, x, y1, x + cellWidth, y1 + 1);
-                        Drawing.fillArea(img, KucoinExchange.POSITIVE_COLOR.getRGB(), x + cellWidth - 1, y1, x + cellWidth, y2);
+                        Drawing.fillArea(img, 0x804bbd94, x + 1, y1, x2, y1 + 1);
 
-                        // g2d.fillRect(x, height - closeY, cellWidth, (int) barHeight);
-                        //g2d.drawRect(x, height - closeY, cellWidth, (int) barHeight);
+                        Drawing.drawBar(0x80555555, RGBhighlight, img, x2, y1 + 3, x2 - 2, y2);
+
+                        Drawing.fillArea(img, 0x30000000, x, y2 - 1, x2, y2);
+
                     } else {
 
-                        // double barHeight = (open - close) * scale;
-                        //    g2d.setStroke(new BasicStroke(2));
-                        // g2d.setColor(Color.white);
-                        //g2d.drawLine(,, x + halfCellWidth, height - openY);
-                        // g2d.drawLine(x + halfCellWidth, height - closeY, x + halfCellWidth, height - lowY);
-                        //  g2d.setStroke(new BasicStroke(1));
-                        int y1 = height - openY;
-                        int y2 = height - closeY;
+                        int y1 = chartHeight - openY;
+                        int y2 = chartHeight - closeY;
 
                         Drawing.drawBar(1, garnetRed, highlightRed, img, x, y1, x + cellWidth, y2);
-                        //  drawBar(overlayRed, overlayRedHighlight, img, x, y1, x + halfCellWidth, y2);
                         Drawing.drawBar(0, overlayRed, overlayRedHighlight, img, x, y1, x + cellWidth, y2);
 
                         int RGBhighlight = overlayRedHighlight.getRGB();
@@ -459,9 +446,6 @@ public class ChartView {
                         Drawing.fillArea(img, RGBhighlight, x, y1, x + cellWidth, y1 + 1);
                         Drawing.fillArea(img, garnetRed.getRGB(), x + cellWidth - 1, y1, x + cellWidth, y2);
 
-                        // g2d.setColor(garnetRed);
-                        // g2d.fillRect(x, height - openY, cellWidth, (int) barHeight);
-                        //  g2d.drawRect(x, height - openY, cellWidth, (int) barHeight);
                     }
                 }
                 i++;
@@ -470,7 +454,7 @@ public class ChartView {
             g2d.setFont(m_labelFont);
             fm = g2d.getFontMetrics();
 
-            int y = height - closeY;
+            int y = chartHeight - closeY;
             String closeString = close + "";
 
             /*  if (closeString.length() > measureString.length()) {
@@ -479,7 +463,7 @@ public class ChartView {
             stringWidth = fm.stringWidth(closeString);
             int halfLabelHeight = (labelHeight / 2);
 
-            int stringY = (y - halfLabelHeight) + labelAscent;
+            int stringY = (y - halfLabelHeight) + labelAscent - 1;
 
             if (m_lastClose != 0 && close != m_lastClose) {
                 m_direction = close > m_lastClose;
@@ -490,48 +474,61 @@ public class ChartView {
             }
 
             m_lastClose = close;
-            int y1 = y - (halfLabelHeight + 5);
+            int y1 = y - (halfLabelHeight + 10);
             int y2 = y + (halfLabelHeight + 5);
             int halfScaleColWidth = (scaleColWidth / 2);
-            g2d.setColor(Color.WHITE);
-            g2d.drawString("◄", chartWidth - 9, stringY);
-            int stringX = width - scaleColWidth + (halfScaleColWidth - (stringWidth / 2));
-            Color color1;
-            Color color2;
+
             int RGBhighlight;
-            int x1 = width - scaleColWidth + 5;
+
+            int x1 = chartWidth + 2;
+            int x2 = chartWidth + scaleColWidth;
+            int stringX = (x1 + halfScaleColWidth) - (stringWidth / 2);
 
             if (m_direction) {
-                RGBhighlight = highlightGreen.getRGB();
+                RGBhighlight = greenHighlightRGB;
+
                 // Drawing.drawBar(1,, img, width - scaleColWidth, y1, width, y2);
-                color1 = green;
-                color2 = new Color(0xff4bbd94, true);
-                // g2d.setColor(Color.black);
-                // g2d.drawString(closeString, width - scaleColWidth + (halfScaleColWidth - (stringWidth / 2)) + 2, stringY + 1);
             } else {
-                RGBhighlight = highlightRed.getRGB();
-                color1 = garnetRed;
-                color2 = highlightRed;
+                RGBhighlight = redRGBhighlight;
+
+                //  color1 = garnetRed;
+                // color2 = highlightRed;
             }
 
-            Drawing.drawBar(1, color1, color2, img, x1, y1, width, y2);
+            Drawing.drawBar(1, 0xff000000, 0xff111111, img, x1, y1, width, y2);
+            Drawing.drawBar(1, RGBhighlight, 0xff000000, img, x1, y1, width, y2);
+            y1 = y1 - 1;
+            y2 = y2 + 1;
 
-            Drawing.fillArea(img, RGBhighlight, x1, y1, x1 + 1, y2);
-            Drawing.fillArea(img, RGBhighlight, x1, y1, width - 1, y1 + 1);
-            Drawing.fillArea(img, color1.getRGB(), width - 1, y1, width - 1, y2);
+            Drawing.drawBar(1, 0x90000000, RGBhighlight, img, x1, y1 - 1, x2, y1 + 3);
+            Drawing.drawBar(0x80555555, RGBhighlight, img, x1, y1 + 3, x1 + 2, y2 - 1);
+            Drawing.drawBar(0x80555555, RGBhighlight, img, x2, y1 + 4, x2 - 2, y2);
+            Drawing.drawBar(1, 0x50ffffff, RGBhighlight, img, x1, y2 - 1, x2, y2);
 
             Color stringColor = new java.awt.Color(0xffffffff, true);
 
             g2d.setColor(stringColor);
-            g2d.drawString(closeString, stringX, stringY);
+            g2d.drawString(closeString, stringX, stringY - 1);
+
+            g2d.setColor(m_direction ? KucoinExchange.POSITIVE_HIGHLIGHT_COLOR : KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR);
+            g2d.setFont(new Font("Arial", Font.PLAIN, 12));
+            g2d.drawString("◄", chartWidth - 9, stringY + 1);
+
             g2d.dispose();
+
+            stringX = chartWidth - 9;
             if (m_direction) {
-                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xff333333, img, stringX, y - (labelHeight / 2) - 1, stringX + stringWidth, y + 4 - (labelHeight / 2));
-                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xff333333, 0xff000000, img, stringX, y + 4 - (labelHeight / 2), stringX + stringWidth, y + (labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (labelHeight / 2) - 1, chartWidth + scaleColWidth, y + 4 - (labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xff4bbd94, img, stringX, y + 4 - (labelHeight / 2), chartWidth + scaleColWidth, y + (labelHeight / 2));
+            } else {
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (labelHeight / 2) - 1, chartWidth + scaleColWidth, y + 4 - (labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffe96d71, img, stringX, y + 4 - (labelHeight / 2), chartWidth + scaleColWidth, y + (labelHeight / 2));
             }
             int borderColor = 0xFF000000;
 
-            Drawing.fillArea(img, borderColor, chartWidth, 0, chartWidth + 1, chartHeight);//(width - scaleColWidth, 0, width - 1, height - 1);
+            Drawing.fillArea(img, borderColor, 0, chartHeight, chartWidth, chartHeight + 1);
+
+            Drawing.fillArea(img, borderColor, chartWidth, 0, chartWidth + 1, chartHeight);//(width - scaleColWidth, 0, width - 1, chartHeight - 1);
 
             for (int x = 0; x < width - scaleColWidth - 6; x++) {
                 int p = img.getRGB(x, y);

@@ -3,20 +3,10 @@ package com.netnotes;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
-import java.time.LocalDateTime;
-
-import javafx.beans.property.SimpleObjectProperty;
 
 public class Drawing {
 
     private static File logFile = new File("drawing-log.txt");
-
-    public static void drawBar(Color color1, Color color2, BufferedImage img, int x1, int y1, int x2, int y2) {
-        drawBar(0, color1, color2, img, x1, y1, x2, y2);
-    }
 
     public static void drawBarFillColor(int direction, boolean fillInverse, int fillColor, int RGB1, int RGB2, BufferedImage img, int x1, int y1, int x2, int y2) {
 
@@ -116,9 +106,19 @@ public class Drawing {
         }
     }
 
+    public static void drawBar(int rgb1, int rgb2, BufferedImage img, int x1, int y1, int x2, int y2) {
+        drawBar(0, rgb1, rgb2, img, x1, y1, x2, y2);
+    }
+
+    public static void drawBar(Color color1, Color color2, BufferedImage img, int x1, int y1, int x2, int y2) {
+        drawBar(0, color1, color2, img, x1, y1, x2, y2);
+    }
+
     public static void drawBar(int direction, Color color1, Color color2, BufferedImage img, int x1, int y1, int x2, int y2) {
-        int RGB1 = color1.getRGB();
-        int RGB2 = color2.getRGB();
+        drawBar(direction, color1.getRGB(), color2.getRGB(), img, x1, y1, x2, y2);
+    }
+
+    public static void drawBar(int direction, int RGB1, int RGB2, BufferedImage img, int x1, int y1, int x2, int y2) {
 
         int a1 = (RGB1 >> 24) & 0xff;
         int r1 = (RGB1 >> 16) & 0xff;
