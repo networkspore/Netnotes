@@ -283,10 +283,8 @@ public class KucoinMarketItem {
 
             HBox chartBox = chartView.getChartBox();
             chartBox.setId("bodyBox");
-            HBox bodyHBox = new HBox(chartBox);
 
-            HBox.setHgrow(bodyHBox, Priority.ALWAYS);
-            bodyHBox.setAlignment(Pos.BOTTOM_RIGHT);
+            ScrollPane chartScroll = new ScrollPane(chartBox);
 
             int symbolLength = getSymbol().length();
 
@@ -407,7 +405,7 @@ public class KucoinMarketItem {
 
             });
 
-            VBox paddingBox = new VBox(headingBox, bodyHBox);
+            VBox paddingBox = new VBox(headingBox, chartScroll);
 
             paddingBox.setPadding(new Insets(0, 5, 5, 5));
 
@@ -424,6 +422,8 @@ public class KucoinMarketItem {
             chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(40));
             chartWidth.bind(mainScene.widthProperty().subtract(15));
 
+            chartScroll.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(40));
+            chartScroll.prefWidthProperty().bind(mainScene.widthProperty().subtract(15));
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
             m_stage.show();
 
