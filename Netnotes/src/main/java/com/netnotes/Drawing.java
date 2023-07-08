@@ -208,21 +208,20 @@ public class Drawing {
     }
 
     public static void fillAreaDotted(int size, BufferedImage img, int RGB, int x1, int y1, int x2, int y2) {
-        int i = 0;
+
         int j = 0;
 
         for (int x = x1; x < x2; x += size) {
             for (int y = y1; y < y2; y += size) {
 
-                if ((i == 0 || i % 2 == 0) && !(j % 2 == 0)) {
+                if (j % 2 == 0) {
                     // int oldRGB = img.getRGB(x, y);
                     //  img.setRGB(x, y, blendRGBA(oldRGB, RGB));
                     fillArea(img, RGB, x, y, x + size, y + size);
                 }
                 j++;
             }
-            j = 0;
-            i++;
+
         }
 
     }

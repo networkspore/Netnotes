@@ -381,7 +381,8 @@ public class KucoinMarketItem {
 
                             }
 
-                            chartView.setPriceDataList(dataElement.getAsJsonArray(), m_timeSpan);
+                            chartView.setPriceDataList(dataElement.getAsJsonArray(), 30 * 60);
+
                             if (exchange.isClientReady()) {
                                 Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan));
                             } else {

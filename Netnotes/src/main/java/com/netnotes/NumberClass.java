@@ -9,12 +9,14 @@ public class NumberClass {
     public SimpleDoubleProperty low = new SimpleDoubleProperty();
     public SimpleDoubleProperty sum = new SimpleDoubleProperty();
     public SimpleIntegerProperty count = new SimpleIntegerProperty();
+    public SimpleIntegerProperty decimals = new SimpleIntegerProperty(0);
 
     public NumberClass() {
         count.set(0);
         sum.set(0);
         high.set(0);
         low.set(0);
+        decimals.set(0);
     }
 
     public double getAverage() {

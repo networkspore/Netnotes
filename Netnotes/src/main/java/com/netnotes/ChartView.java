@@ -1,6 +1,5 @@
 package com.netnotes;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -13,26 +12,16 @@ import java.io.IOException;
 
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
-import java.util.TimeZone;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.satergo.WalletKey.Local;
-import com.utils.Utils;
 
-import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 
 import javafx.beans.property.SimpleObjectProperty;
@@ -40,12 +29,11 @@ import javafx.beans.value.ChangeListener;
 
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Pos;
-import javafx.scene.control.ScrollPane;
+
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.stage.Stage;
 
 public class ChartView {
 
@@ -131,37 +119,114 @@ public class ChartView {
 
     }
 
-    public void setPriceDataList(JsonArray jsonArray, String timeSpan) {
-        m_timeSpan = timeSpan;
+    public static int getDecimals(String string) {
+
+        int indexOfDecimal = string != null && string.length() > 1 ? string.indexOf(".") : -1;
+        int decimals = indexOfDecimal != -1 && string != null ? string.substring(indexOfDecimal + 1, string.length()).length() : 0;
+        return decimals;
+    }
+
+    private static PriceData getEpochElement(JsonArray array, long epochStart, long longEpochEnd) {
+
+        for (JsonElement jsonArrayElement : array) {
+            if (jsonArrayElement != null && jsonArrayElement.isJsonArray()) {
+                JsonArray priceArray = jsonArrayElement.getAsJsonArray();
+                PriceData priceData = new PriceData(priceArray);
+                if (priceData.getTimestamp() > epochStart && priceData.getTimestamp() <= longEpochEnd) {
+                    return priceData;
+                }
+            }
+        }
+        return null;
+    }
+
+    public void setPriceDataList(JsonArray jsonArray, int timeSpanSeconds) {
+
         if (jsonArray != null && jsonArray.size() > 0) {
             m_valid = 1;
             m_msg = "Loading";
             NumberClass numberClass = new NumberClass();
 
+            try {
+                Files.writeString(logFile.toPath(), "\nLoading price data", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+            } catch (IOException e) {
+
+            }
+
             ArrayList<PriceData> tmpPriceList = new ArrayList<>();
 
-            jsonArray.forEach(dataElement -> {
+            JsonElement oldestElement = jsonArray.get(jsonArray.size() - 1);
+            JsonElement newestElement = jsonArray.get(0);
 
-                JsonArray dataArray = dataElement.getAsJsonArray();
+            if (oldestElement != null && oldestElement.isJsonArray() && newestElement != null && newestElement.isJsonArray()) {
 
-                PriceData priceData = new PriceData(dataArray);
-                if (numberClass.low.get() == 0) {
-                    numberClass.low.set(priceData.getLow());
+                PriceData oldestData = new PriceData(oldestElement.getAsJsonArray());
+                PriceData newestData = new PriceData(newestElement.getAsJsonArray());
+                m_currentPrice = newestData.getClose();
+                long oldestTimeStamp = oldestData.getTimestamp();
+                long newestTimeStamp = newestData.getTimestamp();
+
+                int elements = (int) Math.ceil(((newestTimeStamp + timeSpanSeconds) - oldestTimeStamp) / timeSpanSeconds);
+
+                try {
+                    Files.writeString(logFile.toPath(), "\nint timespan: " + timeSpanSeconds + " oldest Timestamp" + oldestTimeStamp + " newest: " + newestTimeStamp + " elements: " + elements + " size:" + jsonArray.size(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+                } catch (IOException e) {
+
                 }
 
-                numberClass.sum.set(numberClass.sum.get() + priceData.getClose());
-                numberClass.count.set(numberClass.count.get() + 1);
-                tmpPriceList.add(priceData);
-                if (priceData.getHigh() > numberClass.high.get()) {
-                    numberClass.high.set(priceData.getHigh());
-                }
-                if (priceData.getLow() < numberClass.low.get()) {
-                    numberClass.low.set(priceData.getLow());
+                int i = 0;
+
+                while (i < elements) {
+                    long epochStart = (i * timeSpanSeconds) + oldestData.getTimestamp() - timeSpanSeconds;
+                    long epochEnd = (i * timeSpanSeconds) + oldestData.getTimestamp();
+
+                    PriceData priceData = getEpochElement(jsonArray, epochStart, epochEnd);
+
+                    if (priceData == null) {
+
+                        PriceData prev = numberClass.count.get() == 0 ? null : tmpPriceList.get(numberClass.count.get() - 1);
+
+                        try {
+                            Files.writeString(logFile.toPath(), "\ndata hole: start " + epochStart + " end: " + epochEnd + " prevData: " + (prev != null ? prev.getClose() : "null"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e) {
+
+                        }
+
+                        double lastAmount = prev == null ? 0 : prev.getClose();
+
+                        priceData = new PriceData(epochEnd, lastAmount, lastAmount, lastAmount, lastAmount, 0, 0);
+                    } else {
+
+                        if (numberClass.low.get() == 0) {
+                            numberClass.low.set(priceData.getLow());
+                        }
+
+                        numberClass.sum.set(numberClass.sum.get() + priceData.getClose());
+                        numberClass.count.set(numberClass.count.get() + 1);
+
+                        if (priceData.getHigh() > numberClass.high.get()) {
+                            numberClass.high.set(priceData.getHigh());
+                        }
+                        if (priceData.getLow() < numberClass.low.get()) {
+                            numberClass.low.set(priceData.getLow());
+                        }
+                        int decimals = getDecimals(priceData.getCloseString());
+                        if (numberClass.decimals.get() < decimals) {
+                            numberClass.decimals.set(decimals);
+                        }
+                    }
+
+                    tmpPriceList.add(priceData);
+                    i++;
                 }
 
-            });
-
-            Collections.reverse(tmpPriceList);
+                // Collections.reverse(tmpPriceList);
+            } else {
+                m_valid = 2;
+                m_msg = "Received corrupt data.";
+            }
             m_priceList = tmpPriceList;
             m_numberClass = numberClass;
         } else {
@@ -304,7 +369,7 @@ public class ChartView {
     private int m_labelSpacingSize = 150;
 
     public BufferedImage getBufferedImage() {
-
+        LocalDateTime now = LocalDateTime.now();
         int greenHighlightRGB = 0x504bbd94;
         int greenHighlightRGB2 = 0x80028a0f;
         int redRGBhighlight = 0x50e96d71;
@@ -321,43 +386,29 @@ public class ChartView {
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
         g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
-        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-        /*  g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-    
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-       
-        g2d.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
-        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);*/
 
         g2d.setColor(new Color(0f, 0f, 0f, 0.01f));
         g2d.fillRect(0, 0, width, height);
         if (m_valid == 1 && m_priceList.size() > 0) {
 
-            // g2d.setColor(new Color(.8f, .8f, .8f, 1.0f));
-            //    g2d.drawRect(chartRect.x, chartRect.y, chartRect.width, chartRect.height);
-            double totalHigh = m_numberClass.high.get();
-            double totalLow = m_numberClass.low.get();
-
-            // double low = m_numberClass.low.get();
-            //   double average = m_numberClass.getAverage();
             g2d.setFont(m_labelFont);
             g2d.setColor(Color.WHITE);
             FontMetrics fm = g2d.getFontMetrics();
             String measureString = "0.00000000";
             int stringWidth = fm.stringWidth(measureString);
-            int amTextWidth = fm.stringWidth(" a.m.");
+            int amStingWidth = fm.stringWidth(" a.m. ");
             int labelAscent = fm.getAscent();
             int labelHeight = fm.getHeight();
 
-            int scaleColWidth = stringWidth + 5;
+            int scaleColWidth = stringWidth + 25;
 
             int chartWidth = width - scaleColWidth;
-            int chartHeight = height - scaleColWidth;
+            int chartHeight = height - (2 * (labelHeight + 5)) - 10;
 
-            double scale = (0.6d * (double) chartHeight) / totalHigh;
-            double totalRange = (totalHigh - totalLow) * scale;
+            double scale = (0.6d * (double) chartHeight) / m_numberClass.high.get();
 
-            // double rangePercent = totalRange / chartHeight;
+            double totalRange = (m_numberClass.high.get() - m_numberClass.low.get()) * scale;
+
             Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
 
             int cellWidth = m_cellWidth;
@@ -375,21 +426,58 @@ public class ChartView {
 
             //    Color overlayGreen = new Color(green.getRed(), green.getGreen(), green.getBlue(), 0x70);
             //    Color overlayGreenHighlight = new Color(highlightGreen.getRed(), highlightGreen.getGreen(), highlightGreen.getBlue(), 0x70);
-            boolean positive = false;
-            boolean neutral = false;
+            double firstOpen = m_priceList.get(0).getOpen();
 
-            double open = m_priceList.get(0).getOpen();
-            double close = getCurrentPrice();
-            int closeY = (int) (close * scale);
-            int openY = (int) (open * scale);
+            int currentCloseY = (int) (getCurrentPrice() * scale);
+            int openY = (int) (firstOpen * scale);
 
             int priceListWidth = priceListSize * totalCellWidth;
 
             int halfCellWidth = cellWidth / 2;
 
-            int rows = m_priceList.size() - i;
+            int items = m_priceList.size() - i;
+            int colLabelSpacing = (int) Math.floor(items / ((items * cellWidth) / m_labelSpacingSize));
 
-            int rowLabelSpacing = (int) Math.floor(rows / ((rows * cellWidth) / m_labelSpacingSize));
+            NumberClass nc = new NumberClass();
+            nc.low.set(Double.MAX_VALUE);
+            nc.count.set(5);
+
+            for (j = 5; j < 15; j++) {
+                String scaleAmountString = ((labelHeight + j) / scale) + "";
+                if (scaleAmountString.length() < nc.low.get()) {
+                    nc.count.set(j);
+                    nc.low.set(scaleAmountString.length());
+                }
+            }
+
+            int rowHeight = labelHeight + nc.count.get();
+
+            int rows = (int) Math.floor(chartHeight / rowHeight);
+
+            int rowLabelSpacing = (int) (rows / ((rows * rowHeight) / m_labelSpacingSize));
+
+            for (j = 0; j < rows; j++) {
+
+                int y = chartHeight - (j * rowHeight);
+                if (j % rowLabelSpacing == 0) {
+                    Drawing.fillAreaDotted(2, img, 0x10ffffff, 0, y, chartWidth, y + 1);
+                    if (j != 0) {
+                        Drawing.fillArea(img, 0xc0ffffff, chartWidth, y, chartWidth + 6, y + 2);
+                    }
+                }
+                Drawing.fillArea(img, 0xff000000, chartWidth, y, chartWidth + 6, y + 1);
+
+                double scaleLabeldbl = (j * rowHeight) / scale;
+
+                String scaleAmount = String.format("%." + m_numberClass.decimals.get() + "f", scaleLabeldbl);
+                int amountWidth = fm.stringWidth(scaleAmount);
+
+                int x1 = (chartWidth + (scaleColWidth / 2)) - (amountWidth / 2);
+                int y1 = (y - (labelHeight / 2)) + labelAscent;
+                g2d.drawString(scaleAmount, x1, y1);
+
+            }
+            j = 0;
 
             while (i < m_priceList.size()) {
                 PriceData priceData = m_priceList.get(i);
@@ -399,41 +487,51 @@ public class ChartView {
 
                 double low = priceData.getLow();
                 double high = priceData.getHigh();
-                double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : priceData.getOpen();
 
-                open = open != prevClose ? prevClose : priceData.getOpen();
-                close = priceData.getClose();
+                double nextOpen = i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen() : priceData.getClose();
+
+                double open = priceData.getOpen();
+
+                double close = priceData.getClose();
 
                 int lowY = (int) (low * scale);
                 int highY = (int) (high * scale);
                 openY = (int) (open * scale);
 
-                positive = close > open;
-                neutral = close == open;
+                boolean positive = close > open;
+                boolean neutral = open == nextOpen && open == close;
 
-                closeY = (int) (close * scale);
-                if (i % rowLabelSpacing == 0) {
-                    switch (m_timeSpan) {
-                        case "30min":
+                g2d.setColor(Color.WHITE);
+                int closeY = (int) (close * scale);
 
-                            long timestamp = priceData.getTimestamp();
+                LocalDateTime localTimestamp = priceData.getLocalDateTime();
+                if (localTimestamp != null) {
+                    if (i % colLabelSpacing == 0) {
 
-                            Date date = new Date(timestamp);
+                        Drawing.fillAreaDotted(2, img, 0x10ffffff, x + halfCellWidth - 1, 0, x + halfCellWidth, chartHeight);
+                        Drawing.fillArea(img, 0x80000000, x + halfCellWidth - 1, chartHeight, x + halfCellWidth + 1, chartHeight + 4);
 
-                            Drawing.fillAreaDotted(2, img, 0x10ffffff, x + halfCellWidth - 1, 0, x + halfCellWidth, chartHeight);
-                            Drawing.fillArea(img, 0x80000000, x + halfCellWidth - 1, chartHeight, x + halfCellWidth + 1, chartHeight + 4);
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("hh:mm a");
 
-                            DateFormat formatter = new SimpleDateFormat("hh:mm a");
-                            formatter.setTimeZone(TimeZone.getDefault());
+                        String timeString = formatter.format(localTimestamp);
+                        int timeStringWidth = fm.stringWidth(timeString);
 
-                            String timeString = formatter.format(date);
-                            int timeStringWidth = fm.stringWidth(timeString);
-                            g2d.setColor(Color.WHITE);
-                            int timeStringX = x - ((timeStringWidth - amTextWidth) / 2);
-                            if (timeStringX > -1) {
-                                g2d.drawString(timeString, timeStringX, chartHeight + 4 + (labelHeight / 2) + labelAscent);
-                            }
-                            break;
+                        int timeStringX = x - ((timeStringWidth - amStingWidth) / 2);
+                        g2d.drawString(timeString, timeStringX, chartHeight + 4 + (labelHeight / 2) + labelAscent);
+
+                        if (!(localTimestamp.getDayOfYear() == now.getDayOfYear() && localTimestamp.getYear() == now.getYear())) {
+
+                            formatter = DateTimeFormatter.ofPattern("MM/dd/YYYY");
+
+                            timeString = formatter.format(localTimestamp);
+
+                            timeStringWidth = fm.stringWidth(timeString);
+
+                            timeStringX = x - ((timeStringWidth - amStingWidth) / 2);
+
+                            g2d.drawString(timeString, timeStringX, chartHeight + 4 + labelHeight + 4 + (labelHeight / 2) + labelAscent);
+
+                        }
                     }
 
                 }
@@ -455,7 +553,7 @@ public class ChartView {
                     if (positive) {
 
                         int y1 = chartHeight - closeY;
-                        int y2 = chartHeight - openY;
+                        int y2 = (chartHeight - openY) + 1;
 
                         int x2 = x + cellWidth;
                         Drawing.drawBar(1, 0xff000000, 0xff111111, img, x, y1, x2, y2);
@@ -484,7 +582,7 @@ public class ChartView {
                         Drawing.fillArea(img, RGBhighlight, x, y1, x + cellWidth, y1 + 1);
                         Drawing.fillArea(img, garnetRed.getRGB(), x + cellWidth - 1, y1, x + cellWidth, y2);
 
-                        Drawing.fillArea(img, garnetRed.getRGB(), x + 1, y2, x + cellWidth - 1, y2 + 1);
+                        Drawing.fillArea(img, garnetRed.getRGB(), x + 1, y2 - 1, x + cellWidth - 1, y2);
                     }
                 }
 
@@ -494,26 +592,17 @@ public class ChartView {
             g2d.setFont(m_labelFont);
             fm = g2d.getFontMetrics();
 
-            int y = chartHeight - closeY;
-            String closeString = close + "";
+            int y = chartHeight - currentCloseY;
+
 
             /*  if (closeString.length() > measureString.length()) {
                 closeString = String.format("%e", close);
             }*/
-            stringWidth = fm.stringWidth(closeString);
             int halfLabelHeight = (labelHeight / 2);
 
-            int stringY = (y - halfLabelHeight) + labelAscent - 1;
+            m_direction = getCurrentPrice() > m_lastClose;
 
-            if (m_lastClose != 0 && close != m_lastClose) {
-                m_direction = close > m_lastClose;
-            } else {
-                if (m_lastClose == 0) {
-                    m_direction = positive;
-                }
-            }
-
-            m_lastClose = close;
+            m_lastClose = getCurrentPrice();
             int y1 = y - (halfLabelHeight + 10);
             int y2 = y + (halfLabelHeight + 5);
             int halfScaleColWidth = (scaleColWidth / 2);
@@ -522,7 +611,6 @@ public class ChartView {
 
             int x1 = chartWidth + 2;
             int x2 = chartWidth + scaleColWidth;
-            int stringX = (x1 + halfScaleColWidth) - (stringWidth / 2);
 
             if (m_direction) {
                 RGBhighlight = greenHighlightRGB;
@@ -546,6 +634,12 @@ public class ChartView {
             Drawing.drawBar(1, 0x50ffffff, RGBhighlight, img, x1, y2 - 1, x2, y2);
 
             Color stringColor = new java.awt.Color(0xffffffff, true);
+
+            String closeString = String.format("%." + m_numberClass.decimals.get() + "f", getCurrentPrice());
+            stringWidth = fm.stringWidth(closeString);
+
+            int stringY = (y - halfLabelHeight) + labelAscent - 1;
+            int stringX = (x1 + halfScaleColWidth) - (stringWidth / 2);
 
             g2d.setColor(stringColor);
             g2d.drawString(closeString, stringX, stringY - 1);
