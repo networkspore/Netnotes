@@ -45,12 +45,13 @@ public class ChartView {
 
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
     private ChangeListener<LocalDateTime> m_changeListener = null;
+    private SimpleObjectProperty<ImageItem> m_bottomOffset = new SimpleObjectProperty<>(null);
 
     private int m_valid = 0;
     private Font m_headingFont = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 18);
 
     private Color m_backgroundColor = new Color(1f, 1f, 1f, 0f);
-    private Font m_labelFont = new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 12);
+    private SimpleObjectProperty<Font> m_labelFont = new SimpleObjectProperty< Font>(new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 12));
 
     private double m_scale = 0;
     private int m_defaultCellWidth = 20;
@@ -78,8 +79,31 @@ public class ChartView {
         JsonObject jsonObject = new JsonObject();
         return jsonObject;
     }
+    private int m_scaleColWidth = 0;
+    private int m_labelHeight = 0;
+    private int m_amStringWidth = 0;
+    private int m_labelAscent = 0;
+    private FontMetrics m_fm = null;
 
     public HBox getChartBox() {
+
+        Runnable updateLabelFont = () -> {
+            BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = img.createGraphics();
+            g2d.setFont(m_labelFont.get());
+            g2d.setColor(m_labelColor);
+            m_fm = g2d.getFontMetrics();
+            String measureString = "0.00000000";
+            int stringWidth = m_fm.stringWidth(measureString);
+            m_amStringWidth = m_fm.stringWidth(" a.m. ");
+            m_labelAscent = m_fm.getAscent();
+            m_labelHeight = m_fm.getHeight();
+            m_scaleColWidth = stringWidth + 25;
+            m_lastUpdated.set(LocalDateTime.now());
+        };
+        updateLabelFont.run();
+
+        m_labelFont.addListener((obs, oldVal, newVal) -> updateLabelFont.run());
 
         Image image = SwingFXUtils.toFXImage(getBufferedImage(), null);
         ImageView imgView = IconButton.getIconView(image, image.getWidth());
@@ -95,6 +119,8 @@ public class ChartView {
         m_chartWidth.addListener((obs, oldVal, newVal) -> updateImage.run());
 
         m_lastUpdated.addListener((obs, oldVal, newVal) -> updateImage.run());
+
+        m_bottomOffset.addListener((obx, oldVal, newVal) -> updateImage.run());
 
         m_chartHbox.getChildren().clear();
         m_chartHbox.getChildren().add(imgView);
@@ -225,13 +251,13 @@ public class ChartView {
                 // Collections.reverse(tmpPriceList);
             } else {
                 m_valid = 2;
-                m_msg = "Received corrupt data.";
+                m_msg = "Received no data.";
             }
             m_priceList = tmpPriceList;
             m_numberClass = numberClass;
         } else {
             m_valid = 2;
-            m_msg = "Received corrupt data.";
+            m_msg = "Received no data.";
         }
         m_lastUpdated.set(LocalDateTime.now());
     }
@@ -290,10 +316,14 @@ public class ChartView {
     }
 
     public void setLabelFont(Font font) {
-        m_labelFont = font;
+        m_labelFont.set(font);
     }
 
     public Font getLabelFont() {
+        return m_labelFont.get();
+    }
+
+    public SimpleObjectProperty<Font> labelFontProperty() {
         return m_labelFont;
     }
 
@@ -367,6 +397,7 @@ public class ChartView {
     }*/
     private double m_lastClose = 0;
     private int m_labelSpacingSize = 150;
+    private Color m_labelColor = new Color(0xc0ffffff);
 
     public BufferedImage getBufferedImage() {
         LocalDateTime now = LocalDateTime.now();
@@ -389,21 +420,13 @@ public class ChartView {
 
         g2d.setColor(new Color(0f, 0f, 0f, 0.01f));
         g2d.fillRect(0, 0, width, height);
+
+        g2d.setFont(getLabelFont());
+        g2d.setColor(m_labelColor);
         if (m_valid == 1 && m_priceList.size() > 0) {
 
-            g2d.setFont(m_labelFont);
-            g2d.setColor(Color.WHITE);
-            FontMetrics fm = g2d.getFontMetrics();
-            String measureString = "0.00000000";
-            int stringWidth = fm.stringWidth(measureString);
-            int amStingWidth = fm.stringWidth(" a.m. ");
-            int labelAscent = fm.getAscent();
-            int labelHeight = fm.getHeight();
-
-            int scaleColWidth = stringWidth + 25;
-
-            int chartWidth = width - scaleColWidth;
-            int chartHeight = height - (2 * (labelHeight + 5)) - 10;
+            int chartWidth = width - m_scaleColWidth;
+            int chartHeight = height - (2 * (m_labelHeight + 5)) - 10;
 
             double scale = (0.6d * (double) chartHeight) / m_numberClass.high.get();
 
@@ -412,7 +435,7 @@ public class ChartView {
             Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
 
             int cellWidth = m_cellWidth;
-            int numCells = (int) Math.floor((width - scaleColWidth) / totalCellWidth);
+            int numCells = (int) Math.floor((width - m_scaleColWidth) / totalCellWidth);
             int j = 0;
             int i = numCells > priceListSize ? 0 : priceListSize - numCells;
 
@@ -429,7 +452,7 @@ public class ChartView {
             double firstOpen = m_priceList.get(0).getOpen();
 
             int currentCloseY = (int) (getCurrentPrice() * scale);
-            int openY = (int) (firstOpen * scale);
+            int firstOpenY = (int) (firstOpen * scale);
 
             int priceListWidth = priceListSize * totalCellWidth;
 
@@ -443,14 +466,14 @@ public class ChartView {
             nc.count.set(5);
 
             for (j = 5; j < 15; j++) {
-                String scaleAmountString = ((labelHeight + j) / scale) + "";
+                String scaleAmountString = ((m_labelHeight + j) / scale) + "";
                 if (scaleAmountString.length() < nc.low.get()) {
                     nc.count.set(j);
                     nc.low.set(scaleAmountString.length());
                 }
             }
 
-            int rowHeight = labelHeight + nc.count.get();
+            int rowHeight = m_labelHeight + nc.count.get();
 
             int rows = (int) Math.floor(chartHeight / rowHeight);
 
@@ -470,10 +493,10 @@ public class ChartView {
                 double scaleLabeldbl = (j * rowHeight) / scale;
 
                 String scaleAmount = String.format("%." + m_numberClass.decimals.get() + "f", scaleLabeldbl);
-                int amountWidth = fm.stringWidth(scaleAmount);
+                int amountWidth = m_fm.stringWidth(scaleAmount);
 
-                int x1 = (chartWidth + (scaleColWidth / 2)) - (amountWidth / 2);
-                int y1 = (y - (labelHeight / 2)) + labelAscent;
+                int x1 = (chartWidth + (m_scaleColWidth / 2)) - (amountWidth / 2);
+                int y1 = (y - (m_labelHeight / 2)) + m_labelAscent;
                 g2d.drawString(scaleAmount, x1, y1);
 
             }
@@ -489,20 +512,18 @@ public class ChartView {
                 double high = priceData.getHigh();
 
                 double nextOpen = i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen() : priceData.getClose();
-
-                double open = priceData.getOpen();
-
+                double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : 0;
                 double close = priceData.getClose();
+
+                double open = prevClose;//priceData.getOpen();
 
                 int lowY = (int) (low * scale);
                 int highY = (int) (high * scale);
-                openY = (int) (open * scale);
-
-                boolean positive = close > open;
-                boolean neutral = open == nextOpen && open == close;
-
-                g2d.setColor(Color.WHITE);
+                int openY = (int) (open * scale);
                 int closeY = (int) (close * scale);
+
+                boolean positive = !((height - closeY) > (height - openY));
+                boolean neutral = open == nextOpen && open == close;
 
                 LocalDateTime localTimestamp = priceData.getLocalDateTime();
                 if (localTimestamp != null) {
@@ -514,10 +535,10 @@ public class ChartView {
                         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("hh:mm a");
 
                         String timeString = formatter.format(localTimestamp);
-                        int timeStringWidth = fm.stringWidth(timeString);
+                        int timeStringWidth = m_fm.stringWidth(timeString);
 
-                        int timeStringX = x - ((timeStringWidth - amStingWidth) / 2);
-                        g2d.drawString(timeString, timeStringX, chartHeight + 4 + (labelHeight / 2) + labelAscent);
+                        int timeStringX = x - ((timeStringWidth - m_amStringWidth) / 2);
+                        g2d.drawString(timeString, timeStringX, chartHeight + 4 + (m_labelHeight / 2) + m_labelAscent);
 
                         if (!(localTimestamp.getDayOfYear() == now.getDayOfYear() && localTimestamp.getYear() == now.getYear())) {
 
@@ -525,11 +546,11 @@ public class ChartView {
 
                             timeString = formatter.format(localTimestamp);
 
-                            timeStringWidth = fm.stringWidth(timeString);
+                            timeStringWidth = m_fm.stringWidth(timeString);
 
-                            timeStringX = x - ((timeStringWidth - amStingWidth) / 2);
+                            timeStringX = x - ((timeStringWidth - m_amStringWidth) / 2);
 
-                            g2d.drawString(timeString, timeStringX, chartHeight + 4 + labelHeight + 4 + (labelHeight / 2) + labelAscent);
+                            g2d.drawString(timeString, timeStringX, chartHeight + 4 + m_labelHeight + 4 + (m_labelHeight / 2) + m_labelAscent);
 
                         }
                     }
@@ -539,16 +560,9 @@ public class ChartView {
                 Drawing.fillArea(img, 0xffffffff, x + halfCellWidth - 1, chartHeight - highY, x + halfCellWidth, chartHeight - lowY);
 
                 if (neutral) {
-                    //  g2d.setStroke(new BasicStroke(2));
-                    //  double barHeight = (close - open) * scale;
-                    //  g2d.setColor(Color.white);
-                    //    g2d.drawLine(x + halfCellWidth, chartHeight - highY, x + halfCellWidth, chartHeight - closeY - 1);
-                    //    g2d.drawLine(x + halfCellWidth, chartHeight - openY, x + halfCellWidth, chartHeight - lowY);
-                    // g2d.setColor(Color.gray);
-                    //  g2d.drawRect(x, chartHeight - closeY, cellWidth, (int) barHeight);
-                    //  open = m_lastClose != 0 ? open = m_lastClose : open;
 
-                    Drawing.drawBar(1, Color.lightGray, Color.gray, img, x, chartHeight - openY - 1, x + cellWidth, chartHeight - closeY);
+                    Drawing.drawBar(1, Color.lightGray, Color.gray, img, x, chartHeight - openY - 1, x + cellWidth, chartHeight - closeY + 1);
+
                 } else {
                     if (positive) {
 
@@ -589,28 +603,25 @@ public class ChartView {
                 i++;
             }
 
-            g2d.setFont(m_labelFont);
-            fm = g2d.getFontMetrics();
-
             int y = chartHeight - currentCloseY;
 
 
             /*  if (closeString.length() > measureString.length()) {
                 closeString = String.format("%e", close);
             }*/
-            int halfLabelHeight = (labelHeight / 2);
+            int halfLabelHeight = (m_labelHeight / 2);
 
             m_direction = getCurrentPrice() > m_lastClose;
 
             m_lastClose = getCurrentPrice();
-            int y1 = y - (halfLabelHeight + 10);
+            int y1 = y - (halfLabelHeight + 7);
             int y2 = y + (halfLabelHeight + 5);
-            int halfScaleColWidth = (scaleColWidth / 2);
+            int halfScaleColWidth = (m_scaleColWidth / 2);
 
             int RGBhighlight;
 
-            int x1 = chartWidth + 2;
-            int x2 = chartWidth + scaleColWidth;
+            int x1 = chartWidth + 1;
+            int x2 = chartWidth + m_scaleColWidth;
 
             if (m_direction) {
                 RGBhighlight = greenHighlightRGB;
@@ -625,7 +636,7 @@ public class ChartView {
 
             Drawing.drawBar(1, 0xff000000, 0xff111111, img, x1, y1, width, y2);
             Drawing.drawBar(1, RGBhighlight, 0xff000000, img, x1, y1, width, y2);
-            y1 = y1 - 1;
+            //y1 = y1;
             y2 = y2 + 1;
 
             Drawing.drawBar(1, 0x90000000, RGBhighlight, img, x1, y1 - 1, x2, y1 + 3);
@@ -636,27 +647,27 @@ public class ChartView {
             Color stringColor = new java.awt.Color(0xffffffff, true);
 
             String closeString = String.format("%." + m_numberClass.decimals.get() + "f", getCurrentPrice());
-            stringWidth = fm.stringWidth(closeString);
+            int stringWidth = m_fm.stringWidth(closeString);
 
-            int stringY = (y - halfLabelHeight) + labelAscent - 1;
+            int stringY = (y - halfLabelHeight) + m_labelAscent;
             int stringX = (x1 + halfScaleColWidth) - (stringWidth / 2);
 
             g2d.setColor(stringColor);
-            g2d.drawString(closeString, stringX, stringY - 1);
+            g2d.drawString(closeString, stringX, stringY);
 
             g2d.setColor(m_direction ? KucoinExchange.POSITIVE_HIGHLIGHT_COLOR : KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR);
             g2d.setFont(new Font("Arial", Font.PLAIN, 12));
-            g2d.drawString("◄", chartWidth - 9, stringY + 1);
+            g2d.drawString("◄", chartWidth - 9, stringY);
 
             g2d.dispose();
 
             stringX = chartWidth - 9;
             if (m_direction) {
-                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (labelHeight / 2) - 1, chartWidth + scaleColWidth, y + 4 - (labelHeight / 2));
-                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xff4bbd94, img, stringX, y + 4 - (labelHeight / 2), chartWidth + scaleColWidth, y + (labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (m_labelHeight / 2) - 1, chartWidth + m_scaleColWidth, y + 4 - (m_labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xff4bbd94, img, stringX, y + 4 - (m_labelHeight / 2), chartWidth + m_scaleColWidth, y + (m_labelHeight / 2));
             } else {
-                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (labelHeight / 2) - 1, chartWidth + scaleColWidth, y + 4 - (labelHeight / 2));
-                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffe96d71, img, stringX, y + 4 - (labelHeight / 2), chartWidth + scaleColWidth, y + (labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (m_labelHeight / 2) - 1, chartWidth + m_scaleColWidth, y + 4 - (m_labelHeight / 2));
+                Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffe96d71, img, stringX, y + 4 - (m_labelHeight / 2), chartWidth + m_scaleColWidth, y + (m_labelHeight / 2));
             }
             int borderColor = 0xFF000000;
 
@@ -664,7 +675,7 @@ public class ChartView {
 
             Drawing.fillArea(img, borderColor, chartWidth, 0, chartWidth + 1, chartHeight);//(width - scaleColWidth, 0, width - 1, chartHeight - 1);
 
-            for (int x = 0; x < width - scaleColWidth - 7; x++) {
+            for (int x = 0; x < width - m_scaleColWidth - 7; x++) {
                 int p = img.getRGB(x, y);
 
                 p = (0xFFFFFF - p) | 0xFF000000;
