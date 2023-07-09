@@ -29,6 +29,8 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -176,7 +178,6 @@ public class KucoinMarketItem {
         int stringY = ((height - fontHeight) / 2) + fontAscent;
         int colPadding = 5;
 
-        //  adrBuchImg.getScaledInstance(width, height, java.awt.Image.SCALE_AREA_AVERAGING);
         img = new BufferedImage(symbolWidth + colPadding + lastWidth, height, BufferedImage.TYPE_INT_ARGB);
         g2d = img.createGraphics();
         /*g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
@@ -238,6 +239,19 @@ public class KucoinMarketItem {
             Button fillRightBtn = new Button();
 
             HBox titleBox = App.createTopBar(KucoinExchange.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
+
+            BufferedButton menuButton = new BufferedButton();
+
+            EventHandler<ActionEvent> onMenuAction = e -> {
+
+            };
+            menuButton.setOnAction(onMenuAction);
+
+            HBox menuBar = new HBox(menuButton);
+            HBox.setHgrow(menuBar, Priority.ALWAYS);
+            menuBar.setAlignment(Pos.CENTER_LEFT);
+            menuBar.setId("menuBar");
+            menuBar.setPadding(new Insets(1, 0, 1, 5));
 
             Button favoriteBtn = new Button();
             favoriteBtn.setId("menuBtn");
@@ -404,8 +418,10 @@ public class KucoinMarketItem {
             }, onFailed -> {
 
             });
+            Region headingPaddingRegion = new Region();
+            headingPaddingRegion.setPrefHeight(10);
 
-            VBox paddingBox = new VBox(headingBox, chartScroll);
+            VBox paddingBox = new VBox(menuBar, headingPaddingRegion, headingBox, chartScroll);
 
             paddingBox.setPadding(new Insets(0, 5, 5, 5));
 
@@ -419,10 +435,10 @@ public class KucoinMarketItem {
             mainScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(mainScene);
 
-            chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(40));
+            chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(50));
             chartWidth.bind(mainScene.widthProperty().subtract(15));
 
-            chartScroll.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(40));
+            chartScroll.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(50));
             chartScroll.prefWidthProperty().bind(mainScene.widthProperty().subtract(15));
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
             m_stage.show();
