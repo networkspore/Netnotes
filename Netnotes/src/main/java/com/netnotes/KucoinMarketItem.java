@@ -34,12 +34,17 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -56,12 +61,14 @@ public class KucoinMarketItem {
     private String m_id;
     private String m_symbol;
     private String m_name;
-    private String m_timeSpan = "30min";
+
     private KuCoinDataList m_dataList = null;
     private SimpleObjectProperty<KucoinTickerData> m_tickerDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
     private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
     private ChangeListener<JsonObject> m_socketMsgListener;
+
+    private TimeSpan m_timeSpan = new TimeSpan("30min");
 
     private NoteInterface m_parentInterface;
 
@@ -92,7 +99,7 @@ public class KucoinMarketItem {
         return m_name;
     }
 
-    public String getTimeSpan() {
+    public TimeSpan getTimeSpan() {
         return m_timeSpan;
     }
 
@@ -221,6 +228,35 @@ public class KucoinMarketItem {
         return SwingFXUtils.toFXImage(img, null);
     }
 
+    public void setTimeSpanMenuButtons(MenuButton menuBtn) {
+        String[] spans = KucoinExchange.AVAILABLE_TIMESPANS;
+
+        for (int i = 0; i < spans.length; i++) {
+
+            String span = spans[i];
+            TimeSpan timeSpan = new TimeSpan(span);
+            MenuItem menuItm = new MenuItem(timeSpan.getName());
+            menuItm.setId("urlMenuItem");
+            menuItm.setUserData(timeSpan);
+
+            menuItm.setOnAction(action -> {
+
+                Object item = menuItm.getUserData();
+
+                if (item != null && item instanceof TimeSpan) {
+
+                    menuBtn.setUserData(item);
+                    menuBtn.setText(((TimeSpan) item).getName());
+                }
+
+            });
+
+            menuBtn.getItems().add(menuItm);
+
+        }
+
+    }
+
     public void showStage() {
         if (m_stage == null) {
             logFile = new File("marketItem-" + m_symbol + ".txt");
@@ -245,6 +281,7 @@ public class KucoinMarketItem {
             EventHandler<ActionEvent> onMenuAction = e -> {
 
             };
+
             menuButton.setOnAction(onMenuAction);
 
             HBox menuBar = new HBox(menuButton);
@@ -271,20 +308,29 @@ public class KucoinMarketItem {
                 favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
             });
 
-            Text headingText = new Text(m_name);
+            Text headingText = new Text(m_name + "  - ");
             headingText.setFont(App.txtFont);
             headingText.setFill(Color.WHITE);
 
             Region headingSpacerL = new Region();
+            //  Region headingSpacerR = new Region();
+            //  HBox.setHgrow(headingSpacerR, Priority.ALWAYS);
 
-            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText);
+            MenuButton timeSpanBtn = new MenuButton(m_timeSpan.getName());
+            timeSpanBtn.setFont(App.txtFont);
+            // timeSpanBtn.getBufferedImageView().setFitWidth(20);
+            timeSpanBtn.setContentDisplay(ContentDisplay.LEFT);
+            timeSpanBtn.setAlignment(Pos.CENTER_LEFT);
+            setTimeSpanMenuButtons(timeSpanBtn);
+
+            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText, timeSpanBtn);
             headingBox.prefHeight(40);
             headingBox.setAlignment(Pos.CENTER_LEFT);
             HBox.setHgrow(headingBox, Priority.ALWAYS);
-            headingBox.setPadding(new Insets(10, 0, 10, 0));
+            headingBox.setPadding(new Insets(10, 60, 10, 0));
             headingBox.setId("headingBox");
 
-            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
+            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(timeSpanBtn.widthProperty().divide(2)).subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
 
             TextArea informationTextArea = new TextArea();
 
@@ -304,11 +350,7 @@ public class KucoinMarketItem {
 
             ChangeListener<JsonObject> socketMsgListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
-                    try {
-                        Files.writeString(logFile.toPath(), "\nnewMsg" + newVal.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e1) {
 
-                    }
                     JsonElement subjectElement = newVal.get("subject");
                     JsonElement topicElement = newVal.get("topic");
                     JsonElement dataElement = newVal.get("data");
@@ -325,8 +367,9 @@ public class KucoinMarketItem {
 
                                 if (topicHeader.equals(topic.substring(0, topicHeader.length())) && symbolLength == indexOfunderscore && getSymbol().equals(topicBody.substring(0, indexOfunderscore))) {
 
-                                    String topicFooter = topicBody.substring(indexOfunderscore + 1);
-                                    if (m_timeSpan.equals(topicFooter)) {
+                                    String timeSpanId = topicBody.substring(indexOfunderscore + 1);
+
+                                    if (m_timeSpan.getId().equals(timeSpanId)) {
                                         JsonObject dataObject = dataElement != null && dataElement.isJsonObject() ? dataElement.getAsJsonObject() : null;
                                         if (dataObject != null) {
                                             JsonElement candlesElement = dataObject.get("candles");
@@ -334,18 +377,14 @@ public class KucoinMarketItem {
                                             JsonArray dataArray = candlesElement != null && candlesElement.isJsonArray() ? candlesElement.getAsJsonArray() : null;
 
                                             if (dataArray != null) {
-                                                try {
-                                                    Files.writeString(logFile.toPath(), "\nupdating candles: \n" + dataArray.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                                } catch (IOException e2) {
 
-                                                }
                                                 PriceData priceData = new PriceData(dataArray);
 
-                                                chartView.updateCandleData(priceData, m_timeSpan);
+                                                chartView.updateCandleData(priceData, m_timeSpan.getSeconds());
 
+                                                m_stage.setTitle(exchange.getName() + " - " + m_name + (newVal != null ? " - " + priceData.getCloseString() + "" : ""));
                                             }
 
-                                            //  new KucoinTickerData(topic, newVal)
                                         }
                                     }
 
@@ -371,53 +410,47 @@ public class KucoinMarketItem {
 
             exchange.addMsgListenr(msgInterface);
 
-            exchange.getCandlesDataset(m_symbol, m_timeSpan, onSuccess -> {
-                WorkerStateEvent worker = onSuccess;
-                Object sourceObject = worker.getSource().getValue();
+            Runnable startCandles = () -> {
+                TimeSpan tSpan = m_timeSpan;
+                exchange.getCandlesDataset(m_symbol, tSpan.getId(), onSuccess -> {
+                    WorkerStateEvent worker = onSuccess;
+                    Object sourceObject = worker.getSource().getValue();
 
-                if (sourceObject != null && sourceObject instanceof JsonObject) {
+                    if (sourceObject != null && sourceObject instanceof JsonObject) {
 
-                    JsonObject sourceJson = (JsonObject) sourceObject;
+                        JsonObject sourceJson = (JsonObject) sourceObject;
 
-                    JsonElement msgElement = sourceJson.get("msg");
-                    JsonElement dataElement = sourceJson.get("data");
+                        JsonElement msgElement = sourceJson.get("msg");
+                        JsonElement dataElement = sourceJson.get("data");
 
-                    if (msgElement != null && msgElement.isJsonPrimitive()) {
-                        chartView.setMsg(msgElement.toString());
-                    } else {
-                        if (dataElement != null && dataElement.isJsonArray()) {
-                            JsonArray dataElementArray = dataElement.getAsJsonArray();
-                            try {
-                                Files.writeString(logFile.toPath(), "ArraySize: " + dataElementArray.size());
-                            } catch (IOException e1) {
-
-                            }
-
-                            chartView.setPriceDataList(dataElement.getAsJsonArray(), 30 * 60);
-
-                            if (exchange.isClientReady()) {
-                                Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan));
-                            } else {
-                                FxTimer.runLater(Duration.ofMillis(1000), () -> {
-                                    if (exchange.isClientReady()) {
-                                        Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan));
-                                    }
-                                });
-                            }
-                            //    if (get) {
-
-                            //    exchange.subscribeToCandles(m_symbol, m_timeSpan);
-                            //   }
+                        if (msgElement != null && msgElement.isJsonPrimitive()) {
+                            chartView.setMsg(msgElement.toString());
                         } else {
+                            if (dataElement != null && dataElement.isJsonArray()) {
+                                JsonArray dataElementArray = dataElement.getAsJsonArray();
+
+                                chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
+
+                                if (exchange.isClientReady()) {
+                                    Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
+                                } else {
+                                    FxTimer.runLater(Duration.ofMillis(2000), () -> {
+                                        if (exchange.isClientReady()) {
+                                            Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
+                                        }
+                                    });
+                                }
+
+                            } else {
+
+                            }
 
                         }
 
                     }
-
-                }
-            }, onFailed -> {
-
-            });
+                }, onFailed -> {
+                });
+            };
             Region headingPaddingRegion = new Region();
             headingPaddingRegion.setPrefHeight(10);
 
@@ -435,7 +468,7 @@ public class KucoinMarketItem {
             mainScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(mainScene);
 
-            chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(50));
+            chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(60));
             chartWidth.bind(mainScene.widthProperty().subtract(15));
 
             chartScroll.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(50));
@@ -456,7 +489,7 @@ public class KucoinMarketItem {
             m_tickerDataProperty.addListener(tickerListener);
 
             Runnable closable = () -> {
-                exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan);
+                exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
                 m_tickerDataProperty.removeListener(tickerListener);
                 exchange.removeMsgListener(msgInterface);
 
@@ -485,6 +518,23 @@ public class KucoinMarketItem {
 
             });
 
+            timeSpanBtn.textProperty().addListener((obs, oldVal, newVal) -> {
+                Object objData = timeSpanBtn.getUserData();
+
+                if (newVal != null && !newVal.equals(m_timeSpan.getName()) && objData != null && objData instanceof TimeSpan) {
+
+                    exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
+
+                    TimeSpan tSpan = (TimeSpan) objData;
+
+                    m_timeSpan = tSpan;
+
+                    chartView.reset();
+                    startCandles.run();
+                }
+            });
+
+            startCandles.run();
         } else {
             m_stage.show();
         }

@@ -128,6 +128,14 @@ public class ChartView {
         return m_chartHbox;
     }
 
+    public void reset() {
+        m_valid = 0;
+        m_priceList.clear();
+        m_msg = "Loading";
+        m_lastUpdated.set(LocalDateTime.now());
+    }
+
+    /*
     private void resizeChart() {
         int fullChartSize = (m_cellWidth + (m_cellPadding * 2)) * m_priceList.size();
         if (fullChartSize < m_chartWidth.get()) {
@@ -143,8 +151,7 @@ public class ChartView {
             }
         }
 
-    }
-
+    } */
     public static int getDecimals(String string) {
 
         int indexOfDecimal = string != null && string.length() > 1 ? string.indexOf(".") : -1;
@@ -166,7 +173,7 @@ public class ChartView {
         return null;
     }
 
-    public void setPriceDataList(JsonArray jsonArray, int timeSpanSeconds) {
+    public void setPriceDataList(JsonArray jsonArray, long timeSpanSeconds) {
 
         if (jsonArray != null && jsonArray.size() > 0) {
             m_valid = 1;
@@ -261,18 +268,20 @@ public class ChartView {
         }
         m_lastUpdated.set(LocalDateTime.now());
     }
-    private String m_timeSpan = "";
 
-    public void updateCandleData(PriceData priceData, String timeSpan) {
+    public void updateCandleData(PriceData priceData, long timeSpanSeconds) {
         int priceListSize = m_priceList.size();
-        m_timeSpan = timeSpan;
+
         if (priceListSize > 0) {
             int lastIndex = m_priceList.size() - 1;
             PriceData lastData = m_priceList.get(lastIndex);
 
-            if (lastData.getTimestamp() == priceData.getTimestamp()) {
+            long lastTimeStamp = lastData.getTimestamp();
+
+            if (lastTimeStamp == priceData.getTimestamp()) {
                 m_priceList.set(lastIndex, priceData);
             } else {
+
                 m_priceList.add(priceData);
             }
         } else {

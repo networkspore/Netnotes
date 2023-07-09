@@ -65,6 +65,10 @@ public class KucoinExchange extends Network implements NoteInterface {
     public static String NAME = "KuCoin Exchange";
     private String m_clientId = null;
 
+    public static String[] AVAILABLE_TIMESPANS = new String[]{
+        "1min", "3min", "15min", "30min", "1hour", "2hour", "4hour", "6hour", "8hour", "12hour", "1day", "1week"
+    };
+
     public static String API_URL = "https://api.kucoin.com";
 
     private File logFile = new File("kucoinExchange-log.txt");

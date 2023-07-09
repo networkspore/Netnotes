@@ -5,6 +5,7 @@ import javafx.beans.property.SimpleIntegerProperty;
 
 public class NumberClass {
 
+    private long m_longValue = Long.MIN_VALUE;
     public SimpleDoubleProperty high = new SimpleDoubleProperty();
     public SimpleDoubleProperty low = new SimpleDoubleProperty();
     public SimpleDoubleProperty sum = new SimpleDoubleProperty();
@@ -17,6 +18,18 @@ public class NumberClass {
         high.set(0);
         low.set(0);
         decimals.set(0);
+    }
+
+    public NumberClass(long value) {
+        m_longValue = value;
+    }
+
+    public void setLongValue(long value) {
+        m_longValue = value;
+    }
+
+    public long getLongValue() {
+        return m_longValue;
     }
 
     public double getAverage() {

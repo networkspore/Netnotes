@@ -12,7 +12,11 @@ public class BufferedButton extends Button {
     }
 
     public BufferedButton(String urlString) {
-        super();
+        this("", urlString);
+    }
+
+    public BufferedButton(String name, String urlString) {
+        super(name);
         m_imgBufView = new BufferedImageView(new Image(urlString), 30);
         setGraphic(m_imgBufView);
 
