@@ -2,8 +2,12 @@ package com.netnotes;
 
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.awt.KeyEventDispatcher;
+import java.awt.KeyEventPostProcessor;
+import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -45,7 +49,11 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ScrollPane.ScrollBarPolicy;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -67,6 +75,10 @@ public class KucoinMarketItem {
     private Stage m_stage = null;
     private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
     private ChangeListener<JsonObject> m_socketMsgListener;
+    private double m_prevWidth = -1;
+    private double m_prevHeight = -1;
+    private double m_prevX = -1;
+    private double m_prevY = -1;
 
     private TimeSpan m_timeSpan = new TimeSpan("30min");
 
@@ -187,16 +199,7 @@ public class KucoinMarketItem {
 
         img = new BufferedImage(symbolWidth + colPadding + lastWidth, height, BufferedImage.TYPE_INT_ARGB);
         g2d = img.createGraphics();
-        /*g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
-        g2d.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
-        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);*/
 
-        // g2d.drawImage(unitImage, 0, (height / 2) - (unitImage.getHeight() / 2), unitImage.getWidth(), unitImage.getHeight(), null);
         g2d.setFont(font);
         g2d.setColor(WHITE_COLOR);
         g2d.drawString(symbolString, 0, stringY);
@@ -209,8 +212,6 @@ public class KucoinMarketItem {
 
             g2d.drawString(lastString, symbolWidth + colPadding, stringY);
 
-            // positive ? KucoinExchange.POSITIVE_COLOR : KucoinExchange.NEGATIVE_COLOR
-            //int direction, boolean fillInverse, int fillColor, Color color1, Color color2, BufferedImage img, int x1, int y1, int x2, int y2
             int x1 = symbolWidth + colPadding;
             int y1 = (height / 2) - (fontHeight / 2);
             int x2 = x1 + lastWidth;
@@ -220,7 +221,6 @@ public class KucoinMarketItem {
 
             Drawing.drawBarFillColor(positive ? 0 : 1, false, FILL_COLOR, color1.getRGB(), color2.getRGB(), img, x1, y1, x2, y2);
 
-            // Drawing.drawBar(color1, color2, img, x1, y1, x2, y2);
         }
 
         g2d.dispose();
@@ -228,40 +228,19 @@ public class KucoinMarketItem {
         return SwingFXUtils.toFXImage(img, null);
     }
 
-    public void setTimeSpanMenuButtons(MenuButton menuBtn) {
-        String[] spans = KucoinExchange.AVAILABLE_TIMESPANS;
-
-        for (int i = 0; i < spans.length; i++) {
-
-            String span = spans[i];
-            TimeSpan timeSpan = new TimeSpan(span);
-            MenuItem menuItm = new MenuItem(timeSpan.getName());
-            menuItm.setId("urlMenuItem");
-            menuItm.setUserData(timeSpan);
-
-            menuItm.setOnAction(action -> {
-
-                Object item = menuItm.getUserData();
-
-                if (item != null && item instanceof TimeSpan) {
-
-                    menuBtn.setUserData(item);
-                    menuBtn.setText(((TimeSpan) item).getName());
-                }
-
-            });
-
-            menuBtn.getItems().add(menuItm);
-
-        }
-
-    }
+    private boolean m_init = false;
 
     public void showStage() {
         if (m_stage == null) {
             logFile = new File("marketItem-" + m_symbol + ".txt");
-            double sceneWidth = 800;
+            double sceneWidth = 750;
             double sceneHeight = 800;
+            final double chartScrollVvalue = 1;
+            final double chartScrollHvalue = 1;
+
+            SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
+
+            double chartSizeInterval = 100;
 
             KucoinExchange exchange = m_dataList.getKucoinExchange();
 
@@ -276,19 +255,21 @@ public class KucoinMarketItem {
 
             HBox titleBox = App.createTopBar(KucoinExchange.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
 
-            BufferedButton menuButton = new BufferedButton();
-
-            EventHandler<ActionEvent> onMenuAction = e -> {
-
-            };
-
-            menuButton.setOnAction(onMenuAction);
+            BufferedMenuButton menuButton = new BufferedMenuButton();
 
             HBox menuBar = new HBox(menuButton);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
+
+            MenuItem zoomIn = new MenuItem("Zoom in            [ + ]");
+            zoomIn.setId("urlMenuItem");
+            MenuItem zoomOut = new MenuItem("Zoom out           [ - ]");
+            zoomOut.setId("urlMenuItem");
+            MenuItem resetZoom = new MenuItem("Reset zoom [ Backspace ]");
+            resetZoom.setId("urlMenuItem");
+            menuButton.getItems().addAll(zoomIn, zoomOut, resetZoom);
 
             Button favoriteBtn = new Button();
             favoriteBtn.setId("menuBtn");
@@ -313,21 +294,18 @@ public class KucoinMarketItem {
             headingText.setFill(Color.WHITE);
 
             Region headingSpacerL = new Region();
-            //  Region headingSpacerR = new Region();
-            //  HBox.setHgrow(headingSpacerR, Priority.ALWAYS);
 
             MenuButton timeSpanBtn = new MenuButton(m_timeSpan.getName());
             timeSpanBtn.setFont(App.txtFont);
-            // timeSpanBtn.getBufferedImageView().setFitWidth(20);
+
             timeSpanBtn.setContentDisplay(ContentDisplay.LEFT);
             timeSpanBtn.setAlignment(Pos.CENTER_LEFT);
-            setTimeSpanMenuButtons(timeSpanBtn);
 
             HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText, timeSpanBtn);
             headingBox.prefHeight(40);
             headingBox.setAlignment(Pos.CENTER_LEFT);
             HBox.setHgrow(headingBox, Priority.ALWAYS);
-            headingBox.setPadding(new Insets(10, 60, 10, 0));
+            headingBox.setPadding(new Insets(5, 5, 5, 5));
             headingBox.setId("headingBox");
 
             headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(timeSpanBtn.widthProperty().divide(2)).subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
@@ -337,14 +315,14 @@ public class KucoinMarketItem {
             Label emissionLbl = new Label();
             TextField emissionAmountField = new TextField();
             SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth);
-            SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 200);
+            SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight);
 
             ChartView chartView = new ChartView(chartWidth, chartHeight);
 
             HBox chartBox = chartView.getChartBox();
-            chartBox.setId("bodyBox");
 
             ScrollPane chartScroll = new ScrollPane(chartBox);
+            chartScroll.setVvalue(chartScrollVvalue);
 
             int symbolLength = getSymbol().length();
 
@@ -410,71 +388,110 @@ public class KucoinMarketItem {
 
             exchange.addMsgListenr(msgInterface);
 
-            Runnable startCandles = () -> {
-                TimeSpan tSpan = m_timeSpan;
-                exchange.getCandlesDataset(m_symbol, tSpan.getId(), onSuccess -> {
-                    WorkerStateEvent worker = onSuccess;
-                    Object sourceObject = worker.getSource().getValue();
-
-                    if (sourceObject != null && sourceObject instanceof JsonObject) {
-
-                        JsonObject sourceJson = (JsonObject) sourceObject;
-
-                        JsonElement msgElement = sourceJson.get("msg");
-                        JsonElement dataElement = sourceJson.get("data");
-
-                        if (msgElement != null && msgElement.isJsonPrimitive()) {
-                            chartView.setMsg(msgElement.toString());
-                        } else {
-                            if (dataElement != null && dataElement.isJsonArray()) {
-                                JsonArray dataElementArray = dataElement.getAsJsonArray();
-
-                                chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
-
-                                if (exchange.isClientReady()) {
-                                    Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
-                                } else {
-                                    FxTimer.runLater(Duration.ofMillis(2000), () -> {
-                                        if (exchange.isClientReady()) {
-                                            Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
-                                        }
-                                    });
-                                }
-
-                            } else {
-
-                            }
-
-                        }
-
-                    }
-                }, onFailed -> {
-                });
-            };
             Region headingPaddingRegion = new Region();
-            headingPaddingRegion.setPrefHeight(10);
+            headingPaddingRegion.setMinHeight(5);
+            headingPaddingRegion.setPrefHeight(5);
 
-            VBox paddingBox = new VBox(menuBar, headingPaddingRegion, headingBox, chartScroll);
-
+            VBox paddingBox = new VBox(menuBar, headingPaddingRegion, headingBox);
             paddingBox.setPadding(new Insets(0, 5, 5, 5));
 
-            VBox layoutBox = new VBox(titleBox, paddingBox);
+            VBox headerVBox = new VBox(titleBox, paddingBox);
+            chartScroll.setPadding(new Insets(0, 0, 0, 15));
 
-            //   Stage appStage = m_kucoinExchange.getAppStage();
-            //      appStage.setX(0);
+            RangeBar chartRange = new RangeBar();
+
+            HBox bodyBox = new HBox(chartScroll, chartRange);
+
+            chartRange.heightProperty().bind(chartScroll.heightProperty());
+
+            VBox bodyPaddingBox = new VBox(bodyBox);
+            bodyPaddingBox.setPadding(new Insets(5));
+
+            VBox layoutBox = new VBox(headerVBox, bodyPaddingBox);
+
             Rectangle rect = m_dataList.getNetworksData().getMaximumWindowBounds();
 
-            Scene mainScene = new Scene(layoutBox, sceneWidth, sceneHeight);
-            mainScene.getStylesheets().add("/css/startWindow.css");
-            m_stage.setScene(mainScene);
+            Scene marketScene = new Scene(layoutBox, sceneWidth, sceneHeight);
+            marketScene.getStylesheets().add("/css/startWindow.css");
+            m_stage.setScene(marketScene);
 
-            chartHeight.bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(60));
-            chartWidth.bind(mainScene.widthProperty().subtract(15));
+            marketScene.heightProperty().addListener((obs, oldVal, newVal) -> {
 
-            chartScroll.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(50));
-            chartScroll.prefWidthProperty().bind(mainScene.widthProperty().subtract(15));
+                chartScroll.setMaxHeight(marketScene.getHeight() - (headerVBox.getLayoutBounds().getHeight() + 10));
+                chartScroll.setPrefViewportHeight(marketScene.getHeight() - (headerVBox.getLayoutBounds().getHeight() + 10));
+                chartHeight.set(newVal.doubleValue() + chartHeightOffset.get());
+
+            });
+
+            chartWidth.bind(marketScene.widthProperty().subtract(50));
+
+            chartScroll.prefWidthProperty().bind(marketScene.widthProperty().subtract(15));
+
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
             m_stage.show();
+
+            maximizeBtn.setOnAction((e) -> {
+                if (m_prevHeight == -1) {
+                    m_prevHeight = m_stage.getHeight();
+                    m_prevWidth = m_stage.getWidth();
+                    m_prevX = m_stage.getX();
+                    m_prevY = m_stage.getY();
+
+                    m_stage.setWidth(rect.getWidth());
+                    m_stage.setHeight(rect.getHeight());
+                    m_stage.setX(0);
+                    m_stage.setY(0);
+
+                } else {
+                    m_stage.setWidth(m_prevWidth);
+                    m_stage.setHeight(m_prevHeight);
+                    m_stage.setX(m_prevX);
+                    m_stage.setY(m_prevY);
+
+                    m_prevHeight = -1;
+                    m_prevWidth = -1;
+                    m_prevX = -1;
+                    m_prevY = -1;
+
+                }
+                FxTimer.runLater(Duration.ofMillis(200), () -> {
+
+                    Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
+                    Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
+                });
+            });
+
+            fillRightBtn.setOnAction(e -> {
+
+                if (exchange.getAppStage() != null) {
+                    Stage exStage = exchange.getAppStage();
+                    if (exStage.getWidth() != m_stage.getX()) {
+                        exchange.cmdObjectProperty().set(Utils.getCmdObject("MAXIMIZE_STAGE_LEFT"));
+
+                        m_prevHeight = m_stage.getHeight();
+                        m_prevWidth = m_stage.getWidth();
+                        m_prevX = m_stage.getX();
+                        m_prevY = m_stage.getY();
+
+                        m_stage.setX(exStage.getWidth());
+                        m_stage.setY(0);
+                        m_stage.setWidth(rect.getWidth() - exStage.getWidth());
+                        m_stage.setHeight(rect.getHeight());
+                        FxTimer.runLater(Duration.ofMillis(200), () -> {
+
+                            Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
+                            Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
+                        });
+                    } else {
+                        maximizeBtn.fire();
+                    }
+                } else {
+                    maximizeBtn.fire();
+                }
+
+            });
+
+            chartHeight.bind(Bindings.add(marketScene.heightProperty(), chartHeightOffset));
 
             ChangeListener<KucoinTickerData> tickerListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
@@ -503,20 +520,54 @@ public class KucoinMarketItem {
                 closable.run();
             });
 
-            fillRightBtn.setOnAction(e -> {
+            Runnable startCandles = () -> {
+                TimeSpan tSpan = m_timeSpan;
+                chartScroll.setHvalue(0);
+                exchange.getCandlesDataset(m_symbol, tSpan.getId(), onSuccess -> {
+                    WorkerStateEvent worker = onSuccess;
+                    Object sourceObject = worker.getSource().getValue();
 
-                if (exchange.getAppStage() != null) {
-                    Stage exStage = exchange.getAppStage();
+                    if (sourceObject != null && sourceObject instanceof JsonObject) {
 
-                    exchange.cmdObjectProperty().set(Utils.getCmdObject("MAXIMIZE_STAGE_LEFT"));
+                        JsonObject sourceJson = (JsonObject) sourceObject;
 
-                    m_stage.setX(exStage.getWidth());
-                    m_stage.setY(0);
-                    m_stage.setWidth(rect.getWidth() - exStage.getWidth());
-                    m_stage.setHeight(rect.getHeight());
-                }
+                        JsonElement msgElement = sourceJson.get("msg");
+                        JsonElement dataElement = sourceJson.get("data");
 
-            });
+                        if (msgElement != null && msgElement.isJsonPrimitive()) {
+                            chartView.setMsg(msgElement.toString());
+                        } else {
+                            if (dataElement != null && dataElement.isJsonArray()) {
+                                JsonArray dataElementArray = dataElement.getAsJsonArray();
+                                //  int totalChartCellWidth = chartView.getTotalCellWidth() * dataElementArray.size();
+                                m_init = true;
+                                chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
+
+                                // m_stage.setWidth(m_stage.getWidth() + 1);
+                                // FxTimer.runLater(Duration.ofMillis(200), () -> {
+                                Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
+                                Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
+                                //  });
+                                if (exchange.isClientReady()) {
+                                    Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
+                                } else {
+                                    FxTimer.runLater(Duration.ofMillis(2000), () -> {
+                                        if (exchange.isClientReady()) {
+                                            Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
+                                        }
+                                    });
+                                }
+
+                            } else {
+
+                            }
+
+                        }
+
+                    }
+                }, onFailed -> {
+                });
+            };
 
             timeSpanBtn.textProperty().addListener((obs, oldVal, newVal) -> {
                 Object objData = timeSpanBtn.getUserData();
@@ -535,8 +586,96 @@ public class KucoinMarketItem {
             });
 
             startCandles.run();
+            Platform.runLater(() -> menuButton.requestFocus());
+
+            Runnable increaseChartHeight = () -> {
+
+                chartHeightOffset.set((chartHeightOffset.get() + chartSizeInterval));
+
+            };
+
+            Runnable decreaseChartHeight = () -> {
+
+                if (chartHeightOffset.get() - chartSizeInterval < 0) {
+                    chartHeightOffset.set(0);
+                } else {
+                    chartHeightOffset.set((chartHeightOffset.get() - chartSizeInterval));
+
+                }
+
+            };
+
+            Runnable resetChartHeightOffset = () -> {
+                chartHeightOffset.set(0);
+                chartScroll.setVvalue(chartScrollVvalue);
+            };
+            EventHandler<javafx.scene.input.KeyEvent> keyEventHandler = (keyEvent) -> {
+
+                switch (keyEvent.getCode()) {
+                    case ADD:
+                    case PLUS:
+                        increaseChartHeight.run();
+
+                        break;
+                    case SUBTRACT:
+                        decreaseChartHeight.run();
+
+                        break;
+                    case BACK_SPACE:
+                        resetChartHeightOffset.run();
+
+                        break;
+                    default:
+                        break;
+                }
+            };
+            zoomOut.setOnAction((action) -> {
+                decreaseChartHeight.run();
+            });
+            zoomIn.setOnAction((action) -> {
+                increaseChartHeight.run();
+            });
+
+            menuButton.setOnKeyPressed(keyEventHandler);
+
+            marketScene.focusOwnerProperty().addListener((e) -> {
+                Object focusOwnerObject = marketScene.focusOwnerProperty().get();
+                if (!(focusOwnerObject instanceof MenuButton)) {
+                    Platform.runLater(() -> menuButton.requestFocus());
+                }
+            });
+
+            String[] spans = KucoinExchange.AVAILABLE_TIMESPANS;
+
+            for (int i = 0; i < spans.length; i++) {
+
+                String span = spans[i];
+                TimeSpan timeSpan = new TimeSpan(span);
+                MenuItem menuItm = new MenuItem(timeSpan.getName());
+                menuItm.setId("urlMenuItem");
+                menuItm.setUserData(timeSpan);
+
+                menuItm.setOnAction(action -> {
+                    Platform.runLater(() -> menuButton.requestFocus());
+                    resetChartHeightOffset.run();
+                    Object item = menuItm.getUserData();
+
+                    if (item != null && item instanceof TimeSpan) {
+
+                        timeSpanBtn.setUserData(item);
+                        timeSpanBtn.setText(((TimeSpan) item).getName());
+                    }
+
+                });
+
+                timeSpanBtn.getItems().add(menuItm);
+
+            }
+            // chartScroll.setHvalue(1);
+
         } else {
             m_stage.show();
+            Platform.runLater(() -> m_stage.requestFocus());
         }
     }
 
