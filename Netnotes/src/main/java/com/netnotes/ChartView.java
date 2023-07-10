@@ -116,7 +116,7 @@ public class ChartView {
 
         m_chartHeight.addListener((obs, oldVal, newVal) -> updateImage.run());
 
-        m_chartWidth.addListener((obs, oldVal, newVal) -> updateImage.run());
+        //  m_chartWidth.addListener((obs, oldVal, newVal) -> updateImage.run());
         m_lastUpdated.addListener((obs, oldVal, newVal) -> updateImage.run());
 
         m_bottomOffset.addListener((obx, oldVal, newVal) -> updateImage.run());
@@ -413,16 +413,6 @@ public class ChartView {
         return m_cellPadding + m_cellWidth;
     }
 
-    /*private java.awt.Color m_scaleBgColor = new Color(0x33333350, true);
-
-    public java.awt.Color getScaleBgColor() {
-        return m_scaleBgColor;
-    }
-
-    public void setScaleBgColor(Color scaleBgColor) {
-        m_scaleBgColor = scaleBgColor;
-        m_lastUpdated.set(LocalDateTime.now());
-    }*/
     private double m_lastClose = 0;
     private int m_labelSpacingSize = 150;
     private Color m_labelColor = new Color(0xc0ffffff);

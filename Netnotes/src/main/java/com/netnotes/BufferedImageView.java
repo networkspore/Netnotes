@@ -32,6 +32,7 @@ public class BufferedImageView extends ImageView {
 
     public BufferedImageView(Image img) {
         this(img, true);
+
     }
 
     public BufferedImageView(Image image, boolean fitWidth) {
@@ -47,8 +48,13 @@ public class BufferedImageView extends ImageView {
 
     public void setDefaultImage(Image img) {
         m_img = img;
-        setFitWidth(img.getWidth());
         updateImage();
+    }
+
+    public void setDefaultImage(Image img, double fitWidth) {
+        m_img = img;
+        updateImage();
+        setFitWidth(fitWidth);
     }
 
     public Effects getEffect(String id) {
@@ -98,45 +104,44 @@ public class BufferedImageView extends ImageView {
         if (m_img != null) {
             if (m_effects.size() > 0) {
                 BufferedImage imgBuf = SwingFXUtils.fromFXImage(m_img, null);
-                try {
-                    Files.writeString(logFile.toPath(), "\nGot a buffered image " + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
 
-                }
                 for (int i = 0; i < m_effects.size(); i++) {
                     Effects effect = m_effects.get(i);
                     effect.applyEffect(imgBuf);
                 }
-                try {
-                    Files.writeString(logFile.toPath(), "\nbuffered image inverted" + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
 
+                Image imgUpdate = SwingFXUtils.toFXImage(imgBuf, null);
+
+                setImage(imgUpdate);
+
+            } else {
+                Platform.runLater(() -> setImage(m_img));
+
+            }
+        } else {
+            setImage(null);
+        }
+    }
+
+    public void updateImage(BufferedImage imgBuf) {
+        if (m_img != null) {
+            if (m_effects.size() > 0) {
+
+                for (int i = 0; i < m_effects.size(); i++) {
+                    Effects effect = m_effects.get(i);
+                    effect.applyEffect(imgBuf);
                 }
 
                 Image imgUpdate = SwingFXUtils.toFXImage(imgBuf, null);
 
-                try {
-                    Files.writeString(logFile.toPath(), "\nbuffered image inverted" + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }
-
                 setImage(imgUpdate);
 
-                try {
-                    Files.writeString(logFile.toPath(), "\nupdated Image", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }
             } else {
-                Platform.runLater(() -> setImage(m_img));
+                Platform.runLater(() -> setImage(SwingFXUtils.toFXImage(imgBuf, null)));
 
-                try {
-                    Files.writeString(logFile.toPath(), "\nreverted Image", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }
             }
+        } else {
+            Platform.runLater(() -> setImage(SwingFXUtils.toFXImage(imgBuf, null)));
         }
     }
 }
