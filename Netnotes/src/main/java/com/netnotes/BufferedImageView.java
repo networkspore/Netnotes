@@ -19,6 +19,11 @@ public class BufferedImageView extends ImageView {
     private Image m_img;
     private ArrayList<Effects> m_effects = new ArrayList<Effects>();
 
+    public BufferedImageView() {
+        super();
+        m_img = null;
+    }
+
     public BufferedImageView(Image image, double imageWidth) {
         this(image, false);
         setFitWidth(imageWidth);
@@ -38,6 +43,12 @@ public class BufferedImageView extends ImageView {
             setFitWidth(image.getWidth());
         }
 
+    }
+
+    public void setDefaultImage(Image img) {
+        m_img = img;
+        setFitWidth(img.getWidth());
+        updateImage();
     }
 
     public Effects getEffect(String id) {
@@ -67,9 +78,9 @@ public class BufferedImageView extends ImageView {
         return null;
     }
 
-    public void applyInvertEffect() {
+    public void applyInvertEffect(double amount) {
 
-        m_effects.add(new InvertEffect());
+        m_effects.add(new InvertEffect(amount));
         updateImage();
 
     }
@@ -84,46 +95,47 @@ public class BufferedImageView extends ImageView {
     }
 
     public void updateImage() {
+        if (m_img != null) {
+            if (m_effects.size() > 0) {
+                BufferedImage imgBuf = SwingFXUtils.fromFXImage(m_img, null);
+                try {
+                    Files.writeString(logFile.toPath(), "\nGot a buffered image " + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
 
-        if (m_effects.size() > 0) {
-            BufferedImage imgBuf = SwingFXUtils.fromFXImage(m_img, null);
-            try {
-                Files.writeString(logFile.toPath(), "\nGot a buffered image " + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+                }
+                for (int i = 0; i < m_effects.size(); i++) {
+                    Effects effect = m_effects.get(i);
+                    effect.applyEffect(imgBuf);
+                }
+                try {
+                    Files.writeString(logFile.toPath(), "\nbuffered image inverted" + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
 
-            }
-            for (int i = 0; i < m_effects.size(); i++) {
-                Effects effect = m_effects.get(i);
-                effect.applyEffect(imgBuf);
-            }
-            try {
-                Files.writeString(logFile.toPath(), "\nbuffered image inverted" + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+                }
 
-            }
+                Image imgUpdate = SwingFXUtils.toFXImage(imgBuf, null);
 
-            Image imgUpdate = SwingFXUtils.toFXImage(imgBuf, null);
+                try {
+                    Files.writeString(logFile.toPath(), "\nbuffered image inverted" + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
 
-            try {
-                Files.writeString(logFile.toPath(), "\nbuffered image inverted" + imgBuf.getWidth(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+                }
 
-            }
+                setImage(imgUpdate);
 
-            setImage(imgUpdate);
+                try {
+                    Files.writeString(logFile.toPath(), "\nupdated Image", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
 
-            try {
-                Files.writeString(logFile.toPath(), "\nupdated Image", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+                }
+            } else {
+                Platform.runLater(() -> setImage(m_img));
 
-            }
-        } else {
-            Platform.runLater(() -> setImage(m_img));
+                try {
+                    Files.writeString(logFile.toPath(), "\nreverted Image", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
 
-            try {
-                Files.writeString(logFile.toPath(), "\nreverted Image", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-
+                }
             }
         }
     }

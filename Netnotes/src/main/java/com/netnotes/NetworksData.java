@@ -2,6 +2,7 @@ package com.netnotes;
 
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
 
 import java.io.File;
@@ -66,6 +67,7 @@ public class NetworksData {
     private Rectangle m_rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
     private HostServices m_hostServices;
     private File m_appDir;
+    private KeyboardFocusManager m_keyboardFocusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
     //  public SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private File logFile = new File("networkData-log.txt");
@@ -127,6 +129,10 @@ public class NetworksData {
 
         }
 
+    }
+
+    public KeyboardFocusManager getKeyboardFocusManager() {
+        return m_keyboardFocusManager;
     }
 
     public File getAppDir() {

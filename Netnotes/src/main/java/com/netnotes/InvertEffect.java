@@ -11,25 +11,25 @@ public class InvertEffect extends Effects {
     private static File logFile = new File("InvertEffect-log.txt");
     public static String NAME = "INVERT";
 
-    public InvertEffect() {
+    private double m_amount = 1.0;
+
+    public InvertEffect(double amount) {
         super(NAME);
+        m_amount = amount;
     }
 
-    public InvertEffect(String id) {
+    public InvertEffect(String id, double amount) {
         super(id, NAME);
+        m_amount = amount;
     }
 
     @Override
     public void applyEffect(BufferedImage img) {
-        invertRGB(img);
+        invertRGB(img, m_amount);
     }
 
-    public static void invertRGB(BufferedImage img) {
-        try {
-            Files.writeString(logFile.toPath(), "inverting", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
+    public static void invertRGB(BufferedImage img, double amount) {
+        amount = amount > 1 ? 1 : amount < - 1 ? -1 : amount;
 
         for (int x = 0; x < img.getWidth(); x++) {
             for (int y = 0; y < img.getHeight(); y++) {
@@ -40,9 +40,11 @@ public class InvertEffect extends Effects {
                 int g = (rgba >> 8) & 0xff;
                 int b = rgba & 0xff;
 
-                r = (0xFF - r);
-                g = (0xFF - g);
-                b = (0xFF - b);
+                int inv = (int) (0xff * amount);
+
+                r = Math.abs(inv - r);
+                g = Math.abs(inv - g);
+                b = Math.abs(inv - b);
 
                 int p = (a << 24) | (r << 16) | (g << 8) | b;
 

@@ -21,14 +21,9 @@ public class BufferedButton extends Button {
         setGraphic(m_imgBufView);
 
         setId("menuBtn");
-        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect());
+        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(.6));
         setOnMouseReleased((pressedEvent) -> m_imgBufView.clear());
 
-        focusedProperty().addListener((obs, oldVal, newVal) -> {
-            if (!newVal) {
-                m_imgBufView.clear();
-            }
-        });
     }
 
     public BufferedImageView getBufferedImageView() {

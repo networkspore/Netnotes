@@ -117,7 +117,6 @@ public class ChartView {
         m_chartHeight.addListener((obs, oldVal, newVal) -> updateImage.run());
 
         m_chartWidth.addListener((obs, oldVal, newVal) -> updateImage.run());
-
         m_lastUpdated.addListener((obs, oldVal, newVal) -> updateImage.run());
 
         m_bottomOffset.addListener((obx, oldVal, newVal) -> updateImage.run());
@@ -278,12 +277,32 @@ public class ChartView {
 
             long lastTimeStamp = lastData.getTimestamp();
 
-            if (lastTimeStamp == priceData.getTimestamp()) {
-                m_priceList.set(lastIndex, priceData);
+            if (lastTimeStamp > priceData.getTimestamp()) {
+                //out of sync
             } else {
 
-                m_priceList.add(priceData);
+                if (lastTimeStamp == priceData.getTimestamp()) {
+                    m_priceList.set(lastIndex, priceData);
+                } else {
+
+                    long timeSinceLastUpdate = priceData.getTimestamp() - lastTimeStamp;
+
+                    if (timeSinceLastUpdate == timeSpanSeconds) {
+                        m_priceList.add(priceData);
+                    } else {
+
+                        int intervalsSinceLastUpdate = (int) Math.ceil(timeSinceLastUpdate / timeSpanSeconds);
+                        double lastClose = lastData.getClose();
+
+                        for (int i = 0; i < (intervalsSinceLastUpdate - 1); i++) {
+                            m_priceList.add(new PriceData(lastTimeStamp + (i * timeSpanSeconds), lastClose, lastClose, lastClose, lastClose, 0, 0));
+                        }
+                        m_priceList.add(priceData);
+                    }
+
+                }
             }
+
         } else {
             m_priceList.add(priceData);
 
@@ -417,8 +436,10 @@ public class ChartView {
 
         int priceListSize = getPriceListSize();
         int totalCellWidth = getTotalCellWidth();
+        int cellWidth = m_cellWidth;
+        int width = m_priceList.size() == 0 ? (int) m_chartWidth.get() : m_scaleColWidth + (m_priceList.size() * totalCellWidth);
+        width = width < m_chartWidth.get() ? (int) m_chartWidth.get() : width;
 
-        int width = (int) m_chartWidth.get();
         int height = (int) m_chartHeight.get();
 
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -437,16 +458,43 @@ public class ChartView {
             int chartWidth = width - m_scaleColWidth;
             int chartHeight = height - (2 * (m_labelHeight + 5)) - 10;
 
-            double scale = (0.6d * (double) chartHeight) / m_numberClass.high.get();
+            int numCells = (int) Math.floor((width - m_scaleColWidth) / totalCellWidth);
 
-            double totalRange = (m_numberClass.high.get() - m_numberClass.low.get()) * scale;
+            int i = numCells > priceListSize ? 0 : priceListSize - numCells;
+
+            NumberClass nc = new NumberClass();
+
+            for (int j = i; j < priceListSize; j++) {
+                PriceData priceData = m_priceList.get(j);
+
+                if (nc.low.get() == 0) {
+                    nc.low.set(priceData.getLow());
+                }
+
+                nc.sum.set(nc.sum.get() + priceData.getClose());
+                nc.count.set(nc.count.get() + 1);
+
+                if (priceData.getHigh() > nc.high.get()) {
+                    nc.high.set(priceData.getHigh());
+                }
+                if (priceData.getLow() < nc.low.get()) {
+                    nc.low.set(priceData.getLow());
+                }
+                int decimals = getDecimals(priceData.getCloseString());
+                if (nc.decimals.get() < decimals) {
+                    nc.decimals.set(decimals);
+                }
+            }
+
+            double highScale = (.6d * ((double) chartHeight)) / nc.high.get();
+
+            double scale = highScale;
+
+            double totalRange = (nc.high.get() - nc.low.get()) * scale;
 
             Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
 
-            int cellWidth = m_cellWidth;
-            int numCells = (int) Math.floor((width - m_scaleColWidth) / totalCellWidth);
             int j = 0;
-            int i = numCells > priceListSize ? 0 : priceListSize - numCells;
 
             //    Color green = KucoinExchange.POSITIVE_COLOR;
             Color highlightGreen = KucoinExchange.POSITIVE_HIGHLIGHT_COLOR;
@@ -470,7 +518,7 @@ public class ChartView {
             int items = m_priceList.size() - i;
             int colLabelSpacing = (int) Math.floor(items / ((items * cellWidth) / m_labelSpacingSize));
 
-            NumberClass nc = new NumberClass();
+            nc = new NumberClass();
             nc.low.set(Double.MAX_VALUE);
             nc.count.set(5);
 
@@ -517,11 +565,11 @@ public class ChartView {
                 int x = ((priceListWidth < chartWidth) ? (chartWidth - priceListWidth) : 0) + (j * (cellWidth + m_cellPadding));
                 j++;
 
-                double low = priceData.getLow();
+                double low = priceData.getOpen() < priceData.getLow() ? priceData.getOpen() : priceData.getLow();
                 double high = priceData.getHigh();
 
                 double nextOpen = i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen() : priceData.getClose();
-                double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : 0;
+                double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : priceData.getOpen();
                 double close = priceData.getClose();
 
                 double open = prevClose;//priceData.getOpen();
