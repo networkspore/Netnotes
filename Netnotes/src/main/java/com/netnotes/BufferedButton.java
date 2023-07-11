@@ -22,7 +22,7 @@ public class BufferedButton extends Button {
 
         setId("menuBtn");
         setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(.6));
-        setOnMouseReleased((pressedEvent) -> m_imgBufView.clear());
+        setOnMouseReleased((pressedEvent) -> m_imgBufView.clearEffects());
 
     }
 

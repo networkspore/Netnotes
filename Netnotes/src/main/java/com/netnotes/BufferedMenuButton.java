@@ -27,7 +27,7 @@ public class BufferedMenuButton extends MenuButton {
             show();
         });
         setOnMouseReleased((event) -> {
-            m_imgBufView.clear();
+            m_imgBufView.clearEffects();
         });
 
     }

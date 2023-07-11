@@ -241,6 +241,8 @@ public class KucoinMarketItem {
             SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth);
             SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight);
             SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
+            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(10);
+            SimpleDoubleProperty rangeHeight = new SimpleDoubleProperty(100);
 
             double chartSizeInterval = 25;
 
@@ -398,9 +400,13 @@ public class KucoinMarketItem {
             VBox headerVBox = new VBox(titleBox, paddingBox);
             chartScroll.setPadding(new Insets(0, 0, 0, 15));
 
-            HBox bodyBox = new HBox(chartScroll);
+            RangeBar chartRange = new RangeBar(rangeWidth, rangeHeight);
+            chartRange.setId("menuBtn");
+            chartRange.setVisible(false);
 
-            VBox bodyPaddingBox = new VBox(bodyBox);
+            HBox bodyBox = new HBox(chartRange, chartScroll);
+            bodyBox.setAlignment(Pos.TOP_LEFT);
+            HBox bodyPaddingBox = new HBox(bodyBox);
             bodyPaddingBox.setPadding(new Insets(5));
 
             VBox layoutBox = new VBox(headerVBox, bodyPaddingBox);
@@ -410,25 +416,21 @@ public class KucoinMarketItem {
             Scene marketScene = new Scene(layoutBox, sceneWidth, sceneHeight);
             marketScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(marketScene);
+            chartScroll.maxHeightProperty().bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(10));
+            chartScroll.prefViewportWidthProperty().bind(marketScene.widthProperty().subtract(35));
+            chartScroll.prefViewportHeightProperty().bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(10));
 
-            // chartWidth.bind(marketScene.widthProperty().subtract(50));
-            chartScroll.prefViewportWidthProperty().bind(marketScene.widthProperty().subtract(20));
-            chartScroll.setPrefViewportHeight(sceneHeight - (headerVBox.getLayoutBounds().getHeight() + 40));
+            rangeHeight.bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(25));
 
             marketScene.heightProperty().addListener((obs, oldVal, newVal) -> {
-
-                double bodyHeight = marketScene.getHeight() - (headerVBox.getLayoutBounds().getHeight() + 40);
-
-                //  chartScroll.setMaxHeight(bodyHeight);
-                chartScroll.setPrefViewportHeight(bodyHeight);
-
                 chartHeight.set(newVal.doubleValue() + chartHeightOffset.get());
 
             });
+
             chartHeightOffset.addListener((obs, oldVal, newVal) -> {
                 chartHeight.set(newVal.doubleValue() + marketScene.getHeight());
             });
-            // chartHeight.bind(Bindings.add(marketScene.heightProperty(), chartHeightOffset));
+
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
             m_stage.show();
 
@@ -547,9 +549,8 @@ public class KucoinMarketItem {
                                 Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
                                 Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
 
-                                /*if (!bodyBox.getChildren().contains(chartRange)) {
-                                    bodyBox.getChildren().add(chartRange);
-                                }*/
+                                chartRange.setVisible(true);
+
                                 if (exchange.isClientReady()) {
                                     Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
                                 } else {
@@ -582,9 +583,8 @@ public class KucoinMarketItem {
 
                     m_timeSpan = tSpan;
 
-                    /* if (bodyBox.getChildren().contains(chartRange)) {
-                        bodyBox.getChildren().remove(chartRange);
-                    } */
+                    chartRange.setVisible(false);
+
                     chartView.reset();
                     startCandles.run();
                 }

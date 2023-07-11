@@ -95,7 +95,7 @@ public class BufferedImageView extends ImageView {
         m_effects.add(effect);
     }
 
-    public void clear() {
+    public void clearEffects() {
         m_effects.clear();
         updateImage();
     }
@@ -121,6 +121,10 @@ public class BufferedImageView extends ImageView {
         } else {
             setImage(null);
         }
+    }
+
+    public Image getBaseImage() {
+        return m_img;
     }
 
     public void updateImage(BufferedImage imgBuf) {
