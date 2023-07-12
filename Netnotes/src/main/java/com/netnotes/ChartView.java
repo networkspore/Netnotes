@@ -22,6 +22,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 
 import javafx.beans.property.SimpleObjectProperty;
@@ -45,7 +46,11 @@ public class ChartView {
 
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
     private ChangeListener<LocalDateTime> m_changeListener = null;
-    private SimpleObjectProperty<ImageItem> m_bottomOffset = new SimpleObjectProperty<>(null);
+
+    private SimpleDoubleProperty m_topVvalue = new SimpleDoubleProperty(1);
+    private SimpleDoubleProperty m_bottomVvalue = new SimpleDoubleProperty(0);
+    private SimpleBooleanProperty m_settingRange = new SimpleBooleanProperty(false);
+    private SimpleBooleanProperty m_active = new SimpleBooleanProperty(false);
 
     private int m_valid = 0;
     private Font m_headingFont = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 18);
@@ -67,6 +72,11 @@ public class ChartView {
     // private BufferedImage m_img = null;
     private int m_cellPadding = 3;
     private HBox m_chartHbox = new HBox();
+    private int m_scaleColWidth = 0;
+    private int m_labelHeight = 0;
+    private int m_amStringWidth = 0;
+    private int m_labelAscent = 0;
+    private FontMetrics m_fm = null;
 
     public ChartView(SimpleDoubleProperty width, SimpleDoubleProperty height) {
         HBox.setHgrow(m_chartHbox, Priority.ALWAYS);
@@ -79,11 +89,22 @@ public class ChartView {
         JsonObject jsonObject = new JsonObject();
         return jsonObject;
     }
-    private int m_scaleColWidth = 0;
-    private int m_labelHeight = 0;
-    private int m_amStringWidth = 0;
-    private int m_labelAscent = 0;
-    private FontMetrics m_fm = null;
+
+    public SimpleBooleanProperty rangeActiveProperty() {
+        return m_active;
+    }
+
+    public SimpleDoubleProperty rangeTopVvalueProperty() {
+        return m_topVvalue;
+    }
+
+    public SimpleDoubleProperty rangeBottomVvalueProperty() {
+        return m_bottomVvalue;
+    }
+
+    public SimpleBooleanProperty isSettingRangeProperty() {
+        return m_settingRange;
+    }
 
     public HBox getChartBox() {
 
@@ -119,10 +140,13 @@ public class ChartView {
         //  m_chartWidth.addListener((obs, oldVal, newVal) -> updateImage.run());
         m_lastUpdated.addListener((obs, oldVal, newVal) -> updateImage.run());
 
-        m_bottomOffset.addListener((obx, oldVal, newVal) -> updateImage.run());
-
         m_chartHbox.getChildren().clear();
         m_chartHbox.getChildren().add(imgView);
+
+        rangeActiveProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
+        rangeBottomVvalueProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
+        rangeTopVvalueProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
+        isSettingRangeProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
 
         return m_chartHbox;
     }
@@ -426,6 +450,12 @@ public class ChartView {
 
         int priceListSize = getPriceListSize();
         int totalCellWidth = getTotalCellWidth();
+
+        boolean rangeActive = rangeActiveProperty().get();
+        double bottomVvalue = rangeBottomVvalueProperty().get();
+        double topVvalue = rangeTopVvalueProperty().get();
+        boolean isRangeSetting = isSettingRangeProperty().get();
+
         int cellWidth = m_cellWidth;
         int width = m_priceList.size() == 0 ? (int) m_chartWidth.get() : m_scaleColWidth + (m_priceList.size() * totalCellWidth);
         width = width < m_chartWidth.get() ? (int) m_chartWidth.get() : width;
@@ -444,6 +474,10 @@ public class ChartView {
         g2d.setFont(getLabelFont());
         g2d.setColor(m_labelColor);
         if (m_valid == 1 && m_priceList.size() > 0) {
+
+            if (isRangeSetting) {
+
+            }
 
             int chartWidth = width - m_scaleColWidth;
             int chartHeight = height - (2 * (m_labelHeight + 5)) - 10;
@@ -476,10 +510,7 @@ public class ChartView {
                 }
             }
 
-            double highScale = (.6d * ((double) chartHeight)) / nc.high.get();
-
-            double scale = highScale;
-
+            double scale = (.6d * ((double) chartHeight)) / nc.high.get();
             double totalRange = (nc.high.get() - nc.low.get()) * scale;
 
             Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
@@ -509,6 +540,7 @@ public class ChartView {
             int colLabelSpacing = (int) Math.floor(items / ((items * cellWidth) / m_labelSpacingSize));
 
             nc = new NumberClass();
+
             nc.low.set(Double.MAX_VALUE);
             nc.count.set(5);
 
@@ -525,6 +557,12 @@ public class ChartView {
             int rows = (int) Math.floor(chartHeight / rowHeight);
 
             int rowLabelSpacing = (int) (rows / ((rows * rowHeight) / m_labelSpacingSize));
+
+            int topRangeY = (int) Math.ceil(chartHeight - (topVvalue * (rows * rowHeight)));
+            int botRangeY = (int) Math.ceil(chartHeight - (bottomVvalue * ((rows * rowHeight))));
+
+            double topRangePrice = topVvalue * (rows * rowHeight) / scale;
+            double botRangePrice = bottomVvalue * ((rows * rowHeight)) / scale;
 
             for (j = 0; j < rows; j++) {
 
@@ -544,6 +582,7 @@ public class ChartView {
 
                 int x1 = (chartWidth + (m_scaleColWidth / 2)) - (amountWidth / 2);
                 int y1 = (y - (m_labelHeight / 2)) + m_labelAscent;
+
                 g2d.drawString(scaleAmount, x1, y1);
 
             }
@@ -706,8 +745,6 @@ public class ChartView {
             g2d.setFont(new Font("Arial", Font.PLAIN, 12));
             g2d.drawString("◄", chartWidth - 9, stringY);
 
-            g2d.dispose();
-
             stringX = chartWidth - 9;
             if (m_direction) {
                 Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (m_labelHeight / 2) - 1, chartWidth + m_scaleColWidth, y + 4 - (m_labelHeight / 2));
@@ -729,6 +766,37 @@ public class ChartView {
 
                 img.setRGB(x, y, p);
             }
+            if (isRangeSetting) {
+                x1 = x1 + 1;
+                Color blackColor = new java.awt.Color(0xff000000, true);
+
+                g2d.setFont(getLabelFont());
+
+                Drawing.fillArea(img, 0x40ffffff, 0, 0, width, topRangeY);
+                Drawing.fillArea(img, 0x40ffffff, 0, botRangeY, width, chartHeight);
+
+                String topRangeString = String.format("%." + m_numberClass.decimals.get() + "f", topRangePrice);
+                int topRangeStringWidth = m_fm.stringWidth(topRangeString);
+
+                int topRangeStringX = (chartWidth + (m_scaleColWidth / 2)) - (topRangeStringWidth / 2);
+                int topRangeStringY = (topRangeY - (m_labelHeight / 2)) + m_labelAscent;
+
+                Drawing.fillArea(img, 0xffffffff, x1, topRangeY - (m_labelHeight / 2) - 3, x2, topRangeY + (m_labelHeight / 2) + 3);
+                g2d.setColor(blackColor);
+                g2d.drawString(topRangeString, topRangeStringX, topRangeStringY);
+
+                String botRangeString = String.format("%." + m_numberClass.decimals.get() + "f", botRangePrice);
+                int botRangeStringWidth = m_fm.stringWidth(botRangeString);
+
+                int botRangeStringX = (chartWidth + (m_scaleColWidth / 2)) - (botRangeStringWidth / 2);
+                int botRangeStringY = (botRangeY - (m_labelHeight / 2)) + m_labelAscent;
+
+                Drawing.fillArea(img, 0xffffffff, x1, botRangeY - (m_labelHeight / 2) - 3, x2, botRangeY + (m_labelHeight / 2) + 3);
+                g2d.drawString(botRangeString, botRangeStringX, botRangeStringY);
+
+            }
+
+            g2d.dispose();
 
         } else {
 

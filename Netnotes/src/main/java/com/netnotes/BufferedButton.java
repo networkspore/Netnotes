@@ -1,6 +1,8 @@
 package com.netnotes;
 
+import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.image.Image;
 
 public class BufferedButton extends Button {
@@ -13,6 +15,13 @@ public class BufferedButton extends Button {
 
     public BufferedButton(String urlString) {
         this("", urlString);
+    }
+
+    public BufferedButton(Image image) {
+        super("");
+        m_imgBufView = new BufferedImageView(image);
+        setGraphic(m_imgBufView);
+
     }
 
     public BufferedButton(String name, String urlString) {

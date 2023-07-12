@@ -1,8 +1,6 @@
 package com.netnotes;
 
 import javafx.application.Platform;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleLongProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -30,11 +28,6 @@ public class BufferedImageView extends ImageView {
 
     }
 
-    public BufferedImageView(Image img) {
-        this(img, true);
-
-    }
-
     public BufferedImageView(Image image, boolean fitWidth) {
         super(image);
         m_img = image;
@@ -43,6 +36,12 @@ public class BufferedImageView extends ImageView {
         if (fitWidth) {
             setFitWidth(image.getWidth());
         }
+
+    }
+
+    public BufferedImageView(Image image) {
+        super(image);
+        m_img = image;
 
     }
 

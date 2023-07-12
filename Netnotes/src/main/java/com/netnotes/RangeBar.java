@@ -5,9 +5,6 @@ import java.awt.image.BufferedImage;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -22,9 +19,18 @@ public class RangeBar extends BufferedImageView {
     private double m_maxTop = 1;
     private SimpleDoubleProperty m_topVvalue = new SimpleDoubleProperty(1);
     private SimpleDoubleProperty m_bottomVvalue = new SimpleDoubleProperty(0);
+    private SimpleBooleanProperty m_settingRange = new SimpleBooleanProperty(false);
+    private SimpleBooleanProperty m_active = new SimpleBooleanProperty(false);
+
     private double m_minBot = 0;
 
     private int m_btnHeight = DEFAULT_BUTTON_HEIGHT;
+
+    private int m_shadingLightRGB = 0xffffffff;
+    private int m_shadingDarkRGB = 0xff000000;
+    private int m_shadingGreenRGB = 0xff00ff00;
+    private int m_shadingRedRGB = 0xffff0000;
+    private int m_shadingLightRedRGB = 0xff9A2A2A;
 
     private int m_btnTopBgColor1 = 0x504bbd94;
     private int m_btnTopBgColor2 = 0xff000000;
@@ -33,8 +39,8 @@ public class RangeBar extends BufferedImageView {
     private int m_btnTopBorderColor = 0xff028A0F;
     private int m_btnTopBorderColor2 = 0x50000000;
 
-    private int m_btnBotBgColor1 = 0xff000000;
-    private int m_btnBotBgColor2 = 0x50e96d71;
+    private int m_btnBotBgColor1 = 0x50e96d71;
+    private int m_btnBotBgColor2 = 0xff000000;
     private int m_btnBotBgColor3 = 0x00e96d71;
     private int m_btnBotBgColor4 = 0x10e96d71;
     private int m_btnBotBorderColor = 0xff9A2A2A;
@@ -49,8 +55,10 @@ public class RangeBar extends BufferedImageView {
     private int m_barRGB1 = 0x55333333;
     private int m_barRGB2 = 0x50ffffff;
 
+    private int m_currentSelectionIndex = -1;
+
     public RangeBar(SimpleDoubleProperty width, SimpleDoubleProperty height) {
-        super(getBgImage(width.get(), height.get()), width.get());
+        super(SwingFXUtils.toFXImage(getBgImage(width, height), null));
 
         m_width = width;
         m_height = height;
@@ -58,20 +66,22 @@ public class RangeBar extends BufferedImageView {
         setDefaultImage(getBgImage(m_width.get() < 1 ? 1 : m_width.get(), m_height.get() < 1 ? 1 : m_height.get()));
 
         m_height.addListener((obs, oldVal, newVal) -> {
-            setDefaultImage(getBgImage(m_width.get() < 1 ? 1 : m_width.get(), m_height.get() < 1 ? 1 : m_height.get()), m_width.get());
+            setDefaultImage(getBgImage(m_width.get() < 1 ? 1 : m_width.get(), m_height.get() < 1 ? 1 : m_height.get()));
         });
         m_width.addListener((obs, oldVal, newVal) -> {
-            setDefaultImage(getBgImage(m_width.get() < 1 ? 1 : m_width.get(), m_width.get() < 1 ? 1 : m_width.get()), newVal.doubleValue());
-        });
+            setDefaultImage(getBgImage(m_width.get() < 1 ? 1 : m_width.get(), m_width.get() < 1 ? 1 : m_width.get()));
 
+        });
+        setPreserveRatio(false);
         setOnMousePressed((mouseEvent) -> onMousePressed(mouseEvent));
+        setOnMouseReleased((mouseEvent) -> onMouseReleased(mouseEvent));
     }
 
-    public SimpleDoubleProperty widthProperty() {
+    public SimpleDoubleProperty rangeBarWidthProperty() {
         return m_width;
     }
 
-    public SimpleDoubleProperty heightProperty() {
+    public SimpleDoubleProperty rangeBarHeightProperty() {
         return m_height;
     }
 
@@ -93,15 +103,93 @@ public class RangeBar extends BufferedImageView {
 
         return barImageBuf;
     }
-    private SimpleBooleanProperty m_settingRange = new SimpleBooleanProperty(false);
-    private SimpleBooleanProperty m_active = new SimpleBooleanProperty(false);
 
     public SimpleBooleanProperty activeProperty() {
         return m_active;
     }
 
+    public SimpleDoubleProperty topVvalueProperty() {
+        return m_topVvalue;
+    }
+
+    public SimpleDoubleProperty bottomVvalueProperty() {
+        return m_bottomVvalue;
+    }
+
+    public SimpleBooleanProperty settingRangeProperty() {
+        return m_settingRange;
+    }
+
+    private void onMouseReleased(MouseEvent mouseEvent) {
+
+        switch (m_currentSelectionIndex) {
+            case 0:
+                //Ok button up
+                m_active.set(true);
+                m_settingRange.set(false);
+                break;
+
+            case 1:
+                //Cancel button up
+                reset(false);
+                break;
+            case 3:
+                //rangeBar up
+                break;
+        }
+
+        m_currentSelectionIndex = -1;
+        updateImage();
+    }
+
+    public void reset(boolean update) {
+        m_settingRange.set(false);
+        m_active.set(false);
+        m_topVvalue.set(m_maxTop);
+        m_bottomVvalue.set(m_minBot);
+        if (update) {
+            updateImage();
+        }
+    }
+
+    public void reset() {
+        this.reset(true);
+    }
+
+    public void setRangeByMouse(double mouseY, double height) {
+        if (m_settingRange.get()) {
+            double newVal = 1.0 - (double) (mouseY - m_btnHeight) / (height - (m_btnHeight * 2));
+            double topValue = m_topVvalue.get();
+            double bottomValue = m_bottomVvalue.get();
+
+            double distanceToY1 = topValue > newVal ? topValue - newVal : topValue == newVal ? 0 : newVal - topValue;
+            double distanceToY2 = bottomValue > newVal ? bottomValue - newVal : bottomValue == newVal ? 0 : newVal - bottomValue;
+
+            if (distanceToY1 != distanceToY2) {
+                if (distanceToY1 < distanceToY2) {
+                    //rangeBarTopDown
+                    m_currentSelectionIndex = 2;
+
+                    if (newVal > bottomValue && newVal <= m_maxTop) {
+                        m_topVvalue.set(newVal);
+                    }
+                } else {
+                    //rangeBarBotDown
+                    m_currentSelectionIndex = 3;
+
+                    if (newVal < topValue && newVal >= m_minBot) {
+                        m_bottomVvalue.set(newVal);
+                    }
+                }
+            }
+
+        }
+
+    }
+
     private void onMousePressed(MouseEvent event) {
         if (event.getButton() == MouseButton.PRIMARY) {
+
             boolean settingRange = m_settingRange.get();
             if (!settingRange) {
 
@@ -112,37 +200,18 @@ public class RangeBar extends BufferedImageView {
                 int height = (int) Math.ceil(getBaseImage().getHeight());
 
                 if (mouseY <= m_btnHeight) {
-                    m_active.set(true);
-                    m_settingRange.set(false);
+
+                    //ok btn down
+                    m_currentSelectionIndex = 0;
+
                 } else {
                     if (mouseY >= height - m_btnHeight) {
-                        m_settingRange.set(false);
-                        m_active.set(false);
-                        m_topVvalue.set(m_maxTop);
-                        m_bottomVvalue.set(m_minBot);
+
+                        //cancel btn down
+                        m_currentSelectionIndex = 1;
 
                     } else {
-                        double newVal = 1.0 - (double) (mouseY - m_btnHeight) / (height - (m_btnHeight * 2));
-
-                        //double closeRange = 5 / (height - (m_btnHeight * 2));
-                        double topValue = m_topVvalue.get();
-                        double bottomValue = m_bottomVvalue.get();
-
-                        double distanceToY1 = topValue > newVal ? topValue - newVal : topValue == newVal ? 0 : newVal - topValue;
-                        double distanceToY2 = bottomValue > newVal ? bottomValue - newVal : bottomValue == newVal ? 0 : newVal - bottomValue;
-
-                        if (distanceToY1 != distanceToY2) {
-                            if (distanceToY1 < distanceToY2) {
-                                if (newVal > bottomValue && newVal <= m_maxTop) {
-                                    m_topVvalue.set(newVal);
-                                }
-                            } else {
-                                if (newVal < topValue && newVal >= m_minBot) {
-                                    m_bottomVvalue.set(newVal);
-                                }
-                            }
-                        }
-
+                        setRangeByMouse(mouseY, height);
                     }
                 }
             }
@@ -179,7 +248,7 @@ public class RangeBar extends BufferedImageView {
 
         int btnBotX1 = 2;
         int btnBotY1 = height - m_btnHeight;
-        int btnBotX2 = width - 2;
+        int btnBotX2 = width - 1;
         int btnBotY2 = height;
 
         // double imgScale = getScrollScale(height);
@@ -192,35 +261,66 @@ public class RangeBar extends BufferedImageView {
 
         if (!settingRange) {
             Drawing.fillArea(imgBuf, 50333333, 0, 0, width, height);
+
             Drawing.drawBar(1, m_bg1, m_bg2, imgBuf, x1 + 1, y1 + 1, x2 - 1, y2 - 1);
             Drawing.drawBar(m_barRGB1, m_barRGB2, imgBuf, x1 + 1, y1 + 1, x2 - 1, y2 - 1);
 
         } else {
             Drawing.fillArea(imgBuf, 0x20ffffff, 0, 0, width, height);
+            Drawing.fillArea(imgBuf, 0xff000000, (width / 2) - 1, m_btnHeight + 1, (width / 2) + 1, height - (m_btnHeight + 1));
+            //OkBtn
+            boolean okBtnDown = m_currentSelectionIndex == 0;
+            int okShadingRGB1 = m_shadingLightRGB;
+            int okShadingRGB2 = m_shadingGreenRGB;
+            int okRGB1 = m_btnTopBgColor1;
+            int okRGB2 = m_btnTopBgColor2;
+            int okRGB3 = m_btnTopBgColor3;
+            int okRGB4 = m_btnTopBgColor4;
 
-            Drawing.drawBar(1, 0xffffffff, 0xff00ff00, imgBuf, btnTopX1, btnTopY1, btnTopX2, btnTopY2);
-            Drawing.drawBar(1, m_btnTopBgColor1, m_btnTopBgColor2, imgBuf, btnTopX1, btnTopY1, btnTopX2, btnTopY2);
-            Drawing.drawBar(0, m_btnTopBgColor3, m_btnTopBgColor4, imgBuf, btnTopX1, btnTopY1, btnTopX2, btnTopY2);
+            if (okBtnDown) {
+                okShadingRGB1 = m_shadingDarkRGB;
+                okShadingRGB2 = m_shadingGreenRGB;
+
+            }
+
+            Drawing.drawBar(1, okShadingRGB1, okShadingRGB2, imgBuf, btnTopX1, btnTopY1, btnTopX2, btnTopY2);
+            Drawing.drawBar(1, okRGB1, okRGB2, imgBuf, btnTopX1, btnTopY1, btnTopX2, btnTopY2);
+            Drawing.drawBar(0, okRGB3, okRGB4, imgBuf, btnTopX1, btnTopY1, btnTopX2, btnTopY2);
 
             Drawing.fillArea(imgBuf, m_btnTopBorderColor2, btnTopX1, btnTopY1, btnTopX1 + 1, btnTopY2);
             Drawing.fillArea(imgBuf, m_btnTopBorderColor2, btnTopX1, btnTopY1, btnTopX2, btnTopY1 + 1);
             Drawing.fillArea(imgBuf, m_btnTopBorderColor, btnTopX2 - 1, btnTopY1, btnTopX2, btnTopY2);
             Drawing.fillArea(imgBuf, m_btnTopBorderColor, btnTopX1 + 1, btnTopY2 - 1, btnTopX2 - 1, btnTopY2);
 
-            Drawing.drawBar(1, 0xffff0000, m_btnBotBorderColor, imgBuf, btnBotX1, btnBotY1, btnBotX2, btnBotY2);
-            Drawing.drawBar(1, m_btnBotBgColor2, m_btnBotBgColor1, imgBuf, btnBotX1, btnBotY1, btnBotX2, btnBotY2);
-            Drawing.drawBar(0, m_btnBotBgColor3, m_btnBotBgColor4, imgBuf, btnBotX1, btnBotY1, btnBotX2, btnBotY2);
+            //Cancel Btn
+            boolean cancelBtnDown = m_currentSelectionIndex == 1;
+            int cancelShadingRGB1 = m_shadingRedRGB;
+            int cancelShadingRGB2 = m_shadingLightRedRGB; //
+            int cancelRGB1 = m_btnBotBgColor1;
+            int cancelRGB2 = m_btnBotBgColor2;
+            int cancelRGB3 = m_btnBotBgColor3;
+            int cancelRGB4 = m_btnBotBgColor4;
+
+            if (cancelBtnDown) {
+                cancelShadingRGB1 = m_shadingDarkRGB;
+                cancelShadingRGB2 = m_shadingRedRGB;
+            }
+
+            Drawing.drawBar(1, cancelShadingRGB1, cancelShadingRGB2, imgBuf, btnBotX1, btnBotY1, btnBotX2, btnBotY2);
+            Drawing.drawBar(1, cancelRGB1, cancelRGB2, imgBuf, btnBotX1, btnBotY1, btnBotX2, btnBotY2);
+            Drawing.drawBar(0, cancelRGB3, cancelRGB4, imgBuf, btnBotX1, btnBotY1, btnBotX2, btnBotY2);
 
             Drawing.fillArea(imgBuf, m_btnBotBorderColor2, btnBotX1, btnBotY1, btnBotX1 + 2, btnBotY2); //left
             Drawing.fillArea(imgBuf, m_btnBotBorderColor, btnBotX1, btnBotY1, btnBotX2, btnBotY1 + 1); //top
-            Drawing.fillArea(imgBuf, m_btnBotBgColor2, btnBotX2 - 1, btnBotY1, btnBotX2, btnBotY2);
+            Drawing.fillArea(imgBuf, m_btnBotBorderColor, btnBotX2 - 1, btnBotY1, btnBotX2, btnBotY2);
             Drawing.fillArea(imgBuf, m_btnBotBorderColor2, btnBotX1 + 1, btnBotY2 - 1, btnBotX2 - 1, btnBotY2);
 
-            Drawing.drawBar(1, m_bg4, m_bg3, imgBuf, x1 + 1, y1 + 1, x2 - 1, y2 - 1);
-            Drawing.drawBar(0, m_bg2, m_bg1, imgBuf, x1, y1, x2 - 1, y2);
+            //RangeBar
+            Drawing.drawBar(1, m_bg4, m_bg3, imgBuf, x1, y1, x2, y2);
+            Drawing.drawBar(0, m_bg2, m_bg1, imgBuf, x1, y1, x2, y2);
 
-            Drawing.fillArea(imgBuf, 0x50111111, x1 + 1, y1, x1 + 2, y2);
-            Drawing.fillArea(imgBuf, 0x50111111, x2 - 2, y1, x2 - 1, y2);
+            Drawing.fillArea(imgBuf, 0x50111111, x1, y1, x1 + 1, y2);
+            Drawing.fillArea(imgBuf, 0x50111111, x2 - 1, y1, x2, y2);
         }
 
         super.updateImage(imgBuf);
