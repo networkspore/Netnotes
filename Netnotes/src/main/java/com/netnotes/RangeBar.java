@@ -3,13 +3,10 @@ package com.netnotes;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
-import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Alert.AlertType;
+
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -55,9 +52,6 @@ public class RangeBar extends BufferedImageView {
 
     private int m_bg1 = 0x80ffffff;
     private int m_bg2 = 0x50000000;
-
-    private int m_bg3 = 0x80777777;
-    private int m_bg4 = 0xcceeeeee;
 
     private int m_barRGB1 = 0x55333333;
     private int m_barRGB2 = 0x50ffffff;
@@ -158,9 +152,10 @@ public class RangeBar extends BufferedImageView {
     public void onMouseMoved(MouseEvent mouseEvent) {
         if (m_currentSelectionIndex == 2 || m_currentSelectionIndex == 3) {
 
-            if (setRangeByMouse(mouseEvent, getHeight())) {
-                updateImage();
-            }
+            setRangeByMouse(mouseEvent, getHeight());
+
+            updateImage();
+
         }
     }
 
@@ -178,7 +173,7 @@ public class RangeBar extends BufferedImageView {
         this.reset(true);
     }
 
-    public boolean setRangeByMouse(MouseEvent event, double height) {
+    public void setRangeByMouse(MouseEvent event, double height) {
         if (m_settingRange.get()) {
             double mouseY = event.getY();
             double newVal = 1.0 - (double) (mouseY - m_btnHeight) / (height - (m_btnHeight * 2));
@@ -191,7 +186,7 @@ public class RangeBar extends BufferedImageView {
                 if (newVal > bottomValue && newVal <= m_maxTop) {
                     m_topVvalue.set(newVal);
                 }
-                return true;
+
             }
 
             //rangeBarBotDown
@@ -200,11 +195,11 @@ public class RangeBar extends BufferedImageView {
                 if (newVal < topValue && newVal >= m_minBot) {
                     m_bottomVvalue.set(newVal);
                 }
-                return true;
+
             }
 
         }
-        return false;
+
     }
 
     public static int selectMouseButton(MouseEvent mouseEvent, double height, double topVvalue, double botVvalue, double btnHeight) {
@@ -239,6 +234,13 @@ public class RangeBar extends BufferedImageView {
 
     public double getHeight() {
         return Math.ceil(getBaseImage().getHeight());
+    }
+
+    public void toggleSettingRange() {
+
+        m_settingRange.set(!m_settingRange.get());
+        m_currentSelectionIndex = -1;
+        updateImage();
     }
 
     private void onMousePressed(MouseEvent event) {
@@ -314,7 +316,7 @@ public class RangeBar extends BufferedImageView {
 
                 BufferedImage moveableImage = SwingFXUtils.fromFXImage(m_collapseImage, null);
 
-                g2d.drawImage(moveableImage, 0, (height / 2) - (26 / 2), 15, 26, null);
+                g2d.drawImage(moveableImage, 2, (height / 2) - (26 / 2), 12, 26, null);
 
             }
         } else {

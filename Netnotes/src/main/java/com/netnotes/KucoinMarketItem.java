@@ -2,61 +2,50 @@ package com.netnotes;
 
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
-import java.awt.KeyEventDispatcher;
-import java.awt.KeyEventPostProcessor;
-import java.awt.KeyboardFocusManager;
+
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.event.KeyEvent;
+
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.ArrayList;
 
 import org.reactfx.util.FxTimer;
 
-import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
-import com.netnotes.IconButton.IconStyle;
+
 import com.utils.Utils;
 
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
+
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.event.ActionEvent;
+
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.geometry.Side;
+
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
+
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
+
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.ContextMenu;
+
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-
-import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.ScrollPane.ScrollBarPolicy;
 import javafx.scene.image.Image;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCodeCombination;
-import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -231,8 +220,6 @@ public class KucoinMarketItem {
         return SwingFXUtils.toFXImage(img, null);
     }
 
-    private boolean m_init = false;
-
     public void showStage() {
         if (m_stage == null) {
             logFile = new File("marketItem-" + m_symbol + ".txt");
@@ -241,7 +228,7 @@ public class KucoinMarketItem {
             final double chartScrollVvalue = 1;
             final double chartScrollHvalue = 1;
 
-            SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth);
+            SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth - 50);
             SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 170);
             SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
             SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(15);
@@ -270,13 +257,15 @@ public class KucoinMarketItem {
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
 
+            MenuItem setChartRangeItem = new MenuItem("Set price range     [ R ]");
+            setChartRangeItem.setId("urlMenuItem");
             MenuItem zoomIn = new MenuItem("Zoom in             [ + ]");
             zoomIn.setId("urlMenuItem");
             MenuItem zoomOut = new MenuItem("Zoom out            [ - ]");
             zoomOut.setId("urlMenuItem");
             MenuItem resetZoom = new MenuItem("Reset zoom  [ Backspace ]");
             resetZoom.setId("urlMenuItem");
-            menuButton.getItems().addAll(zoomIn, zoomOut, resetZoom);
+            menuButton.getItems().addAll(setChartRangeItem, zoomIn, zoomOut, resetZoom);
 
             Button favoriteBtn = new Button();
             favoriteBtn.setId("menuBtn");
@@ -407,21 +396,6 @@ public class KucoinMarketItem {
             chartRange.setId("menuBtn");
             chartRange.setVisible(false);
 
-            /* chartRange.activeProperty().addListener((obs, oldVal, newVal) -> {
-                chartView.rangeActiveProperty().set(newVal);
-            });
-
-            chartRange.topVvalueProperty().addListener((obs, oldVal, newVal) -> {
-                chartView.rangeTopVvalueProperty().set(newVal.doubleValue());
-            });
-
-            chartRange.bottomVvalueProperty().addListener((obs, oldVal, newVal) -> {
-                chartView.rangeBottomVvalueProperty().set(newVal.doubleValue());
-            });
-
-            chartRange.settingRangeProperty().addListener((obs, oldVal, newVal) -> {
-                chartView.isSettingRangeProperty().set(newVal);
-            });*/
             chartView.rangeActiveProperty().bind(chartRange.activeProperty());
             chartView.rangeTopVvalueProperty().bind(chartRange.topVvalueProperty());
             chartView.rangeBottomVvalueProperty().bind(chartRange.bottomVvalueProperty());
@@ -591,7 +565,6 @@ public class KucoinMarketItem {
                             if (dataElement != null && dataElement.isJsonArray()) {
                                 JsonArray dataElementArray = dataElement.getAsJsonArray();
 
-                                m_init = true;
                                 chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
 
                                 Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
@@ -678,10 +651,14 @@ public class KucoinMarketItem {
                         resetChartHeightOffset.run();
 
                         break;
+                    case R:
+                        chartRange.toggleSettingRange();
+                        break;
                     default:
                         break;
                 }
             };
+            setChartRangeItem.setOnAction((action) -> chartRange.toggleSettingRange());
             zoomOut.setOnAction((action) -> {
                 decreaseChartHeight.run();
             });
