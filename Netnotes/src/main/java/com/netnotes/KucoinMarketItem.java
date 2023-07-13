@@ -37,17 +37,20 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.ScrollPane.ScrollBarPolicy;
 import javafx.scene.image.Image;
@@ -182,7 +185,6 @@ public class KucoinMarketItem {
         boolean positive = data.getChangeRate() > 0;
         boolean neutral = data.getChangeRate() == 0;
 
-        //    java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 30);
         java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 15);
 
         BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
@@ -242,7 +244,7 @@ public class KucoinMarketItem {
             SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth);
             SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 170);
             SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
-            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(10);
+            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(15);
             SimpleDoubleProperty rangeHeight = new SimpleDoubleProperty(100);
 
             double chartSizeInterval = 25;
@@ -405,7 +407,7 @@ public class KucoinMarketItem {
             chartRange.setId("menuBtn");
             chartRange.setVisible(false);
 
-            chartRange.activeProperty().addListener((obs, oldVal, newVal) -> {
+            /* chartRange.activeProperty().addListener((obs, oldVal, newVal) -> {
                 chartView.rangeActiveProperty().set(newVal);
             });
 
@@ -419,11 +421,11 @@ public class KucoinMarketItem {
 
             chartRange.settingRangeProperty().addListener((obs, oldVal, newVal) -> {
                 chartView.isSettingRangeProperty().set(newVal);
-            });
-
-            //  chartView.rangeTopVvalueProperty().bind(chartRange.topVvalueProperty());
-            //  chartView.rangeBottomVvalueProperty().bind(chartRange.bottomVvalueProperty());
-            //  chartView.rangeSettingRangeProperty().bind(chartRange.settingRangeProperty());
+            });*/
+            chartView.rangeActiveProperty().bind(chartRange.activeProperty());
+            chartView.rangeTopVvalueProperty().bind(chartRange.topVvalueProperty());
+            chartView.rangeBottomVvalueProperty().bind(chartRange.bottomVvalueProperty());
+            chartView.isSettingRangeProperty().bind(chartRange.settingRangeProperty());
             HBox bodyBox = new HBox(chartRange, chartScroll);
             bodyBox.setAlignment(Pos.TOP_LEFT);
             HBox bodyPaddingBox = new HBox(bodyBox);
@@ -438,7 +440,7 @@ public class KucoinMarketItem {
             m_stage.setScene(marketScene);
 
             chartScroll.maxHeightProperty().bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(10));
-            chartScroll.prefViewportWidthProperty().bind(marketScene.widthProperty().subtract(35));
+            chartScroll.prefViewportWidthProperty().bind(marketScene.widthProperty().subtract(45));
             chartScroll.prefViewportHeightProperty().bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(10));
 
             rangeHeight.bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(25));

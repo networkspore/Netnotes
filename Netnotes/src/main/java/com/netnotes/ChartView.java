@@ -83,6 +83,7 @@ public class ChartView {
         m_chartHbox.setAlignment(Pos.CENTER);
         m_chartWidth = width;
         m_chartHeight = height;
+        updateLabelFont();
     }
 
     public JsonObject getJsonObject() {
@@ -106,25 +107,28 @@ public class ChartView {
         return m_settingRange;
     }
 
+    public void updateLabelFont() {
+
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setFont(m_labelFont.get());
+        g2d.setColor(m_labelColor);
+        m_fm = g2d.getFontMetrics();
+        String measureString = "0.00000000";
+        int stringWidth = m_fm.stringWidth(measureString);
+        m_amStringWidth = m_fm.stringWidth(" a.m. ");
+        m_labelAscent = m_fm.getAscent();
+        m_labelHeight = m_fm.getHeight();
+        m_scaleColWidth = stringWidth + 25;
+
+    }
+
     public HBox getChartBox() {
 
-        Runnable updateLabelFont = () -> {
-            BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g2d = img.createGraphics();
-            g2d.setFont(m_labelFont.get());
-            g2d.setColor(m_labelColor);
-            m_fm = g2d.getFontMetrics();
-            String measureString = "0.00000000";
-            int stringWidth = m_fm.stringWidth(measureString);
-            m_amStringWidth = m_fm.stringWidth(" a.m. ");
-            m_labelAscent = m_fm.getAscent();
-            m_labelHeight = m_fm.getHeight();
-            m_scaleColWidth = stringWidth + 25;
+        m_labelFont.addListener((obs, oldVal, newVal) -> {
+            updateLabelFont();
             m_lastUpdated.set(LocalDateTime.now());
-        };
-        updateLabelFont.run();
-
-        m_labelFont.addListener((obs, oldVal, newVal) -> updateLabelFont.run());
+        });
 
         Image image = SwingFXUtils.toFXImage(getBufferedImage(), null);
         ImageView imgView = IconButton.getIconView(image, image.getWidth());
@@ -143,10 +147,11 @@ public class ChartView {
         m_chartHbox.getChildren().clear();
         m_chartHbox.getChildren().add(imgView);
 
-        rangeActiveProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
         rangeBottomVvalueProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
         rangeTopVvalueProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
         isSettingRangeProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
+
+        rangeActiveProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
 
         return m_chartHbox;
     }
@@ -203,13 +208,6 @@ public class ChartView {
             m_msg = "Loading";
             NumberClass numberClass = new NumberClass();
 
-            try {
-                Files.writeString(logFile.toPath(), "\nLoading price data", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            } catch (IOException e) {
-
-            }
-
             ArrayList<PriceData> tmpPriceList = new ArrayList<>();
 
             JsonElement oldestElement = jsonArray.get(jsonArray.size() - 1);
@@ -225,13 +223,6 @@ public class ChartView {
 
                 int elements = (int) Math.ceil(((newestTimeStamp + timeSpanSeconds) - oldestTimeStamp) / timeSpanSeconds);
 
-                try {
-                    Files.writeString(logFile.toPath(), "\nint timespan: " + timeSpanSeconds + " oldest Timestamp" + oldestTimeStamp + " newest: " + newestTimeStamp + " elements: " + elements + " size:" + jsonArray.size(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-                } catch (IOException e) {
-
-                }
-
                 int i = 0;
 
                 while (i < elements) {
@@ -243,12 +234,6 @@ public class ChartView {
                     if (priceData == null) {
 
                         PriceData prev = numberClass.count.get() == 0 ? null : tmpPriceList.get(numberClass.count.get() - 1);
-
-                        try {
-                            Files.writeString(logFile.toPath(), "\ndata hole: start " + epochStart + " end: " + epochEnd + " prevData: " + (prev != null ? prev.getClose() : "null"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e) {
-
-                        }
 
                         double lastAmount = prev == null ? 0 : prev.getClose();
 
@@ -441,6 +426,13 @@ public class ChartView {
     private int m_labelSpacingSize = 150;
     private Color m_labelColor = new Color(0xc0ffffff);
 
+    private double m_topRangePrice = 0;
+    private double m_botRangePrice = 0;
+
+    private int getRowHeight() {
+        return m_labelHeight + 7;
+    }
+
     public BufferedImage getBufferedImage() {
         LocalDateTime now = LocalDateTime.now();
         int greenHighlightRGB = 0x504bbd94;
@@ -451,16 +443,17 @@ public class ChartView {
         int priceListSize = getPriceListSize();
         int totalCellWidth = getTotalCellWidth();
 
-        boolean rangeActive = rangeActiveProperty().get();
         double bottomVvalue = rangeBottomVvalueProperty().get();
         double topVvalue = rangeTopVvalueProperty().get();
         boolean isRangeSetting = isSettingRangeProperty().get();
+
+        boolean rangeActive = rangeActiveProperty().get() && !isRangeSetting;
 
         int cellWidth = m_cellWidth;
         int width = m_priceList.size() == 0 ? (int) m_chartWidth.get() : m_scaleColWidth + (m_priceList.size() * totalCellWidth);
         width = width < m_chartWidth.get() ? (int) m_chartWidth.get() : width;
 
-        int height = (int) m_chartHeight.get();
+        int height = (int) Math.ceil(m_chartHeight.get());
 
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();
@@ -474,10 +467,6 @@ public class ChartView {
         g2d.setFont(getLabelFont());
         g2d.setColor(m_labelColor);
         if (m_valid == 1 && m_priceList.size() > 0) {
-
-            if (isRangeSetting) {
-
-            }
 
             int chartWidth = width - m_scaleColWidth;
             int chartHeight = height - (2 * (m_labelHeight + 5)) - 10;
@@ -511,7 +500,19 @@ public class ChartView {
             }
 
             double scale = (.6d * ((double) chartHeight)) / nc.high.get();
-            double totalRange = (nc.high.get() - nc.low.get()) * scale;
+
+            double topRangePrice = (topVvalue * (Math.floor(chartHeight / getRowHeight()) * getRowHeight())) / scale;
+            double botRangePrice = (bottomVvalue * (Math.floor(chartHeight / getRowHeight()) * getRowHeight())) / scale;
+
+            if (isRangeSetting) {
+                m_topRangePrice = topRangePrice;
+                m_botRangePrice = botRangePrice;
+            } else {
+                topRangePrice = m_topRangePrice;
+                botRangePrice = m_botRangePrice;
+            }
+
+            double scale2 = (double) chartHeight / (topRangePrice - botRangePrice);
 
             Drawing.fillArea(img, 0xff111111, 0, 0, chartWidth, chartHeight);
 
@@ -525,13 +526,6 @@ public class ChartView {
             Color overlayRed = new Color(garnetRed.getRed(), garnetRed.getGreen(), garnetRed.getBlue(), 0x70);
             Color overlayRedHighlight = new Color(highlightRed.getRed(), highlightRed.getGreen(), highlightRed.getBlue(), 0x70);
 
-            //    Color overlayGreen = new Color(green.getRed(), green.getGreen(), green.getBlue(), 0x70);
-            //    Color overlayGreenHighlight = new Color(highlightGreen.getRed(), highlightGreen.getGreen(), highlightGreen.getBlue(), 0x70);
-            double firstOpen = m_priceList.get(0).getOpen();
-
-            int currentCloseY = (int) (getCurrentPrice() * scale);
-            int firstOpenY = (int) (firstOpen * scale);
-
             int priceListWidth = priceListSize * totalCellWidth;
 
             int halfCellWidth = cellWidth / 2;
@@ -539,30 +533,11 @@ public class ChartView {
             int items = m_priceList.size() - i;
             int colLabelSpacing = (int) Math.floor(items / ((items * cellWidth) / m_labelSpacingSize));
 
-            nc = new NumberClass();
-
-            nc.low.set(Double.MAX_VALUE);
-            nc.count.set(5);
-
-            for (j = 5; j < 15; j++) {
-                String scaleAmountString = ((m_labelHeight + j) / scale) + "";
-                if (scaleAmountString.length() < nc.low.get()) {
-                    nc.count.set(j);
-                    nc.low.set(scaleAmountString.length());
-                }
-            }
-
-            int rowHeight = m_labelHeight + nc.count.get();
+            int rowHeight = getRowHeight();
 
             int rows = (int) Math.floor(chartHeight / rowHeight);
 
             int rowLabelSpacing = (int) (rows / ((rows * rowHeight) / m_labelSpacingSize));
-
-            int topRangeY = (int) Math.ceil(chartHeight - (topVvalue * (rows * rowHeight)));
-            int botRangeY = (int) Math.ceil(chartHeight - (bottomVvalue * ((rows * rowHeight))));
-
-            double topRangePrice = topVvalue * (rows * rowHeight) / scale;
-            double botRangePrice = bottomVvalue * ((rows * rowHeight)) / scale;
 
             for (j = 0; j < rows; j++) {
 
@@ -575,7 +550,7 @@ public class ChartView {
                 }
                 Drawing.fillArea(img, 0xff000000, chartWidth, y, chartWidth + 6, y + 1);
 
-                double scaleLabeldbl = (j * rowHeight) / scale;
+                double scaleLabeldbl = rangeActive ? (double) ((j * rowHeight) / scale2) + botRangePrice : (double) (j * rowHeight) / scale;
 
                 String scaleAmount = String.format("%." + m_numberClass.decimals.get() + "f", scaleLabeldbl);
                 int amountWidth = m_fm.stringWidth(scaleAmount);
@@ -597,21 +572,43 @@ public class ChartView {
                 double low = priceData.getOpen() < priceData.getLow() ? priceData.getOpen() : priceData.getLow();
                 double high = priceData.getHigh();
 
-                double nextOpen = i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen() : priceData.getClose();
+                double nextOpen = (i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen() : priceData.getClose());
                 double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : priceData.getOpen();
                 double close = priceData.getClose();
 
-                double open = prevClose;//priceData.getOpen();
+                double open = prevClose;
 
                 int lowY = (int) (low * scale);
                 int highY = (int) (high * scale);
                 int openY = (int) (open * scale);
                 int closeY = (int) (close * scale);
 
+                if (rangeActive) {
+
+                    lowY = (int) ((low - botRangePrice) * scale2);
+                    highY = (int) ((high - botRangePrice) * scale2);
+                    openY = (int) ((open - botRangePrice) * scale2);
+                    closeY = (int) ((close - botRangePrice) * scale2);
+
+                    lowY = lowY < 0 ? 0 : lowY;
+                    lowY = lowY > chartHeight ? chartHeight : lowY;
+
+                    highY = highY < 0 ? 0 : highY;
+                    highY = highY > chartHeight ? chartHeight : highY;
+
+                    openY = openY < 0 ? 0 : openY;
+                    openY = openY > chartHeight ? chartHeight : openY;
+
+                    closeY = closeY < 0 ? 0 : closeY;
+                    closeY = closeY > chartHeight ? chartHeight : closeY;
+
+                }
+
                 boolean positive = !((height - closeY) > (height - openY));
                 boolean neutral = open == nextOpen && open == close;
 
                 LocalDateTime localTimestamp = priceData.getLocalDateTime();
+
                 if (localTimestamp != null) {
                     if (i % colLabelSpacing == 0) {
 
@@ -643,7 +640,9 @@ public class ChartView {
 
                 }
 
-                Drawing.fillArea(img, 0xffffffff, x + halfCellWidth - 1, chartHeight - highY, x + halfCellWidth, chartHeight - lowY);
+                if (highY != lowY) {
+                    Drawing.fillArea(img, 0xffffffff, x + halfCellWidth - 1, chartHeight - highY, x + halfCellWidth, chartHeight - lowY);
+                }
 
                 if (neutral) {
 
@@ -689,13 +688,31 @@ public class ChartView {
                 i++;
             }
 
-            int y = chartHeight - currentCloseY;
-
-
-            /*  if (closeString.length() > measureString.length()) {
-                closeString = String.format("%e", close);
-            }*/
             int halfLabelHeight = (m_labelHeight / 2);
+            int currentCloseY = (int) (getCurrentPrice() * scale);
+
+            int y = chartHeight - currentCloseY;
+            int minY = (halfLabelHeight + 8);
+            int maxY = chartHeight;
+
+            boolean outOfBounds = false;
+
+            if (rangeActive) {
+                y = (int) (chartHeight - ((getCurrentPrice() - botRangePrice) * scale2));
+
+                if (y < minY) {
+                    outOfBounds = true;
+                    y = minY;
+                } else {
+                    if (y > maxY) {
+                        outOfBounds = true;
+                        y = maxY;
+                    }
+                }
+
+            }
+
+            y = y < 0 ? 0 : y > chartHeight ? chartHeight : y;
 
             m_direction = getCurrentPrice() > m_lastClose;
 
@@ -711,18 +728,13 @@ public class ChartView {
 
             if (m_direction) {
                 RGBhighlight = greenHighlightRGB;
-
-                // Drawing.drawBar(1,, img, width - scaleColWidth, y1, width, y2);
             } else {
                 RGBhighlight = redRGBhighlight;
-
-                //  color1 = garnetRed;
-                // color2 = highlightRed;
             }
 
             Drawing.drawBar(1, 0xff000000, 0xff111111, img, x1, y1, width, y2);
             Drawing.drawBar(1, RGBhighlight, 0xff000000, img, x1, y1, width, y2);
-            //y1 = y1;
+
             y2 = y2 + 1;
 
             Drawing.drawBar(1, 0x90000000, RGBhighlight, img, x1, y1 - 1, x2, y1 + 3);
@@ -740,11 +752,11 @@ public class ChartView {
 
             g2d.setColor(stringColor);
             g2d.drawString(closeString, stringX, stringY);
-
-            g2d.setColor(m_direction ? KucoinExchange.POSITIVE_HIGHLIGHT_COLOR : KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR);
-            g2d.setFont(new Font("Arial", Font.PLAIN, 12));
-            g2d.drawString("◄", chartWidth - 9, stringY);
-
+            if (!outOfBounds) {
+                g2d.setColor(m_direction ? KucoinExchange.POSITIVE_HIGHLIGHT_COLOR : KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR);
+                g2d.setFont(new Font("Arial", Font.PLAIN, 12));
+                g2d.drawString("◄", chartWidth - 9, stringY);
+            }
             stringX = chartWidth - 9;
             if (m_direction) {
                 Drawing.drawBarFillColor(1, false, stringColor.getRGB(), 0xffffffff, 0xffffffff, img, stringX, y - (m_labelHeight / 2) - 1, chartWidth + m_scaleColWidth, y + 4 - (m_labelHeight / 2));
@@ -758,19 +770,24 @@ public class ChartView {
             Drawing.fillArea(img, borderColor, 0, chartHeight, chartWidth, chartHeight + 1);
 
             Drawing.fillArea(img, borderColor, chartWidth, 0, chartWidth + 1, chartHeight);//(width - scaleColWidth, 0, width - 1, chartHeight - 1);
+            if (!outOfBounds) {
+                for (int x = 0; x < width - m_scaleColWidth - 7; x++) {
+                    int p = img.getRGB(x, y);
 
-            for (int x = 0; x < width - m_scaleColWidth - 7; x++) {
-                int p = img.getRGB(x, y);
+                    p = (0xFFFFFF - p) | 0xFF000000;
 
-                p = (0xFFFFFF - p) | 0xFF000000;
-
-                img.setRGB(x, y, p);
+                    img.setRGB(x, y, p);
+                }
             }
             if (isRangeSetting) {
+
                 x1 = x1 + 1;
                 Color blackColor = new java.awt.Color(0xff000000, true);
 
                 g2d.setFont(getLabelFont());
+
+                int topRangeY = (int) Math.ceil(chartHeight - (topVvalue * (rows * rowHeight)));
+                int botRangeY = (int) Math.ceil(chartHeight - (bottomVvalue * ((rows * rowHeight))));
 
                 Drawing.fillArea(img, 0x40ffffff, 0, 0, width, topRangeY);
                 Drawing.fillArea(img, 0x40ffffff, 0, botRangeY, width, chartHeight);

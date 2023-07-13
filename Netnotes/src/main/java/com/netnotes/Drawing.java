@@ -9,7 +9,10 @@ public class Drawing {
     private static File logFile = new File("drawing-log.txt");
 
     public static void drawBarFillColor(int direction, boolean fillInverse, int fillColor, int RGB1, int RGB2, BufferedImage img, int x1, int y1, int x2, int y2) {
-
+        /*cancel draw if out of bounds?
+            if(!(y1 < img.getHeight() && y2 <= img.getHeight() && x1 < img.getWidth() && x2 <= img.getWidth())){
+            return;
+        }*/
         int a1 = (RGB1 >> 24) & 0xff;
         int r1 = (RGB1 >> 16) & 0xff;
         int g1 = (RGB1 >> 8) & 0xff;
@@ -197,12 +200,20 @@ public class Drawing {
         }
     }
 
-    /*int avg = (r + g + b) / 3;*/
     public static void fillArea(BufferedImage img, int RGB, int x1, int y1, int x2, int y2) {
+        fillArea(img, RGB, x1, y1, x2, y2, true);
+    }
+
+    /*int avg = (r + g + b) / 3;*/
+    public static void fillArea(BufferedImage img, int RGB, int x1, int y1, int x2, int y2, boolean blend) {
         for (int x = x1; x < x2; x++) {
             for (int y = y1; y < y2; y++) {
-                int oldRGB = img.getRGB(x, y);
-                img.setRGB(x, y, blendRGBA(oldRGB, RGB));
+                if (blend) {
+                    int oldRGB = img.getRGB(x, y);
+                    img.setRGB(x, y, blendRGBA(oldRGB, RGB));
+                } else {
+                    img.setRGB(x, y, RGB);
+                }
             }
         }
     }
