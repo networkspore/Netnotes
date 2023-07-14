@@ -244,7 +244,7 @@ public class TokensList extends Network {
                 m_networkTokenList.add(networkToken);
                 networkToken.addUpdateListener((obs, old, newVal) -> {
                     try {
-                        Files.writeString(logFile.toPath(), networkToken.getName() + " updated: " + (newVal != null ? newVal.toString() : "null"));
+                        Files.writeString(logFile.toPath(), networkToken.getName() + " updated: " + (newVal != null ? newVal.toString() : "null"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e) {
 
                     }
@@ -500,7 +500,7 @@ public class TokensList extends Network {
         m_networkTokenList.clear();
 
         try {
-            Files.writeString(logFile.toPath(), "\nopening json:\n" + json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(logFile.toPath(), "\nopening json:", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
         }
@@ -520,6 +520,11 @@ public class TokensList extends Network {
                     JsonElement tokenIdElement = objJson.get("tokenId");
 
                     if (nameElement != null && nameElement.isJsonPrimitive() && tokenIdElement != null && tokenIdElement.isJsonPrimitive()) {
+                        try {
+                            Files.writeString(logFile.toPath(), "\nadding token:" + nameElement.getAsString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e) {
+
+                        }
                         addToken(new ErgoNetworkToken(nameElement.getAsString(), tokenIdElement.getAsString(), networkType, objJson, getParentInterface()), false);
                     }
 
@@ -541,7 +546,7 @@ public class TokensList extends Network {
         //String type = "Existing token";
 
         if (token == null) {
-            token = new ErgoNetworkToken("", "", "", null, networkType, getParentInterface());
+            token = new ErgoNetworkToken("", "", "", "", null, networkType, getParentInterface());
         }
         try {
             Files.writeString(logFile.toPath(), "\nSHOWING", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -557,9 +562,7 @@ public class TokensList extends Network {
 
         });
 
-        //    m_ergoTokenStage.setTitle(getParentInterface().getName() + " - Token Editor - " + token != null ? token.toString() : "New Token");
-        //    m_ergoTokenStage.titleProperty().bind(Bindings.concat(getParentInterface().getName(), " - Token Editor - ", m_ergoNetworkToken.asString()));
-        File tokenImageFile = token != null && token.getImageFile() != null && token.getImageFile().isFile() ? token.getImageFile() : null;
+        File tokenImageFile = token != null && token.getImageString() != null && !token.getImageString().equals("") && new File(token.getImageString()).isFile() ? new File(token.getImageString()) : null;
         ImageView imageView = IconButton.getIconView(tokenImageFile == null ? getParentInterface().getButton().getIcon() : new Image(tokenImageFile.toString()), 135);
 
         Button imageBtn = new Button(token.getName().equals("") ? "New Token" : token.getName());
@@ -668,7 +671,7 @@ public class TokensList extends Network {
         HBox.setHgrow(nameField, Priority.ALWAYS);
 
         if (token != null) {
-            File imgFile = token.getImageFile();
+            File imgFile = new File(token.getImageString());
             if (imgFile != null && imgFile.isFile()) {
                 //String imgString = imgFile.getAbsolutePath();
                 Image img = null;
@@ -953,7 +956,7 @@ public class TokensList extends Network {
         imageFileCaret.setFont(App.txtFont);
         imageFileCaret.setFill(Color.WHITE);
 
-        String imageFileString = token.getImageFile() != null ? token.getImageFile().toString() : "";
+        String imageFileString = token.getImageString() != null ? token.getImageString() : "";
 
         Button imageFileBtn = new Button(imageBtn.getText().equals("") ? "Select an image" : imageFileString);
         imageFileBtn.setId("rowBtn");
@@ -1003,45 +1006,45 @@ public class TokensList extends Network {
                     tokenAlert.show();
                 } else {
 
-                    if (imageFileBtn.getText().equals("Select an image")) {
-                        Alert tokenAlert = new Alert(AlertType.NONE, "Select an image.", ButtonType.OK);
+                    byte[] bytes = null;
+                    try {
+                        bytes = Utils.digestFile(new File(imageFileBtn.getText()));
+                    } catch (Exception e1) {
+
+                    }
+                    HashData hashData = bytes != null ? new HashData(bytes) : null;
+                    ErgoNetworkToken newToken = new ErgoNetworkToken(nameField.getText(), urlLinkField.getText(), tokenIdField.getText(), imageFileBtn.getText(), hashData, networkType, getParentInterface());
+                    ErgoNetworkToken oldToken = getErgoToken(newToken.getTokenId());
+
+                    if (oldToken != null) {
+                        Alert tokenAlert = new Alert(AlertType.NONE, "Warning\n\n\nA token named '" + oldToken.getName() + "' exists with this token Id. Would you like to overwrite it?\n\n(Token Id:" + oldToken.getTokenId() + ")", ButtonType.NO, ButtonType.YES);
                         tokenAlert.initOwner(parentStage);
-                        tokenAlert.setGraphic(IconButton.getIconView(getParentInterface().getButton().getIcon(), 75));
-                        tokenAlert.show();
+
+                        tokenAlert.setTitle("Replace or skip");
+                        Optional<ButtonType> result = tokenAlert.showAndWait();
+                        if (result.isPresent() && result.get() == ButtonType.YES) {
+                            removeToken(oldToken.getNetworkId(), false);
+
+                            addToken(newToken, false);
+                            updateGrid();
+                            getLastUpdated().set(LocalDateTime.now());
+                            parentStage.setScene(parentScene);
+                        }
+
                     } else {
-
-                        ErgoNetworkToken newToken = new ErgoNetworkToken(nameField.getText(), urlLinkField.getText(), tokenIdField.getText(), new File(imageFileBtn.getText()), networkType, getParentInterface());
-                        ErgoNetworkToken oldToken = getErgoToken(newToken.getTokenId());
-
-                        if (oldToken != null) {
-                            Alert tokenAlert = new Alert(AlertType.NONE, "Warning\n\n\nA token named '" + oldToken.getName() + "' exists with this token Id. Would you like to overwrite it?\n\n(Token Id:" + oldToken.getTokenId() + ")", ButtonType.NO, ButtonType.YES);
+                        if (getTokenByName(newToken.getName()) != null) {
+                            Alert tokenAlert = new Alert(AlertType.NONE, "Token name already exists in Ergo Tokens. \n\nPlease enter a new name.", ButtonType.OK);
                             tokenAlert.initOwner(parentStage);
-                            tokenAlert.setGraphic(IconButton.getIconView(new Image(newToken.getImageFile().getAbsolutePath()), 40));
-                            tokenAlert.setTitle("Replace or skip");
-                            Optional<ButtonType> result = tokenAlert.showAndWait();
-                            if (result.isPresent() && result.get() == ButtonType.YES) {
-                                removeToken(oldToken.getNetworkId(), false);
-
-                                addToken(newToken, false);
-                                updateGrid();
-                                getLastUpdated().set(LocalDateTime.now());
-                                parentStage.setScene(parentScene);
-                            }
-
+                            tokenAlert.setTitle("Cancel");
+                            tokenAlert.setGraphic(IconButton.getIconView(getParentInterface().getButton().getIcon(), 75));
                         } else {
-                            if (getTokenByName(newToken.getName()) != null) {
-                                Alert tokenAlert = new Alert(AlertType.NONE, "Token name already exists in Ergo Tokens. \n\nPlease enter a new name.", ButtonType.OK);
-                                tokenAlert.initOwner(parentStage);
-                                tokenAlert.setTitle("Cancel");
-                                tokenAlert.setGraphic(IconButton.getIconView(getParentInterface().getButton().getIcon(), 75));
-                            } else {
-                                m_networkTokenList.add(newToken);
-                                updateGrid();
-                                getLastUpdated().set(LocalDateTime.now());
-                                parentStage.setScene(parentScene);
-                            }
+                            m_networkTokenList.add(newToken);
+                            updateGrid();
+                            getLastUpdated().set(LocalDateTime.now());
+                            parentStage.setScene(parentScene);
                         }
                     }
+
                 }
             }
         });

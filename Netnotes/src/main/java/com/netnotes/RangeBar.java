@@ -203,6 +203,7 @@ public class RangeBar extends BufferedImageView {
     }
 
     public static int selectMouseButton(MouseEvent mouseEvent, double height, double topVvalue, double botVvalue, double btnHeight) {
+
         double mouseY = mouseEvent.getY();
 
         if (mouseY <= btnHeight) {
@@ -241,6 +242,7 @@ public class RangeBar extends BufferedImageView {
         m_settingRange.set(!m_settingRange.get());
         m_currentSelectionIndex = -1;
         updateImage();
+
     }
 
     private void onMousePressed(MouseEvent event) {
@@ -258,6 +260,7 @@ public class RangeBar extends BufferedImageView {
 
                 setRangeByMouse(event, getHeight());
             }
+
             updateImage();
         }
     }

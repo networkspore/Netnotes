@@ -12,7 +12,7 @@ public class FileData {
     private String m_id = null;
     private File m_file = null;
     private String m_name = null;
-    private String m_blake2b256 = null;
+    private HashData m_hashData = null;
     private String m_subId = null;
     private String m_contentType = null;
     private String m_baseContentType = null;
@@ -36,7 +36,7 @@ public class FileData {
             try {
                 m_contentType = Files.probeContentType(m_file.toPath());
                 m_baseContentType = m_contentType.split("/")[0];
-                m_blake2b256 = Utils.digestFileToHex(m_file);
+                m_hashData = new HashData(Utils.digestFile(m_file));
                 m_valid = true;
             } catch (Exception e) {
 
@@ -72,8 +72,8 @@ public class FileData {
         return m_baseContentType;
     }
 
-    public String getBlake2b256() {
-        return m_blake2b256;
+    public HashData getHashData() {
+        return m_hashData;
     }
 
     public boolean getValid() {

@@ -2,33 +2,33 @@ package com.netnotes;
 
 import java.awt.Rectangle;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 
+import org.apache.commons.codec.DecoderException;
+import org.bouncycastle.util.encoders.Hex;
 import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
-
-import javafx.application.HostServices;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -46,7 +46,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
     private File logFile = new File("ErgoNetworkToken-log.txt");
 
-    private File m_imageFile = null;
+    private HashData m_hashData = null;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
     // private ErgoTokens m_ErgoTokens = null;
@@ -56,7 +56,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
     private SimpleDoubleProperty m_sceneWidth = new SimpleDoubleProperty(450);
     private SimpleDoubleProperty m_sceneHeight = new SimpleDoubleProperty(575);
     private String m_urlString;
-
+    private String m_imageString;
     private Stage m_ergoTokenStage = null;
 
     public ErgoNetworkToken(String name, String tokenId, NetworkType networkType, JsonObject jsonObject, NoteInterface noteInterface) {
@@ -67,6 +67,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         JsonElement sceneWidthElement = jsonObject.get("sceneWidth");
         JsonElement sceneHeightElement = jsonObject.get("sceneHeight");
         JsonElement tokenDataElement = jsonObject.get("tokenData");
+        JsonElement hashDataElement = jsonObject.get("hashData");
 
         if (sceneWidthElement != null) {
             m_sceneWidth.set(sceneWidthElement.getAsDouble());
@@ -76,31 +77,38 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             m_sceneHeight.set(sceneHeightElement.getAsDouble());
         }
 
+        if (hashDataElement != null && hashDataElement.isJsonObject()) {
+            JsonObject json = hashDataElement.getAsJsonObject();
+            JsonElement hashIdElement = json.get("id");
+            JsonElement hashNameElement = json.get("name");
+            JsonElement hashHashElement = json.get("hash");
+
+            if (hashIdElement != null && hashNameElement != null && hashHashElement != null) {
+                try {
+                    m_hashData = new HashData(hashIdElement.getAsString(), hashNameElement.getAsString(), hashHashElement.getAsString());
+                    try {
+                        Files.writeString(logFile.toPath(), "\nhashData: " + m_hashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+
+                    }
+                } catch (DecoderException e) {
+                    m_hashData = null;
+                }
+            }
+        }
+
         if (urlElement != null) {
             m_urlString = urlElement.getAsString();
         }
 
-        if (imageStringElement != null) {
-            m_imageFile = new File(imageStringElement.getAsString());
+        if (imageStringElement != null && m_hashData != null) {
+            m_imageString = imageStringElement.getAsString();
+            checkAndloadImage(imageStringElement.getAsString(), m_hashData);
+
+            //  m_imageFile = ;
         }
 
         m_networkType = networkType;
-
-        if (m_imageFile != null && m_imageFile.isFile()) {
-            String contentType = null;
-            try {
-                contentType = Files.probeContentType(m_imageFile.toPath());
-                contentType = contentType.split("/")[0];
-            } catch (IOException e) {
-
-            }
-
-            if (contentType != null && contentType.equals("image")) {
-                Image image = new Image(m_imageFile.getAbsolutePath());
-                setIcon(image);
-            }
-
-        }
 
         setIconStyle(IconStyle.ROW);
         setGraphicTextGap(15);
@@ -113,20 +121,23 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
     }
 
-    public ErgoNetworkToken(String name, String url, String tokenId, File imageFile, NetworkType networkType, NoteInterface noteInterface) {
+    public ErgoNetworkToken(String name, String url, String tokenId, String fileString, HashData hashData, NetworkType networkType, NoteInterface noteInterface) {
         super(null, name, tokenId, noteInterface);
 
         m_urlString = url;
-
+        m_hashData = hashData;
         m_networkType = networkType;
-
-        Image image = imageFile != null && imageFile.isFile() ? new Image(imageFile.getAbsolutePath()) : null;
-
-        setIcon(image);
 
         setIconStyle(IconStyle.ROW);
 
-        m_imageFile = imageFile;
+        if (fileString != null && fileString != "") {
+            m_imageString = fileString;
+            File imageFile = new File(m_imageString);
+            if (imageFile.isFile()) {
+                setIcon(new Image(m_imageString));
+            }
+        }
+
         setGraphicTextGap(15);
     }
 
@@ -142,6 +153,58 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             }
         }
         showTokenStage();
+    }
+
+    private void checkAndloadImage(String imageString, HashData hashData) {
+        File checkFile = new File(imageString);
+
+        byte[] bytes = null;
+        try {
+            bytes = Utils.digestFile(checkFile);
+            String hashString = Hex.toHexString(bytes);
+            try {
+                Files.writeString(logFile.toPath(), "\nhashString: " + hashString + " hashDataString: " + hashData.getHashString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+            if (hashString.equals(hashData.getHashString())) {
+                setImageByFile(checkFile);
+            }
+        } catch (Exception e) {
+            try {
+                Files.writeString(logFile.toPath(), "\n" + e, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e2) {
+
+            }
+        }
+
+        if (bytes == null) {
+            setIcon(new Image("/assets/unknown-unit.png"));
+        }
+
+    }
+
+    public void setImageByFile(File file) {
+        if (file != null && file.isFile()) {
+            String contentType = null;
+            try {
+                contentType = Files.probeContentType(file.toPath());
+                contentType = contentType.split("/")[0];
+                Files.writeString(logFile.toPath(), "\ncontentType: " + contentType, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+
+            if (contentType != null && contentType.equals("image")) {
+                Image image = new Image(file.getAbsolutePath());
+                Platform.runLater(() -> setIcon(image));
+            }
+
+        }
+    }
+
+    public String getImageString() {
+        return m_imageString;
     }
 
     public SimpleBooleanProperty explorerVerifiedProperty() {
@@ -436,19 +499,18 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("name", getName());
         jsonObject.addProperty("tokenId", getTokenId());
-        jsonObject.addProperty("imageString", m_imageFile.getPath());
+        jsonObject.addProperty("imageString", m_imageString);
         jsonObject.addProperty("url", m_urlString);
         jsonObject.addProperty("sceneWidth", m_sceneWidth.get());
         jsonObject.addProperty("sceneHeight", m_sceneHeight.get());
         jsonObject.addProperty("networkType", m_networkType.toString());
+        if (m_hashData != null) {
+            jsonObject.add("hashData", m_hashData.getJsonObject());
+        }
         if (m_ergoNetworkTokenData.get() != null) {
             jsonObject.add("tokenData", m_ergoNetworkTokenData.get().getJsonObject());
         }
         return jsonObject;
-    }
-
-    public File getImageFile() {
-        return m_imageFile;
     }
 
     public String getTokenId() {
@@ -457,6 +519,10 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
     public String getUrlString() {
         return m_urlString;
+    }
+
+    public HashData getHashData() {
+        return m_hashData;
     }
 
     public JsonObject getEditTokenJson() {

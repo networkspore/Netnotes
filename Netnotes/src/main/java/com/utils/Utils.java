@@ -100,8 +100,8 @@ public class Utils {
         return result.verified;
     }
 
-    public static String digestFileToHex(File file, String... instance) throws Exception, FileNotFoundException, IOException {
-        String digestInstance = instance == null ? Blake2b.BLAKE2_B_256 : instance[0];
+    public static byte[] digestFile(File file, String... instance) throws Exception, FileNotFoundException, IOException {
+        String digestInstance = instance != null ? (instance.length == 0 ? Blake2b.BLAKE2_B_256 : instance[0]) : Blake2b.BLAKE2_B_256;
 
         final MessageDigest digest = MessageDigest.getInstance(digestInstance);
 
@@ -118,7 +118,7 @@ public class Utils {
 
         byte[] hashBytes = digest.digest();
 
-        return Hex.encodeHexString(hashBytes);
+        return hashBytes;
 
     }
 
