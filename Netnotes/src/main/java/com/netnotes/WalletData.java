@@ -1,32 +1,23 @@
 package com.netnotes;
 
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
 
-import org.bouncycastle.math.ec.rfc7748.X25519.Friend;
-import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
 
 import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
+
 import com.satergo.Wallet;
-import com.satergo.WalletKey.Failure;
+
 import com.utils.Utils;
 
 import javafx.application.Platform;
@@ -35,7 +26,6 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -45,7 +35,6 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
@@ -53,7 +42,6 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
@@ -61,27 +49,22 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
-import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import javafx.stage.WindowEvent;
 
 public class WalletData extends Network implements NoteInterface {
 
     public final static double MIN_WIDTH = 400;
     public final static double MIN_HEIGHT = 275;
-    public final static double NORMAL_WIDTH = 720;
-    public final static double NORMAL_HEIGHT = 480;
+
     private int m_maxWidth = 800;
     private int m_maxHeight = 600;
 
-    private double m_sceneWidth = NORMAL_WIDTH;
-    private double m_sceneHeight = NORMAL_HEIGHT;
+    private double m_sceneWidth = 400;
+    private double m_sceneHeight = 720;
 
     private File logFile;
     private File m_walletFile = null;
@@ -97,10 +80,8 @@ public class WalletData extends Network implements NoteInterface {
     private String m_quoteTransactionCurrency = "USD";
     private SimpleObjectProperty<PriceQuote> m_lastQuote = new SimpleObjectProperty<PriceQuote>(null);
 
-    private TimersList m_availableTimers;
-
     // private ErgoWallet m_ergoWallet;
-    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String networkId, String explorerId, String chartsId, String timerId, JsonArray timersArray, NetworkType networkType, NoteInterface ergoWallet) {
+    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String networkId, String explorerId, String chartsId, NetworkType networkType, NoteInterface ergoWallet) {
         super(null, name, id, ergoWallet);
 
         m_sceneWidth = sceneWidth;
@@ -115,10 +96,6 @@ public class WalletData extends Network implements NoteInterface {
         m_explorerId = explorerId == null ? null : explorerId;
         m_chartsId = chartsId == null ? null : chartsId;
 
-        m_availableTimers = new TimersList(timerId, timersArray, getNetworksData());
-        m_availableTimers.lastUpdatedProperty.addListener(e -> {
-            getLastUpdated().set(LocalDateTime.now());
-        });
         setIconStyle(IconStyle.ROW);
 
     }
@@ -129,30 +106,6 @@ public class WalletData extends Network implements NoteInterface {
 
     public int getWindowMaxHeight() {
         return m_maxHeight;
-    }
-
-    private void unsubscribeTimer(String networkId, String timerId) {
-        if (networkId != null && timerId != null) {
-            NoteInterface timerInterface = getNetworksData().getNoteInterface(networkId);
-
-            if (timerInterface != null) {
-
-                JsonObject unsubscribeJson = new JsonObject();
-                unsubscribeJson.addProperty("subject", "UNSUBSCRIBE");
-                unsubscribeJson.addProperty("timerId", timerId);
-
-                if (!timerInterface.sendNote(unsubscribeJson, null, null)) {
-
-                    try {
-                        Files.writeString(logFile.toPath(), "\nFailed to unsubscribe:\n" + unsubscribeJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-
-                    }
-
-                }
-
-            }
-        }
     }
 
     @Override
@@ -179,25 +132,14 @@ public class WalletData extends Network implements NoteInterface {
         if (m_chartsId != null) {
             jsonObject.addProperty("chartsId", m_chartsId);
         }
-        if (m_availableTimers.getTimerNetworkId() != null) {
-            jsonObject.addProperty("timerId", m_availableTimers.getTimerNetworkId());
-        }
-        JsonArray subscribedTimers = m_availableTimers.getSubscribedTimers();
-        if (subscribedTimers.size() > 0) {
-            jsonObject.add("timers", subscribedTimers);
-        }
 
         return jsonObject;
     }
 
     @Override
     public void open() {
-        try {
-            Files.writeString(logFile.toPath(), "\nwalletsData opening.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
 
-        }
-        openWallet(m_sceneWidth, m_sceneHeight);
+        openWallet();
 
     }
 
@@ -209,40 +151,38 @@ public class WalletData extends Network implements NoteInterface {
         String subject = subjectElement.getAsString();
         String networkId = networkIdElement.getAsString();
 
-        switch (subject) {
-            case "TIME":
-                if (networkId.equals(m_availableTimers.getTimerNetworkId())) {
-                    JsonElement localDateTimeElement = note.get("localDateTime");
-                    JsonElement timerIdElement = note.get("timerId");
-
-                    if (localDateTimeElement != null && timerIdElement != null) {
-                        return m_availableTimers.time(note, timerIdElement.getAsString(), localDateTimeElement.getAsString());
-                    }
-                }
-                break;
-            case "TIMERS":
-                if (networkId.equals(m_availableTimers.getTimerNetworkId())) {
-                    JsonElement availableTimersElement = note.get("availableTimers");
-                    if (availableTimersElement != null && availableTimersElement.isJsonArray()) {
-                        JsonArray timersArray = availableTimersElement.getAsJsonArray();
-                        m_availableTimers.setAvailableTimers(timersArray);
-                        return true;
-                    }
-                }
-
-                break;
-        }
-
         return false;
     }
 
-    public void openWallet(double walletSceneWidth, double walletSceneHeight) {
+    public void open(String password) {
+        try {
 
-        double maxWidth = walletSceneWidth > m_maxWidth ? m_maxWidth : walletSceneWidth;
-        double maxHeight = walletSceneHeight > m_maxHeight ? m_maxHeight : walletSceneHeight;
+            Wallet wallet = Wallet.load(m_walletFile.toPath(), password);
 
-        double sceneWidth = maxWidth < MIN_WIDTH ? MIN_WIDTH : maxWidth;
-        double sceneHeight = maxHeight < MIN_HEIGHT ? MIN_HEIGHT : maxHeight;
+            Stage walletStage = new Stage();
+            walletStage.getIcons().add(ErgoWallet.getSmallAppIcon());
+            walletStage.initStyle(StageStyle.UNDECORATED);
+            walletStage.setTitle(getName() + " - " + ErgoWallet.NAME);
+
+            Scene walletScene = getWalletScene(wallet, m_sceneWidth, m_sceneHeight, walletStage);
+            walletStage.setScene(walletScene);
+
+            ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
+        } catch (Exception e1) {
+
+            //    passwordField.setText("");
+            try {
+                Files.writeString(logFile.toPath(), e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e2) {
+
+            }
+        }
+    }
+
+    public void openWallet() {
+
+        double sceneWidth = 720;
+        double sceneHeight = 480;
 
         try {
             Files.writeString(logFile.toPath(), "\nConfirming wallet password.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -312,7 +252,7 @@ public class WalletData extends Network implements NoteInterface {
                     Wallet wallet = Wallet.load(m_walletFile.toPath(), passwordField.getText());
                     passwordField.setText("");
 
-                    walletStage.setScene(getWalletScene(wallet, sceneWidth, sceneHeight, passwordScene, walletStage));
+                    walletStage.setScene(getWalletScene(wallet, sceneWidth, sceneHeight, walletStage));
                     ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
 
                 } catch (Exception e1) {
@@ -333,7 +273,7 @@ public class WalletData extends Network implements NoteInterface {
 
     }
 
-    private Scene getWalletScene(Wallet wallet, double sceneWidth, double sceneHeight, Scene passwordScene, Stage walletStage) {
+    private Scene getWalletScene(Wallet wallet, double sceneWidth, double sceneHeight, Stage walletStage) {
 
         AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType, walletStage);
 
@@ -399,10 +339,9 @@ public class WalletData extends Network implements NoteInterface {
         MenuItem nodeMenuItem = new MenuItem(ErgoNetwork.NAME);
         nodeMenuItem.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
         nodeMenuItem.setOnAction(e -> {
-            setNodeId(NetworkID.ERGO_NETWORK);
 
             networkMenuBtn.setGraphic(IconButton.getIconView(ErgoNetwork.getSmallAppIcon(), imageWidth));
-            networkMenuBtn.setUserData(NetworkID.ERGO_NETWORK);
+
             if (getNodeInterface() == null) {
                 Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNetwork.NAME + "' to use this feature.", ButtonType.OK);
                 nodeAlert.setGraphic(IconButton.getIconView(ErgoNetwork.getAppIcon(), alertImageWidth));
@@ -437,8 +376,7 @@ public class WalletData extends Network implements NoteInterface {
         ergoExplorerMenuItem.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
 
         ergoExplorerMenuItem.setOnAction(e -> {
-            setExplorerId(NetworkID.ERGO_EXPLORER);
-            explorerBtn.setUserData(NetworkID.ERGO_EXPLORER);
+
             explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), imageWidth));
 
             addressesData.updateBalance();
@@ -485,8 +423,6 @@ public class WalletData extends Network implements NoteInterface {
         kuCoinExchangeMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
         kuCoinExchangeMenuItem.setOnAction(e -> {
 
-            setChartsId(NetworkID.KUKOIN_EXCHANGE);
-            chartsBtn.setUserData(NetworkID.KUKOIN_EXCHANGE);
             chartsBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
 
             NoteInterface chartInterface = getExchangeInterface();
@@ -503,42 +439,7 @@ public class WalletData extends Network implements NoteInterface {
 
         chartsBtn.getItems().addAll(chartsNullMenuItem, kuCoinExchangeMenuItem);
 
-        Tooltip timerTip = new Tooltip("Select timer");
-        timerTip.setShowDelay(new javafx.util.Duration(100));
-        timerTip.setFont(App.txtFont);
-
-        ImageView timerView = IconButton.getIconView(new Image("/assets/timer-30.png"), imageWidth);
-
-        MenuButton timerBtn = new MenuButton();
-        timerBtn.setGraphic(m_availableTimers.getTimerNetworkId() == null ? timerView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_availableTimers.getTimerNetworkId(), true).getIcon(), imageWidth));;
-        timerBtn.setPadding(new Insets(2, 0, 0, 0));
-        timerBtn.setTooltip(timerTip);
-
-        MenuItem timerNullMenuItem = new MenuItem("(none)");
-
-        timerNullMenuItem.setOnAction(e -> {
-            m_availableTimers.setTimerNetworkId(null);
-            timerBtn.setGraphic(timerView);
-        });
-
-        MenuItem timerMenuItem = new MenuItem(NetworkTimer.NAME);
-        timerMenuItem.setGraphic(IconButton.getIconView(NetworkTimer.getSmallAppIcon(), imageWidth));
-        timerMenuItem.setOnAction(e -> {
-
-            m_availableTimers.setTimerNetworkId(NetworkID.NETWORK_TIMER);
-            timerBtn.setGraphic(IconButton.getIconView(NetworkTimer.getSmallAppIcon(), imageWidth));
-
-            if (getNetworksData().getNoteInterface(m_availableTimers.getTimerNetworkId()) == null) {
-                Alert timerAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall " + NetworkTimer.NAME + " to use this feature.", ButtonType.OK);
-                timerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), alertImageWidth));
-                timerAlert.initOwner(walletStage);
-                timerAlert.show();
-            }
-        });
-
-        timerBtn.getItems().addAll(timerNullMenuItem, timerMenuItem);
-
-        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, chartsBtn, timerBtn);
+        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, chartsBtn);
         rightSideMenu.setId("rightSideMenuBar");
         rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
@@ -551,9 +452,7 @@ public class WalletData extends Network implements NoteInterface {
         HBox paddingBox = new HBox(menuBar);
         paddingBox.setPadding(new Insets(2, 5, 2, 5));
 
-        HBox timerMenu = m_availableTimers.createTimerMenu(explorerBtn);
-
-        VBox menuVBox = new VBox(paddingBox, timerMenu);
+        VBox menuVBox = new VBox(paddingBox);
 
         VBox layoutBox = addressesData.getAddressBox();
         //layoutBox.setPadding(SMALL_INSETS);
@@ -743,24 +642,16 @@ public class WalletData extends Network implements NoteInterface {
 
     }
 
+    @Override
+    public IconButton getButton(String iconStyle) {
+        IconButton iconButton = new IconButton(null, getName(), iconStyle) {
+            @Override
+            public void open() {
+                getOpen();
+            }
+        };
 
-    /* private void updateAddressBtn(double width, Button rowBtn, AddressData addressData) {
-
-        //   BufferedImage imageBuffer = addressData.getBufferedImage();
-        double remainingSpace = width;// - imageBuffer.getWidth();
-
-        String addressMinimal = addressData.getAddressMinimal((int) (remainingSpace / 24));
-        
-        //ImageView btnImageView = new ImageView();
-       // if (imageBuffer != null) {
-       //     btnImageView.setImage(SwingFXUtils.toFXImage(imageBuffer, null));
-      //  }
-        String text = "> " + addressData.getName() + ": \n  " + addressMinimal;
-        Tooltip addressTip = new Tooltip(addressData.getName());
-
-        //  rowBtn.setGraphic(btnImageView);
-        rowBtn.setText(text);
-        rowBtn.setTooltip(addressTip);
-
-    }*/
+        iconButton.setButtonId(getNetworkId());
+        return iconButton;
+    }
 }
