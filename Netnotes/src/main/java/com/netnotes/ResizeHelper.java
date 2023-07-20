@@ -163,14 +163,19 @@ public class ResizeHelper {
         }
 
         private void setStageWidth(double width) {
+
             width = Math.min(width, maxWidth);
             width = Math.max(width, minWidth);
+
             stage.setWidth(width);
+
         }
 
         private void setStageHeight(double height) {
+
             height = Math.min(height, maxHeight);
             height = Math.max(height, minHeight);
+
             stage.setHeight(height);
         }
 

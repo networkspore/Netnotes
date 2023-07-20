@@ -72,19 +72,20 @@ public class TokensList extends Network {
     private SimpleDoubleProperty m_sceneWidth = new SimpleDoubleProperty(600);
     private SimpleDoubleProperty m_sceneHeight = new SimpleDoubleProperty(630);
     private NetworkType m_networkType;
+    private ErgoTokens m_ergoTokens;
 
-    public TokensList(NetworkType networkType, NoteInterface noteInterface) {
-        super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", noteInterface);
+    public TokensList(SecretKey secretKey, NetworkType networkType, ErgoTokens ergoTokens) {
+        super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", ergoTokens);
         m_networkType = networkType;
+        m_ergoTokens = ergoTokens;
 
-        getFile(networkType);
-
+        openFile(secretKey);
     }
 
-    public TokensList(ArrayList<ErgoNetworkToken> networkTokenList, NetworkType networkType, NoteInterface noteInterface) {
-        super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", noteInterface);
+    public TokensList(ArrayList<ErgoNetworkToken> networkTokenList, NetworkType networkType, ErgoTokens ergoTokens) {
+        super(null, "Ergo Tokens - List (" + networkType.toString() + ")", "TOKENS_LIST", ergoTokens);
         m_networkType = networkType;
-
+        m_ergoTokens = ergoTokens;
         for (ErgoNetworkToken networkToken : networkTokenList) {
 
             addToken(networkToken, false);
@@ -95,33 +96,21 @@ public class TokensList extends Network {
     /* public SimpleObjectProperty<ErgoNetworkToken> getTokenProperty() {
         return m_ergoNetworkToken;
     }*/
-    public void getFile(NetworkType networkType) {
-        if (getParentInterface().getNetworksData().getNoteInterface(NetworkID.ERGO_TOKENS) != null) {
-            getParentInterface().getNetworksData().getNoteInterface(NetworkID.ERGO_TOKENS).sendNote(getDataFileLocation(networkType), onSuccess -> {
-                WorkerStateEvent successEvent = onSuccess;
+    public void openFile(SecretKey secretKey) {
+        NetworkType networkType = m_networkType;
+        String fileString = m_ergoTokens.getFile(networkType);
 
-                Object sourceObject = successEvent.getSource().getValue();
+        File dataFile = new File(fileString);
+        if (dataFile.isFile()) {
+            if (networkType == NetworkType.MAINNET) {
 
-                if (sourceObject != null && sourceObject instanceof String) {
+                readFile(secretKey, dataFile.toPath());
 
-                    String fileString = (String) sourceObject;
-                    File dataFile = new File(fileString);
-                    if (dataFile.isFile()) {
-                        if (networkType == NetworkType.MAINNET) {
-
-                            readFile(getParentInterface().getNetworksData().getAppKey(), dataFile.toPath());
-
-                        } else {
-                            openTestnetFile(dataFile.toPath());
-                        }
-                    }
-                }
-                Platform.runLater(() -> updateGrid());
-            }, onFailed -> {
-
-            });
-
+            } else {
+                openTestnetFile(dataFile.toPath());
+            }
         }
+
     }
 
     @Override
@@ -133,13 +122,6 @@ public class TokensList extends Network {
         return tunnelList;
     }
 
-    public JsonObject getDataFileLocation(NetworkType networkType) {
-        JsonObject getTokensFileObject = new JsonObject();
-        getTokensFileObject.addProperty("subject", "GET_DATAFILE_LOCATION");
-        getTokensFileObject.addProperty("networkType", networkType.toString());
-        return getTokensFileObject;
-    }
-
     public void closeAll() {
         for (int i = 0; i < m_networkTokenList.size(); i++) {
             ErgoNetworkToken networkToken = m_networkTokenList.get(i);
@@ -147,13 +129,13 @@ public class TokensList extends Network {
         }
     }
 
-    public void setNetworkType(NetworkType networkType) {
+    public void setNetworkType(SecretKey secretKey, NetworkType networkType) {
 
         closeAll();
         m_networkTokenList.clear();
         m_networkType = networkType;
         setName("Ergo Tokens - List (" + networkType.toString() + ")");
-        getFile(networkType);
+        openFile(secretKey);
         updateGrid();
 
     }
@@ -324,11 +306,6 @@ public class TokensList extends Network {
     }
 
     private void readFile(SecretKey appKey, Path filePath) {
-        try {
-            Files.writeString(logFile.toPath(), "\nReading file:" + filePath, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
 
         byte[] fileBytes;
         try {

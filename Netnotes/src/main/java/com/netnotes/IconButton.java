@@ -31,15 +31,20 @@ public class IconButton extends Button {
     public static double NORMAL_IMAGE_WIDTH = 75;
     public static double SMALL_IMAGE_WIDTH = 30;
 
+    public static double NORMAL_WIDTH = 90;
+
     public static Insets SMALL_INSETS = new Insets(SMALL_PADDING, SMALL_PADDING, SMALL_PADDING, SMALL_PADDING);
     public static Insets NORMAL_INSETS = new Insets(NORMAL_PADDING, NORMAL_PADDING, NORMAL_PADDING, NORMAL_PADDING);
 
-    public final static String DEFAULT_CURRENT_ID = "iconBtnCurrent";
+    public final static String DEFAULT_CURRENT_ID = "iconBtnSelected";
     public final static String DEFAULT_ID = "iconBtn";
+    public final static String ROW_DEFAULT_ID = "rowBtn";
+    public final static String ROW_CURRENT_ID = "rowBtnSelected";
 
     private String m_defaultId = DEFAULT_ID;
     private String m_currentId = DEFAULT_CURRENT_ID;
 
+    private String m_btnId = null;
     private Image m_icon;
     private double m_imageWidth = 75;
     private String m_name = "";
@@ -70,20 +75,53 @@ public class IconButton extends Button {
 
     }
 
-    public IconButton(Image image, String name, String iconStyle) {
-        super();
-        setIcon(image);
-        setName(name);
-        if (iconStyle.equals(IconStyle.ROW)) {
-            setPadding(SMALL_INSETS);
-        } else {
-            setPadding(NORMAL_INSETS);
-        }
+    public String getButtonId() {
+        return m_btnId;
+    }
 
-        setIconStyle(iconStyle);
-        setId("iconBtn");
-        setFont(App.txtFont);
-        enableActions();
+    public void setButtonId(String buttonId) {
+        m_btnId = buttonId;
+    }
+
+    public IconButton(Image image, String name, String iconStyle) {
+        this(image, name);
+
+        if (iconStyle.equals(IconStyle.ROW)) {
+            m_iconStyle = iconStyle;
+            m_name = name;
+            setPadding(SMALL_INSETS);
+            setContentDisplay(ContentDisplay.LEFT);
+            setAlignment(Pos.CENTER_LEFT);
+            setText(m_name);
+            setImageWidth(30);
+            setId("rowBtn");
+            m_defaultId = ROW_DEFAULT_ID;
+            m_currentId = ROW_CURRENT_ID;
+        } else {
+            m_defaultId = DEFAULT_ID;
+            m_currentId = DEFAULT_CURRENT_ID;
+            setImageWidth(75);
+        }
+    }
+
+    public void setIconStyle(String iconStyle) {
+        m_iconStyle = iconStyle;
+        if (iconStyle.equals(IconStyle.ROW)) {
+            setContentDisplay(ContentDisplay.LEFT);
+            setAlignment(Pos.CENTER_LEFT);
+            setText(m_name);
+            setImageWidth(30);
+            setId("rowBtn");
+            m_defaultId = ROW_DEFAULT_ID;
+            m_currentId = ROW_CURRENT_ID;
+        } else {
+
+            setContentDisplay(ContentDisplay.TOP);
+            setTextAlignment(TextAlignment.CENTER);
+            setId("iconBtn");
+            m_defaultId = DEFAULT_ID;
+            m_currentId = DEFAULT_CURRENT_ID;
+        }
     }
 
     private void startFocusCurrent() {
@@ -145,26 +183,6 @@ public class IconButton extends Button {
         return m_iconStyle;
     }
 
-    public void setIconStyle(String style) {
-        switch (style) {
-            case "ICON":
-                setImageWidth(NORMAL_IMAGE_WIDTH);
-
-                setContentDisplay(ContentDisplay.TOP);
-                setTextAlignment(TextAlignment.CENTER);
-
-                break;
-            case "ROW":
-                setImageWidth(SMALL_IMAGE_WIDTH);
-
-                setContentDisplay(ContentDisplay.LEFT);
-                setAlignment(Pos.CENTER_LEFT);
-                setText(m_name);
-
-                break;
-        }
-    }
-
     public String getName() {
         return m_name;
     }
@@ -178,7 +196,7 @@ public class IconButton extends Button {
         FontMetrics metrics = getFontMetrics(font);
 
         int stringWidth = metrics.stringWidth(name);
-        double imageWidth = getImageWidth();
+        double imageWidth = 75;
         if (stringWidth > imageWidth) {
             int indexOfSpace = name.indexOf(" ");
 
@@ -206,6 +224,45 @@ public class IconButton extends Button {
         } else {
             setText(name);
         }
+    }
+
+    public String getTextSpaces() {
+
+        String name = getName().replace("\n", " ");
+        java.awt.Font font = new java.awt.Font(getFont().getFamily(), java.awt.Font.PLAIN, (int) getFont().getSize());
+
+        FontMetrics metrics = getFontMetrics(font);
+
+        int stringWidth = metrics.stringWidth(name);
+        double imageWidth = 75;
+        if (stringWidth > imageWidth) {
+            int indexOfSpace = name.indexOf(" ");
+
+            if (indexOfSpace > 0) {
+                String firstWord = name.substring(0, indexOfSpace);
+
+                if (metrics.stringWidth(firstWord) > imageWidth) {
+                    setText(truncateName(name, metrics));
+                } else {
+
+                    String text = firstWord + "\n";
+                    String secondWord = name.substring(indexOfSpace + 1, name.length());
+
+                    if (metrics.stringWidth(secondWord) > imageWidth) {
+                        secondWord = truncateName(secondWord, metrics);
+                    }
+                    text = text + secondWord;
+                    return (text);
+                }
+            } else {
+
+                return (truncateName(name, metrics));
+            }
+
+        } else {
+            return (name);
+        }
+        return name;
     }
 
     public String truncateName(String name, FontMetrics metrics) {
@@ -248,6 +305,7 @@ public class IconButton extends Button {
         }
 
         if (value) {
+
             setId(m_currentId);
         } else {
             setId(m_defaultId);

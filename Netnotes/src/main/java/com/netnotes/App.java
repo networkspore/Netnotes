@@ -7,6 +7,9 @@ package com.netnotes;
 import javafx.application.Application;
 import javafx.application.HostServices;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 
@@ -39,6 +42,8 @@ import javafx.stage.StageStyle;
 
 import javafx.scene.input.KeyCode;
 
+import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -53,11 +58,13 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import java.util.List;
+import java.util.TimerTask;
 
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.imageio.ImageIO;
 
 import org.bouncycastle.util.encoders.Hex;
 
@@ -74,6 +81,9 @@ import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
 public class App extends Application {
+
+    public static final String CMD_SHUTDOWN_NOW = "TERMINATE";
+    public static final String CMD_SHOW_APPSTAGE = "SHOW_APPSTAGE";
 
     private File logFile = new File("log.txt");
     //public members
@@ -111,7 +121,7 @@ public class App extends Application {
 
     public static final String homeString = System.getProperty("user.home");
 
-    private AppData appData;
+    private AppData m_appData;
 
     private File settingsFile = null;
 
@@ -122,6 +132,10 @@ public class App extends Application {
     private NetworksData m_networksData;
 
     private HostServices m_networkServices = getHostServices();
+    private java.awt.SystemTray m_tray;
+    private java.awt.TrayIcon m_trayIcon;
+
+    private Stage m_stage;
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -213,8 +227,8 @@ public class App extends Application {
 
                 String passwordHash = null;
                 try {
-                    appData = new AppData(settingsFile);
-                    passwordHash = appData.getAppKey();
+                    m_appData = new AppData(settingsFile);
+                    passwordHash = m_appData.getAppKey();
                 } catch (Exception e) {
                     Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                     a.showAndWait();
@@ -293,12 +307,7 @@ public class App extends Application {
             shutdownNow();
         });
 
-        Stage statusStage = new Stage();
-        statusStage.setResizable(false);
-        statusStage.initStyle(StageStyle.UNDECORATED);
-        statusStage.setTitle("Net Notes - Verifying");
-        statusStage.getIcons().add(logo);
-        setStatusStage(statusStage, "Net Notes - Verifying...", "Verifying..");
+        Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -351,9 +360,14 @@ public class App extends Application {
         return secret;
     }
 
-    public static void setStatusStage(Stage appStage, String title, String statusMessage) {
+    public static Stage getStatusStage(String title, String statusMessage) {
+        Stage statusStage = new Stage();
+        statusStage.setResizable(false);
+        statusStage.initStyle(StageStyle.UNDECORATED);
+        statusStage.setTitle("Net Notes - Verifying");
+        statusStage.getIcons().add(logo);
 
-        appStage.setTitle(title);
+        statusStage.setTitle(title);
 
         Label newTitleLbl = new Label(title);
         newTitleLbl.setFont(titleFont);
@@ -377,7 +391,7 @@ public class App extends Application {
         HBox.setHgrow(imageBox, Priority.ALWAYS);
         imageBox.setAlignment(Pos.CENTER);
 
-        Text statusTxt = new Text("> " + statusMessage);
+        Text statusTxt = new Text(statusMessage);
         statusTxt.setFill(txtColor);
         statusTxt.setFont(txtFont);
 
@@ -391,8 +405,8 @@ public class App extends Application {
         Scene statusScene = new Scene(layoutVBox, 420, 220);
         statusScene.getStylesheets().add("/css/startWindow.css");
 
-        appStage.setScene(statusScene);
-
+        statusStage.setScene(statusScene);
+        return statusStage;
     }
 
     static class Delta {
@@ -403,30 +417,176 @@ public class App extends Application {
     // private static int createTries = 0;
     private void openNetnotes(SecretKey appKey, Stage appStage) {
         File networksFile = new File(networksFileName);
-        JsonObject networksObject = null;
-        boolean notSetup = networksFile.isFile();
-        if (notSetup) {
-            try {
-                String fileString = Files.readString(networksFile.toPath());
-                networksObject = new JsonParser().parse(fileString).getAsJsonObject();
-            } catch (Exception e) {
-                try {
-                    Files.writeString(logFile.toPath(), "\n" + e.toString());
-                } catch (IOException e1) {
 
-                }
-            }
+        boolean isNetworksFile = networksFile.isFile();
+
+        m_networksData = new NetworksData(appKey, m_networkServices, networksFile, isNetworksFile);
+
+        m_stage = new Stage();
+        m_stage.initStyle(StageStyle.UTILITY);
+        m_stage.setOpacity(0);
+        m_stage.setHeight(0);
+        m_stage.setWidth(0);
+        m_stage.show();
+        if (!isNetworksFile) {
+
+            m_networksData.showManageNetworkStage();
         }
 
-        m_networksData = new NetworksData(appKey, m_networkServices, networksObject, networksFile);
+        m_networksData.cmdSwitchProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                JsonObject cmdObject = m_networksData.cmdSwitchProperty().get();
+                JsonElement subjectElement = cmdObject.get("subject");
+                if (subjectElement != null) {
+                    String cmdSubject = subjectElement.getAsString();
+                    Platform.runLater(() -> {
+                        switch (cmdSubject) {
+                            case CMD_SHUTDOWN_NOW:
 
+                                break;
+                            case CMD_SHOW_APPSTAGE:
+                                //  Alert a = new Alert(AlertType.NONE, "msg", ButtonType.CLOSE);
+                                //  a.show();
+                                if (appStage.isIconified()) {
+                                    appStage.requestFocus();
+                                    appStage.setIconified(false);
+                                    appStage.show();
+                                    appStage.toFront();
+
+                                } else {
+                                    if (appStage.isShowing()) {
+
+                                        appStage.show();
+                                        appStage.toFront();
+                                        appStage.requestFocus();
+
+                                    } else {
+
+                                        verifyAppKey(() -> {
+
+                                            appStage.show();
+
+                                        });
+
+                                    }
+                                }
+
+                                break;
+                        }
+                    });
+                }
+            }
+        });
+
+        if (java.awt.SystemTray.isSupported()) {
+
+            javax.swing.SwingUtilities.invokeLater(this::addAppToTray);
+        }
+
+        showMainStage(appStage);
+
+    }
+
+    public void verifyAppKey(Runnable runnable) {
+        String title = "Net Notes - Enter Password";
+
+        Stage appStage = new Stage();
+        appStage.getIcons().add(logo);
+        appStage.setResizable(false);
+        appStage.initStyle(StageStyle.UNDECORATED);
+        appStage.setTitle(title);
+
+        Button closeBtn = new Button();
+
+        HBox titleBox = createTopBar(icon, title, closeBtn, appStage);
+
+        Button imageButton = createImageButton(logo, "Net Notes");
+
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
+
+        Text passwordTxt = new Text("> Enter password:");
+        passwordTxt.setFill(txtColor);
+        passwordTxt.setFont(txtFont);
+
+        PasswordField passwordField = new PasswordField();
+        passwordField.setFont(txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+
+        Platform.runLater(() -> passwordField.requestFocus());
+
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+        passwordBox.setPadding(new Insets(20, 0, 0, 0));
+
+        Button clickRegion = new Button();
+        clickRegion.setPrefWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(500);
+
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
+
+        });
+
+        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
+
+        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+
+        Scene passwordScene = new Scene(layoutVBox, 600, 320);
+
+        passwordScene.getStylesheets().add("/css/startWindow.css");
+        appStage.setScene(passwordScene);
+
+        closeBtn.setOnAction(e -> {
+            appStage.close();
+        });
+
+        Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
+
+        passwordField.setOnKeyPressed(e -> {
+
+            KeyCode keyCode = e.getCode();
+
+            if (keyCode == KeyCode.ENTER) {
+
+                if (passwordField.getText().length() < 6) {
+                    passwordField.setText("");
+                } else {
+
+                    statusStage.show();
+
+                    FxTimer.runLater(Duration.ofMillis(100), () -> {
+
+                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_appData.getAppKeyBytes());
+                        Platform.runLater(() -> passwordField.setText(""));
+                        statusStage.close();
+                        if (result.verified) {
+
+                            runnable.run();
+                            appStage.close();
+                        }
+
+                    });
+                }
+            }
+        });
+        appStage.show();
+    }
+
+    private void showMainStage(Stage appStage) {
+        double appSceneWidth = 800;
+        double appSceneHeight = 450;
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
         Button networksBtn = new Button();
+        Button maximizeBtn = new Button();
 
         appStage.setTitle("Net Notes");
 
-        HBox titleBox = createTopBar(icon, "Net Notes", closeBtn, appStage);
+        HBox titleBox = createTopBar(icon, maximizeBtn, closeBtn, appStage);
 
         VBox menuBox = createMenu(settingsBtn, networksBtn);
         networksBtn.setId("activeMenuBtn");
@@ -442,91 +602,67 @@ public class App extends Application {
         vBar.setPrefWidth(2);
         vBar.setId("vGradient");
 
-        // gBox.setPadding(new Insets(15, 0, 0, 0));
-        HBox mainHbox = new HBox(menuBox, vBar, bodyVBox);
+        VBox headerBox = new VBox();
+        headerBox.setPadding(new Insets(0, 2, 5, 2));
+        headerBox.setId("bodyBox");
+
+        VBox bodyBox = new VBox(headerBox, bodyVBox);
+        HBox.setHgrow(bodyBox, Priority.ALWAYS);
+
+        HBox mainHbox = new HBox(menuBox, vBar, bodyBox);
         VBox.setVgrow(mainHbox, Priority.ALWAYS);
 
         VBox layout = new VBox(titleBox, mainHbox);
         VBox.setVgrow(layout, Priority.ALWAYS);
+        layout.setPadding(new Insets(0, 2, 2, 2));
 
-        Scene appScene = new Scene(layout, 800, 450);
+        Scene appScene = new Scene(layout, appSceneWidth, appSceneHeight);
         appScene.getStylesheets().add("/css/startWindow.css");
         // appStage.setScene(appScene);
-
-        closeBtn.setOnAction(e -> {
-
-            appStage.close();
-        });
 
         settingsBtn.setOnAction(e -> {
             networksBtn.setId("menuBtn");
             settingsBtn.setId("activeMenuBtn");
+            headerBox.getChildren().clear();
             showSettings(appStage, bodyVBox);
         });
 
         networksBtn.setOnAction(e -> {
             networksBtn.setId("activeMenuBtn");
             settingsBtn.setId("menuBtn");
-            showNetworks(appScene, bodyVBox);
+            showNetworks(appScene, headerBox, bodyVBox);
         });
 
-        if (notSetup) {
-            appStage.setScene(appScene);
-        } else {
-            setupOptions(appStage, appScene);
-        }
+        appStage.setScene(appScene);
+        showNetworks(appScene, headerBox, bodyVBox);
 
-        showNetworks(appScene, bodyVBox);
+        Rectangle rect = m_networksData.getMaximumWindowBounds();
+        ResizeHelper.addResizeListener(appStage, 400, 200, rect.getWidth(), rect.getHeight());
+        appStage.widthProperty().addListener((obs, oldval, newVal) -> {
+            m_networksData.setWidth(newVal.doubleValue());
+        });
+        appStage.heightProperty().addListener((obs, oldval, newVal) -> {
+            m_networksData.setHeight(newVal.doubleValue());
+        });
 
-        appStage.show();
-    }
-
-    private void setupOptions(Stage appStage, Scene appScene) {
-
-        String topTitle = "Setup: Options";
-
-        Button closeBtn = new Button();
         closeBtn.setOnAction(e -> {
-            appStage.setScene(appScene);
-        });
-        HBox titleBox = createTopBar(icon, topTitle, closeBtn, appStage);
-
-        IconButton allNetworksBtn = new IconButton(new Image("/assets/layers.png"), "Full Install");
-
-        allNetworksBtn.setOnAction(e -> {
-
-            m_networksData.addNoteInterface(new ErgoWallet(m_networksData));
-            m_networksData.addNoteInterface(new ErgoExplorer(m_networksData));
-            m_networksData.addNoteInterface(new ErgoNetwork(m_networksData));
-            m_networksData.addNoteInterface(new KucoinExchange(m_networksData));
-
-            appStage.setScene(appScene);
-        });
-        Region seperatorRegion = new Region();
-        seperatorRegion.setPrefHeight(20);
-
-        IconButton cleanInstallBtn = new IconButton(new Image("/assets/snow.png"), "Clean Install");
-        cleanInstallBtn.setPrefWidth(200);
-        cleanInstallBtn.setPrefHeight(200);
-        cleanInstallBtn.setOnAction(e -> {
-            m_networksData.clear();
-            appStage.setScene(appScene);
-            m_networksData.showManageNetworkStage();
+            m_tray.remove(m_trayIcon);
+            m_networksData.shutdown();
+            appStage.close();
+            shutdownNow();
         });
 
-        VBox listVBox = new VBox(allNetworksBtn, seperatorRegion, cleanInstallBtn);
-        listVBox.setPadding(new Insets(35, 0, 0, 0));
-        listVBox.setAlignment(Pos.CENTER);
+        if (java.awt.SystemTray.isSupported()) {
+            BufferedButton sleepBtn = new BufferedButton("/assets/moon-15.png", 15);
 
-        VBox layoutVBox = new VBox(titleBox, listVBox);
-
-        Scene setupOptionsScene = new Scene(layoutVBox, 350, 450);
-        setupOptionsScene.getStylesheets().add("/css/startWindow.css");
-        appStage.setScene(setupOptionsScene);
-
+            sleepBtn.setOnAction(e -> {
+                appStage.hide();
+            });
+            titleBox.getChildren().add(sleepBtn);
+        }
     }
 
-    private void showNetworks(Scene appScene, VBox bodyVBox) {
+    private void showNetworks(Scene appScene, VBox header, VBox bodyVBox) {
 
         bodyVBox.getChildren().clear();
 
@@ -536,7 +672,7 @@ public class App extends Application {
 
         IconButton manageButton = new IconButton(new Image("/assets/filter.png"), "", IconStyle.ICON);
         manageButton.setImageWidth(15);
-        manageButton.setPadding(new Insets(0, 6, 0, 6));
+        manageButton.setPadding(new Insets(3, 6, 3, 6));
         manageButton.setTooltip(addTip);
         manageButton.setOnAction(e -> m_networksData.showManageNetworkStage());
 
@@ -546,18 +682,17 @@ public class App extends Application {
         menuBar.setId("menuBar");
         menuBar.setPadding(new Insets(1, 5, 1, 5));
 
-        bodyVBox.setPadding(new Insets(0, 5, 0, 5));
+        header.getChildren().clear();
+        header.getChildren().add(menuBar);
 
-        VBox gridBox = m_networksData.getNetworksBox(appScene.getWidth() - 100);
-        VBox.setVgrow(gridBox, Priority.ALWAYS);
-        HBox.setHgrow(gridBox, Priority.ALWAYS);
+        VBox gridBox = m_networksData.getNetworksBox();
 
         ScrollPane scrollPane = new ScrollPane(gridBox);
         scrollPane.setPadding(new Insets(5, 0, 5, 0));
-        scrollPane.prefViewportWidthProperty().bind(appScene.widthProperty());
-        scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty().subtract(40).subtract(menuBar.heightProperty().get()));
+        scrollPane.prefViewportWidthProperty().bind(appScene.widthProperty().subtract(90));
+        scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty().subtract(menuBar.heightProperty().get()).subtract(50));
 
-        bodyVBox.getChildren().addAll(menuBar, scrollPane);
+        bodyVBox.getChildren().addAll(scrollPane);
 
         /*
         addButton.setOnAction(clickEvent -> {
@@ -570,14 +705,14 @@ public class App extends Application {
     private void showSettings(Stage appStage, VBox bodyVBox) {
         bodyVBox.getChildren().clear();
 
-        boolean isUpdates = appData.getUpdates();
+        boolean isUpdates = m_appData.getUpdates();
 
         Button settingsButton = createImageButton(logo, "Settings");
 
         HBox settingsBtnBox = new HBox(settingsButton);
         settingsBtnBox.setAlignment(Pos.CENTER);
 
-        Text passwordTxt = new Text("> Password:");
+        Text passwordTxt = new Text(String.format("%-12s", "  Password:"));
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
 
@@ -585,41 +720,51 @@ public class App extends Application {
         passwordBtn.setFont(txtFont);
         passwordBtn.setId("toolBtn");
         passwordBtn.setOnAction(e -> {
-            Stage newPasswordStage = new Stage();
-            final String newPassword = createPassword(newPasswordStage, "Net Notes - Security", logo, "Security");
-            if (!newPassword.equals("")) {
-                Stage statusStage = new Stage();
-                setStatusStage(statusStage, "Net Notes - Saving...", "Saving...");
-                statusStage.show();
-                FxTimer.runLater(Duration.ofMillis(100), () -> {
-                    String hash = Utils.getBcryptHashString(newPassword);
+            Stage passwordStage = new Stage();
 
-                    try {
+            createPassword("Net Notes - Password", logo, logo, passwordStage, (onSuccess) -> {
+                Object sourceObject = onSuccess.getSource().getValue();
 
-                        appData.setAppKey(hash);
-                    } catch (IOException e1) {
-                        Alert a = new Alert(AlertType.NONE, "Error: Password not changed.\n\n" + e1.toString(), ButtonType.CLOSE);
-                        a.setTitle("Error: Password not changed.");
+                if (sourceObject != null && sourceObject instanceof String) {
+                    String newPassword = (String) sourceObject;
+
+                    if (!newPassword.equals("")) {
+
+                        Stage statusStage = getStatusStage("Net Notes - Saving...", "Saving...");
+                        statusStage.show();
+                        FxTimer.runLater(Duration.ofMillis(100), () -> {
+                            String hash = Utils.getBcryptHashString(newPassword);
+
+                            try {
+
+                                m_appData.setAppKey(hash);
+                            } catch (IOException e1) {
+                                Alert a = new Alert(AlertType.NONE, "Error: Password not changed.\n\n" + e1.toString(), ButtonType.CLOSE);
+                                a.setTitle("Error: Password not changed.");
+                                a.initOwner(appStage);
+                                a.show();
+                            }
+
+                            statusStage.close();
+
+                        });
+                    } else {
+                        Alert a = new Alert(AlertType.NONE, "Net Notes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
+                        a.setTitle("Net Notes: Password not changed");
                         a.initOwner(appStage);
                         a.show();
                     }
+                }
+                passwordStage.close();
+            });
 
-                    statusStage.close();
-
-                });
-            } else {
-                Alert a = new Alert(AlertType.NONE, "Net Notes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
-                a.setTitle("Net Notes: Password not changed");
-                a.initOwner(appStage);
-                a.show();
-            }
         });
 
         HBox passwordBox = new HBox(passwordTxt, passwordBtn);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
         passwordBox.setPadding(new Insets(10, 0, 0, 20));
 
-        Text updatesTxt = new Text("> Updates:");
+        Text updatesTxt = new Text(String.format("%-12s", "  Updates:"));
         updatesTxt.setFill(txtColor);
         updatesTxt.setFont(txtFont);
 
@@ -630,10 +775,10 @@ public class App extends Application {
             try {
                 if (updatesBtn.getText().equals("Enabled")) {
                     updatesBtn.setText("Disabled");
-                    appData.setUpdates(false);
+                    m_appData.setUpdates(false);
                 } else {
                     updatesBtn.setText("Enabled");
-                    appData.setUpdates(true);
+                    m_appData.setUpdates(true);
                 }
             } catch (IOException e1) {
                 Alert a = new Alert(AlertType.NONE, "Error:\n\n" + e1.toString(), ButtonType.CLOSE);
@@ -694,24 +839,20 @@ public class App extends Application {
         return file;
     }
 
-    public static String createPassword(Stage callingStage, String topTitle, Image windowLogo, String windowSubTitle) {
+    public static void createPassword(String topTitle, Image windowLogo, Image mainLogo, Stage passwordStage, EventHandler<WorkerStateEvent> onSucceeded) {
 
-        Stage passwordStage = new Stage();
         passwordStage.setTitle(topTitle);
-        passwordStage.getIcons().add(logo);
-        passwordStage.setResizable(false);
-        passwordStage.initStyle(StageStyle.UNDECORATED);
 
         Button closeBtn = new Button();
 
         HBox titleBox = createTopBar(icon, topTitle, closeBtn, passwordStage);
 
-        Button imageButton = createImageButton(windowLogo, windowSubTitle);
-
-        HBox imageBox = new HBox(imageButton);
+        Button imageBtn = App.createImageButton(mainLogo, "Password");
+        imageBtn.setGraphicTextGap(20);
+        HBox imageBox = new HBox(imageBtn);
         imageBox.setAlignment(Pos.CENTER);
 
-        Text passwordTxt = new Text("> Create password:");
+        Text passwordTxt = new Text("> Enter password:");
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
 
@@ -745,16 +886,13 @@ public class App extends Application {
 
         VBox passwordVBox = new VBox(titleBox, imageBox, bodyBox);
 
-        Scene passwordScene = new Scene(passwordVBox, 600, 425);
+        Scene passwordScene = new Scene(passwordVBox, 600, 300);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
-        closeBtn.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent actionEvent) {
-                passwordField.setText("");
-                passwordStage.close();
-            }
+        closeBtn.setOnAction(e -> {
+            passwordField.setText("");
+            passwordStage.close();
         });
 
         passwordField.setOnKeyPressed(e1 -> {
@@ -765,9 +903,8 @@ public class App extends Application {
 
                 String passStr = passwordField.getText();
                 // createPassField.setText("");
-                bodyBox.getChildren().remove(clickRegion);
 
-                passwordField.setVisible(false);
+                bodyBox.getChildren().removeAll(passwordBox, clickRegion);
 
                 Text reenterTxt = new Text("> Confirm password:");
                 reenterTxt.setFill(txtColor);
@@ -791,22 +928,25 @@ public class App extends Application {
                     if ((keyCode2 == KeyCode.ENTER)) {
 
                         if (passStr.equals(createPassField2.getText())) {
-                            passwordStage.close();
+
+                            Utils.returnObject(passStr, onSucceeded, e -> {
+                                closeBtn.fire();
+                            });
                         } else {
-                            bodyBox.getChildren().remove(secondPassBox);
+                            bodyBox.getChildren().clear();
                             createPassField2.setText("");
                             passwordField.setText("");
-                            passwordField.setVisible(true);
+
                             secondPassBox.getChildren().clear();
+                            bodyBox.getChildren().addAll(passwordBox, clickRegion);
+
                         }
                     }
                 });
 
             }
         });
-        passwordStage.showAndWait();
 
-        return passwordField.getText();
     }
 
     private static void restoreWallet(Stage callingStage) {
@@ -1430,4 +1570,60 @@ public class App extends Application {
         return passwordField.getText().equals("") ? null : passwordField.getText();
     }
 
+    private void addAppToTray() {
+        try {
+            // ensure awt toolkit is initialized.
+            java.awt.Toolkit.getDefaultToolkit();
+
+            BufferedImage imgBuf = SwingFXUtils.fromFXImage(new Image("/assets/icon15.png"), null);
+
+            // set up a system tray icon.
+            m_tray = java.awt.SystemTray.getSystemTray();
+
+            m_trayIcon = new java.awt.TrayIcon((java.awt.Image) imgBuf, "Net Notes");
+            m_trayIcon.setActionCommand("show");
+            // if the user double-clicks on the tray icon, show the main app stage.
+            m_trayIcon.addActionListener(event -> Platform.runLater(() -> {
+                if (event.getActionCommand().equals("show")) {
+                    m_networksData.show();
+                }
+
+            }));//
+
+            // if the user selects the default menu item (which includes the app name),
+            // show the main app stage.
+            java.awt.MenuItem openItem = new java.awt.MenuItem("Show Networks");
+            openItem.addActionListener(event -> Platform.runLater(() -> m_networksData.show()));
+
+            // the convention for tray icons seems to be to set the default icon for opening
+            // the application stage in a bold font.
+            java.awt.Font defaultFont = java.awt.Font.decode(null);
+            java.awt.Font boldFont = defaultFont.deriveFont(java.awt.Font.BOLD);
+            openItem.setFont(boldFont);
+
+            // to really exit the application, the user must go to the system tray icon
+            // and select the exit option, this will shutdown JavaFX and remove the
+            // tray icon (removing the tray icon will also shut down AWT).
+            java.awt.MenuItem exitItem = new java.awt.MenuItem("Close");
+            exitItem.addActionListener(event -> Platform.runLater(() -> {
+                m_networksData.shutdown();
+                m_tray.remove(m_trayIcon);
+                shutdownNow();
+            }));
+
+            // setup the popup menu for the application.
+            final java.awt.PopupMenu popup = new java.awt.PopupMenu();
+            popup.add(openItem);
+            popup.addSeparator();
+            popup.add(exitItem);
+            m_trayIcon.setPopupMenu(popup);
+
+            // add the application tray icon to the system tray.
+            m_tray.add(m_trayIcon);
+
+        } catch (java.awt.AWTException e) {
+
+        }
+
+    }
 }

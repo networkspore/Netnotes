@@ -8,13 +8,17 @@ import com.utils.Utils;
 
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.image.Image;
+import javafx.scene.text.TextAlignment;
 
 public class ErgoExplorer extends Network implements NoteInterface {
 
     public final static String DESCRIPTION = "Ergo Explorer allows you to explore and search the Ergo blockchain.";
     public final static String SUMMARY = "Installing the Ergo Explorer allows balance and transaction information to be looked up for wallet addresses.";
     public final static String NAME = "Ergo Explorer";
+    public final static String NETWORK_ID = "ERGO_EXPLORER";
+
     public final static String MAINNET_EXPLORER_URL = "https://explorer.ergoplatform.com/";
     public final static String TESTNET_EXPLORER_URL = "https://testnet.ergoplatform.com/";
 
@@ -23,6 +27,22 @@ public class ErgoExplorer extends Network implements NoteInterface {
 
     private String m_mainnetExplorerUrlString = ErgoMainnet_EXPLORER_URL;
     private String m_testnetExplorerUrlString = ErgoTestnet_EXPLORER_URL;
+
+    public ErgoExplorer(ErgoNetwork ergoNetwork) {
+        super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+
+    }
+
+    public ErgoExplorer(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
+        super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+
+        JsonElement explorerURLElement = jsonObject.get("mainnetExplorerURL");
+        JsonElement testnetExplorerUrlElement = jsonObject.get("testnetExplorerURL");
+
+        m_mainnetExplorerUrlString = explorerURLElement != null ? explorerURLElement.getAsString() : ErgoMainnet_EXPLORER_URL;
+        m_testnetExplorerUrlString = testnetExplorerUrlElement != null ? testnetExplorerUrlElement.getAsString() : ErgoTestnet_EXPLORER_URL;
+
+    }
 
     public static JsonObject getBalanceNote(String address, NetworkType... networkType) {
         JsonObject jsonObject = new JsonObject();
@@ -43,22 +63,6 @@ public class ErgoExplorer extends Network implements NoteInterface {
         jsonObject.addProperty("networkType", networkType.toString());
 
         return jsonObject;
-    }
-
-    public ErgoExplorer(NetworksData networksData) {
-        super(getAppIcon(), NAME, NetworkID.ERGO_EXPLORER, networksData);
-
-    }
-
-    public ErgoExplorer(JsonObject jsonObject, NetworksData networksData) {
-        super(getAppIcon(), NAME, NetworkID.ERGO_EXPLORER, networksData);
-
-        JsonElement explorerURLElement = jsonObject.get("mainnetExplorerURL");
-        JsonElement testnetExplorerUrlElement = jsonObject.get("testnetExplorerURL");
-
-        m_mainnetExplorerUrlString = explorerURLElement != null ? explorerURLElement.getAsString() : ErgoMainnet_EXPLORER_URL;
-        m_testnetExplorerUrlString = testnetExplorerUrlElement != null ? testnetExplorerUrlElement.getAsString() : ErgoTestnet_EXPLORER_URL;
-
     }
 
     public static Image getSmallAppIcon() {
@@ -121,6 +125,7 @@ public class ErgoExplorer extends Network implements NoteInterface {
 
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
     }
+
     /*
         public static int getNetworkBlockHeight(NetworkType networkType) {
         HttpClient httpClient = HttpClient.newHttpClient();
@@ -133,5 +138,24 @@ public class ErgoExplorer extends Network implements NoteInterface {
         }
     }
      */
+    @Override
+    public IconButton getButton(String iconStyle) {
 
+        IconButton iconButton = new IconButton(iconStyle.equals(IconStyle.ROW) ? getSmallAppIcon() : getAppIcon(), iconStyle.equals(IconStyle.ROW) ? getName() : getText(), iconStyle) {
+            @Override
+            public void open() {
+                getOpen();
+            }
+        };
+
+        if (iconStyle.equals(IconStyle.ROW)) {
+            iconButton.setContentDisplay(ContentDisplay.LEFT);
+            iconButton.setImageWidth(30);
+        } else {
+            iconButton.setContentDisplay(ContentDisplay.TOP);
+            iconButton.setTextAlignment(TextAlignment.CENTER);
+        }
+
+        return iconButton;
+    }
 }

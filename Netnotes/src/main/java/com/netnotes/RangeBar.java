@@ -319,7 +319,7 @@ public class RangeBar extends BufferedImageView {
 
                 BufferedImage moveableImage = SwingFXUtils.fromFXImage(m_collapseImage, null);
 
-                g2d.drawImage(moveableImage, 2, (height / 2) - (26 / 2), 12, 26, null);
+                g2d.drawImage(moveableImage, 1, (height / 2) - (26 / 2), 13, 26, null);
 
             }
         } else {

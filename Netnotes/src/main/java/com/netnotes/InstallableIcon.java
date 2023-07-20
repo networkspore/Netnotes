@@ -27,13 +27,13 @@ public class InstallableIcon extends IconButton {
     private String m_summary;
     private double m_sceneWidth = DEFAULT_SCENE_WIDTH;
     private double m_sceneHeight = DEFAULT_SCENE_HEIGHT;
-    private NetworksData m_networksData;
+    private InstallerInterface m_networksData;
 
-    public InstallableIcon(NetworksData networksData, String networkId, boolean installed) {
+    public InstallableIcon(InstallerInterface networksData, String networkId, boolean installed) {
         super();
 
         setInstalled(installed);
-        m_networksData = networksData;
+        //  m_networksData = networksData;
 
         setNetworkId(networkId);
         setIconStyle(installed ? IconStyle.ROW : IconStyle.ICON);
@@ -97,6 +97,12 @@ public class InstallableIcon extends IconButton {
                 setName(ErgoTokens.NAME);
                 setDescription(ErgoTokens.DESCRIPTION);
                 setSummary(ErgoTokens.SUMMARY);
+                break;
+            case "ERGO_NODES":
+                setIcon(m_installed ? ErgoNodes.getSmallAppIcon() : ErgoNodes.getAppIcon());
+                setName(ErgoNodes.NAME);
+                setDescription(ErgoNodes.DESCRIPTION);
+                setSummary("");
                 break;
 
         }

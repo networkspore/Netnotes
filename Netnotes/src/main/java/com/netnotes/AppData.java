@@ -27,8 +27,13 @@ public class AppData {
         return m_appKey;
     }
 
+    public byte[] getAppKeyBytes() {
+        return m_appKey.getBytes();
+    }
+
     public void setAppKey(String keyHash) throws IOException {
         m_appKey = keyHash;
+        save();
     }
 
     public boolean getUpdates() {

@@ -24,6 +24,17 @@ public class BufferedButton extends Button {
 
     }
 
+    public BufferedButton(String urlString, double imageWidth) {
+        super();
+        m_imgBufView = new BufferedImageView(new Image(urlString), imageWidth);
+        setGraphic(m_imgBufView);
+
+        setId("menuBtn");
+        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(.6));
+        setOnMouseReleased((pressedEvent) -> m_imgBufView.clearEffects());
+
+    }
+
     public BufferedButton(String name, String urlString) {
         super(name);
         m_imgBufView = new BufferedImageView(new Image(urlString), 30);

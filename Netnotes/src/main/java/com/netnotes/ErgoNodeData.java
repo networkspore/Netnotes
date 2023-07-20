@@ -21,19 +21,19 @@ public class ErgoNodeData extends IconButton {
 
     private String m_networkId;
 
-    private int m_exPort = ErgoNetwork.EXTERNAL_PORT;
-    private int m_port = ErgoNetwork.MAINNET_PORT;
+    private int m_exPort = ErgoNodes.EXTERNAL_PORT;
+    private int m_port = ErgoNodes.MAINNET_PORT;
     private String m_apiKey = "";
     private String m_url = null;
 
     public SimpleStringProperty nodeApiAddress;
 
     private NetworkType m_networkType;
-    private ErgoNetwork m_ergoNetwork;
+    private ErgoNodes m_ergoNodes;
 
-    public ErgoNodeData(JsonObject jsonObj, ErgoNetwork ergoNetwork) {
+    public ErgoNodeData(JsonObject jsonObj, ErgoNodes ergoNodes) {
         super();
-        m_ergoNetwork = ergoNetwork;
+        m_ergoNodes = ergoNodes;
 
         JsonElement networkIdElement = jsonObj == null ? null : jsonObj.get("networkId");
         JsonElement apiKeyElement = jsonObj == null ? null : jsonObj.get("apiKey");
@@ -63,13 +63,13 @@ public class ErgoNodeData extends IconButton {
 
         JsonObject getExplorerUrlObject = new JsonObject();
         getExplorerUrlObject.addProperty("subject", "GET_EXPLORER_URL");
-        getExplorerUrlObject.addProperty("networkId", m_ergoNetwork.getNetworkId());
+        getExplorerUrlObject.addProperty("networkId", m_networkId);
         getExplorerUrlObject.addProperty("networkType", m_networkType.toString());
         return getExplorerUrlObject;
     }
 
     public boolean getClient(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        NoteInterface explorerInterface = m_ergoNetwork.getExplorerInterface();
+        NoteInterface explorerInterface = m_ergoNodes.getExplorerInterface();
         if (explorerInterface != null) {
             return explorerInterface.sendNote(getExplorerUrlObject(), success -> {
                 Object successObject = success.getSource().getValue();

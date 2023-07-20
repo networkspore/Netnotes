@@ -11,8 +11,9 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
-
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.image.Image;
+import javafx.scene.text.TextAlignment;
 
 public class Network extends IconButton {
 
@@ -24,38 +25,6 @@ public class Network extends IconButton {
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private ChangeListener<LocalDateTime> m_changeListener = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
-
-    public static class NetworkID {
-
-        public final static String ERGO_NETWORK = "ERGO_NETWORK";
-        public final static String ERGO_WALLET = "ERGO_WALLET";
-        public final static String KUKOIN_EXCHANGE = "KUCOIN_EXCHANGE";
-        public final static String ERGO_EXPLORER = "ERGO_EXPLORER";
-        public final static String NETWORK_TIMER = "NETWORK_TIMER";
-        public final static String ERGO_TOKENS = "ERGO_TOKENS";
-
-    }
-
-    public static String getNetworkName(String networkId) {
-        switch (networkId) {
-            case "ERGO_NETWORK":
-                return ErgoNetwork.NAME;
-            case "ERGO_WALLET":
-                return ErgoWallet.NAME;
-            case "KUCOIN_EXCHANGE":
-                return KucoinExchange.NAME;
-            case "ERGO_EXPLORER":
-                return ErgoExplorer.NAME;
-            case "NETWORK_TIMER":
-                return NetworkTimer.NAME;
-            case "ERGO_TOKENS":
-                return ErgoTokens.NAME;
-
-            default:
-
-                return null;
-        }
-    }
 
     public Network(Image icon, String name, String id, NetworksData networksData) {
         super(icon);
@@ -158,6 +127,10 @@ public class Network extends IconButton {
 
     }
 
+    public void shutdown() {
+        shutdownNowProperty().set(LocalDateTime.now());
+    }
+
     private SimpleObjectProperty<JsonObject> m_cmdProperty = new SimpleObjectProperty<JsonObject>(null);
     private ChangeListener<JsonObject> m_cmdListener;
 
@@ -208,5 +181,28 @@ public class Network extends IconButton {
         super.close();
 
         shutdownNowProperty().set(LocalDateTime.now());
+    }
+
+    public void getOpen() {
+        open();
+    }
+
+    public IconButton getButton(String iconStyle) {
+
+        IconButton iconButton = new IconButton(getIcon(), getName()) {
+            @Override
+            public void open() {
+                getOpen();
+            }
+        };
+
+        if (iconStyle.equals(IconStyle.ROW)) {
+            iconButton.setContentDisplay(ContentDisplay.LEFT);
+        } else {
+            iconButton.setContentDisplay(ContentDisplay.TOP);
+            iconButton.setTextAlignment(TextAlignment.CENTER);
+        }
+
+        return iconButton;
     }
 }

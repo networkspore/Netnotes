@@ -24,6 +24,8 @@ public interface NoteInterface {
 
     IconButton getButton();
 
+    IconButton getButton(String iconStyle);
+
     NetworksData getNetworksData();
 
     NoteInterface getParentInterface();
@@ -33,5 +35,7 @@ public interface NoteInterface {
     void removeUpdateListener();
 
     void remove();
+
+    void shutdown();
 
 }

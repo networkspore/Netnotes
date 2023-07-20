@@ -54,6 +54,22 @@
     -fx-opacity: 1;
 }
 
+#rowBtnSelected {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-opacity: .8;
+    -fx-background-color: #77777790;
+    
+
+}
+
+#rowBtnSelected:hover {
+
+    -fx-opacity: 1;
+    -fx-cursor: pointer;
+}
+
 #rowBtn {
     -fx-text-fill: #777777;
     -fx-font-size: 14px;
@@ -136,6 +152,10 @@
 #textField {
     -fx-background-color: transparent;
     -fx-text-fill: white;
+}
+
+#textFieldCenter *.text {
+    -fx-text-alignment: center;
 }
 
 #amountField{
@@ -290,6 +310,8 @@
 }
 
 #iconBtn {
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
     -fx-background-radius: 10px;
     -fx-background-color: transparent;
     -fx-opacity: .8;
@@ -301,8 +323,12 @@
 }
 
 #iconBtnSelected {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
     -fx-opacity: .8;
-    -fx-background-color: linear-gradient(to top, #ffffff01, #ffffff02, #11111105);
+    -fx-background-color: #77777790;
+
 } 
 
 #iconBtnSelected:hover {
@@ -390,6 +416,10 @@
 #bodyBox {
     -fx-background-color: #33333350;
 
+}
+
+#bodyRight{
+    -fx-background-color: #22222250;
 }
 
 #menuBarBtn{

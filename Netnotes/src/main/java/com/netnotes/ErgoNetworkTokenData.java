@@ -4,7 +4,6 @@ import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.netnotes.Network.NetworkID;
 
 public class ErgoNetworkTokenData {
 

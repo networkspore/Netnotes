@@ -423,6 +423,7 @@ public class KucoinMarketItem {
                 chartHeight.set(newVal.doubleValue() - headerVBox.heightProperty().get() - 30 + chartHeightOffset.get());
 
             });
+            chartWidth.bind(marketScene.widthProperty().subtract(50));
 
             chartHeightOffset.addListener((obs, oldVal, newVal) -> {
                 chartHeight.set(newVal.doubleValue() - headerVBox.heightProperty().get() - 30 + marketScene.getHeight());

@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 
 import org.ergoplatform.appkit.NetworkType;
 
@@ -74,7 +75,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             if (sourceObject != null && sourceObject instanceof JsonObject) {
 
                 readTickers(m_favoritesList, getDataJson((JsonObject) sourceObject), onSuccess -> {
-                    getFile();
+                    getFile(getNetworksData().appKeyProperty().get());
                     sortByChangeRate(false);
                     sort();
                     updateGridBox();
@@ -86,7 +87,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                     } catch (IOException e) {
 
                     }
-                    getFile();
+                    getFile(getNetworksData().appKeyProperty().get());
                     m_notConnected = true;
                     m_statusMsg.set("Not connected");
                     updateGridBox();
@@ -99,7 +100,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                 } catch (IOException e) {
 
                 }
-                getFile();
+                getFile(getNetworksData().appKeyProperty().get());
                 m_notConnected = true;
                 m_statusMsg.set("Not connected");
                 updateGridBox();
@@ -110,10 +111,14 @@ public class KuCoinDataList extends Network implements NoteInterface {
             } catch (IOException e) {
 
             }
-            getFile();
+            getFile(getNetworksData().appKeyProperty().get());
             m_notConnected = true;
             m_statusMsg.set("Not connected");
             updateGridBox();
+        });
+
+        getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+            save(newVal);
         });
     }
 
@@ -151,7 +156,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             updateGridBox();
 
             if (doSave) {
-                save();
+                save(getNetworksData().appKeyProperty().get());
             }
         }
     }
@@ -164,7 +169,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             updateGridBox();
 
             if (doSave) {
-                save();
+                save(getNetworksData().appKeyProperty().get());
             }
         }
     }
@@ -316,13 +321,13 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
     }
 
-    private void getFile() {
+    private void getFile(SecretKey secretKey) {
         JsonObject json = null;
 
         File dataFile = m_kucoinExchange.getDataFile();
         if (dataFile != null && dataFile.isFile()) {
             try {
-                json = Utils.readJsonFile(getNetworksData().getAppKey(), dataFile.toPath());
+                json = Utils.readJsonFile(secretKey, dataFile.toPath());
                 openJson(json);
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
@@ -623,10 +628,10 @@ public class KuCoinDataList extends Network implements NoteInterface {
         return m_kucoinExchange;
     }
 
-    public void save() {
+    public void save(SecretKey secretKey) {
 
         try {
-            Utils.saveJson(m_kucoinExchange.getNetworksData().getAppKey(), getJsonObject(), m_kucoinExchange.getDataFile());
+            Utils.saveJson(secretKey, getJsonObject(), m_kucoinExchange.getDataFile());
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
                 | IOException e) {

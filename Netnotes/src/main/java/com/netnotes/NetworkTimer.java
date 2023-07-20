@@ -45,7 +45,7 @@ public class NetworkTimer extends Network implements NoteInterface {
     public static String DESCRIPTION = "Network Timer enables timed updates for components.";
     public static String SUMMARY = "Create timers at various intervals and time spans.";
     public static String NAME = "Network Timer";
-
+    public static String NETWORK_ID = "NETWORK_TIMER";
     private File logFile = new File("timer-log.txt");
 
     private ArrayList<TimerData> m_timersList = new ArrayList<TimerData>();
@@ -53,14 +53,14 @@ public class NetworkTimer extends Network implements NoteInterface {
     private Stage m_timerStage = null;
 
     public NetworkTimer(NetworksData networksData) {
-        super(getAppIcon(), NAME, NetworkID.NETWORK_TIMER, networksData);
+        super(getAppIcon(), NAME, NETWORK_ID, networksData);
 
         m_timersList.add(new TimerData(null, this));
 
     }
 
     public NetworkTimer(JsonObject jsonObject, NetworksData networksData) {
-        super(getAppIcon(), NAME, NetworkID.NETWORK_TIMER, networksData);
+        super(getAppIcon(), NAME, NETWORK_ID, networksData);
 
     }
 

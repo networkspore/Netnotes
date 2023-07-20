@@ -47,6 +47,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
@@ -57,6 +58,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -66,6 +68,7 @@ public class ErgoTokens extends Network implements NoteInterface {
     public final static String DESCRIPTION = "Ergo Tokens allows you to manage your interactions with the tokens on the Ergo Network.";
     public final static String SUMMARY = "Mange your tokens with Ergo Tokens.";
     public final static String NAME = "Ergo Tokens";
+    public final static String NETWORK_ID = "ERGO_TOKENS";
 
     private File logFile = new File("ErgoTokens-log.txt");
     private File m_dataFile = null;
@@ -74,12 +77,12 @@ public class ErgoTokens extends Network implements NoteInterface {
     private Stage m_tokensStage = null;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
-    private String m_explorerId = NetworkID.ERGO_EXPLORER;
+    private String m_explorerId = ErgoExplorer.NETWORK_ID;
 
-    public ErgoTokens(NetworksData networksData) {
-        super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
+    public ErgoTokens(ErgoNetwork ergoNetwork) {
+        super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
 
-        m_appDir = new File(System.getProperty("user.dir") + "/" + NAME);
+        m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
 
         if (!m_appDir.isDirectory()) {
 
@@ -89,22 +92,28 @@ public class ErgoTokens extends Network implements NoteInterface {
                 Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                 a.show();
             }
-            File tokensDir = new File(m_appDir.getAbsolutePath() + "\tokens");
+            File tokensDir = new File(m_appDir.getAbsolutePath() + "/tokens");
 
             m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
-            setupTokens(networksData.getAppKey(), tokensDir);
+            setupTokens(getNetworksData().appKeyProperty().get(), tokensDir);
         } else {
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
             m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
         }
 
+        ergoNetwork.getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+            TokensList tokensList = new TokensList(oldVal, m_networkType, this);
+
+            save(getNetworksData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
+        });
+
     }
 
-    public ErgoTokens(JsonObject jsonObject, NetworksData networksData) {
+    public ErgoTokens(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
 
-        super(getAppIcon(), NAME, NetworkID.ERGO_TOKENS, networksData);
+        super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
 
         JsonElement networkTypeElement = jsonObject.get("networkType");
         JsonElement appDirElement = jsonObject.get("appDir");
@@ -123,7 +132,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_appDir = new File(appDirElement.getAsString());
         } else {
 
-            m_appDir = new File(System.getProperty("user.dir") + "/" + ErgoTokens.NAME);
+            m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
         }
 
         if (!m_appDir.isDirectory()) {
@@ -148,7 +157,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 m_testnetDataFile = new File(testnetDataElement.getAsString());
             }
 
-            setupTokens(getNetworksData().getAppKey(), tokensDir);
+            setupTokens(getNetworksData().appKeyProperty().get(), tokensDir);
         } else {
 
             if (dataElement == null) {
@@ -163,6 +172,11 @@ public class ErgoTokens extends Network implements NoteInterface {
                 m_testnetDataFile = new File(testnetDataElement.getAsString());
             }
         }
+        ergoNetwork.getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+            TokensList tokensList = new TokensList(oldVal, m_networkType, this);
+
+            save(getNetworksData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
+        });
 
     }
 
@@ -192,7 +206,7 @@ public class ErgoTokens extends Network implements NoteInterface {
     public void showTokensStage() {
         if (m_tokensStage == null) {
 
-            TokensList tokensList = new TokensList(m_networkType, this);
+            TokensList tokensList = new TokensList(getNetworksData().appKeyProperty().get(), m_networkType, this);
             tokensList.addUpdateListener((obs, oldVal, newVal) -> {
 
                 try {
@@ -200,7 +214,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 } catch (IOException e) {
 
                 }
-                save(getNetworksData().getAppKey(), tokensList.getJsonObject(), m_networkType);
+                save(getNetworksData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
             });
 
             double tokensStageWidth = 375;
@@ -278,7 +292,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
                 m_tokensStage.setTitle(getName() + ": Tokens " + (m_networkType == NetworkType.MAINNET ? "(MAINNET)" : "(TESTNET)"));
 
-                tokensList.setNetworkType(m_networkType);
+                tokensList.setNetworkType(getNetworksData().appKeyProperty().get(), m_networkType);
             });
 
             Tooltip explorerTip = new Tooltip(getExplorerInterface() == null ? "Explorer disabled" : getExplorerInterface().getName());
@@ -305,8 +319,8 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             ergoExplorerMenuItem.setOnAction(e -> {
 
-                m_explorerId = NetworkID.ERGO_EXPLORER;
-                explorerBtn.setUserData(NetworkID.ERGO_EXPLORER);
+                m_explorerId = ErgoExplorer.NETWORK_ID;
+                explorerBtn.setUserData(m_explorerId);
                 explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), 30));
 
                 if (getExplorerInterface() == null) {
@@ -472,7 +486,6 @@ public class ErgoTokens extends Network implements NoteInterface {
     @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         JsonElement subjectElement = note.get("subject");
-        JsonElement networkTypeElement = note.get("networkType");
 
         if (subjectElement != null) {
             switch (subjectElement.getAsString()) {
@@ -483,21 +496,6 @@ public class ErgoTokens extends Network implements NoteInterface {
                     Utils.returnObject(m_tokensStage, onSucceeded, onFailed);
                     break;
 
-                case "GET_DATAFILE_LOCATION":
-                    if (networkTypeElement != null) {
-                        String networkTypeString = networkTypeElement.getAsString();
-                        NetworkType networkType = networkTypeString.equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : networkTypeString.equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : null;
-
-                        if (networkType == null) {
-                            return false;
-                        }
-
-                        String path = networkType == NetworkType.MAINNET ? m_dataFile.getAbsolutePath() : m_testnetDataFile.getAbsolutePath();
-
-                        Utils.returnObject(path, onSucceeded, onFailed);
-                        return true;
-                    }
-                    break;
                 case "GET_EXPLORER_INTERFACE_ID":
                     Utils.returnObject(m_explorerId, onSucceeded, onFailed);
                     return true;
@@ -513,6 +511,12 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     public static Image getSmallAppIcon() {
         return new Image("/assets/diamond-30.png");
+    }
+
+    public String getFile(NetworkType networkType) {
+
+        return networkType == NetworkType.MAINNET ? m_dataFile.getAbsolutePath() : m_testnetDataFile.getAbsolutePath();
+
     }
 
     public File getAppDir() {
@@ -559,6 +563,11 @@ public class ErgoTokens extends Network implements NoteInterface {
                 Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                 a.show();
             }
+        }
+        try {
+            Files.writeString(logFile.toPath(), "setupTokens " + "Createddir: " + createdtokensDirectory, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
         }
 
         if (tokensDir.isDirectory() && createdtokensDirectory) {
@@ -844,6 +853,27 @@ public class ErgoTokens extends Network implements NoteInterface {
                 }
             }
         }
+    }
+
+    @Override
+    public IconButton getButton(String iconStyle) {
+
+        IconButton iconButton = new IconButton(iconStyle.equals(IconStyle.ROW) ? getSmallAppIcon() : getAppIcon(), iconStyle.equals(IconStyle.ROW) ? getName() : getText(), iconStyle) {
+            @Override
+            public void open() {
+                getOpen();
+            }
+        };
+
+        if (iconStyle.equals(IconStyle.ROW)) {
+            iconButton.setContentDisplay(ContentDisplay.LEFT);
+            iconButton.setImageWidth(30);
+        } else {
+            iconButton.setContentDisplay(ContentDisplay.TOP);
+            iconButton.setTextAlignment(TextAlignment.CENTER);
+        }
+
+        return iconButton;
     }
 
 }

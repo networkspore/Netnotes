@@ -50,10 +50,6 @@ public class TimersList {
         }
     }
 
-    public String getTimerNetworkId() {
-        return m_timerNetworkId;
-    }
-
     public void setTimerNetworkId(String networkId) {
 
         m_subscribedTimers = new JsonArray();

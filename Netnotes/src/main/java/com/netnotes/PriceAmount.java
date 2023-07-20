@@ -49,10 +49,6 @@ public class PriceAmount {
         return m_created;
     }
 
-    public String getNetworkName() {
-        return m_currency == null ? "" : m_currency.getNetworkName();
-    }
-
     @Override
     public String toString() {
         int precision = m_currency.getFractionalPrecision();

@@ -4,8 +4,6 @@ import java.util.Map;
 
 import org.ergoplatform.appkit.ErgoToken;
 
-import com.netnotes.Network.NetworkID;
-
 import javafx.scene.image.Image;
 
 public class PriceCurrency {
@@ -78,14 +76,6 @@ public class PriceCurrency {
 
     public String networkId() {
         return m_networkId;
-    }
-
-    public String getNetworkName() {
-        if (m_networkId == null) {
-            return "";
-        }
-
-        return Network.getNetworkName(m_networkId);
     }
 
     public int getFractionalPrecision() {

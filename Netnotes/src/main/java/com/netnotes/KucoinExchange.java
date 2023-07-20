@@ -63,6 +63,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     public static String DESCRIPTION = "KuCoin Exchange provides access to real time crypto market information for trading pairs.";
     public static String SUMMARY = "";
     public static String NAME = "KuCoin Exchange";
+    public final static String NETWORK_ID = "KUCOIN_EXCHANGE";
     private String m_clientId = null;
 
     public static String[] AVAILABLE_TIMESPANS = new String[]{
@@ -101,7 +102,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     }
 
     public KucoinExchange(JsonObject jsonObject, NetworksData networksData) {
-        super(getAppIcon(), NAME, NetworkID.KUKOIN_EXCHANGE, networksData);
+        super(getAppIcon(), NAME, NETWORK_ID, networksData);
 
         setup(jsonObject);
     }
