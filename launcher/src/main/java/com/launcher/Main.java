@@ -1,31 +1,24 @@
 package com.launcher;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.Security;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.concurrent.Task;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Alert.AlertType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
+import java.util.concurrent.TimeUnit;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -33,6 +26,8 @@ import com.google.gson.JsonParser;
 import com.rfksystems.blake2b.security.Blake2bProvider;
 
 public class Main {
+
+    private static File logFile = new File("launcher-log.txt");
 
     public static final String currentAppJarEquals = "currentAppJar=";
 
@@ -48,6 +43,11 @@ public class Main {
     public static final String currentDirectory = System.getProperty("user.dir");
     public static final String settingsFileName = "settings.conf";
 
+    public static final String CMD_SHOW_APPSTAGE = "SHOW_APPSTAGE";
+    public static final long EXECUTION_TIME = 100;
+
+    public static final String NOTES_ID = "launcher";
+
     public static void main(String[] args) throws IOException {
         launch();
     }
@@ -60,6 +60,20 @@ public class Main {
 
         // Path appDataPath = Paths.get(appDataDirectory);
         Path settingsPath = Paths.get(currentDirectory + "\\" + settingsFileName);
+
+        File notesDir = new File(currentDirectory + "\\notes");
+        File outDir = new File(currentDirectory + "\\out");
+
+        if (!notesDir.isDirectory()) {
+            Files.createDirectories(notesDir.toPath());
+        }
+        if (!outDir.isDirectory()) {
+            Files.createDirectories(outDir.toPath());
+        }
+
+        File writeFile = new File(currentDirectory + "\\notes\\" + NOTES_ID + "#" + CMD_SHOW_APPSTAGE + ".in");
+
+        File watchFile = new File(currentDirectory + "\\out\\" + NOTES_ID + ".out");
 
         boolean isSettings = Files.isRegularFile(settingsPath);
         boolean updates = true;
@@ -100,18 +114,63 @@ public class Main {
             boolean isJar = !currentDirectoyJar.equals("");
 
             if (javaVersion != null && isJar) {
+                showIfNotRunning(watchFile, writeFile, () -> {
 
-                try {
-                    openJar(currentDirectoyJar);
-                } catch (IOException e) {
-                    openSetup(visitGitHub, javaVersionArg, appJarArg);
-                }
+                    try {
+                        openJar(currentDirectoyJar);
+                    } catch (IOException e) {
+                        openSetup(visitGitHub, javaVersionArg, appJarArg);
+                    }
+                });
 
             } else {
                 openSetup(visitGitHub, javaVersionArg, appJarArg);
             }
 
         }
+
+    }
+
+    public static String getShowCmdObject() {
+
+        return "{\"id\": \"" + NOTES_ID + "\", \"type\": \"CMD\", \"cmd\": \"" + CMD_SHOW_APPSTAGE + "\", \"timeStamp\": " + System.currentTimeMillis() + "}";
+
+        /*JsonObject showJson = new JsonObject();
+        showJson.addProperty("id", "launcher");
+        showJson.addProperty("type", "CMD");
+        showJson.addProperty("cmd", CMD_SHOW_APPSTAGE);
+        showJson.addProperty("timeStamp", System.currentTimeMillis());
+
+        return showJson; */
+    }
+
+    public static void showIfNotRunning(File watchFile, File writeFile, Runnable notRunning) throws IOException {
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+
+        if (watchFile.isFile()) {
+            Files.delete(watchFile.toPath());
+        }
+
+        try {
+            Files.writeString(writeFile.toPath(), getShowCmdObject());
+        } catch (IOException ex) {
+            try {
+                Files.writeString(logFile.toPath(), "\nIO exception " + ex.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+        }
+
+        executor.schedule(() -> {
+            if (watchFile.isFile()) {
+                Platform.exit();
+                System.exit(0);
+            } else {
+                notRunning.run();
+            }
+
+        }, EXECUTION_TIME, TimeUnit.MILLISECONDS);
 
     }
 
@@ -156,6 +215,8 @@ public class Main {
 
         Runtime.getRuntime().exec(cmdString);
 
+        Platform.exit();
+        System.exit(0);
     }
 
 }

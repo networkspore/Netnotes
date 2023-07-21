@@ -480,6 +480,9 @@ public class Setup extends Application {
         cmdString = new String[]{"cmd", "/c", "javaw", "-jar", jarFilePathString, hexJson};
 
         Runtime.getRuntime().exec(cmdString);
+
+        Platform.exit();
+        System.exit(0);
     }
 
     public static String getBcryptHashString(String password) {

@@ -1,18 +1,17 @@
 package com.netnotes;
 
 import java.awt.GraphicsEnvironment;
-import java.awt.KeyEventDispatcher;
-import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.WatchService;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -31,26 +30,22 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import com.netnotes.IconButton.IconStyle;
 import com.satergo.extra.AESEncryption;
-import com.utils.Utils;
 
 import javafx.application.HostServices;
-import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleDoubleProperty;
+import javafx.application.Platform;
+
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
+
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Alert.AlertType;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -60,6 +55,10 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 public class NetworksData implements InstallerInterface {
+
+    public final static long WATCH_INTERVAL = 50;
+    public final String INPUT_EXT = ".in";
+    public final String OUT_EXT = ".out";
 
     public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
         ErgoNetwork.NETWORK_ID,
@@ -88,7 +87,11 @@ public class NetworksData implements InstallerInterface {
     private HostServices m_hostServices;
     private File m_appDir;
 
-    private SimpleObjectProperty<JsonObject> m_cmdSwitch = new SimpleObjectProperty<JsonObject>(new JsonObject());
+    private File m_notesDir;
+    private File m_outDir;
+    private SimpleObjectProperty<com.grack.nanojson.JsonObject> m_cmdSwitch = new SimpleObjectProperty<com.grack.nanojson.JsonObject>(null);
+
+    private NoteWatcher m_noteWatcher = null;
 
     private File logFile = new File("networkData-log.txt");
 
@@ -102,6 +105,33 @@ public class NetworksData implements InstallerInterface {
 
         if (isFile) {
             readFile(appKeyProperty().get(), networksFile.toPath());
+        }
+
+        m_notesDir = new File(m_appDir.getAbsolutePath() + "/notes");
+        m_outDir = new File(m_appDir.getAbsolutePath() + "/out");
+        if (!m_notesDir.isDirectory()) {
+            try {
+                Files.createDirectory(m_notesDir.toPath());
+            } catch (IOException e) {
+
+            }
+        }
+        if (!m_outDir.isDirectory()) {
+            try {
+                Files.createDirectory(m_outDir.toPath());
+            } catch (IOException e) {
+
+            }
+        }
+
+        try {
+            m_noteWatcher = new NoteWatcher(m_notesDir, new NoteListener() {
+                public void onNoteChange(String fileString) {
+                    checkFile(new File(fileString));
+                }
+            });
+        } catch (IOException e) {
+
         }
 
     }
@@ -172,7 +202,7 @@ public class NetworksData implements InstallerInterface {
         }
     }
 
-    public SimpleObjectProperty<JsonObject> cmdSwitchProperty() {
+    public SimpleObjectProperty<com.grack.nanojson.JsonObject> cmdSwitchProperty() {
         return m_cmdSwitch;
     }
 
@@ -256,14 +286,18 @@ public class NetworksData implements InstallerInterface {
 
             m_noteInterfaceList.remove(i);
         }
-
+        if (m_noteWatcher != null) {
+            m_noteWatcher.shutdown();
+        }
         closeNetworksStage();
     }
 
     public void show() {
-        JsonObject showJson = new JsonObject();
-        showJson.addProperty("subject", App.CMD_SHOW_APPSTAGE);
-        showJson.addProperty("timeStamp", Utils.getNowEpochMillis());
+        com.grack.nanojson.JsonObject showJson = new com.grack.nanojson.JsonObject();
+
+        showJson.put("type", "CMD");
+        showJson.put("cmd", App.CMD_SHOW_APPSTAGE);
+        showJson.put("timeStamp", System.currentTimeMillis());
 
         m_cmdSwitch.set(showJson);
     }
@@ -731,6 +765,56 @@ public class NetworksData implements InstallerInterface {
                 Files.writeString(logFile.toPath(), "\nKey error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
 
+            }
+        }
+
+    }
+
+    public String getAckString(String id, long timeStamp) {
+        return "{\"id\": \"" + id + "\", \"type\": \"ack\", \"timeStamp\": " + timeStamp + "}";
+    }
+
+    private void noteIn(String id, String body, File inFile) {
+        switch (body) {
+            case App.CMD_SHOW_APPSTAGE:
+                show();
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    private void sendAck(String senderId) {
+
+        //  Runnable ack = () -> {
+        File ackFile = new File(m_outDir.getAbsolutePath() + "\\" + senderId + OUT_EXT);
+        try {
+            Files.writeString(ackFile.toPath(), getAckString(senderId, System.currentTimeMillis()));
+        } catch (IOException e) {
+
+        }
+        //  };
+
+        // Thread t = new Thread(ack);
+        // t.setDaemon(true);
+        //  t.start();
+    }
+
+    private void checkFile(File file) {
+
+        String fileName = file.getName();
+        int fileNameLength = fileName.length();
+        int extIndex = fileNameLength - INPUT_EXT.length();
+
+        if (fileName.substring(extIndex, fileNameLength).equals(INPUT_EXT)) {
+            int hashIndex = fileName.indexOf("#");
+            String senderId = hashIndex == -1 ? fileName.substring(0, extIndex) : fileName.substring(0, hashIndex);
+            String bodyString = hashIndex == -1 ? null : fileName.substring(hashIndex + 1, extIndex);
+
+            if (bodyString != null) {
+                sendAck(senderId);
+                Platform.runLater(() -> noteIn(senderId, bodyString, file));
             }
         }
 

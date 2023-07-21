@@ -20,9 +20,33 @@ import org.apache.commons.codec.binary.Hex;
 
 import com.rfksystems.blake2b.Blake2b;
 
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
+
 import java.io.FilenameFilter;
 
 public class Utils {
+
+    public static void returnObject(Object object, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
+        Task<Object> task = new Task<Object>() {
+            @Override
+            public Object call() {
+
+                return object;
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+
+    }
 
     public static String digestFileToHex(File file) throws Exception, FileNotFoundException, IOException {
 

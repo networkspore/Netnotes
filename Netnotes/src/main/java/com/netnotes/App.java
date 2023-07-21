@@ -7,12 +7,10 @@ package com.netnotes;
 import javafx.application.Application;
 import javafx.application.HostServices;
 import javafx.application.Platform;
-import javafx.beans.property.SimpleDoubleProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 
+import javafx.event.EventHandler;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
@@ -58,13 +56,11 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import java.util.List;
-import java.util.TimerTask;
 
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.imageio.ImageIO;
 
 import org.bouncycastle.util.encoders.Hex;
 
@@ -82,8 +78,9 @@ import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
 public class App extends Application {
 
-    public static final String CMD_SHUTDOWN_NOW = "TERMINATE";
     public static final String CMD_SHOW_APPSTAGE = "SHOW_APPSTAGE";
+    public static final long NOTE_EXECUTION_TIME = 100;
+    public static final String notesFileName = "notes.dat";
 
     private File logFile = new File("log.txt");
     //public members
@@ -435,45 +432,46 @@ public class App extends Application {
 
         m_networksData.cmdSwitchProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                JsonObject cmdObject = m_networksData.cmdSwitchProperty().get();
-                JsonElement subjectElement = cmdObject.get("subject");
-                if (subjectElement != null) {
-                    String cmdSubject = subjectElement.getAsString();
-                    Platform.runLater(() -> {
-                        switch (cmdSubject) {
-                            case CMD_SHUTDOWN_NOW:
+                com.grack.nanojson.JsonObject cmdObject = m_networksData.cmdSwitchProperty().get();
+                String type = cmdObject.getString("type");
 
-                                break;
-                            case CMD_SHOW_APPSTAGE:
-                                //  Alert a = new Alert(AlertType.NONE, "msg", ButtonType.CLOSE);
-                                //  a.show();
-                                if (appStage.isIconified()) {
-                                    appStage.requestFocus();
-                                    appStage.setIconified(false);
-                                    appStage.show();
-                                    appStage.toFront();
+                if (type != null) {
+                    if (type.equals("CMD")) {
+                        String cmd = cmdObject.getString("cmd");
+                        Platform.runLater(() -> {
+                            switch (cmd) {
 
-                                } else {
-                                    if (appStage.isShowing()) {
-
+                                case CMD_SHOW_APPSTAGE:
+                                    //  Alert a = new Alert(AlertType.NONE, "msg", ButtonType.CLOSE);
+                                    //  a.show();
+                                    if (appStage.isIconified()) {
+                                        appStage.requestFocus();
+                                        appStage.setIconified(false);
                                         appStage.show();
                                         appStage.toFront();
-                                        appStage.requestFocus();
 
                                     } else {
-
-                                        verifyAppKey(() -> {
+                                        if (appStage.isShowing()) {
 
                                             appStage.show();
+                                            appStage.toFront();
+                                            appStage.requestFocus();
 
-                                        });
+                                        } else {
 
+                                            verifyAppKey(() -> {
+
+                                                appStage.show();
+
+                                            });
+
+                                        }
                                     }
-                                }
 
-                                break;
-                        }
-                    });
+                                    break;
+                            }
+                        });
+                    }
                 }
             }
         });

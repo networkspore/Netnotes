@@ -190,7 +190,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             try {
                 contentType = Files.probeContentType(file.toPath());
                 contentType = contentType.split("/")[0];
-                Files.writeString(logFile.toPath(), "\ncontentType: " + contentType, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
             } catch (IOException e) {
 
             }
