@@ -144,7 +144,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
             ErgoNetworkData ergNetData = new ErgoNetworkData(this);
             m_stage = new Stage();
             m_stage.setTitle("Ergo Network");
-            m_stage.getIcons().add(getAppIcon());
+            m_stage.getIcons().add(getIcon());
             m_stage.setResizable(false);
             m_stage.initStyle(StageStyle.UNDECORATED);
 

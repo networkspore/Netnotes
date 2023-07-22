@@ -133,6 +133,7 @@ public class App extends Application {
     private java.awt.TrayIcon m_trayIcon;
 
     private Stage m_stage;
+    private Stage m_passwordStage = null;
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -486,92 +487,107 @@ public class App extends Application {
     }
 
     public void verifyAppKey(Runnable runnable) {
-        String title = "Net Notes - Enter Password";
+        if (m_passwordStage == null) {
+            String title = "Net Notes - Enter Password";
 
-        Stage appStage = new Stage();
-        appStage.getIcons().add(logo);
-        appStage.setResizable(false);
-        appStage.initStyle(StageStyle.UNDECORATED);
-        appStage.setTitle(title);
+            m_passwordStage = new Stage();
+            m_passwordStage.getIcons().add(logo);
+            m_passwordStage.setResizable(false);
+            m_passwordStage.initStyle(StageStyle.UNDECORATED);
+            m_passwordStage.setTitle(title);
 
-        Button closeBtn = new Button();
+            Button closeBtn = new Button();
 
-        HBox titleBox = createTopBar(icon, title, closeBtn, appStage);
+            HBox titleBox = createTopBar(icon, title, closeBtn, m_passwordStage);
 
-        Button imageButton = createImageButton(logo, "Net Notes");
+            Button imageButton = createImageButton(logo, "Net Notes");
 
-        HBox imageBox = new HBox(imageButton);
-        imageBox.setAlignment(Pos.CENTER);
+            HBox imageBox = new HBox(imageButton);
+            imageBox.setAlignment(Pos.CENTER);
 
-        Text passwordTxt = new Text("> Enter password:");
-        passwordTxt.setFill(txtColor);
-        passwordTxt.setFont(txtFont);
+            Text passwordTxt = new Text("> Enter password:");
+            passwordTxt.setFill(txtColor);
+            passwordTxt.setFont(txtFont);
 
-        PasswordField passwordField = new PasswordField();
-        passwordField.setFont(txtFont);
-        passwordField.setId("passField");
-        HBox.setHgrow(passwordField, Priority.ALWAYS);
+            PasswordField passwordField = new PasswordField();
+            passwordField.setFont(txtFont);
+            passwordField.setId("passField");
+            HBox.setHgrow(passwordField, Priority.ALWAYS);
 
-        Platform.runLater(() -> passwordField.requestFocus());
+            Platform.runLater(() -> passwordField.requestFocus());
 
-        HBox passwordBox = new HBox(passwordTxt, passwordField);
-        passwordBox.setAlignment(Pos.CENTER_LEFT);
-        passwordBox.setPadding(new Insets(20, 0, 0, 0));
+            HBox passwordBox = new HBox(passwordTxt, passwordField);
+            passwordBox.setAlignment(Pos.CENTER_LEFT);
+            passwordBox.setPadding(new Insets(20, 0, 0, 0));
 
-        Button clickRegion = new Button();
-        clickRegion.setPrefWidth(Double.MAX_VALUE);
-        clickRegion.setId("transparentColor");
-        clickRegion.setPrefHeight(500);
+            Button clickRegion = new Button();
+            clickRegion.setPrefWidth(Double.MAX_VALUE);
+            clickRegion.setId("transparentColor");
+            clickRegion.setPrefHeight(500);
 
-        clickRegion.setOnAction(e -> {
-            passwordField.requestFocus();
+            clickRegion.setOnAction(e -> {
+                passwordField.requestFocus();
 
-        });
+            });
 
-        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
+            VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
 
-        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
-        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+            VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+            VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 320);
+            Scene passwordScene = new Scene(layoutVBox, 600, 320);
 
-        passwordScene.getStylesheets().add("/css/startWindow.css");
-        appStage.setScene(passwordScene);
+            passwordScene.getStylesheets().add("/css/startWindow.css");
+            m_passwordStage.setScene(passwordScene);
 
-        closeBtn.setOnAction(e -> {
-            appStage.close();
-        });
+            Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
 
-        Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
+            passwordField.setOnKeyPressed(e -> {
 
-        passwordField.setOnKeyPressed(e -> {
+                KeyCode keyCode = e.getCode();
 
-            KeyCode keyCode = e.getCode();
+                if (keyCode == KeyCode.ENTER) {
 
-            if (keyCode == KeyCode.ENTER) {
+                    if (passwordField.getText().length() < 6) {
+                        passwordField.setText("");
+                    } else {
 
-                if (passwordField.getText().length() < 6) {
-                    passwordField.setText("");
-                } else {
+                        statusStage.show();
 
-                    statusStage.show();
+                        FxTimer.runLater(Duration.ofMillis(100), () -> {
 
-                    FxTimer.runLater(Duration.ofMillis(100), () -> {
+                            BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_appData.getAppKeyBytes());
+                            Platform.runLater(() -> passwordField.setText(""));
+                            statusStage.close();
+                            if (result.verified) {
+                                m_passwordStage.close();
+                                m_passwordStage = null;
+                                runnable.run();
 
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_appData.getAppKeyBytes());
-                        Platform.runLater(() -> passwordField.setText(""));
-                        statusStage.close();
-                        if (result.verified) {
+                            }
 
-                            runnable.run();
-                            appStage.close();
-                        }
-
-                    });
+                        });
+                    }
                 }
+            });
+
+            closeBtn.setOnAction(e -> {
+                m_passwordStage.close();
+                m_passwordStage = null;
+            });
+
+            m_passwordStage.setOnCloseRequest(e -> {
+                m_passwordStage = null;
+            });
+
+            m_passwordStage.show();
+        } else {
+            if (m_passwordStage.isIconified()) {
+                m_passwordStage.setIconified(false);
             }
-        });
-        appStage.show();
+            m_passwordStage.show();
+            m_passwordStage.toFront();
+        }
     }
 
     private void showMainStage(Stage appStage) {
@@ -944,10 +960,6 @@ public class App extends Application {
 
             }
         });
-
-    }
-
-    private static void restoreWallet(Stage callingStage) {
 
     }
 
@@ -1385,70 +1397,6 @@ public class App extends Application {
         return newTopBar;
     }
 
-    /*
-    public static HBox createLabeledTopBar(Image iconImage, Label newTitleLbl, Button closeBtn, Stage theStage) {
-
-        ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
-        barIconView.setPreserveRatio(true);
-
-        // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
-        Region spacer = new Region();
-
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        newTitleLbl.setFont(titleFont);
-        newTitleLbl.setTextFill(txtColor);
-        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
-
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
-        ImageView closeImage = highlightedImageView(closeImg);
-        closeImage.setFitHeight(20);
-        closeImage.setFitWidth(20);
-        closeImage.setPreserveRatio(true);
-
-        closeBtn.setGraphic(closeImage);
-        closeBtn.setPadding(new Insets(0, 5, 0, 3));
-        closeBtn.setId("closeBtn");
-
-        ImageView minimizeImage = highlightedImageView(minimizeImg);
-        minimizeImage.setFitHeight(20);
-        minimizeImage.setFitWidth(20);
-        minimizeImage.setPreserveRatio(true);
-
-        Button minimizeBtn = new Button();
-        minimizeBtn.setId("toolBtn");
-        minimizeBtn.setGraphic(minimizeImage);
-        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
-        minimizeBtn.setOnAction(minEvent -> {
-            theStage.setIconified(true);
-        });
-
-        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, closeBtn);
-        newTopBar.setAlignment(Pos.CENTER_LEFT);
-        newTopBar.setPadding(new Insets(7, 8, 10, 10));
-        newTopBar.setId("topBar");
-
-        Delta dragDelta = new Delta();
-
-        newTopBar.setOnMousePressed(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent mouseEvent) {
-                // record a delta distance for the drag and drop operation.
-                dragDelta.x = theStage.getX() - mouseEvent.getScreenX();
-                dragDelta.y = theStage.getY() - mouseEvent.getScreenY();
-            }
-        });
-        newTopBar.setOnMouseDragged(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent mouseEvent) {
-                theStage.setX(mouseEvent.getScreenX() + dragDelta.x);
-                theStage.setY(mouseEvent.getScreenY() + dragDelta.y);
-            }
-        });
-
-        return newTopBar;
-    } */
     public static Button createImageButton(Image image, String name) {
         ImageView btnImageView = new ImageView(image);
         btnImageView.setFitHeight(135);
@@ -1570,38 +1518,30 @@ public class App extends Application {
 
     private void addAppToTray() {
         try {
-            // ensure awt toolkit is initialized.
+
             java.awt.Toolkit.getDefaultToolkit();
 
             BufferedImage imgBuf = SwingFXUtils.fromFXImage(new Image("/assets/icon15.png"), null);
 
-            // set up a system tray icon.
             m_tray = java.awt.SystemTray.getSystemTray();
 
             m_trayIcon = new java.awt.TrayIcon((java.awt.Image) imgBuf, "Net Notes");
             m_trayIcon.setActionCommand("show");
-            // if the user double-clicks on the tray icon, show the main app stage.
+
             m_trayIcon.addActionListener(event -> Platform.runLater(() -> {
                 if (event.getActionCommand().equals("show")) {
                     m_networksData.show();
                 }
 
-            }));//
+            }));
 
-            // if the user selects the default menu item (which includes the app name),
-            // show the main app stage.
-            java.awt.MenuItem openItem = new java.awt.MenuItem("Show Networks");
+            java.awt.MenuItem openItem = new java.awt.MenuItem("Show Net Notes");
             openItem.addActionListener(event -> Platform.runLater(() -> m_networksData.show()));
 
-            // the convention for tray icons seems to be to set the default icon for opening
-            // the application stage in a bold font.
             java.awt.Font defaultFont = java.awt.Font.decode(null);
             java.awt.Font boldFont = defaultFont.deriveFont(java.awt.Font.BOLD);
             openItem.setFont(boldFont);
 
-            // to really exit the application, the user must go to the system tray icon
-            // and select the exit option, this will shutdown JavaFX and remove the
-            // tray icon (removing the tray icon will also shut down AWT).
             java.awt.MenuItem exitItem = new java.awt.MenuItem("Close");
             exitItem.addActionListener(event -> Platform.runLater(() -> {
                 m_networksData.shutdown();
@@ -1609,14 +1549,12 @@ public class App extends Application {
                 shutdownNow();
             }));
 
-            // setup the popup menu for the application.
             final java.awt.PopupMenu popup = new java.awt.PopupMenu();
             popup.add(openItem);
             popup.addSeparator();
             popup.add(exitItem);
             m_trayIcon.setPopupMenu(popup);
 
-            // add the application tray icon to the system tray.
             m_tray.add(m_trayIcon);
 
         } catch (java.awt.AWTException e) {

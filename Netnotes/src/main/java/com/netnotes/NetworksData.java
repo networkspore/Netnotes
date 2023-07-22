@@ -778,6 +778,7 @@ public class NetworksData implements InstallerInterface {
         switch (body) {
             case App.CMD_SHOW_APPSTAGE:
                 show();
+
                 break;
 
             default:
@@ -787,18 +788,13 @@ public class NetworksData implements InstallerInterface {
 
     private void sendAck(String senderId) {
 
-        //  Runnable ack = () -> {
         File ackFile = new File(m_outDir.getAbsolutePath() + "\\" + senderId + OUT_EXT);
         try {
             Files.writeString(ackFile.toPath(), getAckString(senderId, System.currentTimeMillis()));
         } catch (IOException e) {
 
         }
-        //  };
 
-        // Thread t = new Thread(ack);
-        // t.setDaemon(true);
-        //  t.start();
     }
 
     private void checkFile(File file) {
@@ -814,7 +810,8 @@ public class NetworksData implements InstallerInterface {
 
             if (bodyString != null) {
                 sendAck(senderId);
-                Platform.runLater(() -> noteIn(senderId, bodyString, file));
+                //  Platform.runLater(() -> );
+                noteIn(senderId, bodyString, file);
             }
         }
 
