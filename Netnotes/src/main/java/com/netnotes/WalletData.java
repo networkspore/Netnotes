@@ -6,13 +6,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 
 import org.ergoplatform.appkit.NetworkType;
 
 import com.devskiller.friendly_id.FriendlyId;
-import com.google.gson.JsonArray;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -21,12 +19,12 @@ import com.satergo.Wallet;
 import com.utils.Utils;
 
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.SimpleDoubleProperty;
+
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
+
 import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -34,7 +32,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
@@ -51,7 +48,6 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -60,52 +56,46 @@ public class WalletData extends Network implements NoteInterface {
     public final static double MIN_WIDTH = 400;
     public final static double MIN_HEIGHT = 275;
 
-    private int m_maxWidth = 800;
-    private int m_maxHeight = 600;
-
     private double m_sceneWidth = 400;
     private double m_sceneHeight = 720;
 
-    private File logFile;
+    private File logFile = new File("WalletData-log.txt");
     private File m_walletFile = null;
     // private File m_walletDirectory;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
 
     // private String m_name;
-    private String m_networkNetworkeId;
+    private String m_nodesId;
+    private String m_selectedNodeId;
     private String m_explorerId;
-    private String m_chartsId;
+    private String m_explorerUpdates;
+    private MarketUpdates m_marketUpdates;
 
     private String m_quoteTransactionCurrency = "USD";
     private SimpleObjectProperty<PriceQuote> m_lastQuote = new SimpleObjectProperty<PriceQuote>(null);
+    private ErgoWallet m_ergoWallet;
 
     // private ErgoWallet m_ergoWallet;
-    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String networkId, String explorerId, String chartsId, NetworkType networkType, NoteInterface ergoWallet) {
+    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String nodesId, String selectedNodeId, String explorerId, String explorerUpdates, MarketUpdates marketUpdates, NetworkType networkType, ErgoWallet ergoWallet) {
         super(null, name, id, ergoWallet);
 
         m_sceneWidth = sceneWidth;
         m_sceneHeight = sceneHeight;
 
-        logFile = new File("WalletData" + name + "-log.txt");
-
         m_walletFile = walletFile;
         m_networkType = networkType;
 
-        m_networkNetworkeId = networkId == null ? null : networkId;
-        m_explorerId = explorerId == null ? null : explorerId;
-        m_chartsId = chartsId == null ? null : chartsId;
+        m_nodesId = nodesId;
+        m_selectedNodeId = selectedNodeId;
+        m_explorerId = explorerId;
+        m_explorerUpdates = explorerUpdates;
+        m_marketUpdates = marketUpdates;
+
+        m_ergoWallet = ergoWallet;
 
         setIconStyle(IconStyle.ROW);
 
-    }
-
-    public int getWindowMaxWidth() {
-        return m_maxWidth;
-    }
-
-    public int getWindowMaxHeight() {
-        return m_maxHeight;
     }
 
     @Override
@@ -123,14 +113,21 @@ public class WalletData extends Network implements NoteInterface {
 
         jsonObject.add("windowSize", windowSize);
 
-        if (m_networkNetworkeId != null) {
-            jsonObject.addProperty("networkNetworkId", m_networkNetworkeId);
+        if (m_nodesId != null) {
+            jsonObject.addProperty("nodesId", m_nodesId);
+        }
+        if (m_selectedNodeId != null) {
+            jsonObject.addProperty("selectedNodeId", m_selectedNodeId);
         }
         if (m_explorerId != null) {
             jsonObject.addProperty("explorerId", m_explorerId);
         }
-        if (m_chartsId != null) {
-            jsonObject.addProperty("chartsId", m_chartsId);
+
+        if (m_explorerUpdates != null) {
+            jsonObject.addProperty("explorerUpdates", m_explorerUpdates);
+        }
+        if (m_marketUpdates != null) {
+            jsonObject.add("marketUpdates", m_marketUpdates.getJsonObject());
         }
 
         return jsonObject;
@@ -166,8 +163,9 @@ public class WalletData extends Network implements NoteInterface {
 
             Scene walletScene = getWalletScene(wallet, m_sceneWidth, m_sceneHeight, walletStage);
             walletStage.setScene(walletScene);
+            Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
-            ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
+            ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
         } catch (Exception e1) {
 
             //    passwordField.setText("");
@@ -240,6 +238,7 @@ public class WalletData extends Network implements NoteInterface {
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         walletStage.setScene(passwordScene);
+        Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -253,7 +252,7 @@ public class WalletData extends Network implements NoteInterface {
                     passwordField.setText("");
 
                     walletStage.setScene(getWalletScene(wallet, sceneWidth, sceneHeight, walletStage));
-                    ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
+                    ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
 
                 } catch (Exception e1) {
 
@@ -267,8 +266,8 @@ public class WalletData extends Network implements NoteInterface {
 
             }
         });
-        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, m_maxWidth, m_maxHeight);
 
+        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
         walletStage.show();
 
     }
@@ -323,15 +322,15 @@ public class WalletData extends Network implements NoteInterface {
         ImageView nodeView = IconButton.getIconView(new Image("/assets/node-30.png"), imageWidth);
 
         MenuButton networkMenuBtn = new MenuButton();
-        networkMenuBtn.setGraphic(m_networkNetworkeId == null ? nodeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_networkNetworkeId, true).getIcon(), imageWidth));
+        networkMenuBtn.setGraphic(m_nodesId == null ? nodeView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_nodesId, true).getIcon(), imageWidth));
         networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
         networkMenuBtn.setTooltip(networkTip);
-        networkMenuBtn.setUserData(m_networkNetworkeId);
+        networkMenuBtn.setUserData(m_nodesId);
 
         MenuItem nodeNullMenuItem = new MenuItem("(none)");
 
         nodeNullMenuItem.setOnAction(e -> {
-            removeNodeId();
+            removeNodesId();
             networkMenuBtn.setGraphic(nodeView);
             networkMenuBtn.setUserData(null);
         });
@@ -400,46 +399,45 @@ public class WalletData extends Network implements NoteInterface {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Tooltip marketTip = new Tooltip("Ergot Charts: " + m_chartsId == null ? "Disabled" : "Enabled");
+        Tooltip marketTip = new Tooltip("Price: " + m_marketUpdates.getNetworkId() == null ? "Disabled" : "Enabled");
         marketTip.setShowDelay(new javafx.util.Duration(100));
         marketTip.setFont(App.txtFont);
 
         ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), imageWidth);
 
-        MenuButton chartsBtn = new MenuButton();
-        chartsBtn.setUserData(m_chartsId);
-        /// chartsBtn.setGraphic()
-        chartsBtn.setPadding(new Insets(2, 0, 0, 0));
+        MenuButton marketBtn = new MenuButton();
+        marketBtn.setUserData(m_marketUpdates.getNetworkId());
+        /// marketBtn.setGraphic()
+        marketBtn.setPadding(new Insets(2, 0, 0, 0));
 
         MenuItem chartsNullMenuItem = new MenuItem("(none)");
 
         chartsNullMenuItem.setOnAction(e -> {
-            removeChartsId();
-            chartsBtn.setUserData(null);
-            chartsBtn.setGraphic(exchangeView);
+            m_marketUpdates.setNetworkid(null);
+            marketBtn.setGraphic(exchangeView);
         });
 
         MenuItem kuCoinExchangeMenuItem = new MenuItem(KucoinExchange.NAME);
         kuCoinExchangeMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
         kuCoinExchangeMenuItem.setOnAction(e -> {
 
-            chartsBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+            marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
 
-            NoteInterface chartInterface = getExchangeInterface();
+            m_marketUpdates.setNetworkid(KucoinExchange.NETWORK_ID);
 
-            if (getExchangeInterface() == null) {
+            if (getNetworksData().getNoteInterface(KucoinExchange.NETWORK_ID) == null) {
                 Alert marketAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + KucoinExchange.NAME + "'' to use this feature.", ButtonType.OK);
                 marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), alertImageWidth));
                 marketAlert.initOwner(walletStage);
                 marketAlert.show();
             } else {
-                getExchangeClient(chartInterface);
+
             }
         });
 
-        chartsBtn.getItems().addAll(chartsNullMenuItem, kuCoinExchangeMenuItem);
+        marketBtn.getItems().addAll(chartsNullMenuItem, kuCoinExchangeMenuItem);
 
-        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, chartsBtn);
+        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn);
         rightSideMenu.setId("rightSideMenuBar");
         rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
@@ -515,7 +513,8 @@ public class WalletData extends Network implements NoteInterface {
                 Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
                 if (sendScene != null) {
                     walletStage.setScene(sendScene);
-                    ResizeHelper.addResizeListener(walletStage, 400, 440, m_maxWidth, m_maxHeight);
+                    Rectangle rect = getNetworksData().getMaximumWindowBounds();
+                    ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
                 }
             }
 
@@ -583,53 +582,35 @@ public class WalletData extends Network implements NoteInterface {
 
     }
 
-    public String getNetworkNetworkId() {
-        return m_networkNetworkeId;
+    public String getNodesId() {
+        return m_nodesId;
     }
 
     public NoteInterface getNodeInterface() {
-        return m_networkNetworkeId == null ? null : getNetworksData().getNoteInterface(m_networkNetworkeId);
+        return m_nodesId == null ? null : getNetworksData().getNoteInterface(m_nodesId);
     }
 
     public String getExplorerId() {
         return m_explorerId;
     }
 
-    public String getExchangeId() {
-        return m_chartsId;
-    }
-
     public NoteInterface getExplorerInterface() {
-        return m_explorerId == null ? null : getNetworksData().getNoteInterface(m_explorerId);
+
+        return m_explorerId == null ? null : m_ergoWallet.getErgoNetworkData().getNetwork(m_explorerId);
     }
 
-    public NoteInterface getExchangeInterface() {
-
-        return m_chartsId == null ? null : getNetworksData().getNoteInterface(m_chartsId);
-    }
-
-    private void setNodeId(String nodeId) {
-        m_networkNetworkeId = nodeId;
+    public void setNodesId(String nodesId) {
+        m_nodesId = nodesId;
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setExplorerId(String explorerId) {
+    public void setExplorerId(String explorerId) {
         m_explorerId = explorerId;
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setChartsId(String chartsId) {
-        m_chartsId = chartsId;
-        getLastUpdated().set(LocalDateTime.now());
-    }
-
-    private void removeChartsId() {
-        m_chartsId = null;
-        getLastUpdated().set(LocalDateTime.now());
-    }
-
-    private void removeNodeId() {
-        m_networkNetworkeId = null;
+    private void removeNodesId() {
+        m_nodesId = null;
         getLastUpdated().set(LocalDateTime.now());
     }
 
@@ -638,13 +619,10 @@ public class WalletData extends Network implements NoteInterface {
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void getExchangeClient(NoteInterface noteInterface) {
-
-    }
-
     @Override
     public IconButton getButton(String iconStyle) {
-        IconButton iconButton = new IconButton(null, getName(), iconStyle) {
+
+        IconButton iconButton = new IconButton(iconStyle == IconStyle.ROW ? ErgoWallet.getSmallAppIcon() : ErgoWallet.getAppIcon(), getName(), iconStyle) {
             @Override
             public void open() {
                 getOpen();

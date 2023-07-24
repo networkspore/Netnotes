@@ -95,13 +95,17 @@ public class IconButton extends Button {
             setText(m_name);
             setImageWidth(30);
             setId("rowBtn");
+            setGraphicTextGap(10);
             m_defaultId = ROW_DEFAULT_ID;
             m_currentId = ROW_CURRENT_ID;
         } else {
             m_defaultId = DEFAULT_ID;
             m_currentId = DEFAULT_CURRENT_ID;
             setImageWidth(75);
+            setContentDisplay(ContentDisplay.TOP);
+            setTextAlignment(TextAlignment.CENTER);
         }
+
     }
 
     public void setIconStyle(String iconStyle) {
@@ -267,14 +271,14 @@ public class IconButton extends Button {
 
     public String truncateName(String name, FontMetrics metrics) {
         double imageWidth = getImageWidth();
-        String truncatedString = name.substring(0, 3) + "...";
+        String truncatedString = name.substring(0, 5) + "..";
         if (name.length() > 3) {
             int i = name.length() - 3;
-            truncatedString = name.substring(0, i) + "...";
+            truncatedString = name.substring(0, i) + "..";
 
             while (metrics.stringWidth(truncatedString) > imageWidth && i > 1) {
                 i = i - 1;
-                truncatedString = name.substring(0, i) + "...";
+                truncatedString = name.substring(0, i) + "..";
 
             }
         }

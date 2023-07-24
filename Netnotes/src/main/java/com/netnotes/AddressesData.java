@@ -350,48 +350,6 @@ public class AddressesData {
         ArrayList<PriceTransaction> transactionList = new ArrayList<PriceTransaction>();
 
         TextField toTextField = new TextField();
-        /*{
-            @Override
-            public void paste() {
-                Clipboard clipboard = Clipboard.getSystemClipboard();
-                if (clipboard.hasString()) {
-
-                    if (getSelectedText().length() > 0) {
-                        replaceSelection(clipboard.getString());
-                    } else {
-                        this.setText(clipboard.getString());
-                    }
-                }
-                String text = getText();
-                if (text.length() > 5) {
-                    toAddressBtn.setAddressByString(text, onVerified -> {
-                        if (toAddressBtn.getAddressValid()) {
-                            PriceAmount priceAmount = amountBox.getCurrentAmount();
-                            if (priceAmount != null && priceAmount.getAmount() != 0 && priceAmount.getCurrency() != null && priceAmount.getCurrency().networkId() != null && priceAmount.getCurrency().networkId().equals(m_walletData.getNetworkNetworkId())) {
-                                addTxBtn.setDisable(false);
-
-                                sendButton.setDisable(false);
-
-                                addTxBtn.setId("menuBtn");
-                                sendButton.setId("menuBtn");
-                            } else {
-                                addTxBtn.setDisable(true);
-                                addTxBtn.setId("menuBtnDisabled");
-                                if (transactionList.size() > 0) {
-                                    sendButton.setDisable(false);
-                                    sendButton.setId("menuBtn");
-                                } else {
-                                    sendButton.setDisable(true);
-                                    sendButton.setId("menuBtnDisabled");
-                                }
-                            }
-                        }
-                    });
-                }
-                toAddressBox.getChildren().remove(this);
-                toAddressBox.getChildren().add(toAddressBtn);
-            }
-        };*/
 
         toTextField.setMaxHeight(40);
         toTextField.setId("formField");
@@ -400,7 +358,6 @@ public class AddressesData {
 
         toAddressBtn.setOnAction(e -> {
 
-            // toTextField.setText(toAddressBtn.getAddressString());
             toAddressBox.getChildren().remove(toAddressBtn);
             toAddressBox.getChildren().add(toTextField);
 
@@ -408,11 +365,10 @@ public class AddressesData {
 
         });
 
-        // toAddressBtn.textProperty().bind(toTextField.textProperty());
         ImageView toNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
 
         toAddressBox.getChildren().addAll(toNotificationIcon, toCaret, toAddressBtn);
-        // toTextField.setonkey
+
         toTextField.textProperty().addListener((obs, old, newVal) -> {
             String text = newVal.trim();
             if (text.length() > 5) {

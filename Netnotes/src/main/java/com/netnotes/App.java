@@ -51,11 +51,16 @@ import java.nio.file.StandardCopyOption;
 import java.security.Security;
 import java.security.spec.KeySpec;
 import java.time.Duration;
-
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
@@ -131,9 +136,8 @@ public class App extends Application {
     private HostServices m_networkServices = getHostServices();
     private java.awt.SystemTray m_tray;
     private java.awt.TrayIcon m_trayIcon;
-
+    private final static long EXECUTION_TIME = 500;
     private Stage m_stage;
-    private Stage m_passwordStage = null;
 
     private void parseArgs(List<String> args, Stage appStage) {
 
@@ -487,118 +491,112 @@ public class App extends Application {
     }
 
     public void verifyAppKey(Runnable runnable) {
-        if (m_passwordStage == null) {
-            String title = "Net Notes - Enter Password";
 
-            m_passwordStage = new Stage();
-            m_passwordStage.getIcons().add(logo);
-            m_passwordStage.setResizable(false);
-            m_passwordStage.initStyle(StageStyle.UNDECORATED);
-            m_passwordStage.setTitle(title);
+        String title = "Net Notes - Enter Password";
 
-            Button closeBtn = new Button();
+        Stage passwordStage = new Stage();
+        passwordStage.getIcons().add(logo);
+        passwordStage.setResizable(false);
+        passwordStage.initStyle(StageStyle.UNDECORATED);
+        passwordStage.setTitle(title);
 
-            HBox titleBox = createTopBar(icon, title, closeBtn, m_passwordStage);
+        Button closeBtn = new Button();
 
-            Button imageButton = createImageButton(logo, "Net Notes");
+        HBox titleBox = createTopBar(icon, title, closeBtn, passwordStage);
 
-            HBox imageBox = new HBox(imageButton);
-            imageBox.setAlignment(Pos.CENTER);
+        Button imageButton = createImageButton(logo, "Net Notes");
 
-            Text passwordTxt = new Text("> Enter password:");
-            passwordTxt.setFill(txtColor);
-            passwordTxt.setFont(txtFont);
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
 
-            PasswordField passwordField = new PasswordField();
-            passwordField.setFont(txtFont);
-            passwordField.setId("passField");
-            HBox.setHgrow(passwordField, Priority.ALWAYS);
+        Text passwordTxt = new Text("> Enter password:");
+        passwordTxt.setFill(txtColor);
+        passwordTxt.setFont(txtFont);
 
-            Platform.runLater(() -> passwordField.requestFocus());
+        PasswordField passwordField = new PasswordField();
+        passwordField.setFont(txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
 
-            HBox passwordBox = new HBox(passwordTxt, passwordField);
-            passwordBox.setAlignment(Pos.CENTER_LEFT);
-            passwordBox.setPadding(new Insets(20, 0, 0, 0));
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+        passwordBox.setPadding(new Insets(20, 0, 0, 0));
 
-            Button clickRegion = new Button();
-            clickRegion.setPrefWidth(Double.MAX_VALUE);
-            clickRegion.setId("transparentColor");
-            clickRegion.setPrefHeight(500);
+        Button clickRegion = new Button();
+        clickRegion.setPrefWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(500);
 
-            clickRegion.setOnAction(e -> {
-                passwordField.requestFocus();
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
 
-            });
+        });
 
-            VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
+        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
 
-            VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
-            VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            Scene passwordScene = new Scene(layoutVBox, 600, 320);
+        Scene passwordScene = new Scene(layoutVBox, 600, 320);
 
-            passwordScene.getStylesheets().add("/css/startWindow.css");
-            m_passwordStage.setScene(passwordScene);
+        passwordScene.getStylesheets().add("/css/startWindow.css");
+        passwordStage.setScene(passwordScene);
 
-            Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
+        Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
 
-            passwordField.setOnKeyPressed(e -> {
+        passwordField.setOnKeyPressed(e -> {
 
-                KeyCode keyCode = e.getCode();
+            KeyCode keyCode = e.getCode();
 
-                if (keyCode == KeyCode.ENTER) {
+            if (keyCode == KeyCode.ENTER) {
 
-                    if (passwordField.getText().length() < 6) {
-                        passwordField.setText("");
-                    } else {
+                if (passwordField.getText().length() < 6) {
+                    passwordField.setText("");
+                } else {
 
-                        statusStage.show();
+                    statusStage.show();
 
-                        FxTimer.runLater(Duration.ofMillis(100), () -> {
+                    FxTimer.runLater(Duration.ofMillis(100), () -> {
 
-                            BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_appData.getAppKeyBytes());
-                            Platform.runLater(() -> passwordField.setText(""));
-                            statusStage.close();
-                            if (result.verified) {
-                                m_passwordStage.close();
-                                m_passwordStage = null;
-                                runnable.run();
+                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_appData.getAppKeyBytes());
+                        Platform.runLater(() -> passwordField.setText(""));
+                        statusStage.close();
+                        if (result.verified) {
+                            passwordStage.close();
 
-                            }
+                            runnable.run();
 
-                        });
-                    }
+                        }
+
+                    });
                 }
-            });
-
-            closeBtn.setOnAction(e -> {
-                m_passwordStage.close();
-                m_passwordStage = null;
-            });
-
-            m_passwordStage.setOnCloseRequest(e -> {
-                m_passwordStage = null;
-            });
-
-            m_passwordStage.show();
-        } else {
-            if (m_passwordStage.isIconified()) {
-                m_passwordStage.setIconified(false);
             }
-            m_passwordStage.show();
-            m_passwordStage.toFront();
-        }
+        });
+
+        closeBtn.setOnAction(e -> {
+            passwordStage.close();
+
+        });
+
+        passwordScene.focusOwnerProperty().addListener((obs, oldval, newVal) -> {
+            if (newVal != null && !(newVal instanceof PasswordField)) {
+                Platform.runLater(() -> passwordField.requestFocus());
+            }
+        });
+
+        passwordStage.show();
+
     }
+    private ScheduledFuture<?> m_lastExecution = null;
 
     private void showMainStage(Stage appStage) {
-        double appSceneWidth = 800;
-        double appSceneHeight = 450;
+
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
         Button networksBtn = new Button();
         Button maximizeBtn = new Button();
 
-        appStage.setTitle("Net Notes");
+        appStage.setTitle("Net Notes: Networks");
 
         HBox titleBox = createTopBar(icon, maximizeBtn, closeBtn, appStage);
 
@@ -610,6 +608,7 @@ public class App extends Application {
         HBox.setHgrow(bodyVBox, Priority.ALWAYS);
         VBox.setVgrow(bodyVBox, Priority.ALWAYS);
         bodyVBox.setId("bodyBox");
+        bodyVBox.setPadding(new Insets(0, 5, 5, 5));
 
         Region vBar = new Region();
         VBox.setVgrow(vBar, Priority.ALWAYS);
@@ -630,7 +629,7 @@ public class App extends Application {
         VBox.setVgrow(layout, Priority.ALWAYS);
         layout.setPadding(new Insets(0, 2, 2, 2));
 
-        Scene appScene = new Scene(layout, appSceneWidth, appSceneHeight);
+        Scene appScene = new Scene(layout, m_networksData.getStageWidth(), m_networksData.getStageHeight());
         appScene.getStylesheets().add("/css/startWindow.css");
         // appStage.setScene(appScene);
 
@@ -652,17 +651,48 @@ public class App extends Application {
 
         Rectangle rect = m_networksData.getMaximumWindowBounds();
         ResizeHelper.addResizeListener(appStage, 400, 200, rect.getWidth(), rect.getHeight());
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+            public Thread newThread(Runnable r) {
+                Thread t = Executors.defaultThreadFactory().newThread(r);
+                t.setDaemon(true);
+                return t;
+            }
+        });
+        Runnable save = () -> {
+            m_networksData.save();
+
+        };
+
         appStage.widthProperty().addListener((obs, oldval, newVal) -> {
-            m_networksData.setWidth(newVal.doubleValue());
+            m_networksData.setStageWidth(newVal.doubleValue());
+            m_networksData.updateNetworksGrid();
+            if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                m_lastExecution.cancel(false);
+            }
+
+            m_lastExecution = executor.schedule(save, EXECUTION_TIME, TimeUnit.MILLISECONDS);
         });
         appStage.heightProperty().addListener((obs, oldval, newVal) -> {
-            m_networksData.setHeight(newVal.doubleValue());
+            m_networksData.setStageHeight(newVal.doubleValue());
+
+            if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                m_lastExecution.cancel(false);
+            }
+
+            m_lastExecution = executor.schedule(save, EXECUTION_TIME, TimeUnit.MILLISECONDS);
         });
 
         closeBtn.setOnAction(e -> {
             m_tray.remove(m_trayIcon);
             m_networksData.shutdown();
             appStage.close();
+            shutdownNow();
+        });
+
+        appStage.setOnCloseRequest(e -> {
+            m_tray.remove(m_trayIcon);
+            m_networksData.shutdown();
             shutdownNow();
         });
 
@@ -674,6 +704,7 @@ public class App extends Application {
             });
             titleBox.getChildren().add(sleepBtn);
         }
+
     }
 
     private void showNetworks(Scene appScene, VBox header, VBox bodyVBox) {
@@ -690,7 +721,18 @@ public class App extends Application {
         manageButton.setTooltip(addTip);
         manageButton.setOnAction(e -> m_networksData.showManageNetworkStage());
 
-        HBox menuBar = new HBox(manageButton);
+        Region menuSpacer = new Region();
+        HBox.setHgrow(menuSpacer, Priority.ALWAYS);
+
+        Tooltip gridTypeToolTip = new Tooltip("Toggle: List view");
+        gridTypeToolTip.setShowDelay(new javafx.util.Duration(50));
+        gridTypeToolTip.setHideDelay(new javafx.util.Duration(200));
+
+        BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 25);
+        toggleGridTypeButton.setTooltip(gridTypeToolTip);
+        toggleGridTypeButton.setPadding(new Insets(0, 0, 0, 0));
+
+        HBox menuBar = new HBox(manageButton, menuSpacer, toggleGridTypeButton);
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setAlignment(Pos.CENTER_LEFT);
         menuBar.setId("menuBar");
@@ -707,6 +749,12 @@ public class App extends Application {
         scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty().subtract(menuBar.heightProperty().get()).subtract(50));
 
         bodyVBox.getChildren().addAll(scrollPane);
+
+        toggleGridTypeButton.setOnAction(e -> {
+
+            m_networksData.iconStyleProperty().set(m_networksData.iconStyleProperty().get().equals(IconStyle.ROW) ? IconStyle.ICON : IconStyle.ROW);
+
+        });
 
         /*
         addButton.setOnAction(clickEvent -> {

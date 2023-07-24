@@ -4,11 +4,10 @@ import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
@@ -17,12 +16,10 @@ import com.google.gson.JsonObject;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ScrollPane;
 
 import javafx.scene.control.Tooltip;
@@ -34,14 +31,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javafx.stage.FileChooser.ExtensionFilter;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 
@@ -64,21 +59,24 @@ public class ErgoWallet extends Network implements NoteInterface {
     private Stage m_walletsStage = null;
 
     private final static long EXECUTION_TIME = 500;
-    private long m_executionTime = -1;
-    private Future<?> m_lastExecution = null;
-    private double m_stageWidth = 310;
-    private double m_stageHeight = 500;
-    private String m_iconStyle = IconStyle.ROW;
 
-    public ErgoWallet(ErgoNetwork ergoNetwork) {
+    private ScheduledFuture<?> m_lastExecution = null;
+
+    private ErgoNetworkData m_ergNetData;
+
+    public ErgoWallet(ErgoNetworkData ergNetData, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         setupWallet();
+        setStageIconStyle(IconStyle.ROW);
         getLastUpdated().set(LocalDateTime.now());
+        m_ergNetData = ergNetData;
     }
 
-    public ErgoWallet(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
+    public ErgoWallet(ErgoNetworkData ergNetData, JsonObject jsonObject, ErgoNetwork ergoNetwork) {
 
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+
+        m_ergNetData = ergNetData;
 
         JsonElement directoriesElement = jsonObject.get("directories");
         JsonElement datFileElement = jsonObject.get("datFile");
@@ -114,13 +112,17 @@ public class ErgoWallet extends Network implements NoteInterface {
             JsonElement heightElement = stageObject.get("height");
             JsonElement iconStyleElement = stageObject.get("iconStyle");
 
-            m_iconStyle = iconStyleElement != null ? iconStyleElement.getAsString() : m_iconStyle;
-            m_stageWidth = widthElement != null && widthElement.isJsonPrimitive() ? widthElement.getAsDouble() : m_stageWidth;
-            m_stageHeight = heightElement != null && heightElement.isJsonPrimitive() ? heightElement.getAsDouble() : m_stageHeight;
+            setStageIconStyle(iconStyleElement.getAsString());
+            setStageWidth(widthElement.getAsDouble());
+            setStageHeight(heightElement.getAsDouble());
         }
         if (save) {
             getLastUpdated().set(LocalDateTime.now());
         }
+    }
+
+    public ErgoNetworkData getErgoNetworkData() {
+        return m_ergNetData;
     }
 
     public JsonObject getDirectoriesJson() {
@@ -128,13 +130,6 @@ public class ErgoWallet extends Network implements NoteInterface {
         jsonObject.addProperty("appDir", m_appDir.getAbsolutePath());
         jsonObject.addProperty("walletsDir", getWalletsDirectory().getAbsolutePath());
         return jsonObject;
-    }
-
-    public JsonObject getStageJson() {
-        JsonObject json = new JsonObject();
-        json.addProperty("width", m_stageWidth);
-        json.addProperty("height", m_stageHeight);
-        return json;
     }
 
     @Override
@@ -168,14 +163,11 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void showWalletsStage() {
         if (m_walletsStage == null) {
-            SimpleDoubleProperty gridWidth = new SimpleDoubleProperty(200);
-            SimpleStringProperty iconStyle = new SimpleStringProperty(m_iconStyle);
 
-            WalletsDataList walletsDataList = new WalletsDataList(gridWidth, iconStyle, m_dataFile, m_walletsDir, this);
+            WalletsDataList walletsDataList = new WalletsDataList(getStageWidth() - 30, getStageIconStyle(), m_dataFile, m_walletsDir, this);
 
             String title = "Wallets" + " - " + getName();
-            double stageWidth = m_stageWidth;
-            double stageHeight = m_stageHeight;
+
             double buttonHeight = 100;
 
             m_walletsStage = new Stage();
@@ -241,7 +233,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             addButton.setId("menuBarBtn");
             addButton.setPadding(new Insets(2, 6, 2, 6));
             addButton.setTooltip(addTip);
-            addButton.setPrefWidth(stageWidth / 2);
+            addButton.setPrefWidth(getStageWidth() / 2);
             addButton.setPrefHeight(buttonHeight);
 
             Tooltip removeTip = new Tooltip("Remove");
@@ -254,7 +246,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             removeButton.setPadding(new Insets(2, 6, 2, 6));
             removeButton.setTooltip(removeTip);
             removeButton.setDisable(true);
-            removeButton.setPrefWidth(stageWidth / 2);
+            removeButton.setPrefWidth(getStageWidth() / 2);
             removeButton.setPrefHeight(buttonHeight);
 
             HBox menuBox = new HBox(addButton, removeButton);
@@ -267,7 +259,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             layoutVBox.setPadding(new Insets(0, 5, 0, 5));
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            Scene walletsScene = new Scene(layoutVBox, stageWidth, stageHeight);
+            Scene walletsScene = new Scene(layoutVBox, getStageWidth(), getStageHeight());
 
             addButton.setOnAction(event -> {
                 walletsDataList.showAddWalletStage();
@@ -276,7 +268,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             scrollPane.prefViewportWidthProperty().bind(walletsScene.widthProperty());
             scrollPane.prefViewportHeightProperty().bind(walletsScene.heightProperty().subtract(140));
 
-            gridWidth.bind(walletsScene.widthProperty().subtract(40));
+            walletsDataList.gridWidthProperty().bind(walletsScene.widthProperty().subtract(40));
 
             VBox walletsBox = walletsDataList.getButtonGrid();
 
@@ -293,9 +285,21 @@ public class ErgoWallet extends Network implements NoteInterface {
 
             m_walletsStage.show();
 
-            Runnable setUpdated = () -> {
-                getLastUpdated().set(LocalDateTime.now());
+            Runnable update = () -> {
+                Platform.runLater(() -> getLastUpdated().set(LocalDateTime.now()));
             };
+
+            toggleGridTypeButton.setOnAction(e -> {
+
+                if (getStageIconStyle().equals(IconStyle.ICON)) {
+                    setStageIconStyle(IconStyle.ROW);
+                    walletsDataList.iconStyleProperty().set(IconStyle.ROW);
+                } else {
+                    setStageIconStyle(IconStyle.ICON);
+                    walletsDataList.iconStyleProperty().set(IconStyle.ICON);
+                }
+                update.run();
+            });
 
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
                 public Thread newThread(Runnable r) {
@@ -305,26 +309,21 @@ public class ErgoWallet extends Network implements NoteInterface {
                 }
             });
 
-            m_walletsStage.widthProperty().addListener((obs, oldVal, newVal) -> {
-                m_stageWidth = newVal.doubleValue();
-                long lastExecutionTime = m_executionTime;
-                m_executionTime = System.currentTimeMillis();
-                if (m_lastExecution != null && (lastExecutionTime - m_executionTime) < EXECUTION_TIME) {
-                    executor.shutdownNow();
+            walletsScene.widthProperty().addListener((obs, oldVal, newVal) -> {
+                setStageWidth(newVal.doubleValue());
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
                 }
 
-                m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
+                m_lastExecution = executor.schedule(update, EXECUTION_TIME, TimeUnit.MILLISECONDS);
 
             });
-            m_walletsStage.heightProperty().addListener((obs, oldVal, newVal) -> {
-                m_stageHeight = newVal.doubleValue();
-                long lastExecutionTime = m_executionTime;
-                m_executionTime = System.currentTimeMillis();
-                if (m_lastExecution != null && (lastExecutionTime - m_executionTime) < EXECUTION_TIME) {
-                    executor.shutdownNow();
+            walletsScene.heightProperty().addListener((obs, oldVal, newVal) -> {
+                setStageHeight(newVal.doubleValue());
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
                 }
-
-                m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
+                m_lastExecution = executor.schedule(update, EXECUTION_TIME, TimeUnit.MILLISECONDS);
 
             });
 
@@ -425,14 +424,6 @@ public class ErgoWallet extends Network implements NoteInterface {
                 getOpen();
             }
         };
-
-        if (iconStyle.equals(IconStyle.ROW)) {
-            iconButton.setContentDisplay(ContentDisplay.LEFT);
-            iconButton.setImageWidth(30);
-        } else {
-            iconButton.setContentDisplay(ContentDisplay.TOP);
-            iconButton.setTextAlignment(TextAlignment.CENTER);
-        }
 
         return iconButton;
     }

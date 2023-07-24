@@ -38,11 +38,10 @@ public class AmountBoxes extends HBox {
         ArrayList<TokenData> tokenList = m_addressData.getConfirmedTokenList();
 
         for (TokenData tokenData : tokenList) {
-            // double tokenQuantityt = tokenData.getAmount() / (10^tokenData.getDecimals());
+
             String tokenId = tokenData.getTokenID();
             String name = tokenData.getName();
-            // AmountItem amountItem = new AmountItem(new PriceAmount(0, new PriceCurrency(tokenId, name, name, tokenData.getDecimals(), m_addressData.getNetworkNetworkId())));
-            //  amountVBox.getChildren().add(amountItem);
+
         }
 
     }

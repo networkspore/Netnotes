@@ -36,9 +36,9 @@ import com.satergo.extra.AESEncryption;
 
 import javafx.application.HostServices;
 import javafx.application.Platform;
-
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
-
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -69,8 +69,7 @@ public class NetworksData implements InstallerInterface {
     private File m_networksFile;
     private String m_selectedId;
     private VBox m_networksBox;
-    private double m_width = 700;
-    private double m_height = 400;
+
     private SimpleObjectProperty<SecretKey> m_secretKey = new SimpleObjectProperty<SecretKey>(null);
 
     private double m_leftColumnWidth = 175;
@@ -94,6 +93,10 @@ public class NetworksData implements InstallerInterface {
     private NoteWatcher m_noteWatcher = null;
 
     private File logFile = new File("networkData-log.txt");
+    private SimpleStringProperty m_stageIconStyle = new SimpleStringProperty(IconStyle.ICON);
+
+    private double m_stageWidth = 700;
+    private double m_stageHeight = 500;
 
     public NetworksData(SecretKey secretKey, HostServices hostServices, File networksFile, boolean isFile) {
 
@@ -174,12 +177,13 @@ public class NetworksData implements InstallerInterface {
         if (networksObject != null) {
 
             JsonElement jsonArrayElement = networksObject == null ? null : networksObject.get("networks");
-
+            JsonElement stageElement = networksObject.get("stage");
             JsonArray jsonArray = jsonArrayElement.getAsJsonArray();
 
             for (JsonElement element : jsonArray) {
                 JsonObject jsonObject = element.getAsJsonObject();
                 JsonElement networkIdElement = jsonObject.get("networkId");
+
                 if (networkIdElement != null) {
                     String networkId = networkIdElement.getAsString();
 
@@ -197,22 +201,48 @@ public class NetworksData implements InstallerInterface {
                 }
 
             }
+            if (stageElement != null) {
+                JsonObject stageObject = stageElement.getAsJsonObject();
+                setStageHeight(stageObject.get("height").getAsDouble());
+                setStageWidth(stageObject.get("width").getAsDouble());
+                m_stageIconStyle.set(stageObject.get("iconStyle").getAsString());
+            }
             updateNetworksGrid();
 
         }
     }
 
+    public double getStageWidth() {
+        return m_stageWidth;
+    }
+
+    public void setStageWidth(double width) {
+        m_stageWidth = width;
+
+    }
+
+    public void setStageHeight(double height) {
+        m_stageHeight = height;
+    }
+
+    public double getStageHeight() {
+        return m_stageHeight;
+    }
+
+    public SimpleStringProperty iconStyleProperty() {
+        return m_stageIconStyle;
+    }
+
+    public JsonObject getStageJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("width", getStageWidth());
+        json.addProperty("height", getStageHeight());
+        json.addProperty("iconStyle", iconStyleProperty().get());
+        return json;
+    }
+
     public SimpleObjectProperty<com.grack.nanojson.JsonObject> cmdSwitchProperty() {
         return m_cmdSwitch;
-    }
-
-    public double getHeight() {
-        return m_height;
-    }
-
-    public void setHeight(double height) {
-        m_height = height;
-        updateNetworksGrid();
     }
 
     public File getAppDir() {
@@ -265,17 +295,12 @@ public class NetworksData implements InstallerInterface {
     public VBox getNetworksBox() {
 
         updateNetworksGrid();
+        m_stageIconStyle.addListener((obs, oldVal, newVal) -> {
+            updateNetworksGrid();
+            save();
+        });
 
         return m_networksBox;
-    }
-
-    public double getWidth() {
-        return m_width;
-    }
-
-    public void setWidth(double width) {
-        m_width = width;
-        updateNetworksGrid();
     }
 
     public void shutdown() {
@@ -518,48 +543,68 @@ public class NetworksData implements InstallerInterface {
         m_networksBox.getChildren().clear();
 
         int numCells = m_noteInterfaceList.size();
-        double width = getWidth();
-        double height = getHeight();
+        double width = m_stageWidth - 80;
+        String currentIconStyle = m_stageIconStyle.get();
+
         if (numCells == 0) {
-            IconButton addNetworkBtn = new IconButton(App.globeImg, "Add Network");
-            addNetworkBtn.setImageWidth(75);
+            IconButton addNetworkBtn = new IconButton(App.globeImg, "Add Network", currentIconStyle);
             addNetworkBtn.setOnAction(e -> showManageNetworkStage());
-            addNetworkBtn.setContentDisplay(ContentDisplay.TOP);
-            addNetworkBtn.setTextAlignment(TextAlignment.CENTER);
 
-            HBox rowBox = new HBox(addNetworkBtn);
-            rowBox.setPrefWidth(width);
-            rowBox.setMinHeight(height);
-            m_networksBox.getChildren().add(rowBox);
+            if (currentIconStyle.equals(IconStyle.ICON)) {
 
-        } else {
-            double imageWidth = 100;
-            double cellPadding = 15;
-            double cellWidth = imageWidth + (cellPadding * 2);
+                HBox rowBox = new HBox(addNetworkBtn);
 
-            int floor = (int) Math.floor(width / (cellWidth + 20));
-            int numCol = floor == 0 ? 1 : floor;
-            int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
+                rowBox.setAlignment(Pos.TOP_LEFT);
+                rowBox.setPrefWidth(width);
 
-            HBox[] rowsBoxes = new HBox[numRows];
-            for (int i = 0; i < numRows; i++) {
-                rowsBoxes[i] = new HBox();
-                m_networksBox.getChildren().add(rowsBoxes[i]);
+                m_networksBox.getChildren().add(rowBox);
+            } else {
+                addNetworkBtn.setImageWidth(30);
+                addNetworkBtn.setPrefWidth(width);
+                m_networksBox.getChildren().add(addNetworkBtn);
             }
 
-            ItemIterator grid = new ItemIterator();
-
-            for (NoteInterface noteInterface : m_noteInterfaceList) {
-
-                HBox rowBox = rowsBoxes[grid.getJ()];
-                rowBox.getChildren().add(noteInterface.getButton(IconStyle.ICON));
-
-                if (grid.getI() < numCol) {
-                    grid.setI(grid.getI() + 1);
-                } else {
-                    grid.setI(0);
-                    grid.setJ(grid.getJ() + 1);
+        } else {
+            m_networksBox.setAlignment(Pos.TOP_LEFT);
+            if (currentIconStyle.equals(IconStyle.ROW)) {
+                for (int i = 0; i < numCells; i++) {
+                    NoteInterface network = m_noteInterfaceList.get(i);
+                    IconButton iconButton = network.getButton(currentIconStyle);
+                    iconButton.setPrefWidth(width);
+                    m_networksBox.getChildren().add(iconButton);
                 }
+            } else {
+
+                double imageWidth = 75;
+                double cellPadding = 15;
+                double cellWidth = imageWidth + (cellPadding * 2);
+
+                int floor = (int) Math.floor(width / cellWidth);
+                int numCol = floor == 0 ? 1 : floor;
+                // currentNumCols.set(numCol);
+                int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
+
+                HBox[] rowsBoxes = new HBox[numRows];
+                for (int i = 0; i < numRows; i++) {
+                    rowsBoxes[i] = new HBox();
+                    m_networksBox.getChildren().add(rowsBoxes[i]);
+                }
+
+                ItemIterator grid = new ItemIterator();
+
+                for (NoteInterface noteInterface : m_noteInterfaceList) {
+
+                    HBox rowBox = rowsBoxes[grid.getJ()];
+                    rowBox.getChildren().add(noteInterface.getButton(currentIconStyle));
+
+                    if (grid.getI() < numCol) {
+                        grid.setI(grid.getI() + 1);
+                    } else {
+                        grid.setI(0);
+                        grid.setJ(grid.getJ() + 1);
+                    }
+                }
+
             }
         }
     }
@@ -705,11 +750,16 @@ public class NetworksData implements InstallerInterface {
         }
 
         fileObject.add("networks", jsonArray);
+        fileObject.add("stage", getStageJson());
 
         String jsonString = fileObject.toString();
 
-        //  byte[] bytes = jsonString.getBytes(StandardCharsets.UTF_8);
-        // String fileHexString = Hex.encodeHexString(bytes);
+        try {
+            Files.writeString(logFile.toPath(), jsonString);
+        } catch (IOException e1) {
+
+        }
+
         try {
 
             SecureRandom secureRandom = SecureRandom.getInstanceStrong();

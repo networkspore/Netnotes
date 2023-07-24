@@ -26,6 +26,10 @@ public class Network extends IconButton {
     private ChangeListener<LocalDateTime> m_changeListener = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
 
+    private double m_stageWidth = 310;
+    private double m_stageHeight = 500;
+    private String m_stageIconStyle = IconStyle.ICON;
+
     public Network(Image icon, String name, String id, NetworksData networksData) {
         super(icon);
         setName(name);
@@ -56,6 +60,40 @@ public class Network extends IconButton {
 
     public String getNetworkId() {
         return m_networkId;
+    }
+
+    public double getStageWidth() {
+        return m_stageWidth;
+    }
+
+    public void setStageWidth(double width) {
+        m_stageWidth = width;
+
+    }
+
+    public void setStageHeight(double height) {
+        m_stageHeight = height;
+    }
+
+    public double getStageHeight() {
+        return m_stageHeight;
+    }
+
+    public String getStageIconStyle() {
+        return m_stageIconStyle;
+    }
+
+    public void setStageIconStyle(String iconStyle) {
+        m_stageIconStyle = iconStyle;
+
+    }
+
+    public JsonObject getStageJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("width", getStageWidth());
+        json.addProperty("height", getStageHeight());
+        json.addProperty("iconStyle", getStageIconStyle());
+        return json;
     }
 
     public JsonObject getJsonObject() {

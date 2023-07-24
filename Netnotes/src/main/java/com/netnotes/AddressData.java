@@ -84,7 +84,7 @@ public class AddressData extends Network implements NoteInterface {
 
     public AddressData(String name, int index, Address address, NetworkType networktype, WalletData walletData) {
         super(null, name, address.toString(), walletData);
-
+        logFile = new File("AddressData" + name + ".txt");
         m_walletData = walletData;
 
         m_amountsList = new AddressAmountsList(this);
@@ -138,8 +138,8 @@ public class AddressData extends Network implements NoteInterface {
     }*/
  /* return ;
         }); */
-    public String getNetworkNetworkId() {
-        return m_walletData.getNetworkNetworkId();
+    public String getNodesId() {
+        return m_walletData.getNodesId();
     }
 
     private void update() {
@@ -585,7 +585,11 @@ public class AddressData extends Network implements NoteInterface {
     }
 
     public boolean updateBalance() {
+        try {
+            Files.writeString(logFile.toPath(), "\nUpdateBalance", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }
         NoteInterface explorerInterface = m_walletData.getExplorerInterface();
 
         if (explorerInterface != null) {

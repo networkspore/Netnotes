@@ -52,7 +52,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
+
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -186,8 +186,6 @@ public class KucoinExchange extends Network implements NoteInterface {
             }
 
         }
-
-        String location = getNetworksData().getAppDir().getAbsolutePath() + "/" + "/";
 
         m_testnetDataFile = new File(testnetFileString == null ? m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat" : testnetFileString);
         m_dataFile = new File(mainnetFileString == null ? m_appDir.getAbsolutePath() + "/" + NAME + ".dat" : mainnetFileString);
@@ -887,10 +885,6 @@ public class KucoinExchange extends Network implements NoteInterface {
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
         JsonElement subjecElement = note.get("subject");
-        JsonElement tunnelIdElement = note.get("tunnelId");
-        JsonElement networkId = note.get("networkId");
-        JsonElement symbolElement = note.get("symbol");
-        JsonElement timeSpanElement = note.get("timeSpan");
         JsonElement transactionCurrencyElement = note.get("transactionCurrency");
         JsonElement quoteCurrencyElement = note.get("quoteCurrency");
 
@@ -1067,4 +1061,16 @@ public class KucoinExchange extends Network implements NoteInterface {
         m_websocketClient.send(createMessageString(tunnelId, "unsubscribe", "/market/ticker:" + symbol, false));
     }
 
+    @Override
+    public IconButton getButton(String iconStyle) {
+
+        IconButton iconButton = new IconButton(iconStyle.equals(IconStyle.ROW) ? getSmallAppIcon() : getAppIcon(), getName(), iconStyle) {
+            @Override
+            public void open() {
+                getOpen();
+            }
+        };
+
+        return iconButton;
+    }
 }

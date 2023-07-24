@@ -3,29 +3,29 @@ package com.netnotes;
 import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
-
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.ergoplatform.appkit.NetworkType;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
+
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
+
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.Alert.AlertType;
+
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -35,9 +35,8 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleStringProperty;
+import javafx.application.Platform;
+
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -54,23 +53,19 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public final static File ERGO_NETWORK_DIR = new File(System.getProperty("user.dir") + "/Ergo Network");
 
     private final static long EXECUTION_TIME = 500;
-    private long m_executionTime = -1;
-    private Future<?> m_lastExecution = null;
+    private ScheduledFuture<?> m_lastExecution = null;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
 
-    private double m_stageWidth = 700;
-    private double m_stageHeight = 500;
-    private String m_iconStyle = IconStyle.ICON;
+    private File logFile = new File("ergoNetwork-log.txt");
 
     //private SimpleBooleanProperty m_shuttingdown = new SimpleBooleanProperty(false);
     public ErgoNetwork(NetworksData networksData) {
         super(getAppIcon(), NAME, NETWORK_ID, networksData);
+        setStageWidth(700);
+        setStageHeight(500);
 
-        ErgoNetworkData ergNetData = new ErgoNetworkData(this);
-
-        ergNetData.addAll();
-
+        getLastUpdated().set(LocalDateTime.now());
     }
 
     public ErgoNetwork(JsonObject json, NetworksData networksData) {
@@ -90,9 +85,9 @@ public class ErgoNetwork extends Network implements NoteInterface {
             JsonElement stageHeightElement = stageObject.get("height");
             JsonElement iconStyleElement = stageObject.get("iconStyle");
 
-            m_iconStyle = iconStyleElement.getAsString();
-            m_stageWidth = stageWidthElement.getAsDouble();
-            m_stageHeight = stageHeightElement.getAsDouble();
+            setStageIconStyle(iconStyleElement.getAsString());
+            setStageWidth(stageWidthElement.getAsDouble());
+            setStageHeight(stageHeightElement.getAsDouble());
         }
 
     }
@@ -115,33 +110,18 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
     }
 
-    public JsonObject getStageJson() {
-        JsonObject json = new JsonObject();
-        json.addProperty("width", m_stageWidth);
-        json.addProperty("height", m_stageHeight);
-        json.addProperty("iconStyle", m_iconStyle);
-        return json;
-    }
-
     @Override
     public void open() {
         showStage();
     }
     private Stage m_stage = null;
 
-    public void setIconStyle(String iconStyle) {
-        m_iconStyle = iconStyle;
-        getLastUpdated().set(LocalDateTime.now());
-    }
-
     public void showStage() {
         if (m_stage == null) {
-            double stageWidth = m_stageWidth;
-            double stageHeight = m_stageHeight;
-            SimpleDoubleProperty gridWidth = new SimpleDoubleProperty(stageWidth - 60);
-            SimpleStringProperty gridStyle = new SimpleStringProperty(m_iconStyle);
+            double stageWidth = getStageWidth();
+            double stageHeight = getStageHeight();
 
-            ErgoNetworkData ergNetData = new ErgoNetworkData(this);
+            ErgoNetworkData ergNetData = new ErgoNetworkData(getStageIconStyle(), stageWidth - 60, this);
             m_stage = new Stage();
             m_stage.setTitle("Ergo Network");
             m_stage.getIcons().add(getIcon());
@@ -186,7 +166,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
             menuBarPadding.setId("bodyBox");
             VBox headerBox = new VBox(titleBar, menuBarPadding);
 
-            VBox gridBox = ergNetData.getGridBox(gridStyle, gridWidth);
+            VBox gridBox = ergNetData.getGridBox();
             gridBox.setPadding(SMALL_INSETS);
 
             ScrollPane scrollPane = new ScrollPane(gridBox);
@@ -196,36 +176,37 @@ public class ErgoNetwork extends Network implements NoteInterface {
             bodyBox.setPadding(SMALL_INSETS);
 
             VBox layoutBox = new VBox(headerBox, bodyBox);
-            layoutBox.setPadding(new Insets(0, 2, 2, 2));
+            layoutBox.setPadding(new Insets(0, 2, 5, 2));
             Scene scene = new Scene(layoutBox, stageWidth, stageHeight);
             scene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(scene);
 
             scrollPane.prefViewportHeightProperty().bind(m_stage.heightProperty().subtract(headerBox.heightProperty()).subtract(20));
             scrollPane.prefViewportWidthProperty().bind(m_stage.widthProperty());
-            gridWidth.bind(m_stage.widthProperty().subtract(60));
+            ergNetData.gridWidthProperty().bind(m_stage.widthProperty().subtract(60));
 
             m_stage.show();
+            Runnable setUpdated = () -> {
+                getLastUpdated().set(LocalDateTime.now());
+
+            };
 
             toggleGridTypeButton.setOnAction(e -> {
 
-                if (m_iconStyle.equals(IconStyle.ICON)) {
-                    setIconStyle(IconStyle.ROW);
-                    gridStyle.set(IconStyle.ROW);
+                if (getStageIconStyle().equals(IconStyle.ICON)) {
+                    setStageIconStyle(IconStyle.ROW);
+                    ergNetData.iconStyleProperty().set(IconStyle.ROW);
                 } else {
-                    setIconStyle(IconStyle.ICON);
-                    gridStyle.set(IconStyle.ICON);
+                    setStageIconStyle(IconStyle.ICON);
+                    ergNetData.iconStyleProperty().set(IconStyle.ICON);
                 }
+                setUpdated.run();
             });
 
             if (ergNetData.isEmpty()) {
                 ergNetData.showwManageStage();
             }
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
-
-            Runnable setUpdated = () -> {
-                getLastUpdated().set(LocalDateTime.now());
-            };
 
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
                 public Thread newThread(Runnable r) {
@@ -236,26 +217,23 @@ public class ErgoNetwork extends Network implements NoteInterface {
             });
 
             m_stage.widthProperty().addListener((obs, oldVal, newVal) -> {
-                m_stageWidth = newVal.doubleValue();
-                long lastExecutionTime = m_executionTime;
-                m_executionTime = System.currentTimeMillis();
-                if (m_lastExecution != null && (lastExecutionTime - m_executionTime) < EXECUTION_TIME) {
-                    executor.shutdownNow();
+                setStageWidth(newVal.doubleValue());
+
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
                 }
 
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
-
             });
+
             m_stage.heightProperty().addListener((obs, oldVal, newVal) -> {
-                m_stageHeight = newVal.doubleValue();
-                long lastExecutionTime = m_executionTime;
-                m_executionTime = System.currentTimeMillis();
-                if (m_lastExecution != null && (lastExecutionTime - m_executionTime) < EXECUTION_TIME) {
-                    executor.shutdownNow();
+                setStageHeight(newVal.doubleValue());
+
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
                 }
 
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
-
             });
 
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
@@ -302,19 +280,12 @@ public class ErgoNetwork extends Network implements NoteInterface {
     @Override
     public IconButton getButton(String iconStyle) {
 
-        IconButton iconButton = new IconButton(iconStyle.equals(IconStyle.ROW) ? getSmallAppIcon() : getAppIcon(), getName()) {
+        IconButton iconButton = new IconButton(iconStyle.equals(IconStyle.ROW) ? getSmallAppIcon() : getAppIcon(), getName(), iconStyle) {
             @Override
             public void open() {
                 getOpen();
             }
         };
-
-        if (iconStyle.equals(IconStyle.ROW)) {
-            iconButton.setContentDisplay(ContentDisplay.LEFT);
-        } else {
-            iconButton.setContentDisplay(ContentDisplay.TOP);
-            iconButton.setTextAlignment(TextAlignment.CENTER);
-        }
 
         return iconButton;
     }

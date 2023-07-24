@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
@@ -35,15 +36,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.netnotes.IconButton.IconStyle;
-import com.satergo.WalletKey.Local;
 import com.satergo.extra.AESEncryption;
 
-import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleObjectProperty;
+
 import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.value.ChangeListener;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -75,17 +73,21 @@ public class ErgoNetworkData implements InstallerInterface {
     private double m_leftColumnWidth = 200;
     private ErgoNetwork m_ergoNetwork;
     private File m_dataFile;
-    private SimpleObjectProperty<LocalDateTime> m_gridUpdated = new SimpleObjectProperty<LocalDateTime>(null);
+
+    private SimpleStringProperty m_iconStyle;
+    private SimpleDoubleProperty m_gridWidth;
 
     private VBox m_installedVBox = new VBox();
     private VBox m_notInstalledVBox = new VBox();
 
     private final static long EXECUTION_TIME = 500;
-    private long m_executionTime = -1;
-    private Future<?> m_lastExecution = null;
 
-    public ErgoNetworkData(ErgoNetwork ergoNetwork) {
+    private ScheduledFuture<?> m_lastExecution = null;
+
+    public ErgoNetworkData(String iconStyle, double gridWidth, ErgoNetwork ergoNetwork) {
         m_ergoNetwork = ergoNetwork;
+        m_iconStyle = new SimpleStringProperty(iconStyle);
+        m_gridWidth = new SimpleDoubleProperty(gridWidth);
 
         File appDir = ErgoNetwork.ERGO_NETWORK_DIR;
 
@@ -104,10 +106,20 @@ public class ErgoNetworkData implements InstallerInterface {
             readFile(m_ergoNetwork.getNetworksData().appKeyProperty().get(), m_dataFile.toPath());
         }
 
+        m_iconStyle.addListener((obs, oldVal, newVal) -> updateGrid());
+        m_gridWidth.addListener((obs, oldVal, newVal) -> updateGrid());
     }
 
     public boolean isEmpty() {
         return m_networkList.size() == 0;
+    }
+
+    public SimpleStringProperty iconStyleProperty() {
+        return m_iconStyle;
+    }
+
+    public SimpleDoubleProperty gridWidthProperty() {
+        return m_gridWidth;
     }
 
     private void readFile(SecretKey appKey, Path filePath) {
@@ -170,7 +182,7 @@ public class ErgoNetworkData implements InstallerInterface {
                     NoteInterface network = null;
                     switch (networkId) {
                         case ErgoWallet.NETWORK_ID:
-                            network = new ErgoWallet(jsonObject, m_ergoNetwork);
+                            network = new ErgoWallet(this, jsonObject, m_ergoNetwork);
                             break;
                         case ErgoTokens.NETWORK_ID:
                             network = new ErgoTokens(jsonObject, m_ergoNetwork);
@@ -184,7 +196,7 @@ public class ErgoNetworkData implements InstallerInterface {
                     }
 
                     if (network != null) {
-                        m_networkList.add(network);
+                        addNoteInterface(network);
                     }
                 }
 
@@ -192,80 +204,60 @@ public class ErgoNetworkData implements InstallerInterface {
 
         }
     }
+    private VBox m_gridBox = new VBox();
 
-    public VBox getGridBox(SimpleStringProperty iconStyle, SimpleDoubleProperty gridWidth) {
-        VBox gridBox = new VBox();
+    public VBox getGridBox() {
+        updateGrid();
+        return m_gridBox;
+    }
 
-        // SimpleIntegerProperty currentNumCols = new SimpleIntegerProperty(1);
-        Runnable update = () -> {
-            gridBox.getChildren().clear();
+    private void updateGrid() {
+        int numCells = m_networkList.size();
+        String currentIconStyle = m_iconStyle.get();
+        m_gridBox.getChildren().clear();
 
-            int numCells = m_networkList.size();
-            String currentIconStyle = iconStyle.get();
-
-            if (currentIconStyle.equals(IconStyle.ROW)) {
-                for (int i = 0; i < numCells; i++) {
-                    NoteInterface network = m_networkList.get(i);
-                    IconButton iconButton = network.getButton(currentIconStyle);
-                    iconButton.prefWidthProperty().bind(gridWidth);
-                    gridBox.getChildren().add(iconButton);
-                }
-            } else {
-
-                double width = gridWidth.get();
-                double imageWidth = 75;
-                double cellPadding = 15;
-                double cellWidth = imageWidth + (cellPadding * 2);
-
-                int floor = (int) Math.floor(width / cellWidth);
-                int numCol = floor == 0 ? 1 : floor;
-                // currentNumCols.set(numCol);
-                int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
-
-                HBox[] rowsBoxes = new HBox[numRows];
-                for (int i = 0; i < numRows; i++) {
-                    rowsBoxes[i] = new HBox();
-                    gridBox.getChildren().add(rowsBoxes[i]);
-                }
-
-                ItemIterator grid = new ItemIterator();
-
-                for (NoteInterface noteInterface : m_networkList) {
-
-                    HBox rowBox = rowsBoxes[grid.getJ()];
-                    rowBox.getChildren().add(noteInterface.getButton(IconStyle.ICON));
-
-                    if (grid.getI() < numCol) {
-                        grid.setI(grid.getI() + 1);
-                    } else {
-                        grid.setI(0);
-                        grid.setJ(grid.getJ() + 1);
-                    }
-                }
-
+        if (currentIconStyle.equals(IconStyle.ROW)) {
+            for (int i = 0; i < numCells; i++) {
+                NoteInterface network = m_networkList.get(i);
+                IconButton iconButton = network.getButton(currentIconStyle);
+                iconButton.prefWidthProperty().bind(m_gridWidth);
+                m_gridBox.getChildren().add(iconButton);
             }
-        };
+        } else {
 
-        iconStyle.addListener((obs, oldVal, newVal) -> update.run());
+            double width = m_gridWidth.get();
+            double imageWidth = 75;
+            double cellPadding = 15;
+            double cellWidth = imageWidth + (cellPadding * 2);
 
-        gridWidth.addListener((obs, oldVal, newVal) -> {
-            String currentIconStyle = iconStyle.get();
-            if (currentIconStyle.equals(IconStyle.ICON)) {
+            int floor = (int) Math.floor(width / cellWidth);
+            int numCol = floor == 0 ? 1 : floor;
+            // currentNumCols.set(numCol);
+            int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
 
-                // double colWidth = IconButton.NORMAL_WIDTH;
-                // double width = gridWidth.get();
-                //int numCols = (int) Math.floor(width / colWidth);
-                // if (numCols != currentNumCols.get()) {
-                update.run();
-                //   }
+            HBox[] rowsBoxes = new HBox[numRows];
+            for (int i = 0; i < numRows; i++) {
+                rowsBoxes[i] = new HBox();
+                m_gridBox.getChildren().add(rowsBoxes[i]);
             }
-        });
 
-        m_gridUpdated.addListener((obs, oldVal, newVal) -> {
-            update.run();
-        });
+            ItemIterator grid = new ItemIterator();
 
-        return gridBox;
+            for (NoteInterface noteInterface : m_networkList) {
+
+                HBox rowBox = rowsBoxes[grid.getJ()];
+                rowBox.getChildren().add(noteInterface.getButton(currentIconStyle));
+
+                if (grid.getI() < numCol) {
+                    grid.setI(grid.getI() + 1);
+                } else {
+                    grid.setI(0);
+                    grid.setJ(grid.getJ() + 1);
+                }
+            }
+
+        }
+
     }
 
     private ArrayList<InstallableIcon> updateInstallables() {
@@ -441,25 +433,17 @@ public class ErgoNetworkData implements InstallerInterface {
 
             m_manageStage.widthProperty().addListener((obs, oldVal, newVal) -> {
                 m_stageWidth = newVal.doubleValue();
-                long lastExecutionTime = m_executionTime;
-                m_executionTime = System.currentTimeMillis();
-
-                if (m_lastExecution != null && (lastExecutionTime - m_executionTime) < EXECUTION_TIME) {
-                    executor.shutdownNow();
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
                 }
-
                 m_lastExecution = executor.schedule(runSave, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
             m_manageStage.heightProperty().addListener((obs, oldVal, newVal) -> {
                 m_stageHeight = newVal.doubleValue();
-                long lastExecutionTime = m_executionTime;
-                m_executionTime = System.currentTimeMillis();
-
-                if (m_lastExecution != null && (lastExecutionTime - m_executionTime) < EXECUTION_TIME) {
-                    executor.shutdownNow();
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
                 }
-
                 m_lastExecution = executor.schedule(runSave, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
@@ -540,7 +524,7 @@ public class ErgoNetworkData implements InstallerInterface {
                 noteInterface = new ErgoTokens(m_ergoNetwork);
                 break;
             case ErgoWallet.NETWORK_ID:
-                noteInterface = new ErgoWallet(m_ergoNetwork);
+                noteInterface = new ErgoWallet(this, m_ergoNetwork);
                 break;
             case ErgoExplorer.NETWORK_ID:
                 noteInterface = new ErgoExplorer(m_ergoNetwork);
@@ -553,7 +537,7 @@ public class ErgoNetworkData implements InstallerInterface {
             addNoteInterface(noteInterface);
             updateAvailableLists(updateInstallables());
             save();
-
+            updateGrid();
         }
 
     }
@@ -566,8 +550,6 @@ public class ErgoNetworkData implements InstallerInterface {
         if (getNetwork(networkId) == null) {
             m_networkList.add(noteInterface);
             noteInterface.addUpdateListener((obs, oldValue, newValue) -> save());
-
-            m_gridUpdated.set(LocalDateTime.now());
 
             return true;
         }
@@ -583,9 +565,11 @@ public class ErgoNetworkData implements InstallerInterface {
         removeNoteInterface(networkId);
 
         updateAvailableLists(updateInstallables());
+        updateGrid();
         if (save) {
             save();
         }
+
     }
 
     public boolean removeNoteInterface(String networkId) {
@@ -603,9 +587,6 @@ public class ErgoNetworkData implements InstallerInterface {
                 success = true;
                 break;
             }
-        }
-        if (success && update) {
-            m_gridUpdated.set(LocalDateTime.now());
         }
 
         return success;
@@ -641,7 +622,7 @@ public class ErgoNetworkData implements InstallerInterface {
             }
         }
         updateAvailableLists(updateInstallables());
-        m_gridUpdated.set(LocalDateTime.now());
+        updateGrid();
         save();
     }
 
@@ -653,7 +634,7 @@ public class ErgoNetworkData implements InstallerInterface {
             noteInterface.remove();
         }
         updateAvailableLists(updateInstallables());
-        m_gridUpdated.set(LocalDateTime.now());
+        updateGrid();
         save();
     }
 
@@ -661,6 +642,7 @@ public class ErgoNetworkData implements InstallerInterface {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("width", m_stageWidth);
         jsonObject.addProperty("height", m_stageHeight);
+        jsonObject.addProperty("iconStyle", m_iconStyle.get());
         return jsonObject;
     }
 
