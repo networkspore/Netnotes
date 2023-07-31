@@ -150,7 +150,8 @@ public class WalletsDataList {
                         JsonElement selectedNodeIdElement = jsonObject.get("selectedNodeId");
                         JsonElement explorerIdElement = jsonObject.get("explorerId");
                         JsonElement explorerUpdatesElement = jsonObject.get("explorerUpdates");
-                        JsonElement marketUpdatesElement = jsonObject.get("marketUpdates");
+                        JsonElement marketsElement = jsonObject.get("marketsID");
+                        JsonElement selectedMarketElement = jsonObject.get("selectedMarketId");
 
                         if (nameElement != null && idElement != null && fileLocationElement != null) {
                             String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
@@ -171,11 +172,10 @@ public class WalletsDataList {
 
                             String selectedNodeId = selectedNodeIdElement == null ? null : selectedNodeIdElement.getAsString();
 
-                            JsonObject marketUpdatesJson = marketUpdatesElement != null && marketUpdatesElement.isJsonObject() ? marketUpdatesElement.getAsJsonObject() : null;
+                            String marketsId = marketsElement == null ? null : marketsElement.getAsString();
+                            String selectedMarketId = selectedMarketElement == null ? null : selectedMarketElement.getAsString();
 
-                            MarketUpdates marketUpdates = new MarketUpdates(m_ergoWallet, marketUpdatesJson);
-
-                            WalletData walletData = new WalletData(id, name, walletFile, sceneWidth, sceneHeight, nodesId, selectedNodeId, explorerId, explorerUpdates, marketUpdates, walletNetworkType, m_ergoWallet);
+                            WalletData walletData = new WalletData(id, name, walletFile, sceneWidth, sceneHeight, nodesId, selectedNodeId, explorerId, explorerUpdates, marketsId, selectedMarketId, walletNetworkType, m_ergoWallet);
                             m_noteInterfaceList.add(walletData);
 
                             walletData.addUpdateListener((obs, oldValue, newValue) -> save());
@@ -213,6 +213,7 @@ public class WalletsDataList {
     }
 
     public void showAddWalletStage() {
+        String friendlyId = FriendlyId.createFriendlyId();
 
         Image icon = m_ergoWallet.getIcon();
         String name = m_ergoWallet.getName();
@@ -253,7 +254,7 @@ public class WalletsDataList {
         menuBar.setPadding(new Insets(1, 5, 1, 5)); */
         HBox headingPaddingBox = new HBox(headingBox);
 
-        headingPaddingBox.setPadding(new Insets(5, 2, 2, 2));
+        headingPaddingBox.setPadding(new Insets(5, 0, 2, 0));
         //  VBox menuBarBox = new VBox(menuBar);
         //   menuBarBox.setId("bodyBox");
         VBox headerBox = new VBox(headingPaddingBox);
@@ -263,8 +264,6 @@ public class WalletsDataList {
         Text walletName = new Text(String.format("%-15s", "Name"));
         walletName.setFill(App.txtColor);
         walletName.setFont(App.txtFont);
-
-        String friendlyId = FriendlyId.createFriendlyId();
 
         TextField walletNameField = new TextField("Wallet " + friendlyId);
         walletNameField.setFont(App.txtFont);
@@ -372,30 +371,30 @@ public class WalletsDataList {
         MenuButton explorerUpdatesBtn = new MenuButton("15s");
         explorerUpdatesBtn.setPadding(new Insets(4, 5, 0, 5));
         explorerUpdatesBtn.setFont(Font.font("OCR A Extended", 12));
-        explorerUpdatesBtn.setUserData("15");
+        explorerUpdatesBtn.setUserData("POLLED" + ":15");
 
         MenuItem explorerUpdates5secItem = new MenuItem("5s");
         explorerUpdates5secItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates5secItem.getText());
-            explorerUpdatesBtn.setUserData("5");
+            explorerUpdatesBtn.setUserData("POLLED" + ":5");
         });
 
         MenuItem explorerUpdates15secItem = new MenuItem("15s");
         explorerUpdates15secItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates15secItem.getText());
-            explorerUpdatesBtn.setUserData("15");
+            explorerUpdatesBtn.setUserData("POLLED" + ":15");
         });
 
         MenuItem explorerUpdates30secItem = new MenuItem("30s");
         explorerUpdates30secItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates30secItem.getText());
-            explorerUpdatesBtn.setUserData("30");
+            explorerUpdatesBtn.setUserData("POLLED" + ":30");
         });
 
         MenuItem explorerUpdates1minItem = new MenuItem("1 min");
         explorerUpdates1minItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates1minItem.getText());
-            explorerUpdatesBtn.setUserData("60");
+            explorerUpdatesBtn.setUserData("POLLED" + ":60");
         });
 
         HBox explorerBox = new HBox(explorerText, explorersBtn, explorerUpdatesBtn);
@@ -405,74 +404,42 @@ public class WalletsDataList {
         marketTxt.setFill(App.txtColor);
         marketTxt.setFont(App.txtFont);
 
-        MenuButton marketBtn = new MenuButton(KucoinExchange.NAME);
+        MenuButton marketBtn = new MenuButton(ErgoMarkets.NAME);
         marketBtn.setFont(App.txtFont);
         marketBtn.setUserData(KucoinExchange.NETWORK_ID);
         marketBtn.setPrefWidth(200);
 
         MenuItem marketNoneItem = new MenuItem("(disabled)");
 
-        MenuItem marketKuCoinItem = new MenuItem(KucoinExchange.NAME);
+        MenuItem ergoMarketsItem = new MenuItem(ErgoMarkets.NAME);
 
-        marketBtn.getItems().addAll(marketNoneItem, marketKuCoinItem);
+        marketBtn.getItems().addAll(marketNoneItem, ergoMarketsItem);
 
-        MenuButton marketUpdatesBtn = new MenuButton("Real-time: Ticker");
+        MenuButton marketSelectBtn = new MenuButton("(default)");
+        marketSelectBtn.setPadding(new Insets(4, 5, 0, 5));
+        marketSelectBtn.setFont(Font.font("OCR A Extended", 12));
+        marketSelectBtn.setUserData(null);
 
-        marketUpdatesBtn.setPadding(new Insets(4, 5, 0, 5));
-        marketUpdatesBtn.setFont(Font.font("OCR A Extended", 12));
-        marketUpdatesBtn.setUserData("realtime:ticker");
-
-        MenuItem updatesDisabledItem = new MenuItem("(disabled)");
+        MenuItem updatesDisabledItem = new MenuItem("(default)");
         updatesDisabledItem.setOnAction(e -> {
-            marketUpdatesBtn.setText(updatesDisabledItem.getText());
-            marketUpdatesBtn.setUserData(null);
+            marketSelectBtn.setText(updatesDisabledItem.getText());
+            marketSelectBtn.setUserData(null);
         });
 
-        MenuItem updatesRealTimeItem = new MenuItem("Real-time: Ticker");
-        updatesRealTimeItem.setOnAction(e -> {
-            marketUpdatesBtn.setText("Real-time");
-            marketUpdatesBtn.setUserData("realtime:ticker");
-        });
-
-        MenuItem updates5secItem = new MenuItem("5s");
-        updates5secItem.setOnAction(e -> {
-            marketUpdatesBtn.setText(updates5secItem.getText());
-            marketUpdatesBtn.setUserData("5");
-        });
-
-        MenuItem updates15secItem = new MenuItem("15s");
-        updates15secItem.setOnAction(e -> {
-            marketUpdatesBtn.setText(updates15secItem.getText());
-            marketUpdatesBtn.setUserData("15");
-        });
-
-        MenuItem updates30secItem = new MenuItem("30s");
-        updates30secItem.setOnAction(e -> {
-            marketUpdatesBtn.setText(updates30secItem.getText());
-            marketUpdatesBtn.setUserData("30");
-        });
-
-        MenuItem updates1minItem = new MenuItem("1 min");
-        updates1minItem.setOnAction(e -> {
-            marketUpdatesBtn.setText(updates1minItem.getText());
-            marketUpdatesBtn.setUserData("60");
-        });
+        HBox marketBox = new HBox(marketTxt, marketBtn, marketSelectBtn);
 
         marketNoneItem.setOnAction(e -> {
             marketBtn.setText(marketNoneItem.getText());
             marketBtn.setUserData(null);
-
+            marketSelectBtn.setVisible(false);
         });
 
-        marketUpdatesBtn.getItems().addAll(updatesDisabledItem, updates5secItem, updates15secItem, updates30secItem, updates1minItem);
-
-        marketKuCoinItem.setOnAction(e -> {
-            marketBtn.setText(marketKuCoinItem.getText());
-            marketBtn.setUserData(KucoinExchange.NETWORK_ID);
-
+        ergoMarketsItem.setOnAction(e -> {
+            marketBtn.setText(ergoMarketsItem.getText());
+            marketBtn.setUserData(ErgoMarkets.NETWORK_ID);
+            marketSelectBtn.setVisible(true);
         });
 
-        HBox marketBox = new HBox(marketTxt, marketBtn, marketUpdatesBtn);
         marketBox.setAlignment(Pos.CENTER_LEFT);
 
         Text walletTxt = new Text(String.format("%-15s", ""));
@@ -487,17 +454,16 @@ public class WalletsDataList {
         Rectangle windowBounds = m_ergoWallet.getNetworksData().getMaximumWindowBounds();
 
         newWalletBtn.setOnAction(newWalletEvent -> {
+            NetworkType networkType = (NetworkType) walletTypeMenuBtn.getUserData();
+
             String nodeId = nodesMenuBtn.getUserData() == null ? null : (String) nodesMenuBtn.getUserData();
             String selectedNode = nodeId == null ? null : nodesMenuBtn2.getText();
             String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
             String explorerUpdates = explorerUpdatesBtn.getUserData() == null ? null : (String) explorerUpdatesBtn.getUserData();
-            String marketId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
+            String marketsId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
+            String selectedMarketId = marketSelectBtn.getUserData() == null ? null : (String) marketSelectBtn.getUserData();
 
-            String marketUpdates = marketUpdatesBtn.getUserData() == null ? null : (String) marketUpdatesBtn.getUserData();
-
-            NetworkType networkType = (NetworkType) walletTypeMenuBtn.getUserData();
-
-            Scene mnemonicScene = createMnemonicScene(friendlyId, walletNameField.getText(), nodeId, selectedNode, explorerId, explorerUpdates, marketId, marketUpdates, networkType, stage, () -> {
+            Scene mnemonicScene = createMnemonicScene(friendlyId, walletNameField.getText(), nodeId, selectedNode, explorerId, explorerUpdates, marketsId, selectedMarketId, networkType, stage, () -> {
                 stage.setScene(walletScene);
                 stage.setTitle(titleString);
             });
@@ -529,9 +495,9 @@ public class WalletsDataList {
                 String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                 String explorerUpdates = explorerUpdatesBtn.getUserData() == null ? null : (String) explorerUpdatesBtn.getUserData();
                 String marketId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
-                String marketUpdateType = marketUpdatesBtn.getUserData() == null ? null : (String) marketUpdatesBtn.getUserData();
+                String selectedMarketId = marketSelectBtn.getUserData() == null ? null : (String) marketSelectBtn.getUserData();
 
-                WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, new MarketUpdates(m_ergoWallet, marketId, marketUpdateType), networkType, m_ergoWallet);
+                WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, marketId, selectedMarketId, networkType, m_ergoWallet);
 
                 add(walletData);
                 save();
@@ -576,10 +542,10 @@ public class WalletsDataList {
                                     String selectedNode = nodeId == null ? null : nodesMenuBtn2.getText();
                                     String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                                     String explorerUpdates = explorerUpdatesBtn.getUserData() == null ? null : (String) explorerUpdatesBtn.getUserData();
-                                    String marketId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
-                                    String marketUpdates = marketUpdatesBtn.getUserData() == null ? null : (String) marketUpdatesBtn.getUserData();
+                                    String marketsId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
+                                    String selectedMarketId = marketSelectBtn.getUserData() == null ? null : (String) marketSelectBtn.getUserData();
 
-                                    WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, new MarketUpdates(m_ergoWallet, marketId, marketUpdates), networkType, m_ergoWallet);
+                                    WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, marketsId, selectedMarketId, networkType, m_ergoWallet);
                                     add(walletData);
                                     save();
 
@@ -672,7 +638,7 @@ public class WalletsDataList {
 
     }
 
-    public Scene createMnemonicScene(String id, String name, String nodeId, String selectedNode, String explorerId, String explorerUpdates, String marketId, String marketUpdates, NetworkType networkType, Stage stage, Runnable onBack) {
+    public Scene createMnemonicScene(String id, String name, String nodeId, String selectedNode, String explorerId, String explorerUpdates, String marketsId, String selectedMarketId, NetworkType networkType, Stage stage, Runnable onBack) {
         //String oldStageName = mnemonicStage.getTitle();
 
         String titleStr = "Mnemonic phrase - " + m_ergoWallet.getName();
@@ -798,10 +764,9 @@ public class WalletsDataList {
                                 Wallet.create(walletFile.toPath(), Mnemonic.create(SecretString.create(mnemonicField.getText()), SecretString.create(password)), walletFile.getName(), password.toCharArray());
                                 mnemonicField.setText("-");
 
-                                WalletData walletData = new WalletData(id, name, walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, new MarketUpdates(m_ergoWallet, marketId, marketUpdates), networkType, m_ergoWallet);
+                                WalletData walletData = new WalletData(id, name, walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, marketsId, selectedMarketId, networkType, m_ergoWallet);
                                 add(walletData);
                                 save();
-                                walletData.open(password);
 
                             }
 

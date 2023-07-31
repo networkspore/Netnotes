@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.utils.Utils;
 
 public class PriceData {
 
@@ -73,12 +74,6 @@ public class PriceData {
         return LocalDateTime.ofInstant(timeInstant, ZoneId.systemDefault());
     }
 
-    public static LocalDateTime milliToLocalTime(long timestamp) {
-        Instant timeInstant = Instant.ofEpochMilli(timestamp);
-
-        return LocalDateTime.ofInstant(timeInstant, ZoneId.systemDefault());
-    }
-
     public LocalDateTime getLocalDateTime() {
         if (m_timestampString == "") {
             return null;
@@ -86,7 +81,7 @@ public class PriceData {
         if (m_timestampString.length() < 13) {
             return secondsToLocalTime(m_timestamp);
         } else {
-            return milliToLocalTime(m_timestamp);
+            return Utils.milliToLocalTime(m_timestamp);
         }
     }
 

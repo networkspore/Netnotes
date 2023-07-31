@@ -2,12 +2,17 @@ package com.netnotes;
 
 import com.google.gson.JsonObject;
 
-import javafx.beans.value.ChangeListener;
-
 public interface MessageInterface {
+
+    String getSubject();
+
+    String getTopic();
+
+    String getTunnelId();
 
     String getId();
 
-    ChangeListener<JsonObject> getSocketChangeListener();
+    void onMsgChanged(JsonObject jsonObject);
 
+    void onReady();
 }

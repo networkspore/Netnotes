@@ -20,6 +20,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.MenuButton;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 
 import javafx.scene.control.Tooltip;
@@ -212,14 +214,6 @@ public class ErgoWallet extends Network implements NoteInterface {
             menuBarPadding.setId("bodyBox");
             VBox headerBox = new VBox(menuBarPadding);
 
-            ImageView addImage = new ImageView(App.addImg);
-            addImage.setFitHeight(10);
-            addImage.setPreserveRatio(true);
-
-            Tooltip addTip = new Tooltip("Add");
-            addTip.setShowDelay(new javafx.util.Duration(100));
-            addTip.setFont(App.txtFont);
-
             Region growRegion = new Region();
 
             VBox.setVgrow(growRegion, Priority.ALWAYS);
@@ -229,22 +223,14 @@ public class ErgoWallet extends Network implements NoteInterface {
             scrollPane.setId("bodyBox");
 
             Button addButton = new Button("Add");
-            // addButton.setGraphic(addImage);
             addButton.setId("menuBarBtn");
             addButton.setPadding(new Insets(2, 6, 2, 6));
-            addButton.setTooltip(addTip);
             addButton.setPrefWidth(getStageWidth() / 2);
             addButton.setPrefHeight(buttonHeight);
 
-            Tooltip removeTip = new Tooltip("Remove");
-            removeTip.setShowDelay(new javafx.util.Duration(100));
-            removeTip.setFont(App.txtFont);
-
             Button removeButton = new Button("Remove");
-            // removeButton.setGraphic(addImage);
             removeButton.setId("menuBarBtnDisabled");
             removeButton.setPadding(new Insets(2, 6, 2, 6));
-            removeButton.setTooltip(removeTip);
             removeButton.setDisable(true);
             removeButton.setPrefWidth(getStageWidth() / 2);
             removeButton.setPrefHeight(buttonHeight);
@@ -275,7 +261,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             walletsBox.prefWidthProperty().bind(walletsScene.widthProperty().subtract(25));
 
             scrollPane.setContent(walletsBox);
-            scrollPane.setPadding(new Insets(5, 5, 5, 5));
+            scrollPane.setPadding(new Insets(0, 5, 5, 5));
 
             addButton.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));
             removeButton.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));

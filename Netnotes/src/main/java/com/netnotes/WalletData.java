@@ -70,14 +70,15 @@ public class WalletData extends Network implements NoteInterface {
     private String m_selectedNodeId;
     private String m_explorerId;
     private String m_explorerUpdates;
-    private MarketUpdates m_marketUpdates;
+    private String m_marketsId;
+    private String m_selectedMarketId;
 
     private String m_quoteTransactionCurrency = "USD";
     private SimpleObjectProperty<PriceQuote> m_lastQuote = new SimpleObjectProperty<PriceQuote>(null);
     private ErgoWallet m_ergoWallet;
 
     // private ErgoWallet m_ergoWallet;
-    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String nodesId, String selectedNodeId, String explorerId, String explorerUpdates, MarketUpdates marketUpdates, NetworkType networkType, ErgoWallet ergoWallet) {
+    public WalletData(String id, String name, File walletFile, double sceneWidth, double sceneHeight, String nodesId, String selectedNodeId, String explorerId, String explorerUpdates, String marketsId, String selectedMarketId, NetworkType networkType, ErgoWallet ergoWallet) {
         super(null, name, id, ergoWallet);
 
         m_sceneWidth = sceneWidth;
@@ -90,12 +91,20 @@ public class WalletData extends Network implements NoteInterface {
         m_selectedNodeId = selectedNodeId;
         m_explorerId = explorerId;
         m_explorerUpdates = explorerUpdates;
-        m_marketUpdates = marketUpdates;
+        m_marketsId = marketsId;
+        m_selectedMarketId = selectedMarketId;
 
         m_ergoWallet = ergoWallet;
 
         setIconStyle(IconStyle.ROW);
 
+    }
+
+    public JsonObject getMarketsObject() {
+        JsonObject json = new JsonObject();
+        json.addProperty("id", m_marketsId);
+        json.addProperty("selectedMarketId", m_selectedMarketId);
+        return json;
     }
 
     @Override
@@ -125,9 +134,11 @@ public class WalletData extends Network implements NoteInterface {
 
         if (m_explorerUpdates != null) {
             jsonObject.addProperty("explorerUpdates", m_explorerUpdates);
+
         }
-        if (m_marketUpdates != null) {
-            jsonObject.add("marketUpdates", m_marketUpdates.getJsonObject());
+
+        if (m_marketsId != null) {
+            jsonObject.add("markets", getMarketsObject());
         }
 
         return jsonObject;
@@ -351,6 +362,16 @@ public class WalletData extends Network implements NoteInterface {
 
         networkMenuBtn.getItems().addAll(nodeNullMenuItem, nodeMenuItem);
 
+        Tooltip marketsTip = new Tooltip("Select market");
+        marketsTip.setShowDelay(new javafx.util.Duration(100));
+        marketsTip.setFont(App.txtFont);
+
+        MenuButton marketsBtn = new MenuButton();
+        marketsBtn.setGraphic(m_explorerId == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), imageWidth) : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerId, true).getIcon(), imageWidth));
+        marketsBtn.setPadding(new Insets(2, 0, 0, 0));
+        marketsBtn.setTooltip(marketsTip);
+        marketsBtn.setUserData(m_explorerId);
+
         Tooltip explorerUrlTip = new Tooltip("Select explorer");
         explorerUrlTip.setShowDelay(new javafx.util.Duration(100));
         explorerUrlTip.setFont(App.txtFont);
@@ -358,7 +379,7 @@ public class WalletData extends Network implements NoteInterface {
         ImageView searchView = IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), imageWidth);
 
         MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setGraphic(m_explorerId == null ? searchView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerId, true).getIcon(), imageWidth));;
+        explorerBtn.setGraphic(m_explorerId == null ? searchView : IconButton.getIconView(new InstallableIcon(getNetworksData(), m_explorerId, true).getIcon(), imageWidth));
         explorerBtn.setPadding(new Insets(2, 0, 0, 0));
         explorerBtn.setTooltip(explorerUrlTip);
         explorerBtn.setUserData(m_explorerId);
@@ -392,42 +413,33 @@ public class WalletData extends Network implements NoteInterface {
 
         explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
 
-        /*
-            explorerBtn.getItems().addAll(explorerNullMenuItem, ergoExplorerMenuItem);
-              
-         */
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Tooltip marketTip = new Tooltip("Price: " + m_marketUpdates.getNetworkId() == null ? "Disabled" : "Enabled");
+        Tooltip marketTip = new Tooltip("Price: " + m_marketsId == null ? "Disabled" : "Enabled");
         marketTip.setShowDelay(new javafx.util.Duration(100));
         marketTip.setFont(App.txtFont);
 
-        ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), imageWidth);
+        ImageView exchangeView = IconButton.getIconView(new Image("/assets/bar-chart-30.png"), 30);
 
         MenuButton marketBtn = new MenuButton();
-        marketBtn.setUserData(m_marketUpdates.getNetworkId());
+        marketBtn.setUserData(m_marketsId);
         /// marketBtn.setGraphic()
         marketBtn.setPadding(new Insets(2, 0, 0, 0));
 
         MenuItem chartsNullMenuItem = new MenuItem("(none)");
 
         chartsNullMenuItem.setOnAction(e -> {
-            m_marketUpdates.setNetworkid(null);
+
             marketBtn.setGraphic(exchangeView);
         });
 
         MenuItem kuCoinExchangeMenuItem = new MenuItem(KucoinExchange.NAME);
-        kuCoinExchangeMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
+        kuCoinExchangeMenuItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), 30));
         kuCoinExchangeMenuItem.setOnAction(e -> {
 
-            marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), imageWidth));
-
-            m_marketUpdates.setNetworkid(KucoinExchange.NETWORK_ID);
+            marketBtn.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), 30));
 
             if (getNetworksData().getNoteInterface(KucoinExchange.NETWORK_ID) == null) {
                 Alert marketAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + KucoinExchange.NAME + "'' to use this feature.", ButtonType.OK);
-                marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), alertImageWidth));
+                marketAlert.setGraphic(IconButton.getIconView(KucoinExchange.getAppIcon(), 75));
                 marketAlert.initOwner(walletStage);
                 marketAlert.show();
             } else {
@@ -436,8 +448,10 @@ public class WalletData extends Network implements NoteInterface {
         });
 
         marketBtn.getItems().addAll(chartsNullMenuItem, kuCoinExchangeMenuItem);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn, marketBtn);
+        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn);
         rightSideMenu.setId("rightSideMenuBar");
         rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 

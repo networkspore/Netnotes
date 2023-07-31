@@ -5,15 +5,11 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 import java.util.ArrayList;
 
 public class BufferedImageView extends ImageView {
 
-    private static File logFile = new File("BufferedImageView-log.txt");
     private Image m_img;
     private ArrayList<Effects> m_effects = new ArrayList<Effects>();
 

@@ -215,7 +215,7 @@ public class Network extends IconButton {
 
     @Override
     public void close() {
-        // TODO Auto-generated method stub
+
         super.close();
 
         shutdownNowProperty().set(LocalDateTime.now());

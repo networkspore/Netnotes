@@ -62,47 +62,48 @@ public class InstallableIcon extends IconButton {
     public void setNetworkId(String networkId) {
         m_networkId = networkId;
         switch (m_networkId) {
-            case "ERGO_EXPLORER":
+            case ErgoExplorer.NETWORK_ID:
                 setIcon(m_installed ? ErgoExplorer.getSmallAppIcon() : ErgoExplorer.getAppIcon());
                 setName(ErgoExplorer.NAME);
                 setDescription(ErgoExplorer.DESCRIPTION);
                 setSummary(ErgoExplorer.SUMMARY);
                 break;
-            case "ERGO_WALLET":
+            case ErgoWallet.NETWORK_ID:
                 setIcon(m_installed ? ErgoWallet.getSmallAppIcon() : ErgoWallet.getAppIcon());
                 setName(ErgoWallet.NAME);
                 setDescription(ErgoWallet.DESCRIPTION);
                 setSummary(ErgoWallet.SUMMARY);
                 break;
-            case "ERGO_NETWORK":
+            case ErgoNetwork.NETWORK_ID:
                 setIcon(m_installed ? ErgoNetwork.getSmallAppIcon() : ErgoNetwork.getAppIcon());
                 setName(ErgoNetwork.NAME);
                 setDescription(ErgoNetwork.DESCRIPTION);
                 setSummary(ErgoNetwork.SUMMARY);
                 break;
-            case "KUCOIN_EXCHANGE":
+            case KucoinExchange.NETWORK_ID:
                 setIcon(m_installed ? KucoinExchange.getSmallAppIcon() : KucoinExchange.getAppIcon());
                 setName(KucoinExchange.NAME);
                 setDescription(KucoinExchange.DESCRIPTION);
                 setSummary(KucoinExchange.SUMMARY);
                 break;
-            case "NETWORK_TIMER":
-                setIcon(m_installed ? NetworkTimer.getSmallAppIcon() : NetworkTimer.getAppIcon());
-                setName(NetworkTimer.NAME);
-                setDescription(NetworkTimer.DESCRIPTION);
-                setSummary(NetworkTimer.SUMMARY);
-                break;
-            case "ERGO_TOKENS":
+
+            case ErgoTokens.NETWORK_ID:
                 setIcon(m_installed ? ErgoTokens.getSmallAppIcon() : ErgoTokens.getAppIcon());
                 setName(ErgoTokens.NAME);
                 setDescription(ErgoTokens.DESCRIPTION);
                 setSummary(ErgoTokens.SUMMARY);
                 break;
-            case "ERGO_NODES":
+            case ErgoNodes.NETWORK_ID:
                 setIcon(m_installed ? ErgoNodes.getSmallAppIcon() : ErgoNodes.getAppIcon());
                 setName(ErgoNodes.NAME);
                 setDescription(ErgoNodes.DESCRIPTION);
-                setSummary("");
+                setSummary(ErgoNodes.SUMMARY);
+                break;
+            case ErgoMarkets.NETWORK_ID:
+                setIcon(m_installed ? ErgoMarkets.getSmallAppIcon() : ErgoMarkets.getAppIcon());
+                setName(ErgoMarkets.NAME);
+                setDescription(ErgoMarkets.DESCRIPTION);
+                setSummary(ErgoMarkets.SUMMARY);
                 break;
 
         }

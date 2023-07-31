@@ -38,4 +38,6 @@ public interface NoteInterface {
 
     void shutdown();
 
+    SimpleObjectProperty<LocalDateTime> shutdownNowProperty();
+
 }

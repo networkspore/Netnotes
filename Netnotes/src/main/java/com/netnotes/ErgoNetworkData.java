@@ -61,7 +61,8 @@ public class ErgoNetworkData implements InstallerInterface {
         ErgoTokens.NETWORK_ID,
         ErgoExplorer.NETWORK_ID,
         ErgoNodes.NETWORK_ID,
-        ErgoWallet.NETWORK_ID
+        ErgoWallet.NETWORK_ID,
+        ErgoMarkets.NETWORK_ID
     };
 
     private Stage m_manageStage = null;
@@ -192,6 +193,9 @@ public class ErgoNetworkData implements InstallerInterface {
                             break;
                         case ErgoNodes.NETWORK_ID:
                             network = new ErgoNodes(jsonObject, m_ergoNetwork);
+                            break;
+                        case ErgoMarkets.NETWORK_ID:
+                            network = new ErgoMarkets(jsonObject, m_ergoNetwork);
                             break;
                     }
 
@@ -531,6 +535,9 @@ public class ErgoNetworkData implements InstallerInterface {
                 break;
             case ErgoNodes.NETWORK_ID:
                 noteInterface = new ErgoNodes(m_ergoNetwork);
+                break;
+            case ErgoMarkets.NETWORK_ID:
+                noteInterface = new ErgoMarkets(m_ergoNetwork);
                 break;
         }
         if (noteInterface != null) {

@@ -17,6 +17,7 @@ public class ErgoNodes extends Network implements NoteInterface {
     public final static String NAME = "Ergo Nodes";
     public final static String DESCRIPTION = "Ergo Nodes is the gateway to yoru wallet, node, explorer and token manager on the Ergo Network";
     public final static String NETWORK_ID = "ERGO_NODES";
+    public final static String SUMMARY = "";
 
     public final static int MAINNET_PORT = 9053;
     public final static int TESTNET_PORT = 9052;

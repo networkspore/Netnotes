@@ -81,6 +81,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     public static java.awt.Color NEGATIVE_HIGHLIGHT_COLOR = new java.awt.Color(0xffe96d71, true);
     public static java.awt.Color NEUTRAL_COLOR = new java.awt.Color(0x111111);
 
+    public final static int CONNECTED = 4;
     private WebSocketClient m_websocketClient = null;
 
     private File m_appDir = null;
@@ -90,7 +91,6 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     private static long MIN_QUOTE_MILLIS = 5000;
 
-    private ArrayList<PriceQuote> m_quotes = new ArrayList<PriceQuote>();
     private SimpleObjectProperty<JsonObject> m_cmdObjectProperty = new SimpleObjectProperty<>(null);
 
     private ArrayList<MessageInterface> m_msgListeners = new ArrayList<>();
@@ -112,7 +112,7 @@ public class KucoinExchange extends Network implements NoteInterface {
         return m_cmdObjectProperty;
     }
 
-    public void addMsgListenr(MessageInterface item) {
+    public void addMsgListener(MessageInterface item) {
         if (!m_msgListeners.contains(item)) {
 
             if (m_connectionStatus.get() == 0) {
@@ -120,21 +120,49 @@ public class KucoinExchange extends Network implements NoteInterface {
             }
 
             m_msgListeners.add(item);
-            m_socketMsg.addListener(item.getSocketChangeListener());
+
+            if (isClientReady()) {
+                if (item.getTunnelId() != null) {
+                    openTunnel(item.getTunnelId());
+                }
+            }
 
         }
 
     }
 
-    public void removeMsgListener(MessageInterface item) {
-        if (m_msgListeners.contains(item)) {
-            m_msgListeners.remove(item);
-            m_socketMsg.removeListener(item.getSocketChangeListener());
+    public MessageInterface getListener(String id) {
+        for (int i = 0; i < m_msgListeners.size(); i++) {
+            MessageInterface listener = m_msgListeners.get(i);
+            if (listener.getId().equals(id)) {
+                return listener;
+            }
+        }
+        return null;
+    }
+
+    public boolean removeMsgListener(MessageInterface item) {
+        try {
+            Files.writeString(logFile.toPath(), "removing listener:" + item.getId(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+        MessageInterface listener = getListener(item.getId());
+        if (listener != null) {
+            boolean removed = m_msgListeners.remove(listener);
+
+            try {
+                Files.writeString(logFile.toPath(), "removed listener:" + item.getId() + " " + removed, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+
             if (m_msgListeners.size() == 0) {
                 m_websocketClient.close();
             }
+            return removed;
         }
-
+        return false;
     }
 
     public File getAppDir() {
@@ -201,8 +229,6 @@ public class KucoinExchange extends Network implements NoteInterface {
         return m_appStage;
     }
 
-    private int m_openTunnels = 0;
-
     public void subscribeLevel2Depth5(String tunnelId, String symbol) {
 
         m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"tunnelId\": \"" + tunnelId + "\", \"type\": \"subscribe\", \"/spotMarket/level2Depth5:" + symbol + "\", \"response\": true}");
@@ -212,8 +238,10 @@ public class KucoinExchange extends Network implements NoteInterface {
         m_websocketClient.send(createMessageString(tunnelId, "unsubscribe", "/spotMarket/level2Depth5:" + symbol, true));
     }
 
+    private ArrayList<String> m_openTunnels = new ArrayList<String>();
+
     public boolean openTunnel(String tunnelId) {
-        if (m_openTunnels == 5) {
+        if (m_openTunnels.size() == 5) {
             return false;
         }
         try {
@@ -221,16 +249,16 @@ public class KucoinExchange extends Network implements NoteInterface {
         } catch (IOException e) {
 
         }
-        m_openTunnels += 1;
-        m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"openTunnel\", \"newTunnelId\": \"" + tunnelId + "\", \"response\": true}");
-
+        if (!m_openTunnels.contains(tunnelId)) {
+            m_openTunnels.add(tunnelId);
+            m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"openTunnel\", \"newTunnelId\": \"" + tunnelId + "\", \"response\": true}");
+        }
         return true;
     }
 
     public boolean closeTunnel(String tunnelId) {
-        if (m_openTunnels > 0) {
-            m_openTunnels -= 1;
-        }
+
+        m_openTunnels.remove(tunnelId);
 
         try {
             Files.writeString(logFile.toPath(), "closing tunnel" + tunnelId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -240,6 +268,7 @@ public class KucoinExchange extends Network implements NoteInterface {
         m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"closeTunnel\", \"tunnelId\": \"" + tunnelId + "\", \"response\": true}");
 
         return true;
+
     }
 
     private void showAppStage() {
@@ -257,40 +286,33 @@ public class KucoinExchange extends Network implements NoteInterface {
                 }
             });
 
-            ChangeListener<JsonObject> socketMsgListener = (obs, oldVal, newVal) -> {
-                if (newVal != null) {
-                    try {
-                        Files.writeString(logFile.toPath(), "\nnewMsg" + newVal.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e1) {
-
-                    }
-                    JsonElement subjectElement = newVal.get("subject");
-
-                    String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
-
-                    if (subject != null) {
-                        switch (subject) {
-                            case "message":
-
-                                break;
-                        }
-                    }
-                }
-            };
-
             MessageInterface msgInterface = new MessageInterface() {
-                @Override
+                public String getTunnelId() {
+                    return KucoinExchange.NETWORK_ID;
+                }
+
                 public String getId() {
                     return getNetworkId();
                 }
 
-                @Override
-                public ChangeListener<JsonObject> getSocketChangeListener() {
-                    return socketMsgListener;
+                public void onMsgChanged(JsonObject jsonObject) {
+
+                }
+
+                public void onReady() {
+
+                }
+
+                public String getSubject() {
+                    return null;
+                }
+
+                public String getTopic() {
+                    return null;
                 }
 
             };
-            addMsgListenr(msgInterface);
+            addMsgListener(msgInterface);
 
             double appStageWidth = 450;
             double appStageHeight = 600;
@@ -638,6 +660,19 @@ public class KucoinExchange extends Network implements NoteInterface {
         return json;
     }
 
+    public void relayMessage(JsonObject messageObject) {
+        for (MessageInterface msgInterface : m_msgListeners) {
+
+            msgInterface.onMsgChanged(messageObject);
+        }
+    }
+
+    public void relayOnReady() {
+        for (MessageInterface msgInterface : m_msgListeners) {
+            msgInterface.onReady();
+        }
+    }
+
     private void openKucoinSocket(String tokenString, String endpointURL, int pingInterval) {
         m_connectionStatus.set(2);
         m_clientId = FriendlyId.createFriendlyId();
@@ -695,7 +730,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             public void close() {
                 m_pingTimer.cancel();
                 m_pingTimer.purge();
-
+                m_openTunnels.clear();
                 super.close();
             }
 
@@ -724,12 +759,7 @@ public class KucoinExchange extends Network implements NoteInterface {
                                         JsonElement idElement = messageObject.get("id");
                                         m_clientId = idElement.getAsString();
                                         startPinging();
-                                        /*   m_webClient.setPong(System.currentTimeMillis());
-                                        m_webClient.setReady(true);
-
-                                        m_webClient.startPinging();*/
-
-                                        m_socketMsg.set(Utils.getCmdObject("ready"));
+                                        relayOnReady();
                                         break;
                                     case "pong":
 
@@ -743,7 +773,7 @@ public class KucoinExchange extends Network implements NoteInterface {
                                             String tunnelId = tunnelIdElement.getAsString();
 
                                         }*/
-                                        m_socketMsg.set(messageObject);
+                                        relayMessage(messageObject);
                                         break;
 
                                 }
@@ -787,100 +817,6 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     }
 
-    private void removeStaleQuotes(ArrayList<PriceQuote> stalePriceQuotes) {
-        for (PriceQuote quote : stalePriceQuotes) {
-            m_quotes.remove(quote);
-        }
-    }
-
-    public PriceQuote findCurrentQuote(String transactionCurrency, String quoteCurrency) {
-        ArrayList<PriceQuote> staleQuotes = new ArrayList<>();
-
-        for (int i = 01; i < m_quotes.size(); i++) {
-            PriceQuote quote = m_quotes.get(i);
-
-            if (quote.howOldMillis() > MIN_QUOTE_MILLIS) {
-                staleQuotes.add(quote);
-            } else {
-                if (quote.getTransactionCurrency().equals(transactionCurrency) && quote.getQuoteCurrency().equals(quoteCurrency)) {
-                    removeStaleQuotes(staleQuotes);
-                    return quote;
-                }
-            }
-        }
-        if (staleQuotes.size() > 0) {
-            removeStaleQuotes(staleQuotes);
-        }
-        return null;
-    }
-
-    private void returnQuote(PriceQuote quote, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-
-        Task<PriceQuote> task = new Task<PriceQuote>() {
-            @Override
-            public PriceQuote call() {
-
-                return quote;
-            }
-        };
-
-        task.setOnFailed(onFailed);
-
-        task.setOnSucceeded(onSucceeded);
-
-        Thread t = new Thread(task);
-        t.setDaemon(true);
-        t.start();
-    }
-
-    public void getQuote(String transactionCurrency, String quoteCurrency, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-
-        // prices?base=" + baseCurrency + "&currencies=ERG";
-        String urlString = API_URL + "prices?base=" + transactionCurrency + "&currencies=" + quoteCurrency;
-        Utils.getUrlJson(urlString, success -> {
-            Object sourceObject = success.getSource().getValue();
-            if (sourceObject != null) {
-                JsonObject jsonObject = (JsonObject) sourceObject;
-
-                JsonElement dataElement = jsonObject.get("data");
-                try {
-                    Files.writeString(logFile.toPath(), "\n" + API_URL + " returned: " + jsonObject.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e1) {
-
-                }
-                if (dataElement != null && dataElement.isJsonObject()) {
-
-                    JsonElement currentAmountElement = dataElement.getAsJsonObject().get(quoteCurrency);
-
-                    if (currentAmountElement != null) {
-                        double amount = currentAmountElement.getAsDouble();
-                        PriceQuote quote = new PriceQuote(amount, transactionCurrency, quoteCurrency);
-                        m_quotes.add(quote);
-                        returnQuote(quote, onSucceeded, onFailed);
-                    } else {
-                        returnQuote(new PriceQuote(-1, null, null), onSucceeded, onFailed);
-                    }
-                } else {
-                    returnQuote(new PriceQuote(-1, null, null), onSucceeded, onFailed);
-                }
-            } else {
-                returnQuote(new PriceQuote(-1, null, null), onSucceeded, onFailed);
-            }
-
-        }, onFailed, null);
-
-    }
-
-    public void checkQuote(String transactionCurrency, String quoteCurrency, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        PriceQuote currentQuote = findCurrentQuote(transactionCurrency, quoteCurrency);
-
-        if (currentQuote != null) {
-            returnQuote(currentQuote, onSucceeded, onFailed);
-        } else {
-            getQuote(transactionCurrency, quoteCurrency, onSucceeded, onFailed);
-        }
-    }
-
     @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
@@ -895,8 +831,6 @@ public class KucoinExchange extends Network implements NoteInterface {
                     if (transactionCurrencyElement != null && quoteCurrencyElement != null) {
                         String transactionCurrency = transactionCurrencyElement.getAsString();
                         String quoteCurrency = quoteCurrencyElement.getAsString();
-
-                        checkQuote(transactionCurrency, quoteCurrency, onSucceeded, onFailed);
 
                         return true;
                     } else {
@@ -935,6 +869,18 @@ public class KucoinExchange extends Network implements NoteInterface {
         String urlString = API_URL + "/api/v1/market/allTickers";
         try {
             Files.writeString(logFile.toPath(), "\ngetting url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+        Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
+
+        return false;
+    }
+
+    public boolean getTicker(String symbol, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        String urlString = API_URL + "/api/v1/market/orderbook/level1?symbol=" + symbol;
+        try {
+            Files.writeString(logFile.toPath(), "\ngetting ticker: " + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
         }
@@ -1031,7 +977,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public void unsubscribeToCandles(String symbol, String timespan) {
 
-        m_websocketClient.send(createMessageString("unsubscribe", "/market/candles:" + symbol + "_" + timespan, false));
+        m_websocketClient.send(createMessageString("unsubscribe", "/market/candles:" + symbol + "_" + timespan, true));
     }
 
     public void subscribeToCandles(String tunnelId, String symbol, String timespan) {
@@ -1049,16 +995,58 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public void unsubscribeToCandles(String tunnelId, String symbol, String timespan) {
 
-        m_websocketClient.send(createMessageString(tunnelId, "unsubscribe", "/market/candles:" + symbol + "_" + timespan, false));
+        m_websocketClient.send(createMessageString(tunnelId, "unsubscribe", "/market/candles:" + symbol + "_" + timespan, true));
     }
 
-    public void subescribeToTicker(String tunnelId, String symbol) {
+    public void subscribeToTicker(String id, String symbol) {
+        try {
+            Files.writeString(logFile.toPath(), "subscribing to ticker " + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
-        m_websocketClient.send(createMessageString(tunnelId, "subscribe", "/market/ticker:" + symbol, false));
+        }
+        m_websocketClient.send(createMessageString("subscribe", "/market/ticker:" + symbol, true, id));
     }
 
-    public void unsubscribeToTicker(String tunnelId, String clientID, String symbol) {
-        m_websocketClient.send(createMessageString(tunnelId, "unsubscribe", "/market/ticker:" + symbol, false));
+    public boolean tickerNeeded(String symbol) {
+        for (int i = 0; i < m_msgListeners.size(); i++) {
+            MessageInterface listener = m_msgListeners.get(i);
+            String subject = listener.getSubject();
+            if (subject != null && subject.equals("trade.ticker")) {
+                String topic = listener.getTopic();
+
+                if (topic != null && topic.substring(topic.length() - symbol.length(), topic.length()).equals(symbol)) {
+                    return true;
+                }
+            }
+
+        }
+        return false;
+    }
+
+    public void unsubscribeToTicker(String id, String symbol) {
+        if (m_msgListeners.size() != 0) {
+            try {
+                Files.writeString(logFile.toPath(), "\nunsubscribing from ticker " + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+            if (!tickerNeeded(symbol)) {
+
+                m_websocketClient.send(createMessageString("unsubscribe", "/market/ticker:" + symbol, true, id));
+            } else {
+                try {
+                    Files.writeString(logFile.toPath(), " ticker needed: not unsubscribing", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+
+                }
+            }
+        } else {
+            try {
+                Files.writeString(logFile.toPath(), "\nunsubscribe ticker: " + symbol + " not needed (no listeners, auto-shutdown expected.)" + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+
+            }
+        }
     }
 
     @Override

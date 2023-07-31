@@ -70,7 +70,18 @@
     -fx-cursor: pointer;
 }
 
+#rowBox {
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+}
+
+#rowBox:hover {
+    -fx-opacity: 1;
+    -fx-background-color: #33333360;
+}
+
 #rowBtn {
+
     -fx-text-fill: #777777;
     -fx-font-size: 14px;
     -fx-font-family: 'OCR A Extended';
@@ -271,6 +282,18 @@
     -fx-opacity: .3;
 }
 
+#statusBtn {
+    -fx-opacity: .3;
+    -fx-background-color: transparent;
+}
+
+#statusBtn:hover {
+    -fx-opacity: 1;
+}
+#darkBox{
+    -fx-background-color: #111111;
+}
+
 #menuBtn {
    
     -fx-background-color: transparent;
@@ -278,7 +301,7 @@
 }
 
 #menuBtn:hover {
-   
+    -fx-background-color: transparent;
     -fx-opacity: 1;
 }
 

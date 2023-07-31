@@ -322,6 +322,19 @@ public class Utils {
         return formater.format(localDateTime);
     }
 
+    public static String formatTimeString(LocalDateTime localDateTime) {
+
+        DateTimeFormatter formater = DateTimeFormatter.ofPattern("hh:mm:ss a");
+
+        return formater.format(localDateTime);
+    }
+
+    public static LocalDateTime milliToLocalTime(long timestamp) {
+        Instant timeInstant = Instant.ofEpochMilli(timestamp);
+
+        return LocalDateTime.ofInstant(timeInstant, ZoneId.systemDefault());
+    }
+
     public static String readHexDecodeString(File file) {
         String fileHexString = null;
 
@@ -499,10 +512,6 @@ public class Utils {
         }
     }
 
-    public static LocalDateTime getLocalDateTimeFromLong(long millis) {
-        return Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDateTime();
-    }
-
     public static byte[] charsToBytes(char[] chars) {
 
         CharBuffer charBuffer = CharBuffer.wrap(chars);
@@ -625,6 +634,48 @@ public class Utils {
         }
 
         return null;
+    }
+
+    public static void writeEncryptedString(SecretKey secretKey, File dataFile, String jsonString) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, IOException {
+
+        SecureRandom secureRandom = SecureRandom.getInstanceStrong();
+        byte[] iV = new byte[12];
+        secureRandom.nextBytes(iV);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
+
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
+
+        byte[] encryptedData = cipher.doFinal(jsonString.getBytes());
+
+        if (dataFile.isFile()) {
+            Files.delete(dataFile.toPath());
+        }
+
+        FileOutputStream outputStream = new FileOutputStream(dataFile);
+        FileChannel fc = outputStream.getChannel();
+
+        ByteBuffer byteBuffer = ByteBuffer.wrap(iV);
+
+        fc.write(byteBuffer);
+
+        int written = 0;
+        int bufferLength = 1024 * 8;
+
+        while (written < encryptedData.length) {
+
+            if (written + bufferLength > encryptedData.length) {
+                byteBuffer = ByteBuffer.wrap(encryptedData, written, encryptedData.length - written);
+            } else {
+                byteBuffer = ByteBuffer.wrap(encryptedData, written, bufferLength);
+            }
+
+            written += fc.write(byteBuffer);
+        }
+
+        outputStream.close();
+
     }
 
 }

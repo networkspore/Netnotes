@@ -67,7 +67,7 @@ public class KucoinMarketItem {
     private SimpleObjectProperty<KucoinTickerData> m_tickerDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
     private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
-    private ChangeListener<JsonObject> m_socketMsgListener;
+
     private double m_prevWidth = -1;
     private double m_prevHeight = -1;
     private double m_prevX = -1;
@@ -86,10 +86,6 @@ public class KucoinMarketItem {
         m_tickerDataProperty.set(tickerData);
         m_isFavorite.set(favorite);
 
-    }
-
-    public ChangeListener<JsonObject> getSocketChangeListener() {
-        return m_socketMsgListener;
     }
 
     public SimpleBooleanProperty isFavoriteProperty() {
@@ -220,6 +216,10 @@ public class KucoinMarketItem {
         return SwingFXUtils.toFXImage(img, null);
     }
 
+    public String returnGetId() {
+        return getId();
+    }
+
     public void showStage() {
         if (m_stage == null) {
             logFile = new File("marketItem-" + m_symbol + ".txt");
@@ -320,67 +320,81 @@ public class KucoinMarketItem {
 
             int symbolLength = getSymbol().length();
 
-            ChangeListener<JsonObject> socketMsgListener = (obs, oldVal, newVal) -> {
-                if (newVal != null) {
+            MessageInterface msgInterface = new MessageInterface() {
+                public String getSubject() {
+                    return null;
+                }
 
-                    JsonElement subjectElement = newVal.get("subject");
-                    JsonElement topicElement = newVal.get("topic");
-                    JsonElement dataElement = newVal.get("data");
+                public String getTopic() {
+                    return null;
+                }
 
-                    String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
-                    String topic = topicElement != null && topicElement.isJsonPrimitive() ? topicElement.getAsString() : null;
+                @Override
+                public String getTunnelId() {
+                    return KucoinExchange.NETWORK_ID;
+                }
 
-                    if (subject != null && topic != null) {
-                        switch (subject) {
-                            case "trade.candles.update":
-                                String topicHeader = "/market/candles:";
-                                String topicBody = topic.substring(topicHeader.length());
-                                int indexOfunderscore = topicBody.indexOf("_");
+                @Override
+                public String getId() {
+                    return m_id;
+                }
 
-                                if (topicHeader.equals(topic.substring(0, topicHeader.length())) && symbolLength == indexOfunderscore && getSymbol().equals(topicBody.substring(0, indexOfunderscore))) {
+                @Override
+                public void onMsgChanged(JsonObject newVal) {
+                    if (newVal != null) {
 
-                                    String timeSpanId = topicBody.substring(indexOfunderscore + 1);
+                        JsonElement subjectElement = newVal.get("subject");
+                        JsonElement topicElement = newVal.get("topic");
+                        JsonElement dataElement = newVal.get("data");
 
-                                    if (m_timeSpan.getId().equals(timeSpanId)) {
-                                        JsonObject dataObject = dataElement != null && dataElement.isJsonObject() ? dataElement.getAsJsonObject() : null;
-                                        if (dataObject != null) {
-                                            JsonElement candlesElement = dataObject.get("candles");
+                        String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
+                        String topic = topicElement != null && topicElement.isJsonPrimitive() ? topicElement.getAsString() : null;
 
-                                            JsonArray dataArray = candlesElement != null && candlesElement.isJsonArray() ? candlesElement.getAsJsonArray() : null;
+                        if (subject != null && topic != null) {
+                            switch (subject) {
+                                case "trade.candles.update":
+                                    String topicHeader = "/market/candles:";
+                                    String topicBody = topic.substring(topicHeader.length());
+                                    int indexOfunderscore = topicBody.indexOf("_");
 
-                                            if (dataArray != null) {
+                                    if (topicHeader.equals(topic.substring(0, topicHeader.length())) && symbolLength == indexOfunderscore && getSymbol().equals(topicBody.substring(0, indexOfunderscore))) {
 
-                                                PriceData priceData = new PriceData(dataArray);
+                                        String timeSpanId = topicBody.substring(indexOfunderscore + 1);
 
-                                                chartView.updateCandleData(priceData, m_timeSpan.getSeconds());
+                                        if (m_timeSpan.getId().equals(timeSpanId)) {
+                                            JsonObject dataObject = dataElement != null && dataElement.isJsonObject() ? dataElement.getAsJsonObject() : null;
+                                            if (dataObject != null) {
+                                                JsonElement candlesElement = dataObject.get("candles");
 
-                                                m_stage.setTitle(exchange.getName() + " - " + m_name + (newVal != null ? " - " + priceData.getCloseString() + "" : ""));
+                                                JsonArray dataArray = candlesElement != null && candlesElement.isJsonArray() ? candlesElement.getAsJsonArray() : null;
+
+                                                if (dataArray != null) {
+
+                                                    PriceData priceData = new PriceData(dataArray);
+
+                                                    chartView.updateCandleData(priceData, m_timeSpan.getSeconds());
+
+                                                    m_stage.setTitle(exchange.getName() + " - " + m_name + (newVal != null ? " - " + priceData.getCloseString() + "" : ""));
+                                                }
+
                                             }
-
                                         }
-                                    }
 
-                                }
-                                break;
+                                    }
+                                    break;
+                            }
                         }
                     }
                 }
-            };
-
-            MessageInterface msgInterface = new MessageInterface() {
-                @Override
-                public String getId() {
-                    return getId();
-                }
 
                 @Override
-                public ChangeListener<JsonObject> getSocketChangeListener() {
-                    return socketMsgListener;
+                public void onReady() {
+                    exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
                 }
 
             };
 
-            exchange.addMsgListenr(msgInterface);
+            exchange.addMsgListener(msgInterface);
 
             Region headingPaddingRegion = new Region();
             headingPaddingRegion.setMinHeight(5);
@@ -532,6 +546,7 @@ public class KucoinMarketItem {
             m_tickerDataProperty.addListener(tickerListener);
 
             Runnable closable = () -> {
+
                 exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
                 m_tickerDataProperty.removeListener(tickerListener);
                 exchange.removeMsgListener(msgInterface);
@@ -575,12 +590,6 @@ public class KucoinMarketItem {
 
                                 if (exchange.isClientReady()) {
                                     Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
-                                } else {
-                                    FxTimer.runLater(Duration.ofMillis(2000), () -> {
-                                        if (exchange.isClientReady()) {
-                                            Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
-                                        }
-                                    });
                                 }
 
                             } else {
