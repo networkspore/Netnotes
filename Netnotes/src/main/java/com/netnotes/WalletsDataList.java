@@ -141,41 +141,14 @@ public class WalletsDataList {
                     if (jsonElement != null && jsonElement.isJsonObject()) {
                         JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-                        JsonElement nameElement = jsonObject.get("name");
-                        JsonElement idElement = jsonObject.get("id");
-                        JsonElement fileLocationElement = jsonObject.get("file");
-                        JsonElement windowSizeElement = jsonObject.get("windowSize");
-                        JsonElement networkTypeElement = jsonObject.get("networkType");
-                        JsonElement nodesIdElement = jsonObject.get("nodesId");
-                        JsonElement selectedNodeIdElement = jsonObject.get("selectedNodeId");
-                        JsonElement explorerIdElement = jsonObject.get("explorerId");
-                        JsonElement explorerUpdatesElement = jsonObject.get("explorerUpdates");
-                        JsonElement marketsElement = jsonObject.get("marketsID");
-                        JsonElement selectedMarketElement = jsonObject.get("selectedMarketId");
+                        if (jsonObject != null) {
+                            JsonElement nameElement = jsonObject.get("name");
+                            JsonElement idElement = jsonObject.get("id");
 
-                        if (nameElement != null && idElement != null && fileLocationElement != null) {
                             String id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
                             String name = nameElement == null ? "Wallet " + id : nameElement.getAsString();
-                            File walletFile = fileLocationElement == null ? null : new File(fileLocationElement.getAsString());
-                            NetworkType walletNetworkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
 
-                            JsonObject windowSize = windowSizeElement != null && windowSizeElement.isJsonObject() ? windowSizeElement.getAsJsonObject() : null;
-                            JsonElement windowWidth = windowSize != null ? windowSize.get("width") : null;
-                            JsonElement windowHeight = windowSize != null ? windowSize.get("height") : null;
-
-                            double sceneWidth = windowSize != null && windowWidth != null && windowWidth.isJsonPrimitive() ? windowWidth.getAsDouble() : 400;
-                            double sceneHeight = windowSize != null && windowHeight != null && windowHeight.isJsonPrimitive() ? windowHeight.getAsDouble() : 700;
-
-                            String nodesId = nodesIdElement == null ? null : nodesIdElement.getAsString();
-                            String explorerId = explorerIdElement == null ? null : explorerIdElement.getAsString();
-                            String explorerUpdates = explorerUpdatesElement == null ? null : explorerUpdatesElement.getAsString();
-
-                            String selectedNodeId = selectedNodeIdElement == null ? null : selectedNodeIdElement.getAsString();
-
-                            String marketsId = marketsElement == null ? null : marketsElement.getAsString();
-                            String selectedMarketId = selectedMarketElement == null ? null : selectedMarketElement.getAsString();
-
-                            WalletData walletData = new WalletData(id, name, walletFile, sceneWidth, sceneHeight, nodesId, selectedNodeId, explorerId, explorerUpdates, marketsId, selectedMarketId, walletNetworkType, m_ergoWallet);
+                            WalletData walletData = new WalletData(id, name, jsonObject, m_ergoWallet);
                             m_noteInterfaceList.add(walletData);
 
                             walletData.addUpdateListener((obs, oldValue, newValue) -> save());
@@ -371,30 +344,24 @@ public class WalletsDataList {
         MenuButton explorerUpdatesBtn = new MenuButton("15s");
         explorerUpdatesBtn.setPadding(new Insets(4, 5, 0, 5));
         explorerUpdatesBtn.setFont(Font.font("OCR A Extended", 12));
-        explorerUpdatesBtn.setUserData("POLLED" + ":15");
+        explorerUpdatesBtn.setUserData("15");
 
         MenuItem explorerUpdates5secItem = new MenuItem("5s");
         explorerUpdates5secItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates5secItem.getText());
-            explorerUpdatesBtn.setUserData("POLLED" + ":5");
+            explorerUpdatesBtn.setUserData("5");
         });
 
         MenuItem explorerUpdates15secItem = new MenuItem("15s");
         explorerUpdates15secItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates15secItem.getText());
-            explorerUpdatesBtn.setUserData("POLLED" + ":15");
+            explorerUpdatesBtn.setUserData("15");
         });
 
         MenuItem explorerUpdates30secItem = new MenuItem("30s");
         explorerUpdates30secItem.setOnAction(e -> {
             explorerUpdatesBtn.setText(explorerUpdates30secItem.getText());
-            explorerUpdatesBtn.setUserData("POLLED" + ":30");
-        });
-
-        MenuItem explorerUpdates1minItem = new MenuItem("1 min");
-        explorerUpdates1minItem.setOnAction(e -> {
-            explorerUpdatesBtn.setText(explorerUpdates1minItem.getText());
-            explorerUpdatesBtn.setUserData("POLLED" + ":60");
+            explorerUpdatesBtn.setUserData("30");
         });
 
         HBox explorerBox = new HBox(explorerText, explorersBtn, explorerUpdatesBtn);
@@ -463,7 +430,9 @@ public class WalletsDataList {
             String marketsId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
             String selectedMarketId = marketSelectBtn.getUserData() == null ? null : (String) marketSelectBtn.getUserData();
 
-            Scene mnemonicScene = createMnemonicScene(friendlyId, walletNameField.getText(), nodeId, selectedNode, explorerId, explorerUpdates, marketsId, selectedMarketId, networkType, stage, () -> {
+            long explorerUpdatePeriod = explorerUpdates == null ? -1 : Long.parseLong(explorerUpdates);
+
+            Scene mnemonicScene = createMnemonicScene(friendlyId, walletNameField.getText(), nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, stage, () -> {
                 stage.setScene(walletScene);
                 stage.setTitle(titleString);
             });
@@ -497,7 +466,9 @@ public class WalletsDataList {
                 String marketId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
                 String selectedMarketId = marketSelectBtn.getUserData() == null ? null : (String) marketSelectBtn.getUserData();
 
-                WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, marketId, selectedMarketId, networkType, m_ergoWallet);
+                long explorerUpdatePeriod = explorerUpdates == null ? -1 : Long.parseLong(explorerUpdates);
+
+                WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketId, selectedMarketId, networkType, m_ergoWallet);
 
                 add(walletData);
                 save();
@@ -545,11 +516,13 @@ public class WalletsDataList {
                                     String marketsId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
                                     String selectedMarketId = marketSelectBtn.getUserData() == null ? null : (String) marketSelectBtn.getUserData();
 
-                                    WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, marketsId, selectedMarketId, networkType, m_ergoWallet);
+                                    long explorerUpdatePeriod = explorerUpdates == null ? -1 : Long.parseLong(explorerUpdates);
+
+                                    WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, m_ergoWallet);
                                     add(walletData);
                                     save();
 
-                                    walletData.open(passwordString);
+                                    closeBtn.fire();
                                 } catch (Exception e1) {
                                     Alert a = new Alert(AlertType.NONE, "Wallet creation: Cannot be saved.\n\n" + e1.toString(), ButtonType.OK);
                                     a.initOwner(stage);
@@ -638,8 +611,7 @@ public class WalletsDataList {
 
     }
 
-    public Scene createMnemonicScene(String id, String name, String nodeId, String selectedNode, String explorerId, String explorerUpdates, String marketsId, String selectedMarketId, NetworkType networkType, Stage stage, Runnable onBack) {
-        //String oldStageName = mnemonicStage.getTitle();
+    public Scene createMnemonicScene(String id, String name, String nodeId, String selectedNode, String explorerId, long explorerUpdatePeriod, String marketsId, String selectedMarketId, NetworkType networkType, Stage stage, Runnable onBack) {        //String oldStageName = mnemonicStage.getTitle();
 
         String titleStr = "Mnemonic phrase - " + m_ergoWallet.getName();
 
@@ -764,10 +736,10 @@ public class WalletsDataList {
                                 Wallet.create(walletFile.toPath(), Mnemonic.create(SecretString.create(mnemonicField.getText()), SecretString.create(password)), walletFile.getName(), password.toCharArray());
                                 mnemonicField.setText("-");
 
-                                WalletData walletData = new WalletData(id, name, walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdates, marketsId, selectedMarketId, networkType, m_ergoWallet);
+                                WalletData walletData = new WalletData(id, name, walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, m_ergoWallet);
                                 add(walletData);
                                 save();
-
+                                closeBtn.fire();
                             }
 
                         }

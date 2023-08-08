@@ -54,11 +54,10 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 
-public class AddressData extends Network implements NoteInterface {
+public class AddressData extends Network {
 
     private static String NULL_ERG = "-.-- ERG";
 
-    private boolean m_valid = false;
     private boolean m_quantityValid = false;
 
     private int m_index;
@@ -73,23 +72,22 @@ public class AddressData extends Network implements NoteInterface {
     private ArrayList<TokenData> m_confirmedTokensList = new ArrayList<>();
     private ArrayList<TokenData> m_unconfirmedTokensList = new ArrayList<>();
     private Stage m_addressStage = null;
-    private WalletData m_walletData;
+    // private WalletData m_walletData;
     private File logFile;
+    private AddressesData m_addressesData;
 
-    private AddressAmountsList m_amountsList;
-    private AddressAmountsList m_unconfirmedAmountsList;
-
-    private double m_price = 0;
+    //  private AddressAmountsList m_amountsList;
+    // private AddressAmountsList m_unconfirmedAmountsList;
+    //private double m_price = 0;
     // private WalletData m_WalletData;
-
-    public AddressData(String name, int index, Address address, NetworkType networktype, WalletData walletData) {
-        super(null, name, address.toString(), walletData);
+    public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressDataList) {
+        super(null, name, address.toString(), addressDataList.getWalletData());
         logFile = new File("AddressData" + name + ".txt");
-        m_walletData = walletData;
+        //m_walletData = addressesData.getWalletData();
 
-        m_amountsList = new AddressAmountsList(this);
-        m_unconfirmedAmountsList = new AddressAmountsList(this);
-
+        // m_amountsList = new AddressAmountsList(this);
+        // m_unconfirmedAmountsList = new AddressAmountsList(this);
+        m_addressesData = addressDataList;
         m_index = index;
         m_address = address;
 
@@ -139,7 +137,7 @@ public class AddressData extends Network implements NoteInterface {
  /* return ;
         }); */
     public String getNodesId() {
-        return m_walletData.getNodesId();
+        return "";
     }
 
     private void update() {
@@ -180,7 +178,6 @@ public class AddressData extends Network implements NoteInterface {
 
     private void showAddressStage() {
         if (m_addressStage == null) {
-            NoteInterface networkInterface = m_walletData.getNodeInterface();
 
             m_addressStage = new Stage();
             // 
@@ -219,25 +216,36 @@ public class AddressData extends Network implements NoteInterface {
                 // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
             });
 
-            Tooltip networkTip = new Tooltip(networkInterface.getName());
-            networkTip.setShowDelay(new javafx.util.Duration(100));
-            networkTip.setFont(App.txtFont);
+            Tooltip nodeTip = new Tooltip(m_addressesData.selectedNodeDataProperty().get() == null ? "Node unavailable" : m_addressesData.selectedNodeDataProperty().get().getName());
+            nodeTip.setShowDelay(new javafx.util.Duration(100));
+            nodeTip.setFont(App.txtFont);
 
-            MenuButton networkMenuBtn = new MenuButton();
-            networkMenuBtn.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), networkInterface.getNetworkId(), true).getIcon(), 30));
-            networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
-            networkMenuBtn.setTooltip(networkTip);
+            MenuButton nodeMenuBtn = new MenuButton();
+            nodeMenuBtn.setGraphic(m_addressesData.selectedNodeDataProperty().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), 30) : IconButton.getIconView(m_addressesData.selectedNodeDataProperty().get().getIcon(), 30));
+            nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
+            nodeMenuBtn.setTooltip(nodeTip);
 
-            Tooltip explorerTip = new Tooltip(m_walletData.getExplorerInterface() == null ? "Explorer disabled" : m_walletData.getExplorerInterface().getName());
+            NoteInterface explorerInterface = m_addressesData.selectedExplorerDataProperty().get() == null ? null : m_addressesData.selectedExplorerDataProperty().get().getExplorerInterface();
+
+            Tooltip explorerTip = new Tooltip(explorerInterface == null ? "Explorer unavailable" : explorerInterface.getName());
             explorerTip.setShowDelay(new javafx.util.Duration(100));
             explorerTip.setFont(App.txtFont);
 
             MenuButton explorerBtn = new MenuButton();
-            explorerBtn.setGraphic(m_walletData.getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), m_walletData.getExplorerInterface().getNetworkId(), true).getIcon(), 30));
+            explorerBtn.setGraphic(explorerInterface == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(explorerInterface.getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), 30));
             explorerBtn.setPadding(new Insets(2, 0, 0, 0));
             explorerBtn.setTooltip(explorerTip);
 
-            HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn);
+            Tooltip marketsTip = new Tooltip(m_addressesData.selectedMarketData().get() == null ? "Market unavailable" : MarketsData.getFriendlyUpdateTypeName(m_addressesData.selectedMarketData().get().getUpdateType()) + ": " + m_addressesData.selectedMarketData().get().getUpdateValue());
+            marketsTip.setShowDelay(new javafx.util.Duration(100));
+            marketsTip.setFont(App.txtFont);
+
+            MenuButton marketsBtn = new MenuButton();
+            marketsBtn.setGraphic(m_addressesData.selectedMarketData().get() == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), 30) : IconButton.getIconView(new InstallableIcon(m_addressesData.getWalletData().getNetworksData(), m_addressesData.selectedMarketData().get().getMarketId(), true).getIcon(), 30));
+            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+            explorerBtn.setTooltip(explorerTip);
+
+            HBox rightSideMenu = new HBox(nodeMenuBtn, explorerBtn, marketsBtn);
             rightSideMenu.setId("rightSideMenuBar");
             rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
@@ -286,7 +294,7 @@ public class AddressData extends Network implements NoteInterface {
             headingBox.setPadding(new Insets(10, 15, 10, 15));
             headingBox.setId("headingBox");
 
-            VBox bodyVBox = m_amountsList.getGridBox();
+            VBox bodyVBox = new VBox();// m_amountsList.getGridBox();
             bodyVBox.setPadding(new Insets(0, 20, 20, 20));
             HBox.setHgrow(bodyVBox, Priority.ALWAYS);
             bodyVBox.setId("bodyBox");
@@ -377,12 +385,7 @@ public class AddressData extends Network implements NoteInterface {
     }
 
     public boolean getValid() {
-        return m_valid;
-    }
-
-    public void setValid(boolean valid) {
-        m_valid = valid;
-        // updateBufferedImage();
+        return m_addressesData.selectedMarketData().get() != null && m_addressesData.selectedMarketData().get().priceQuoteProperty().get() != null && (m_addressesData.selectedMarketData().get().priceQuoteProperty().get().getTimeStamp() - System.currentTimeMillis() < 1000 * 60 * 2);
     }
 
     public Address getAddress() {
@@ -433,7 +436,8 @@ public class AddressData extends Network implements NoteInterface {
     }
 
     public double getPrice() {
-        return m_price;
+
+        return getValid() ? m_addressesData.selectedMarketData().get().priceQuoteProperty().get().getAmount() : 0.0;
     }
 
     public double getTotalAmountPrice() {
@@ -441,13 +445,13 @@ public class AddressData extends Network implements NoteInterface {
     }
 
     public String getTotalAmountPriceString() {
-        return Utils.formatCryptoString(getTotalAmountPrice(), getPriceTargetCurrency(), m_valid && m_quantityValid);
+        return Utils.formatCryptoString(getTotalAmountPrice(), getPriceTargetCurrency(), getValid() && m_quantityValid);
 
     }
 
     public String getPriceString() {
 
-        return Utils.formatCryptoString(getPrice(), getPriceTargetCurrency(), m_valid);
+        return Utils.formatCryptoString(getPrice(), getPriceTargetCurrency(), getValid());
 
     }
 
@@ -590,7 +594,8 @@ public class AddressData extends Network implements NoteInterface {
         } catch (IOException e) {
 
         }
-        NoteInterface explorerInterface = m_walletData.getExplorerInterface();
+
+        NoteInterface explorerInterface = m_addressesData.selectedExplorerDataProperty().get() != null ? m_addressesData.selectedExplorerDataProperty().get().getExplorerInterface() : null;
 
         if (explorerInterface != null) {
             return explorerInterface.sendNote(
@@ -704,7 +709,7 @@ public class AddressData extends Network implements NoteInterface {
         jsonObj.addProperty("address", m_address.toString());
         jsonObj.addProperty("networkType", m_address.getNetworkType().toString());
         jsonObj.addProperty("explorerValidated", m_quantityValid);
-        jsonObj.addProperty("marketValidated", m_valid);
+        jsonObj.addProperty("marketValidated", getValid());
 
         return jsonObj;
 

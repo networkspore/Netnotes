@@ -3,6 +3,12 @@ package com.netnotes;
 import java.io.File;
 
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+
+import javax.crypto.SecretKey;
 
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.ErgoClient;
@@ -12,6 +18,8 @@ import org.ergoplatform.appkit.Parameters;
 import org.ergoplatform.appkit.SignedTransaction;
 import org.ergoplatform.appkit.UnsignedTransaction;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import com.satergo.Wallet;
@@ -51,7 +59,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
@@ -69,19 +77,32 @@ public class AddressesData {
 
     private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
-    public AddressesData(String id, Wallet wallet, WalletData walletData, NetworkType networkType, Stage walletStage) {
+    private BufferedMenuButton m_marketOptionsBtn;
+    private ErgoMarketsList m_ergoMarketsList = null;
+
+    private ScheduledExecutorService m_balanceExecutor = null;
+
+    private SimpleObjectProperty<MarketsData> m_selectedMarketData = new SimpleObjectProperty<MarketsData>(null);
+    private SimpleObjectProperty<ExplorerData> m_selectedExplorerData = new SimpleObjectProperty<ExplorerData>(null);
+    private SimpleObjectProperty<ErgoNodeData> m_selectedNodeData = new SimpleObjectProperty<ErgoNodeData>(null);
+
+    public AddressesData(String id, Wallet wallet, WalletData walletData, ExplorerData explorerData, NetworkType networkType, Stage walletStage) {
         logFile = new File("addressesData-" + walletData.getNetworkId() + ".txt");
         m_wallet = wallet;
         m_walletData = walletData;
         m_networkType = networkType;
         m_walletStage = walletStage;
-        //wallet.transact(networkType, id, null)
+
+        updateExplorerData(explorerData);
+
+        setupMarkets();
+
         m_wallet.myAddresses.forEach((index, name) -> {
 
             try {
 
                 Address address = wallet.publicAddress(m_networkType, index);
-                AddressData addressData = new AddressData(name, index, address, m_networkType, walletData);
+                AddressData addressData = new AddressData(name, index, address, m_networkType, this);
 
                 m_addressDataList.add(addressData);
                 addressData.addUpdateListener((a, b, c) -> {
@@ -108,8 +129,50 @@ public class AddressesData {
             }
 
         });
+
         m_addressBox = new VBox();
+
+        //"▼" m_marketOptionsBtn.setFont(Font.font("Arial", 12));
+        m_marketOptionsBtn.setGraphic(IconButton.getIconView(new Image("/assets/caret-down-15.png"), 10));
         updateAddressBox();
+    }
+
+    public WalletData getWalletData() {
+        return m_walletData;
+    }
+
+    public SimpleObjectProperty<ExplorerData> selectedExplorerDataProperty() {
+        return m_selectedExplorerData;
+    }
+
+    public SimpleObjectProperty<ErgoNodeData> selectedNodeDataProperty() {
+        return m_selectedNodeData;
+    }
+
+    public SimpleObjectProperty<MarketsData> selectedMarketData() {
+        return m_selectedMarketData;
+    }
+
+    private void setupMarkets() {
+        m_marketOptionsBtn = new BufferedMenuButton();
+        updateMarketsList();
+        String selectedMarketsDataId = m_walletData.getSelectedMarketId();
+        if (selectedMarketsDataId != null && m_ergoMarketsList != null) {
+            MarketsData selectedMarketsData = m_ergoMarketsList.getMarketsData(selectedMarketsDataId);
+            if (selectedMarketsData != null) {
+                m_selectedMarketData.set(selectedMarketsData);
+                selectedMarketsData.start();
+            }
+        }
+    }
+
+    public void updateExplorerData(ExplorerData explorerData) {
+        m_selectedExplorerData.set(explorerData);
+        if (explorerData == null) {
+            stopBalanceUpdates();
+        } else {
+            startBalanceUpdates();
+        }
     }
 
     public void closeAll() {
@@ -136,7 +199,7 @@ public class AddressesData {
             try {
 
                 Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
-                addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, m_walletData);
+                addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
 
             } catch (Failure e1) {
 
@@ -177,6 +240,120 @@ public class AddressesData {
 
             addressData.updateBalance();
         }
+    }
+
+    public void startBalanceUpdates() {
+        ExplorerData explorerData = m_selectedExplorerData.get();
+        if (explorerData != null) {
+            try {
+                if (m_balanceExecutor != null) {
+                    stopBalanceUpdates();
+                }
+
+                m_balanceExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                    public Thread newThread(Runnable r) {
+                        Thread t = Executors.defaultThreadFactory().newThread(r);
+                        t.setDaemon(true);
+                        return t;
+                    }
+                });
+
+                m_balanceExecutor.scheduleAtFixedRate(() -> Platform.runLater(() -> updateBalance()), 0, explorerData.getPeriod(), explorerData.getTimeUnit());
+            } catch (Exception e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.show();
+            }
+        } else {
+            m_balanceExecutor.shutdown();
+        }
+
+    }
+
+    public void stopBalanceUpdates() {
+        if (m_balanceExecutor != null) {
+            m_balanceExecutor.shutdown();
+            m_balanceExecutor = null;
+        }
+    }
+
+    public void shutdown() {
+        stopBalanceUpdates();
+    }
+
+    public void updateMarketsList() {
+        NoteInterface noteInterface = m_walletData.getMarketInterface();
+
+        if (noteInterface != null && noteInterface instanceof ErgoMarkets) {
+            ErgoMarkets ergoMarkets = (ErgoMarkets) noteInterface;
+            SecretKey secretKey = m_walletData.getNetworksData().appKeyProperty().get();
+            if (m_ergoMarketsList != null) {
+                m_ergoMarketsList.shutdown();
+            }
+            m_ergoMarketsList = new ErgoMarketsList(secretKey, ergoMarkets);
+            updateMarketOptions();
+        } else {
+            if (m_ergoMarketsList != null) {
+                m_ergoMarketsList.shutdown();
+                m_ergoMarketsList = null;
+            }
+            updateMarketOptions();
+        }
+    }
+
+    public MenuButton getOptionsButton() {
+        return m_marketOptionsBtn;
+    }
+
+    public boolean updateSelectedMarket(MarketsData marketsData) {
+        MarketsData previousSelectedMarketsData = m_selectedMarketData.get();
+
+        if (m_walletData.setSelectedMarketId(marketsData.getId(), m_walletStage, previousSelectedMarketsData, marketsData)) {
+            if (previousSelectedMarketsData != null) {
+                previousSelectedMarketsData.shutdown();
+            }
+            m_selectedMarketData.set(marketsData);
+            marketsData.start();
+            return true;
+        }
+        return false;
+    }
+
+    private void updateMarketOptions() {
+        m_marketOptionsBtn.getItems().clear();
+        if (m_ergoMarketsList != null) {
+            ArrayList<MarketsData> dataList = m_ergoMarketsList.getMarketsDataList();
+            int size = dataList.size();
+
+            if (size > 0) {
+                String selectedId = m_walletData.getSelectedMarketId();
+                for (int i = 0; i < size; i++) {
+
+                    MarketsData marketsData = dataList.get(i);
+
+                    String id = marketsData.getId();
+                    String type = marketsData.getUpdateType();
+                    String value = marketsData.getUpdateValue();
+                    String marketId = marketsData.getMarketId();
+
+                    MenuItem menuItem = new MenuItem((selectedId != null && selectedId.equals(id) ? "\u25CF " : "") + (type.equals(MarketsData.REALTIME) ? "Real-time: " : "") + value + (type.equals(MarketsData.POLLED) ? "s" : ""));
+                    menuItem.setId("rowBtn");
+                    menuItem.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), marketId, true).getIcon(), 30));
+                    menuItem.setOnAction(e -> {
+                        if (updateSelectedMarket(marketsData)) {
+                            updateMarketOptions();
+                        }
+                    });
+
+                    m_marketOptionsBtn.getItems().add(menuItem);
+
+                }
+            }
+        } else {
+            MenuItem menuItem = new MenuItem("   (not installed)");
+            m_marketOptionsBtn.getItems().add(menuItem);
+
+        }
+
     }
 
     public double calculateCurrentTotal() {
@@ -229,25 +406,36 @@ public class AddressesData {
             // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
         });
 
-        Tooltip networkTip = new Tooltip(networkInterface.getName());
-        networkTip.setShowDelay(new javafx.util.Duration(100));
-        networkTip.setFont(App.txtFont);
+        Tooltip nodeTip = new Tooltip(selectedNodeDataProperty().get() == null ? "Node unavailable" : selectedNodeDataProperty().get().getName());
+        nodeTip.setShowDelay(new javafx.util.Duration(100));
+        nodeTip.setFont(App.txtFont);
 
-        MenuButton networkMenuBtn = new MenuButton();
-        networkMenuBtn.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), networkInterface.getNetworkId(), true).getIcon(), 30));
-        networkMenuBtn.setPadding(new Insets(2, 0, 0, 0));
-        networkMenuBtn.setTooltip(networkTip);
+        MenuButton nodeMenuBtn = new MenuButton();
+        nodeMenuBtn.setGraphic(selectedNodeDataProperty().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), 30) : IconButton.getIconView(selectedNodeDataProperty().get().getIcon(), 30));
+        nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
+        nodeMenuBtn.setTooltip(nodeTip);
 
-        Tooltip explorerTip = new Tooltip(m_walletData.getExplorerInterface() == null ? "Explorer disabled" : m_walletData.getExplorerInterface().getName());
+        NoteInterface explorerInterface = m_selectedExplorerData.get() != null ? m_selectedExplorerData.get().getExplorerInterface() : null;
+
+        Tooltip explorerTip = new Tooltip(explorerInterface == null ? "Explorer unavailable" : explorerInterface.getName());
         explorerTip.setShowDelay(new javafx.util.Duration(100));
         explorerTip.setFont(App.txtFont);
 
         MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setGraphic(m_walletData.getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), m_walletData.getExplorerInterface().getNetworkId(), true).getIcon(), 30));
+        explorerBtn.setGraphic(explorerInterface == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), 30));
         explorerBtn.setPadding(new Insets(2, 0, 0, 0));
         explorerBtn.setTooltip(explorerTip);
 
-        HBox rightSideMenu = new HBox(networkMenuBtn, explorerBtn);
+        Tooltip marketsTip = new Tooltip(selectedMarketData().get() == null ? "Market unavailable" : MarketsData.getFriendlyUpdateTypeName(selectedMarketData().get().getUpdateType()) + ": " + selectedMarketData().get().getUpdateValue());
+        marketsTip.setShowDelay(new javafx.util.Duration(100));
+        marketsTip.setFont(App.txtFont);
+
+        MenuButton marketsBtn = new MenuButton();
+        marketsBtn.setGraphic(selectedMarketData().get() == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), 30) : IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), 30));
+        explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+        explorerBtn.setTooltip(explorerTip);
+
+        HBox rightSideMenu = new HBox(nodeMenuBtn, explorerBtn, marketsBtn);
         rightSideMenu.setId("rightSideMenuBar");
         rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 

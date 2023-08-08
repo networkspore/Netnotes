@@ -11,6 +11,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -43,6 +44,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.net.URLConnection;
 
 import javafx.application.Platform;
@@ -508,7 +510,7 @@ public class Utils {
             case DAYS:
                 return "days";
             default:
-                return null;
+                return "~";
         }
     }
 
@@ -614,7 +616,7 @@ public class Utils {
 
     }
 
-    public static JsonObject readJsonFile(SecretKey appKey, Path filePath) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
+    /*public static JsonObject readJsonFile(SecretKey appKey, Path filePath) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
 
         byte[] fileBytes;
 
@@ -634,6 +636,42 @@ public class Utils {
         }
 
         return null;
+    }*/
+    public static JsonObject readJsonFile(SecretKey appKey, Path filePath) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
+
+        FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        int bufferSize = 1024;
+        if (bufferSize > channel.size()) {
+            bufferSize = (int) channel.size();
+        }
+        ByteBuffer buff = ByteBuffer.allocate(bufferSize);
+
+        while (channel.read(buff) > 0) {
+            out.write(buff.array(), 0, buff.position());
+            buff.clear();
+        }
+
+        channel.close();
+
+        byte[] fileBytes = out.toByteArray();
+
+        byte[] iv = new byte[]{
+            fileBytes[0], fileBytes[1], fileBytes[2], fileBytes[3],
+            fileBytes[4], fileBytes[5], fileBytes[6], fileBytes[7],
+            fileBytes[8], fileBytes[9], fileBytes[10], fileBytes[11]
+        };
+
+        buff = ByteBuffer.wrap(fileBytes, 12, fileBytes.length - 12);
+
+        JsonElement jsonElement = new JsonParser().parse(new String(AESEncryption.decryptData(iv, appKey, buff)));
+        if (jsonElement != null && jsonElement.isJsonObject()) {
+            return jsonElement.getAsJsonObject();
+        }
+
+        return null;
+
     }
 
     public static void writeEncryptedString(SecretKey secretKey, File dataFile, String jsonString) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, IOException {

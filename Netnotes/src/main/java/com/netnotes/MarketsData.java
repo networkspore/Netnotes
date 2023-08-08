@@ -127,11 +127,22 @@ public class MarketsData {
         logFile = new File("marketsdata-" + m_id + "-log.txt");
     }
 
+    public static String getFriendlyUpdateTypeName(String type) {
+        switch (type) {
+            case REALTIME:
+                return "Real-time";
+            case POLLED:
+                return "Timer";
+            default:
+                return type;
+        }
+    }
+
     public String getId() {
         return m_id;
     }
 
-    public String geMarketId() {
+    public String getMarketId() {
         return m_marketId;
     }
 
@@ -153,6 +164,10 @@ public class MarketsData {
 
     public void setUpdateType(String updateType) {
         m_updateType = updateType;
+    }
+
+    public String getUpdateValue() {
+        return m_value;
     }
 
     public Font getPriceFont() {
@@ -216,11 +231,18 @@ public class MarketsData {
 
     }
 
+    private ChangeListener<LocalDateTime> m_shutdownListener = null;
+
     private void stopTicker(KucoinExchange exchange) {
 
-        exchange.removeMsgListener(m_msgListener);
-        exchange.unsubscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
-        m_statusProperty.set(STOPPED);
+        boolean removed = exchange.removeMsgListener(m_msgListener);
+        if (removed) {
+
+            exchange.unsubscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
+            m_statusProperty.set(STOPPED);
+
+            m_shutdownNow.removeListener(m_shutdownListener);
+        }
     }
 
     private void startTicker(String symbol, KucoinExchange exchange) {
@@ -294,6 +316,12 @@ public class MarketsData {
             exchange.subscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
 
         }
+
+        m_shutdownListener = (obs, oldval, newVal) -> {
+            stopTicker(exchange);
+        };
+
+        m_shutdownNow.addListener(m_shutdownListener);
 
     }
 
@@ -398,7 +426,7 @@ public class MarketsData {
             if (m_statusProperty.get().equals(STOPPED)) {
                 start();
             } else {
-                stop();
+                m_shutdownNow.set(LocalDateTime.now());
             }
         });
 
@@ -475,26 +503,9 @@ public class MarketsData {
         return rowBox;
     }
 
-    public void stop() {
-
-        if (m_marketInterface != null) {
-
-            if (m_marketInterface instanceof KucoinExchange) {
-                KucoinExchange exchange = (KucoinExchange) m_marketInterface;
-                if (!m_statusProperty.get().equals(STOPPED)) {
-                    switch (m_value) {
-                        case TICKER:
-                            stopTicker(exchange);
-                            break;
-                    }
-                }
-            }
-        }
-
-    }
-
     public void shutdown() {
         m_shutdownNow.set(LocalDateTime.now());
+
         if (m_polledExecutor != null) {
             m_polledExecutor.shutdownNow();
             m_polledExecutor = null;

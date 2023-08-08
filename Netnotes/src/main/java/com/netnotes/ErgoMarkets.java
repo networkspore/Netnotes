@@ -9,9 +9,13 @@ import java.time.LocalDateTime;
 import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.satergo.WalletKey.Local;
+import com.utils.Utils;
 
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -245,5 +249,25 @@ public class ErgoMarkets extends Network implements NoteInterface {
         };
 
         return iconButton;
+    }
+
+    public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
+        JsonElement subjecElement = note.get("subject");
+
+        if (subjecElement != null) {
+            switch (subjecElement.getAsString()) {
+                case App.GET_DATA:
+                    getData(onSucceeded, onFailed);
+                    break;
+            }
+        }
+        return false;
+    }
+
+    public void getData(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        ErgoMarketsList dataList = new ErgoMarketsList(getNetworksData().appKeyProperty().get(), this);
+
+        Utils.returnObject(dataList.getDataObject(), onSucceeded, onFailed);
     }
 }

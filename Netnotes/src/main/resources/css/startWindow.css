@@ -258,7 +258,9 @@
 }
 
 
-
+#vSeperatorGradient {
+    -fx-background-color: linear-gradient(to bottom, #00000001 2%,#11111190, #77777780, #11111190, #00000001 98%);
+}
 
 
 #hGradient {

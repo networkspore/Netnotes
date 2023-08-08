@@ -87,6 +87,8 @@ public class App extends Application {
     public static final long NOTE_EXECUTION_TIME = 100;
     public static final String notesFileName = "notes.dat";
 
+    public static final String GET_DATA = "GET_DATA";
+
     private File logFile = new File("log.txt");
     //public members
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);

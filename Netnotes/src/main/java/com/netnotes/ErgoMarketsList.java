@@ -3,6 +3,7 @@ package com.netnotes;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -69,6 +70,19 @@ public class ErgoMarketsList {
         readFile(secretKey, m_ergoMarkets.getDataFile());
     }
 
+    public MarketsData getMarketsData(String id) {
+        if (id != null) {
+            for (int i = 0; i < m_dataList.size(); i++) {
+                MarketsData marketsData = m_dataList.get(i);
+
+                if (marketsData.getId().equals(id)) {
+                    return marketsData;
+                }
+            }
+        }
+        return null;
+    }
+
     public VBox getGridBox(SimpleDoubleProperty width, SimpleDoubleProperty scrollWidth) {
         VBox gridBox = new VBox();
 
@@ -110,6 +124,10 @@ public class ErgoMarketsList {
         }
     }
 
+    public ArrayList<MarketsData> getMarketsDataList() {
+        return m_dataList;
+    }
+
     public String getID() {
         return m_id;
     }
@@ -124,7 +142,7 @@ public class ErgoMarketsList {
 
     private void openJson(JsonObject json) {
 
-        JsonElement marketsElement = json.get("markets");
+        JsonElement marketsElement = json.get("data");
         JsonElement stageElement = json.get("stage");
         JsonElement defaultIdElement = json.get("defaultId");
         String defaultId = defaultIdElement != null ? defaultIdElement.getAsString() : null;
@@ -306,13 +324,18 @@ public class ErgoMarketsList {
         }
     }
 
-    public void save() {
+    public JsonObject getDataObject() {
         JsonObject fileObject = new JsonObject();
-        fileObject.add("stage", getStageJson());
-        fileObject.addProperty("defaultId", defaultIdProperty().get());
-        fileObject.add("markets", getMarketsJsonArray());
 
-        String jsonString = fileObject.toString();
+        fileObject.addProperty("defaultId", defaultIdProperty().get());
+        fileObject.add("data", getMarketsJsonArray());
+        return fileObject;
+    }
+
+    public void save() {
+        JsonObject fileJson = getDataObject();
+        fileJson.add("stage", getStageJson());
+        String jsonString = fileJson.toString();
 
         //  byte[] bytes = jsonString.getBytes(StandardCharsets.UTF_8);
         // String fileHexString = Hex.encodeHexString(bytes);
