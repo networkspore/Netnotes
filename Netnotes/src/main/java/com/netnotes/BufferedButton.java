@@ -7,6 +7,8 @@ import javafx.scene.image.Image;
 
 public class BufferedButton extends Button {
 
+    public final static String ON_MOUSE_PRESSED_EFFECT_ID = "onMousePressed";
+
     private BufferedImageView m_imgBufView;
 
     public BufferedButton() {
@@ -30,8 +32,8 @@ public class BufferedButton extends Button {
         setGraphic(m_imgBufView);
 
         setId("menuBtn");
-        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(.6));
-        setOnMouseReleased((pressedEvent) -> m_imgBufView.clearEffects());
+        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(ON_MOUSE_PRESSED_EFFECT_ID, .6));
+        setOnMouseReleased((pressedEvent) -> m_imgBufView.removeEffect(ON_MOUSE_PRESSED_EFFECT_ID));
 
     }
 
@@ -41,8 +43,8 @@ public class BufferedButton extends Button {
         setGraphic(m_imgBufView);
 
         setId("menuBtn");
-        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(.6));
-        setOnMouseReleased((pressedEvent) -> m_imgBufView.clearEffects());
+        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(ON_MOUSE_PRESSED_EFFECT_ID, .6));
+        setOnMouseReleased((pressedEvent) -> m_imgBufView.removeEffect(ON_MOUSE_PRESSED_EFFECT_ID));
 
     }
 

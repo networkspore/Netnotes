@@ -60,6 +60,10 @@ public class NamedNodesList {
         m_optionsUpdated.set(LocalDateTime.now());
     }
 
+    public boolean getEnableGitHubUpdates() {
+        return m_enableGitHubUpdates;
+    }
+
     public SimpleDoubleProperty gridWidthProperty() {
         return m_gridWidthProperty;
     }

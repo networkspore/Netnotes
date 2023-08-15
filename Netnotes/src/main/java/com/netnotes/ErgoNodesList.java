@@ -36,6 +36,7 @@ import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
@@ -245,7 +246,7 @@ public class ErgoNodesList {
 
             Scene addNodeScene = new Scene(layoutBox, initWidth, initHeight);
 
-            String heading = "Add";
+            String heading = "Add node";
             Button closeBtn = new Button();
 
             String titleString = heading + " - " + name;
@@ -295,11 +296,38 @@ public class ErgoNodesList {
 
             typeBtn.getItems().addAll(defaultClientItem, configureItem);
 
-            Text publicNodesText = new Text("Public Nodes ");
+            Text publicNodesText = new Text("Public Nodes");
             publicNodesText.setFill(App.txtColor);
             publicNodesText.setFont(App.txtFont);
 
-            HBox publicNodesBox = new HBox(publicNodesText);
+            Tooltip enableUpdatesTip = new Tooltip("Update");
+
+            BufferedButton enableGitUpdateBtn = new BufferedButton("/assets/sync-30.png", 30);
+            enableGitUpdateBtn.setTooltip(enableUpdatesTip);
+            final String updateEffectId = "UPDATE_DISABLED";
+            Runnable updateEnableEffect = () -> {
+                boolean nodesListUpdate = nodesList.getEnableGitHubUpdates();
+                enableUpdatesTip.setText("Update Public Nodes: " + (nodesListUpdate ? "Enabled" : "Disabled"));
+                if (!nodesListUpdate) {
+                    if (enableGitUpdateBtn.getBufferedImageView().getEffect(updateEffectId) == null) {
+                        enableGitUpdateBtn.getBufferedImageView().applyEffect(new InvertEffect(updateEffectId, 0.7));
+                    }
+                } else {
+                    enableGitUpdateBtn.getBufferedImageView().removeEffect(updateEffectId);
+                }
+            };
+
+            enableGitUpdateBtn.setOnAction((e) -> {
+                boolean nodesListUpdate = nodesList.getEnableGitHubUpdates();
+                nodesList.setEnableGitHubUpdates(!nodesListUpdate);
+                updateEnableEffect.run();
+            });
+
+            updateEnableEffect.run();
+            Region btnSpacerRegion = new Region();
+            HBox.setHgrow(btnSpacerRegion, Priority.ALWAYS);
+
+            HBox publicNodesBox = new HBox(publicNodesText, btnSpacerRegion, enableGitUpdateBtn);
             publicNodesBox.setAlignment(Pos.CENTER_LEFT);
             publicNodesBox.minHeightProperty().bind(rowHeight);
 
@@ -478,7 +506,7 @@ public class ErgoNodesList {
 
             VBox customClientOptionsBox = new VBox(nodeNameBox, networkTypeBox, clientTypeBox, nodeUrlBox, nodePortBox);
 
-            Button nextBtn = new Button("Next");
+            Button nextBtn = new Button("Add");
             nextBtn.setPadding(new Insets(5, 15, 5, 15));
 
             HBox nextBox = new HBox(nextBtn);
@@ -495,7 +523,7 @@ public class ErgoNodesList {
             bodyPaddingBox.setPadding(new Insets(5, 5, 5, 5));
 
             Region footerSpacer = new Region();
-            footerSpacer.setMinHeight(10);
+            footerSpacer.setMinHeight(5);
 
             VBox footerBox = new VBox(footerSpacer);
 

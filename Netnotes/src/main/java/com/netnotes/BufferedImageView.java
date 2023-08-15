@@ -53,12 +53,14 @@ public class BufferedImageView extends ImageView {
     }
 
     public Effects getEffect(String id) {
-        for (int i = 0; i < m_effects.size(); i++) {
-            Effects effect = m_effects.get(i);
-            if (effect.getId().equals(id)) {
-                return effect;
-            }
+        if (id != null && m_effects.size() > 0) {
+            for (int i = 0; i < m_effects.size(); i++) {
+                Effects effect = m_effects.get(i);
 
+                if (effect.getId().equals(id)) {
+                    return effect;
+                }
+            }
         }
         return null;
     }
@@ -86,8 +88,36 @@ public class BufferedImageView extends ImageView {
 
     }
 
+    public void applyInvertEffect(String id, double amount) {
+        if (getEffect(id) == null) {
+            m_effects.add(new InvertEffect(id, amount));
+            updateImage();
+        }
+    }
+
+    public void removeEffect(String id) {
+        if (id != null && m_effects.size() > 0) {
+            for (int i = 0; i < m_effects.size(); i++) {
+                if (m_effects.get(i).getId().equals(id)) {
+                    m_effects.remove(i);
+                    updateImage();
+                }
+            }
+        }
+    }
+
     public void addEffect(Effects effect) {
         m_effects.add(effect);
+    }
+
+    public void applyEffect(Effects effect) {
+        m_effects.add(effect);
+        updateImage();
+    }
+
+    public void addEffect(int index, Effects effect, boolean update) {
+        m_effects.add(effect);
+        updateImage();
     }
 
     public void clearEffects() {

@@ -299,7 +299,7 @@ public class App extends Application {
         VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 320);
+        Scene passwordScene = new Scene(layoutVBox, 600, 300);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(passwordScene);
