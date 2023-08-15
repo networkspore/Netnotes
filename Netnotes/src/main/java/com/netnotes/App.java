@@ -125,8 +125,6 @@ public class App extends Application {
 
     public static final String homeString = System.getProperty("user.home");
 
-    private AppData m_appData;
-
     private File settingsFile = null;
 
     private File currentDir = null;
@@ -205,7 +203,7 @@ public class App extends Application {
     @Override
     public void start(Stage appStage) {
         //  Platform.setImplicitExit(true);
-
+        AppData appData = null;
         appStage.setResizable(false);
         appStage.initStyle(StageStyle.UNDECORATED);
         appStage.setTitle("Netnotes");
@@ -229,18 +227,17 @@ public class App extends Application {
 
             } else {
 
-                String passwordHash = null;
                 try {
-                    m_appData = new AppData(settingsFile);
-                    passwordHash = m_appData.getAppKey();
+                    appData = new AppData(settingsFile);
+
                 } catch (Exception e) {
                     Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                     a.showAndWait();
                 }
 
-                if (passwordHash != null) {
+                if (appData != null && appData.getAppKey() != null) {
 
-                    startApp(passwordHash.getBytes(), appStage);
+                    startApp(appData, appStage);
                 } else {
                     //init?
                     shutdownNow();
@@ -256,7 +253,7 @@ public class App extends Application {
 
     }
 
-    public void startApp(byte[] hashBytes, Stage appStage) {
+    public void startApp(AppData appData, Stage appStage) {
         if (Security.getProvider("BLAKE2B") == null) {
             Security.addProvider(new Blake2bProvider());
 
@@ -328,12 +325,13 @@ public class App extends Application {
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
                         char[] chars = passwordField.getText().toCharArray();
                         Platform.runLater(() -> passwordField.setText(""));
+                        byte[] hashBytes = appData.getAppKeyBytes();
                         BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(chars, hashBytes);
                         statusStage.close();
                         if (result.verified) {
 
                             try {
-                                openNetnotes(createKey(chars), appStage);
+                                openNetnotes(appData, createKey(chars), appStage);
                                 chars = null;
                             } catch (Exception e1) {
                                 Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CLOSE);
@@ -419,12 +417,12 @@ public class App extends Application {
     }
 
     // private static int createTries = 0;
-    private void openNetnotes(SecretKey appKey, Stage appStage) {
+    private void openNetnotes(AppData appData, SecretKey appKey, Stage appStage) {
         File networksFile = new File(networksFileName);
 
         boolean isNetworksFile = networksFile.isFile();
 
-        m_networksData = new NetworksData(appKey, m_networkServices, networksFile, isNetworksFile);
+        m_networksData = new NetworksData(appData, appKey, m_networkServices, networksFile, isNetworksFile);
 
         m_stage = new Stage();
         m_stage.initStyle(StageStyle.UTILITY);
@@ -432,10 +430,6 @@ public class App extends Application {
         m_stage.setHeight(0);
         m_stage.setWidth(0);
         m_stage.show();
-        if (!isNetworksFile) {
-
-            m_networksData.showManageNetworkStage();
-        }
 
         m_networksData.cmdSwitchProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -488,7 +482,7 @@ public class App extends Application {
             javax.swing.SwingUtilities.invokeLater(this::addAppToTray);
         }
 
-        showMainStage(appStage);
+        showMainStage(appStage, isNetworksFile);
 
     }
 
@@ -560,7 +554,7 @@ public class App extends Application {
 
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
 
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_appData.getAppKeyBytes());
+                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_networksData.getAppData().getAppKeyBytes());
                         Platform.runLater(() -> passwordField.setText(""));
                         statusStage.close();
                         if (result.verified) {
@@ -591,7 +585,7 @@ public class App extends Application {
     }
     private ScheduledFuture<?> m_lastExecution = null;
 
-    private void showMainStage(Stage appStage) {
+    private void showMainStage(Stage appStage, boolean isNetworksFile) {
 
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
@@ -685,6 +679,18 @@ public class App extends Application {
             m_lastExecution = executor.schedule(save, EXECUTION_TIME, TimeUnit.MILLISECONDS);
         });
 
+        maximizeBtn.setOnAction(maxEvent -> {
+            boolean maximized = appStage.isMaximized();
+            m_networksData.setStageMaximized(!maximized);
+
+            if (!maximized) {
+                m_networksData.setStagePrevWidth(appStage.getWidth());
+                m_networksData.setStagePrevHeight(appStage.getHeight());
+            }
+
+            appStage.setMaximized(!maximized);
+        });
+
         closeBtn.setOnAction(e -> {
             m_tray.remove(m_trayIcon);
             m_networksData.shutdown();
@@ -707,6 +713,14 @@ public class App extends Application {
             titleBox.getChildren().add(sleepBtn);
         }
 
+        if (m_networksData.getStageMaximized()) {
+
+            appStage.setMaximized(true);
+        }
+        if (!isNetworksFile) {
+
+            m_networksData.showManageNetworkStage();
+        }
     }
 
     private void showNetworks(Scene appScene, VBox header, VBox bodyVBox) {
@@ -769,7 +783,7 @@ public class App extends Application {
     private void showSettings(Stage appStage, VBox bodyVBox) {
         bodyVBox.getChildren().clear();
 
-        boolean isUpdates = m_appData.getUpdates();
+        boolean isUpdates = m_networksData.getAppData().getUpdates();
 
         Button settingsButton = createImageButton(logo, "Settings");
 
@@ -801,7 +815,7 @@ public class App extends Application {
 
                             try {
 
-                                m_appData.setAppKey(hash);
+                                m_networksData.getAppData().setAppKey(hash);
                             } catch (IOException e1) {
                                 Alert a = new Alert(AlertType.NONE, "Error: Password not changed.\n\n" + e1.toString(), ButtonType.CLOSE);
                                 a.setTitle("Error: Password not changed.");
@@ -839,10 +853,10 @@ public class App extends Application {
             try {
                 if (updatesBtn.getText().equals("Enabled")) {
                     updatesBtn.setText("Disabled");
-                    m_appData.setUpdates(false);
+                    m_networksData.getAppData().setUpdates(false);
                 } else {
                     updatesBtn.setText("Enabled");
-                    m_appData.setUpdates(true);
+                    m_networksData.getAppData().setUpdates(true);
                 }
             } catch (IOException e1) {
                 Alert a = new Alert(AlertType.NONE, "Error:\n\n" + e1.toString(), ButtonType.CLOSE);
@@ -1139,9 +1153,6 @@ public class App extends Application {
         maximizeBtn.setId("toolBtn");
         maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
         maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
-        maximizeBtn.setOnAction(maxEvent -> {
-            theStage.setMaximized(!theStage.isMaximized());
-        });
 
         fillRightBtn.setId("toolBtn");
         fillRightBtn.setGraphic(IconButton.getIconView(new Image("/assets/fillRight.png"), 20));
@@ -1216,9 +1227,6 @@ public class App extends Application {
         maximizeBtn.setId("toolBtn");
         maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
         maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
-        maximizeBtn.setOnAction(maxEvent -> {
-            theStage.setMaximized(!theStage.isMaximized());
-        });
 
         HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, maximizeBtn, closeBtn);
         newTopBar.setAlignment(Pos.CENTER_LEFT);
@@ -1288,9 +1296,6 @@ public class App extends Application {
         maximizeBtn.setId("toolBtn");
         maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
         maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
-        maximizeBtn.setOnAction(maxEvent -> {
-            theStage.setMaximized(!theStage.isMaximized());
-        });
 
         HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, maximizeBtn, closeBtn);
         newTopBar.setAlignment(Pos.CENTER_LEFT);

@@ -19,13 +19,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javafx.scene.Scene;
-
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
-
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -36,7 +36,7 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javafx.application.Platform;
-
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -53,6 +53,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public final static File ERGO_NETWORK_DIR = new File(System.getProperty("user.dir") + "/Ergo Network");
 
     private final static long EXECUTION_TIME = 500;
+
     private ScheduledFuture<?> m_lastExecution = null;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
@@ -62,9 +63,10 @@ public class ErgoNetwork extends Network implements NoteInterface {
     //private SimpleBooleanProperty m_shuttingdown = new SimpleBooleanProperty(false);
     public ErgoNetwork(NetworksData networksData) {
         super(getAppIcon(), NAME, NETWORK_ID, networksData);
-        setStageWidth(700);
-        setStageHeight(500);
-
+        setStageWidth(SMALL_STAGE_WIDTH);
+        setStageHeight(DEFAULT_STAGE_HEIGHT);
+        setStagePrevHeight(DEFAULT_STAGE_HEIGHT);
+        setStagePrevWidth(SMALL_STAGE_WIDTH);
         getLastUpdated().set(LocalDateTime.now());
     }
 
@@ -83,11 +85,30 @@ public class ErgoNetwork extends Network implements NoteInterface {
             JsonObject stageObject = stageElement.getAsJsonObject();
             JsonElement stageWidthElement = stageObject.get("width");
             JsonElement stageHeightElement = stageObject.get("height");
+            JsonElement stagePrevWidthElement = stageObject.get("prevWidth");
+            JsonElement stagePrevHeightElement = stageObject.get("prevHeight");
+
             JsonElement iconStyleElement = stageObject.get("iconStyle");
+            JsonElement stageMaximizedElement = stageObject.get("maximized");
+
+            boolean maximized = stageMaximizedElement == null ? false : stageMaximizedElement.getAsBoolean();
 
             setStageIconStyle(iconStyleElement.getAsString());
-            setStageWidth(stageWidthElement.getAsDouble());
-            setStageHeight(stageHeightElement.getAsDouble());
+            setStagePrevWidth(DEFAULT_STAGE_WIDTH);
+            setStagePrevHeight(DEFAULT_STAGE_HEIGHT);
+            if (!maximized) {
+
+                setStageWidth(stageWidthElement.getAsDouble());
+                setStageHeight(stageHeightElement.getAsDouble());
+            } else {
+                double prevWidth = stagePrevWidthElement != null && stagePrevWidthElement.isJsonPrimitive() ? stagePrevWidthElement.getAsDouble() : DEFAULT_STAGE_WIDTH;
+                double prevHeight = stagePrevHeightElement != null && stagePrevHeightElement.isJsonPrimitive() ? stagePrevHeightElement.getAsDouble() : DEFAULT_STAGE_HEIGHT;
+                setStageWidth(prevWidth);
+                setStageHeight(prevHeight);
+                setStagePrevWidth(prevWidth);
+                setStagePrevHeight(prevHeight);
+            }
+            setStageMaximized(maximized);
         }
 
     }
@@ -118,10 +139,11 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
     public void showStage() {
         if (m_stage == null) {
-            double stageWidth = getStageWidth();
-            double stageHeight = getStageHeight();
 
-            ErgoNetworkData ergNetData = new ErgoNetworkData(getStageIconStyle(), stageWidth - 60, this);
+            double stageWidth = getStageMaximized() ? getStagePrevWidth() : getStageWidth();
+            double stageHeight = getStageMaximized() ? getStagePrevHeight() : getStageHeight();
+
+            ErgoNetworkData ergNetData = new ErgoNetworkData(getStageIconStyle(), stageWidth, this);
             m_stage = new Stage();
             m_stage.setTitle("Ergo Network");
             m_stage.getIcons().add(getIcon());
@@ -181,9 +203,11 @@ public class ErgoNetwork extends Network implements NoteInterface {
             scene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(scene);
 
+            SimpleDoubleProperty scrollWidth = new SimpleDoubleProperty(0);
+
             scrollPane.prefViewportHeightProperty().bind(m_stage.heightProperty().subtract(headerBox.heightProperty()).subtract(20));
             scrollPane.prefViewportWidthProperty().bind(m_stage.widthProperty());
-            ergNetData.gridWidthProperty().bind(m_stage.widthProperty().subtract(60));
+            ergNetData.gridWidthProperty().bind(m_stage.widthProperty().subtract(30).subtract(scrollWidth));
 
             m_stage.show();
             Runnable setUpdated = () -> {
@@ -236,6 +260,19 @@ public class ErgoNetwork extends Network implements NoteInterface {
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
+            Runnable updateScrollSize = () -> {
+
+                double val = gridBox.heightProperty().get();
+                if (val > scrollPane.prefViewportHeightProperty().doubleValue()) {
+                    scrollWidth.set(40);
+                } else {
+                    scrollWidth.set(0);
+                }
+
+            };
+
+            gridBox.heightProperty().addListener((obs, oldVal, newVal) -> updateScrollSize.run());
+
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
 
             closeBtn.setOnAction(e -> {
@@ -252,10 +289,27 @@ public class ErgoNetwork extends Network implements NoteInterface {
                 m_stage = null;
             });
 
+            maximizeBtn.setOnAction(maxEvent -> {
+                boolean maximized = m_stage.isMaximized();
+                setStageMaximized(!maximized);
+
+                if (!maximized) {
+                    setStagePrevWidth(m_stage.getWidth());
+                    setStagePrevHeight(m_stage.getHeight());
+                }
+
+                m_stage.setMaximized(!maximized);
+            });
+
             shutdownNowProperty().addListener((obs, oldVal, newVal) -> {
 
                 closeBtn.fire();
             });
+            if (getStageMaximized()) {
+
+                m_stage.setMaximized(true);
+            }
+            updateScrollSize.run();
         } else {
             m_stage.show();
         }

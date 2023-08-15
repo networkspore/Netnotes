@@ -21,7 +21,7 @@ import com.utils.Utils;
 import javafx.application.Platform;
 
 import javafx.beans.property.SimpleObjectProperty;
-
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
@@ -63,7 +63,8 @@ public class AddressData extends Network {
     private int m_index;
     private Address m_address;
 
-    private long m_confirmedNanoErgs = 0;
+    private SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty = new SimpleObjectProperty<ErgoAmount>(null);
+
     private long m_unconfirmedNanoErgs = 0;
 
     private String m_priceBaseCurrency = "ERG";
@@ -108,6 +109,22 @@ public class AddressData extends Network {
         setTextAlignment(TextAlignment.LEFT);
         update();
         updateBalance();
+
+        ChangeListener<? super PriceQuote> quoteChangeListener = (obs, oldVal, newVal) -> updateBalance();
+
+        m_addressesData.selectedMarketData().addListener((obs, oldval, newVal) -> {
+            if (oldval != null) {
+                oldval.priceQuoteProperty().removeListener(quoteChangeListener);
+            }
+            if (newVal != null) {
+                newVal.priceQuoteProperty().addListener(quoteChangeListener);
+            }
+        });
+
+        if (m_addressesData.selectedMarketData().get() != null) {
+            m_addressesData.selectedMarketData().get().priceQuoteProperty().addListener(quoteChangeListener);
+        }
+
     }
 
     public String getButtonText() {
@@ -186,11 +203,6 @@ public class AddressData extends Network {
             m_addressStage.initStyle(StageStyle.UNDECORATED);
 
             Button closeBtn = new Button();
-            closeBtn.setOnAction(closeEvent -> {
-                m_addressStage.close();
-                m_addressStage = null;
-                removeShutdownListener();
-            });
 
             addShutdownListener((obs, oldVal, newVal) -> {
                 Platform.runLater(() -> closeBtn.fire());
@@ -341,10 +353,19 @@ public class AddressData extends Network {
             //  lastUpdatedField.textProperty().bind(Bindings.concat(getLastUpdated().asString("%1$TH:%1$TM:%1$TS")));
             //  priceField.textProperty().bind(m_formattedPrice);
             //  balanceField.textProperty().bind(m_formattedTotal);
+            closeBtn.setOnAction(closeEvent -> {
+                removeShutdownListener();
+
+                m_addressStage.close();
+                m_addressStage = null;
+            });
+
             m_addressStage.setOnCloseRequest((closeRequest) -> {
+
                 removeShutdownListener();
                 m_addressStage = null;
             });
+            //  
 
             /* 
             addressData.getPriceChart().lastUpdated.addListener(updated -> {
@@ -404,7 +425,7 @@ public class AddressData extends Network {
     }
 
     public BigDecimal getConfirmedAmount() {
-        return ErgoInterface.toFullErg(m_confirmedNanoErgs);
+        return ErgoInterface.toFullErg(getConfirmedNanoErgs());
     }
 
     public NetworkType getNetworkType() {
@@ -412,7 +433,8 @@ public class AddressData extends Network {
     }
 
     public long getConfirmedNanoErgs() {
-        return m_confirmedNanoErgs;
+        ErgoAmount ergoAmount = m_ergoAmountProperty.get();
+        return ergoAmount == null ? 0 : ergoAmount.getLongAmount();
     }
 
     public long getUnconfirmedNanoErgs() {
@@ -464,7 +486,12 @@ public class AddressData extends Network {
     }
 
     public Image getUnitImage() {
-        return new Image("/assets/unitErgo.png");
+        ErgoAmount ergoAmount = m_ergoAmountProperty.get();
+        if (ergoAmount == null) {
+            return new Image("/assets/unknown-unit.png");
+        } else {
+            return ergoAmount.getCurrency().getUnitImage();
+        }
     }
 
     private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
@@ -589,11 +616,6 @@ public class AddressData extends Network {
     }
 
     public boolean updateBalance() {
-        try {
-            Files.writeString(logFile.toPath(), "\nUpdateBalance", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
 
         NoteInterface explorerInterface = m_addressesData.selectedExplorerDataProperty().get() != null ? m_addressesData.selectedExplorerDataProperty().get().getExplorerInterface() : null;
 
@@ -631,9 +653,10 @@ public class AddressData extends Network {
 
     public void setBalance(JsonObject jsonObject) {
         if (jsonObject != null) {
+
             try {
-                Files.writeString(logFile.toPath(), jsonObject.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+                Utils.writeString(logFile.toPath(), jsonObject.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (Exception e) {
 
             }
 
@@ -644,7 +667,11 @@ public class AddressData extends Network {
                 JsonObject confirmedObject = confirmedElement.getAsJsonObject();
                 JsonObject unconfirmedObject = unconfirmedElement.getAsJsonObject();
 
-                m_confirmedNanoErgs = confirmedObject.get("nanoErgs").getAsLong();
+                JsonElement nanoErgElement = confirmedObject.get("nanoErgs");
+
+                if (nanoErgElement != null && nanoErgElement.isJsonPrimitive()) {
+                    m_ergoAmountProperty.set(new ErgoAmount(nanoErgElement.getAsLong()));
+                }
 
                 m_unconfirmedNanoErgs = unconfirmedObject.get("nanoErgs").getAsLong();
 

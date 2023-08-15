@@ -10,6 +10,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
@@ -714,6 +715,16 @@ public class Utils {
 
         outputStream.close();
 
+    }
+
+    //logFile.toPath(), jsonObject.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND
+    public static void writeString(Path filepath, String str, StandardOpenOption... openOptions) throws IOException {
+
+        AsynchronousFileChannel asyncFile = AsynchronousFileChannel.open(filepath, openOptions);
+
+        asyncFile.write(ByteBuffer.wrap("Some text to be written".getBytes()), 0);
+
+        //Files.writeString(filepath, str, openOptions);
     }
 
 }

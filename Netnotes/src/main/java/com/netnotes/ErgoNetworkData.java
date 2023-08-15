@@ -108,7 +108,11 @@ public class ErgoNetworkData implements InstallerInterface {
         }
 
         m_iconStyle.addListener((obs, oldVal, newVal) -> updateGrid());
-        m_gridWidth.addListener((obs, oldVal, newVal) -> updateGrid());
+        m_gridWidth.addListener((obs, oldVal, newVal) -> {
+            if (!m_iconStyle.get().equals(IconStyle.ROW)) {
+                updateGrid();
+            }
+        });
     }
 
     public boolean isEmpty() {

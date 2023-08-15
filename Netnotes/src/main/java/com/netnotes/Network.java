@@ -26,8 +26,16 @@ public class Network extends IconButton {
     private ChangeListener<LocalDateTime> m_changeListener = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
 
-    private double m_stageWidth = 310;
-    private double m_stageHeight = 500;
+    public final static double SMALL_STAGE_WIDTH = 500;
+    public final static double DEFAULT_STAGE_WIDTH = 700;
+    public final static double DEFAULT_STAGE_HEIGHT = 500;
+
+    private double m_stagePrevWidth = DEFAULT_STAGE_WIDTH;
+    private double m_stagePrevHeight = DEFAULT_STAGE_HEIGHT;
+    private boolean m_stageMaximized = false;
+    private double m_stageWidth = DEFAULT_STAGE_WIDTH;
+    private double m_stageHeight = DEFAULT_STAGE_HEIGHT;
+
     private String m_stageIconStyle = IconStyle.ICON;
 
     public Network(Image icon, String name, String id, NetworksData networksData) {
@@ -79,6 +87,31 @@ public class Network extends IconButton {
         return m_stageHeight;
     }
 
+    public boolean getStageMaximized() {
+        return m_stageMaximized;
+    }
+
+    public void setStageMaximized(boolean value) {
+        m_stageMaximized = value;
+    }
+
+    public double getStagePrevWidth() {
+        return m_stagePrevWidth;
+    }
+
+    public void setStagePrevWidth(double width) {
+        m_stagePrevWidth = width;
+
+    }
+
+    public void setStagePrevHeight(double height) {
+        m_stagePrevHeight = height;
+    }
+
+    public double getStagePrevHeight() {
+        return m_stagePrevHeight;
+    }
+
     public String getStageIconStyle() {
         return m_stageIconStyle;
     }
@@ -90,8 +123,11 @@ public class Network extends IconButton {
 
     public JsonObject getStageJson() {
         JsonObject json = new JsonObject();
+        json.addProperty("maximized", getStageMaximized());
         json.addProperty("width", getStageWidth());
         json.addProperty("height", getStageHeight());
+        json.addProperty("prevWidth", getStagePrevWidth());
+        json.addProperty("prevHeight", getStagePrevHeight());
         json.addProperty("iconStyle", getStageIconStyle());
         return json;
     }

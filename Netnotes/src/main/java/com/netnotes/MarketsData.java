@@ -379,11 +379,12 @@ public class MarketsData {
     }
 
     public HBox getRowItem() {
+        String defaultId = m_marketsList.defaultIdProperty().get();
 
-        BufferedButton defaultBtn = new BufferedButton(m_id.equals(m_marketsList.defaultIdProperty().get()) ? m_radioOnUrl : m_radioOffUrl, 15);
+        BufferedButton defaultBtn = new BufferedButton(defaultId != null && m_id.equals(defaultId) ? m_radioOnUrl : m_radioOffUrl, 15);
 
         m_marketsList.defaultIdProperty().addListener((obs, oldval, newVal) -> {
-            defaultBtn.getBufferedImageView().setDefaultImage(new Image(m_id.equals(m_marketsList.defaultIdProperty().get()) ? m_radioOnUrl : m_radioOffUrl));
+            defaultBtn.getBufferedImageView().setDefaultImage(new Image(newVal != null && m_id.equals(newVal) ? m_radioOnUrl : m_radioOffUrl));
         });
 
         String valueString = m_value == null ? "" : m_value;

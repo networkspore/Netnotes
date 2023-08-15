@@ -55,7 +55,7 @@ public class PriceCurrency {
     }
 
     public Image getUnitImage() {
-        if (m_symbol != null && m_name != null && m_networkId != null && m_unitImageString != null) {
+        if (m_symbol != null && m_name != null && m_unitImageString != null) {
             return new Image(m_unitImageString);
         } else {
             return getUnknownUnitImage();

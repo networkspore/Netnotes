@@ -56,7 +56,7 @@ public class ErgoMarketsList {
     private String m_id = FriendlyId.createFriendlyId();
     private ArrayList<MarketsData> m_dataList = new ArrayList<>();
     private ErgoMarkets m_ergoMarkets;
-    private SimpleLongProperty m_doGridUpdate = new SimpleLongProperty(System.currentTimeMillis());
+    private SimpleObjectProperty<LocalDateTime> m_doGridUpdate = new SimpleObjectProperty<LocalDateTime>(null);
 
     private SimpleStringProperty m_defaultId = new SimpleStringProperty(null);
 
@@ -211,17 +211,23 @@ public class ErgoMarketsList {
             marketText.setFill(App.txtColor);
             marketText.setFont(App.txtFont);
 
-            MenuButton marketsBtn = new MenuButton(ErgoExplorer.NAME);
+            SimpleStringProperty selectedMarketId = new SimpleStringProperty(KucoinExchange.NETWORK_ID);
+            SimpleStringProperty selectedMarketType = new SimpleStringProperty(MarketsData.REALTIME);
+            SimpleStringProperty selectedMarketValue = new SimpleStringProperty(MarketsData.TICKER);
+
+            MenuButton marketsBtn = new MenuButton(KucoinExchange.NAME);
             marketsBtn.setFont(App.txtFont);
             marketsBtn.setTextFill(App.altColor);
-            marketsBtn.setUserData(ErgoExplorer.NETWORK_ID);
             marketsBtn.setPrefWidth(200);
 
-            MenuItem marketNoneItem = new MenuItem("(none)");
-            marketNoneItem.setOnAction(e -> {
-                marketsBtn.setText(marketNoneItem.getText());
-                marketsBtn.setUserData(null);
+            MenuItem marketKucoinItem = new MenuItem(KucoinExchange.NAME);
+            marketKucoinItem.setGraphic(IconButton.getIconView(KucoinExchange.getSmallAppIcon(), 30));
+            marketKucoinItem.setOnAction((e) -> {
+
             });
+
+            //no other options avaialable
+            marketsBtn.getItems().add(marketKucoinItem);
 
             HBox marketBox = new HBox(marketText, marketsBtn);
             marketBox.setAlignment(Pos.CENTER_LEFT);
@@ -231,47 +237,38 @@ public class ErgoMarketsList {
             typeText.setFont(App.txtFont);
 
             MenuButton typeBtn = new MenuButton("Real-time: Ticker");
-
             typeBtn.setPadding(new Insets(4, 5, 0, 5));
             typeBtn.setFont(Font.font("OCR A Extended", 12));
-            typeBtn.setUserData(MarketsData.REALTIME + ":" + MarketsData.TICKER);
-
-            MenuItem updatesDisabledItem = new MenuItem("(disabled)");
-            updatesDisabledItem.setOnAction(e -> {
-                typeBtn.setText(updatesDisabledItem.getText());
-                typeBtn.setUserData(null);
-            });
 
             MenuItem updatesRealTimeItem = new MenuItem("Real-time: Ticker");
             updatesRealTimeItem.setOnAction(e -> {
                 typeBtn.setText("Real-time");
-                typeBtn.setUserData(MarketsData.REALTIME + ":" + MarketsData.TICKER);
+                selectedMarketType.set(MarketsData.REALTIME);
+                selectedMarketValue.set(MarketsData.TICKER);
             });
 
             MenuItem updates5secItem = new MenuItem("5s");
             updates5secItem.setOnAction(e -> {
                 typeBtn.setText(updates5secItem.getText());
-                typeBtn.setUserData(MarketsData.POLLED + ":5");
+                selectedMarketType.set(MarketsData.POLLED);
+                selectedMarketValue.set("5");
             });
 
             MenuItem updates15secItem = new MenuItem("15s");
             updates15secItem.setOnAction(e -> {
                 typeBtn.setText(updates15secItem.getText());
-                typeBtn.setUserData(MarketsData.POLLED + ":15");
+                selectedMarketType.set(MarketsData.POLLED);
+                selectedMarketValue.set("15");
             });
 
             MenuItem updates30secItem = new MenuItem("30s");
             updates30secItem.setOnAction(e -> {
                 typeBtn.setText(updates30secItem.getText());
-                typeBtn.setUserData(MarketsData.POLLED + ":30");
+                selectedMarketType.set(MarketsData.POLLED);
+                selectedMarketValue.set("30");
             });
 
-            MenuItem updates1minItem = new MenuItem("1 min");
-            updates1minItem.setOnAction(e -> {
-                typeBtn.setText(updates1minItem.getText());
-                typeBtn.setUserData(MarketsData.POLLED + ":60");
-            });
-            typeBtn.getItems().addAll(updatesDisabledItem, updates5secItem, updates15secItem, updates30secItem, updates1minItem);
+            typeBtn.getItems().addAll(updates5secItem, updates15secItem, updates30secItem);
 
             HBox updatesBox = new HBox(typeText, typeBtn);
 
@@ -326,8 +323,10 @@ public class ErgoMarketsList {
 
     public JsonObject getDataObject() {
         JsonObject fileObject = new JsonObject();
-
-        fileObject.addProperty("defaultId", defaultIdProperty().get());
+        String defaultId = defaultIdProperty().get();
+        if (defaultId != null) {
+            fileObject.addProperty("defaultId", defaultId);
+        }
         fileObject.add("data", getMarketsJsonArray());
         return fileObject;
     }

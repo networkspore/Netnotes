@@ -78,6 +78,7 @@ public class AddressesData {
     private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
     private BufferedMenuButton m_marketOptionsBtn;
+    private BufferedMenuButton m_nodeOptionsButton;
     private ErgoMarketsList m_ergoMarketsList = null;
 
     private ScheduledExecutorService m_balanceExecutor = null;
@@ -94,7 +95,7 @@ public class AddressesData {
         m_walletStage = walletStage;
 
         updateExplorerData(explorerData);
-
+        setupNodes();
         setupMarkets();
 
         m_wallet.myAddresses.forEach((index, name) -> {
@@ -153,6 +154,11 @@ public class AddressesData {
         return m_selectedMarketData;
     }
 
+    private void setupNodes() {
+        m_nodeOptionsButton = new BufferedMenuButton();
+        m_nodeOptionsButton.setGraphic(IconButton.getIconView(new Image("/assets/caret-down-15.png"), 10));
+    }
+
     private void setupMarkets() {
         m_marketOptionsBtn = new BufferedMenuButton();
         updateMarketsList();
@@ -182,7 +188,7 @@ public class AddressesData {
         }
     }
 
-    public SimpleObjectProperty<AddressData> getSelectedAddressDataProperty() {
+    public SimpleObjectProperty<AddressData> selectedAddressDataProperty() {
         return m_selectedAddressData;
     }
 
@@ -300,22 +306,40 @@ public class AddressesData {
         }
     }
 
-    public MenuButton getOptionsButton() {
+    public BufferedMenuButton getMarketOptionsButton() {
         return m_marketOptionsBtn;
+    }
+
+    public MenuButton getNodeOptionsButton() {
+        return m_nodeOptionsButton;
     }
 
     public boolean updateSelectedMarket(MarketsData marketsData) {
         MarketsData previousSelectedMarketsData = m_selectedMarketData.get();
 
-        if (m_walletData.setSelectedMarketId(marketsData.getId(), m_walletStage, previousSelectedMarketsData, marketsData)) {
-            if (previousSelectedMarketsData != null) {
-                previousSelectedMarketsData.shutdown();
-            }
-            m_selectedMarketData.set(marketsData);
-            marketsData.start();
-            return true;
+        if (marketsData == null && previousSelectedMarketsData == null) {
+            return false;
         }
-        return false;
+
+        m_selectedMarketData.set(marketsData);
+
+        if (previousSelectedMarketsData != null) {
+            if (marketsData != null) {
+                if (previousSelectedMarketsData.getId().equals(marketsData.getId()) && previousSelectedMarketsData.getMarketId().equals(marketsData.getMarketId())) {
+                    return false;
+                }
+            }
+            previousSelectedMarketsData.shutdown();
+
+        }
+
+        if (marketsData != null) {
+            marketsData.start();
+        }
+
+        return true;
+
+        // return false;
     }
 
     private void updateMarketOptions() {
@@ -426,14 +450,29 @@ public class AddressesData {
         explorerBtn.setPadding(new Insets(2, 0, 0, 0));
         explorerBtn.setTooltip(explorerTip);
 
-        Tooltip marketsTip = new Tooltip(selectedMarketData().get() == null ? "Market unavailable" : MarketsData.getFriendlyUpdateTypeName(selectedMarketData().get().getUpdateType()) + ": " + selectedMarketData().get().getUpdateValue());
+        Tooltip marketsTip = new Tooltip("Markets unavailable");
         marketsTip.setShowDelay(new javafx.util.Duration(100));
         marketsTip.setFont(App.txtFont);
 
         MenuButton marketsBtn = new MenuButton();
-        marketsBtn.setGraphic(selectedMarketData().get() == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), 30) : IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), 30));
-        explorerBtn.setPadding(new Insets(2, 0, 0, 0));
-        explorerBtn.setTooltip(explorerTip);
+        marketsBtn.setPadding(new Insets(2, 0, 0, 0));
+        marketsBtn.setTooltip(marketsTip);
+
+        Runnable setMarketTipText = () -> {
+            //
+            MarketsData marketsData = selectedMarketData().get();
+            if (marketsData != null) {
+                marketsTip.setText(MarketsData.getFriendlyUpdateTypeName(marketsData.getUpdateType()) + ": " + marketsData.getUpdateValue());
+                marketsBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), 30));
+            } else {
+                marketsTip.setText("Markets unavailable");
+                marketsBtn.setGraphic(IconButton.getIconView(new Image("/assets/exchange-30.png"), 30));
+            }
+        };
+
+        setMarketTipText.run();
+
+        selectedMarketData().addListener((obs, oldVal, newval) -> setMarketTipText.run());
 
         HBox rightSideMenu = new HBox(nodeMenuBtn, explorerBtn, marketsBtn);
         rightSideMenu.setId("rightSideMenuBar");
@@ -483,7 +522,7 @@ public class AddressesData {
 
         MenuButton fromAddressBtn = new MenuButton("");
         fromAddressBtn.setId("rowBtn");
-        fromAddressBtn.textProperty().bind(Bindings.concat(getSelectedAddressDataProperty().asString()));
+        fromAddressBtn.textProperty().bind(Bindings.concat(selectedAddressDataProperty().asString()));
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
@@ -508,11 +547,11 @@ public class AddressesData {
         }
 
         // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
-        Image fromImg = getSelectedAddressDataProperty().get().getImageProperty().get();
+        Image fromImg = selectedAddressDataProperty().get().getImageProperty().get();
         fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
 
-        getSelectedAddressDataProperty().get().getImageProperty().addListener(e -> {
-            Image img = getSelectedAddressDataProperty().get().getImageProperty().get();
+        selectedAddressDataProperty().get().getImageProperty().addListener(e -> {
+            Image img = selectedAddressDataProperty().get().getImageProperty().get();
             fromAddressBtn.setGraphic(IconButton.getIconView(img, img.getWidth()));
         });
 

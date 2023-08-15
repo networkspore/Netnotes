@@ -468,7 +468,7 @@ public class WalletsDataList {
 
                 long explorerUpdatePeriod = explorerUpdates == null ? -1 : Long.parseLong(explorerUpdates);
 
-                WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketId, selectedMarketId, networkType, m_ergoWallet);
+                WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketId, selectedMarketId, networkType, m_ergoWallet);
 
                 add(walletData);
                 save();
@@ -518,7 +518,7 @@ public class WalletsDataList {
 
                                     long explorerUpdatePeriod = explorerUpdates == null ? -1 : Long.parseLong(explorerUpdates);
 
-                                    WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, m_ergoWallet);
+                                    WalletData walletData = new WalletData(friendlyId, walletNameField.getText(), walletFile, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, m_ergoWallet);
                                     add(walletData);
                                     save();
 
@@ -736,7 +736,7 @@ public class WalletsDataList {
                                 Wallet.create(walletFile.toPath(), Mnemonic.create(SecretString.create(mnemonicField.getText()), SecretString.create(password)), walletFile.getName(), password.toCharArray());
                                 mnemonicField.setText("-");
 
-                                WalletData walletData = new WalletData(id, name, walletFile, 400, 700, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, m_ergoWallet);
+                                WalletData walletData = new WalletData(id, name, walletFile, nodeId, selectedNode, explorerId, explorerUpdatePeriod, marketsId, selectedMarketId, networkType, m_ergoWallet);
                                 add(walletData);
                                 save();
                                 closeBtn.fire();

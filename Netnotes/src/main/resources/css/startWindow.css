@@ -7,11 +7,13 @@
 }
 
 .root * {
+
     -fx-text-fill: #cdd4da;
     -fx-background-color: transparent;
 }
 
 .button {
+
     -fx-text-fill: #777777;
     -fx-background-color: #33333350;
 }
@@ -186,6 +188,8 @@
 }
 
 #formField {
+
+    -fx-font-family: 'OCR A Extended';
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
 }

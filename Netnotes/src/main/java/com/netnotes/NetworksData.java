@@ -97,9 +97,13 @@ public class NetworksData implements InstallerInterface {
 
     private double m_stageWidth = 700;
     private double m_stageHeight = 500;
+    private double m_stagePrevWidth = 310;
+    private double m_stagePrevHeight = 500;
+    private boolean m_stageMaximized = false;
+    private AppData m_appData;
 
-    public NetworksData(SecretKey secretKey, HostServices hostServices, File networksFile, boolean isFile) {
-
+    public NetworksData(AppData appData, SecretKey secretKey, HostServices hostServices, File networksFile, boolean isFile) {
+        m_appData = appData;
         m_secretKey.set(secretKey);
         m_networksFile = networksFile;
         m_networksBox = new VBox();
@@ -173,6 +177,10 @@ public class NetworksData implements InstallerInterface {
 
     }
 
+    public AppData getAppData() {
+        return m_appData;
+    }
+
     private void openJson(JsonObject networksObject) {
         if (networksObject != null) {
 
@@ -201,11 +209,36 @@ public class NetworksData implements InstallerInterface {
                 }
 
             }
-            if (stageElement != null) {
+            if (stageElement != null && stageElement.isJsonObject()) {
+
                 JsonObject stageObject = stageElement.getAsJsonObject();
-                setStageHeight(stageObject.get("height").getAsDouble());
-                setStageWidth(stageObject.get("width").getAsDouble());
-                m_stageIconStyle.set(stageObject.get("iconStyle").getAsString());
+                JsonElement stageWidthElement = stageObject.get("width");
+                JsonElement stageHeightElement = stageObject.get("height");
+                JsonElement stagePrevWidthElement = stageObject.get("prevWidth");
+                JsonElement stagePrevHeightElement = stageObject.get("prevHeight");
+
+                JsonElement iconStyleElement = stageObject.get("iconStyle");
+                JsonElement stageMaximizedElement = stageObject.get("maximized");
+
+                boolean maximized = stageMaximizedElement == null ? false : stageMaximizedElement.getAsBoolean();
+                String iconStyle = iconStyleElement != null ? iconStyleElement.getAsString() : IconStyle.ICON;
+
+                m_stageIconStyle.set(iconStyle);
+                setStagePrevWidth(Network.DEFAULT_STAGE_WIDTH);
+                setStagePrevHeight(Network.DEFAULT_STAGE_HEIGHT);
+                if (!maximized) {
+
+                    setStageWidth(stageWidthElement.getAsDouble());
+                    setStageHeight(stageHeightElement.getAsDouble());
+                } else {
+                    double prevWidth = stagePrevWidthElement != null && stagePrevWidthElement.isJsonPrimitive() ? stagePrevWidthElement.getAsDouble() : Network.DEFAULT_STAGE_WIDTH;
+                    double prevHeight = stagePrevHeightElement != null && stagePrevHeightElement.isJsonPrimitive() ? stagePrevHeightElement.getAsDouble() : Network.DEFAULT_STAGE_HEIGHT;
+                    setStageWidth(prevWidth);
+                    setStageHeight(prevHeight);
+                    setStagePrevWidth(prevWidth);
+                    setStagePrevHeight(prevHeight);
+                }
+                setStageMaximized(maximized);
             }
             updateNetworksGrid();
 
@@ -233,11 +266,39 @@ public class NetworksData implements InstallerInterface {
         return m_stageIconStyle;
     }
 
+    public boolean getStageMaximized() {
+        return m_stageMaximized;
+    }
+
+    public void setStageMaximized(boolean value) {
+        m_stageMaximized = value;
+    }
+
+    public double getStagePrevWidth() {
+        return m_stagePrevWidth;
+    }
+
+    public void setStagePrevWidth(double width) {
+        m_stagePrevWidth = width;
+
+    }
+
+    public void setStagePrevHeight(double height) {
+        m_stagePrevHeight = height;
+    }
+
+    public double getStagePrevHeight() {
+        return m_stagePrevHeight;
+    }
+
     public JsonObject getStageJson() {
         JsonObject json = new JsonObject();
+        json.addProperty("maximized", getStageMaximized());
         json.addProperty("width", getStageWidth());
         json.addProperty("height", getStageHeight());
-        json.addProperty("iconStyle", iconStyleProperty().get());
+        json.addProperty("prevWidth", getStagePrevWidth());
+        json.addProperty("prevHeight", getStagePrevHeight());
+        json.addProperty("iconStyle", m_stageIconStyle.get());
         return json;
     }
 
@@ -419,7 +480,6 @@ public class NetworksData implements InstallerInterface {
             Scene addNetworkScene = new Scene(layoutVBox, 700, 400);
             addNetworkScene.getStylesheets().add("/css/startWindow.css");
             m_addNetworkStage.setScene(addNetworkScene);
-            m_addNetworkStage.show();
 
             addNetworkScene.focusOwnerProperty().addListener((e) -> {
                 if (addNetworkScene.focusOwnerProperty().get() instanceof InstallableIcon) {
@@ -459,9 +519,12 @@ public class NetworksData implements InstallerInterface {
                 m_focusedInstallable = null;
             });
 
+            m_addNetworkStage.show();
+            m_addNetworkStage.toFront();
             updateAvailableLists();
         } else {
             m_addNetworkStage.show();
+            m_addNetworkStage.toFront();
         }
     }
 
@@ -546,25 +609,8 @@ public class NetworksData implements InstallerInterface {
         double width = m_stageWidth - 80;
         String currentIconStyle = m_stageIconStyle.get();
 
-        if (numCells == 0) {
-            IconButton addNetworkBtn = new IconButton(App.globeImg, "Add Network", currentIconStyle);
-            addNetworkBtn.setOnAction(e -> showManageNetworkStage());
+        if (numCells != 0) {
 
-            if (currentIconStyle.equals(IconStyle.ICON)) {
-
-                HBox rowBox = new HBox(addNetworkBtn);
-
-                rowBox.setAlignment(Pos.TOP_LEFT);
-                rowBox.setPrefWidth(width);
-
-                m_networksBox.getChildren().add(rowBox);
-            } else {
-                addNetworkBtn.setImageWidth(30);
-                addNetworkBtn.setPrefWidth(width);
-                m_networksBox.getChildren().add(addNetworkBtn);
-            }
-
-        } else {
             m_networksBox.setAlignment(Pos.TOP_LEFT);
             if (currentIconStyle.equals(IconStyle.ROW)) {
                 for (int i = 0; i < numCells; i++) {
