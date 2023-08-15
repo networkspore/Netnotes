@@ -26,7 +26,6 @@ public class NamedNodeUrl {
     private String m_protocol = "http";
     private String m_url = "213.239.193.208";
     private NetworkType m_networkType = NetworkType.MAINNET;
-    private String m_nodeType = LIGHT_CLIENT;
     private String m_apiKey = null;
 
     public NamedNodeUrl() {
@@ -54,7 +53,6 @@ public class NamedNodeUrl {
             m_name = nameElement != null && idElement != null ? nameElement.getAsString() : m_networkType.toString() + " #" + m_id;
             m_url = urlElement != null ? urlElement.getAsString() : m_url;
             m_port = portElement != null ? portElement.getAsInt() : m_port;
-            m_nodeType = nodeTypeElement != null ? nodeTypeElement.getAsString() : m_nodeType;
             m_apiKey = apiKeyElement != null ? apiKeyElement.getAsString() : m_apiKey;
 
         }
@@ -66,7 +64,6 @@ public class NamedNodeUrl {
         m_url = url;
         m_port = port;
         m_networkType = networkType;
-        m_nodeType = nodeType;
         m_apiKey = apiKey;
     }
 
@@ -90,10 +87,6 @@ public class NamedNodeUrl {
         return m_port;
     }
 
-    public String getNodeType() {
-        return m_nodeType;
-    }
-
     public String getProtocol() {
         return m_protocol;
     }
@@ -105,7 +98,6 @@ public class NamedNodeUrl {
         json.addProperty("protocol", m_protocol);
         json.addProperty("url", m_url);
         json.addProperty("port", m_port);
-        json.addProperty("nodeType", m_nodeType);
         if (m_apiKey != null) {
             json.addProperty("apiKey", m_apiKey);
         }
