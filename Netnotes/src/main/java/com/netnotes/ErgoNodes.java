@@ -6,6 +6,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.SecretKey;
 
@@ -46,17 +51,21 @@ public class ErgoNodes extends Network implements NoteInterface {
     public final static int TESTNET_PORT = 9052;
     public final static int EXTERNAL_PORT = 9030;
 
+    private ScheduledFuture<?> m_lastExecution = null;
+
     private File m_dataFile = null;
     private File m_appDir = null;
 
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         setStageWidth(400);
+        setup(null);
+        getLastUpdated().set(LocalDateTime.now());
     }
 
     public ErgoNodes(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-
+        setup(jsonObject);
     }
 
     public static Image getAppIcon() {
@@ -97,14 +106,14 @@ public class ErgoNodes extends Network implements NoteInterface {
             }
 
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-            String newMarketDataId = FriendlyId.createFriendlyId();
+            /*String newMarketDataId = FriendlyId.createFriendlyId();
 
             ErgoNodesList dataList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
 
             //   dataList.add(new MarketsData(newMarketDataId, KucoinExchange.NETWORK_ID, "ERG", "USDT", MarketsData.REALTIME, MarketsData.TICKER, dataList));
             //  dataList.defaultIdProperty().set(newMarketDataId);
             //  dataList.save();
-            dataList = null;
+            dataList = null; */
 
         } else {
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
@@ -170,9 +179,9 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             Button closeBtn = new Button();
 
-            Button maximizeButton = new Button();
+            Button maximizeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(getSmallAppIcon(), maximizeButton, closeBtn, m_stage);
+            HBox titleBox = App.createTopBar(getSmallAppIcon(), maximizeBtn, closeBtn, m_stage);
             Region menuSpacer = new Region();
             HBox.setHgrow(menuSpacer, Priority.ALWAYS);
 
@@ -228,6 +237,51 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             ErgoNodesList ergoNodesList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
             VBox gridBox = ergoNodesList.getGridBox(gridWidth, scrollWidth);
+
+            ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                public Thread newThread(Runnable r) {
+                    Thread t = Executors.defaultThreadFactory().newThread(r);
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+
+            Runnable setUpdated = () -> {
+                getLastUpdated().set(LocalDateTime.now());
+            };
+
+            m_stage.widthProperty().addListener((obs, oldVal, newVal) -> {
+                setStageWidth(newVal.doubleValue());
+
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
+                }
+
+                m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
+            });
+
+            m_stage.heightProperty().addListener((obs, oldVal, newVal) -> {
+                setStageHeight(newVal.doubleValue());
+
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
+                }
+
+                m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
+            });
+
+            maximizeBtn.setOnAction(maxEvent -> {
+                boolean maximized = m_stage.isMaximized();
+
+                setStageMaximized(!maximized);
+
+                if (!maximized) {
+                    setStagePrevWidth(m_stage.getWidth());
+                    setStagePrevHeight(m_stage.getHeight());
+                }
+                setUpdated.run();
+                m_stage.setMaximized(!maximized);
+            });
 
             ResizeHelper.addResizeListener(m_stage, 300, 300, rect.getWidth(), rect.getHeight());
 

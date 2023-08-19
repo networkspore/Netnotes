@@ -190,6 +190,7 @@
 #formField {
 
     -fx-font-family: 'OCR A Extended';
+    -fx-font-size:14px;
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
 }

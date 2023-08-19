@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 import com.google.gson.JsonObject;
+import com.utils.Utils;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonArray;
 
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
@@ -14,6 +16,8 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.VBox;
 
 public class NamedNodesList {
+
+    public final static String NODES_LIST_URL = "https://raw.githubusercontent.com/networkspore/Netnotes/main/publicNodes.json";
 
     private SimpleStringProperty m_selectedNamedNodeId = new SimpleStringProperty(null);
 
@@ -27,22 +31,16 @@ public class NamedNodesList {
 
     private SimpleObjectProperty<LocalDateTime> m_optionsUpdated = new SimpleObjectProperty<LocalDateTime>(null);
 
-    public NamedNodesList(boolean enableGitHubUpdates, JsonObject settingsObj) {
-        if (settingsObj != null) {
-            JsonElement getGitHubListElement = settingsObj.get("getGitHubList");
+    private long m_updateTimeStamp = -1;
 
-            if (getGitHubListElement != null && getGitHubListElement.isJsonPrimitive()) {
-                m_enableGitHubUpdates = getGitHubListElement.getAsBoolean();
-            }
-        } else {
-            NamedNodeUrl defaultNodeUrl = new NamedNodeUrl();
-            m_dataList.add(defaultNodeUrl);
-            m_selectedNamedNodeId.set(defaultNodeUrl.getId());
-            m_enableGitHubUpdates = enableGitHubUpdates;
-        }
+    public NamedNodesList(boolean enableGitHubUpdates) {
+
+        m_enableGitHubUpdates = enableGitHubUpdates;
 
         if (m_enableGitHubUpdates) {
             getGitHubList();
+        } else {
+            setDefaultList();
         }
 
     }
@@ -77,6 +75,56 @@ public class NamedNodesList {
     }
 
     public void getGitHubList() {
+        Utils.getUrlJson(NODES_LIST_URL, (onSucceeded) -> {
+            Object sourceObject = onSucceeded.getSource().getValue();
+            if (sourceObject != null && sourceObject instanceof JsonObject) {
+                openNodeJson((JsonObject) sourceObject);
+            }
+        }, (onFailed) -> {
+            //  setDefaultList();
+        }, null);
+
+    }
+
+    public void openNodeJson(JsonObject json) {
+        JsonElement timeStampElement = json.get("timeStamp");
+
+        long timeStamp = timeStampElement != null && timeStampElement.isJsonPrimitive() ? timeStampElement.getAsLong() : -1;
+
+        if (timeStamp > m_updateTimeStamp) {
+            m_updateTimeStamp = timeStamp;
+
+            JsonElement nodesElement = json.get("nodes");
+
+            if (nodesElement != null && nodesElement.isJsonArray()) {
+                JsonArray nodesArray = nodesElement.getAsJsonArray();
+                m_dataList.clear();
+                for (int i = 0; i < nodesArray.size(); i++) {
+                    JsonElement nodeJsonElement = nodesArray.get(i);
+                    if (nodeJsonElement != null && nodeJsonElement.isJsonObject()) {
+                        JsonObject nodeObject = nodeJsonElement.getAsJsonObject();
+                        addNamedNodeUrl(new NamedNodeUrl(nodeObject), false);
+
+                    }
+                }
+                doUpdateProperty().set(LocalDateTime.now());
+            }
+        }
+    }
+
+    public void addNamedNodeUrl(NamedNodeUrl nodeUrl) {
+        addNamedNodeUrl(nodeUrl, true);
+    }
+
+    public void addNamedNodeUrl(NamedNodeUrl nodeUrl, boolean update) {
+        if (nodeUrl != null) {
+            m_dataList.add(nodeUrl);
+            nodeUrl.lastUpdatedProperty().addListener((obs, oldVal, newVal) -> doUpdateProperty().set(newVal));
+            doUpdateProperty().set(LocalDateTime.now());
+        }
+    }
+
+    public void setDefaultList() {
         if (m_dataList.size() == 0) {
             NamedNodeUrl defaultNodeUrl = new NamedNodeUrl();
             m_dataList.add(defaultNodeUrl);

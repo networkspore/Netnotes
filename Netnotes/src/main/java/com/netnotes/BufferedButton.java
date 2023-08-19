@@ -51,4 +51,10 @@ public class BufferedButton extends Button {
     public BufferedImageView getBufferedImageView() {
         return m_imgBufView;
     }
+
+    public void setImage(Image image) {
+
+        m_imgBufView.setDefaultImage(image);
+
+    }
 }

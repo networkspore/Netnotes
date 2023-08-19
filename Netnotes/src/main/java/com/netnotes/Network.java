@@ -26,6 +26,8 @@ public class Network extends IconButton {
     private ChangeListener<LocalDateTime> m_changeListener = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
 
+    public final static long EXECUTION_TIME = 500;
+
     public final static double SMALL_STAGE_WIDTH = 500;
     public final static double DEFAULT_STAGE_WIDTH = 700;
     public final static double DEFAULT_STAGE_HEIGHT = 500;

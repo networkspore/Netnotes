@@ -1,8 +1,15 @@
 package com.netnotes;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.NetworkType;
@@ -15,6 +22,7 @@ import com.utils.Utils;
 
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.TextField;
@@ -30,6 +38,8 @@ import javafx.scene.text.Text;
 
 public class ErgoNodeData {
 
+    File logFile = new File("ergoNodeData-log.txt");
+
     public final static String PUBLIC = "PUBLIC";
     public final static String PRIVATE = "PRIVATE";
 
@@ -37,12 +47,7 @@ public class ErgoNodeData {
     public final static String FULL_NODE = "FULL_NODE";
 
     private String m_id;
-    private String m_name;
-    private int m_exPort = ErgoNodes.EXTERNAL_PORT;
-    private int m_port = ErgoNodes.MAINNET_PORT;
-    private String m_apiKey = "";
-    private String m_url = null;
-    private NetworkType m_networkType;
+    private NamedNodeUrl m_namedNodeUrl;
 
     private String m_imgUrl = "/assets/ergoNodes-30.png";
 
@@ -53,7 +58,6 @@ public class ErgoNodeData {
     private Font m_font = Font.font("OCR A Extended", FontWeight.BOLD, 13);
     private Font m_smallFont = Font.font("OCR A Extended", FontWeight.NORMAL, 10);
 
-    private Color m_priceColor = Color.WHITE;
     private Color m_secondaryColor = new Color(.4, .4, .4, .9); //base
     private Color m_primaryColor = new Color(.7, .7, .7, .9); //quote
 
@@ -62,9 +66,13 @@ public class ErgoNodeData {
 
     private SimpleStringProperty m_statusProperty = new SimpleStringProperty(MarketsData.STOPPED);
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
+    private ChangeListener<LocalDateTime> m_updateListener = null;
 
     //  public SimpleStringProperty nodeApiAddress;
     private ErgoNodesList m_ergoNodesList;
+
+    private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
+    private String m_clientType = LIGHT_CLIENT;
 
     public ErgoNodeData(ErgoNodesList nodesList, JsonObject jsonObj) {
         m_ergoNodesList = nodesList;
@@ -73,107 +81,46 @@ public class ErgoNodeData {
 
     }
 
-    public ErgoNodeData(ErgoNodesList ergoNodesList, NetworkType networkType) {
-        m_id = FriendlyId.createFriendlyId();
-        m_name = "Node #" + m_id;
-        m_networkType = networkType;
+    public ErgoNodeData(ErgoNodesList ergoNodesList, String clientType, NamedNodeUrl namedNodeUrl) {
         m_ergoNodesList = ergoNodesList;
+        m_clientType = clientType;
+        m_id = FriendlyId.createFriendlyId();
+        m_namedNodeUrl = namedNodeUrl == null ? new NamedNodeUrl() : namedNodeUrl;
 
-    }
-
-    public NetworkType getNetworkType() {
-        return m_networkType;
     }
 
     public String getId() {
         return m_id;
     }
 
+    public String getName() {
+        return m_namedNodeUrl == null ? "INVALID NODE" : m_namedNodeUrl.getName();
+    }
+
+    public NamedNodeUrl getNamedNodeUrl() {
+        return m_namedNodeUrl;
+    }
+
     private void openJson(JsonObject jsonObj) {
 
-        JsonElement networkIdElement = jsonObj == null ? null : jsonObj.get("id");
-        JsonElement apiKeyElement = jsonObj == null ? null : jsonObj.get("apiKey");
-        JsonElement urlElement = jsonObj == null ? null : jsonObj.get("url");
-        JsonElement nameElement = jsonObj == null ? null : jsonObj.get("name");
-        JsonElement networkTypeElement = jsonObj == null ? null : jsonObj.get("networkType");
-        JsonElement portElement = jsonObj == null ? null : jsonObj.get("port");
-        JsonElement exPortElement = jsonObj == null ? null : jsonObj.get("exPort");
+        JsonElement idElement = jsonObj == null ? null : jsonObj.get("id");
+        JsonElement namedNodeElement = jsonObj == null ? null : jsonObj.get("namedNode");
 
-        m_apiKey = apiKeyElement == null ? "" : apiKeyElement.getAsString();
-        m_networkType = networkTypeElement == null ? NetworkType.MAINNET : networkTypeElement.getAsString().equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : NetworkType.TESTNET;
+        m_id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
+        m_namedNodeUrl = namedNodeElement != null && namedNodeElement.isJsonObject() ? new NamedNodeUrl(namedNodeElement.getAsJsonObject()) : new NamedNodeUrl();
 
-        m_id = networkIdElement == null ? FriendlyId.createFriendlyId() : networkIdElement.getAsString();
-        m_name = nameElement == null ? "Node #" + m_id : nameElement.getAsString();
-        m_url = urlElement == null ? null : urlElement.getAsString();
-        m_port = portElement == null ? ErgoNodes.MAINNET_PORT : portElement.getAsInt();
-        m_exPort = exPortElement == null ? ErgoNodes.EXTERNAL_PORT : exPortElement.getAsInt();
     }
 
-    /*
-    public JsonObject getExplorerUrlObject() {
-
-        JsonObject getExplorerUrlObject = new JsonObject();
-        getExplorerUrlObject.addProperty("subject", "GET_EXPLORER_URL");
-        getExplorerUrlObject.addProperty("networkId", m_networkId);
-        getExplorerUrlObject.addProperty("networkType", m_networkType.toString());
-        return getExplorerUrlObject;
-    }
-
-     public boolean getClient(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        NoteInterface explorerInterface = m_ergoNodes.getExplorerInterface();
-        if (explorerInterface != null) {
-            return explorerInterface.sendNote(getExplorerUrlObject(), success -> {
-                Object successObject = success.getSource().getValue();
-
-                JsonObject successJson = successObject == null ? null : (JsonObject) successObject;
-                JsonElement urlElement = successJson == null ? null : successJson.get("url");
-                String explorerUrl = urlElement == null ? null : urlElement.getAsString();
-
-                ErgoClient ergoClient = explorerUrl == null ? null : RestApiErgoClient.create(m_url, m_networkType, m_apiKey, explorerUrl);
-
-                returnClient(ergoClient, onSucceeded, onFailed);
-
-            }, onFailed);
-
-        } else {
-            return false;
-        }
-
-    }*/
     public Image getIcon() {
         return new Image(m_imgUrl == null ? "/assets/ergoNodes-30.png" : m_imgUrl);
-    }
-
-    public String getName() {
-        return m_name;
-    }
-
-    public String getUrl() {
-        return m_url;
-    }
-
-    public int getPort() {
-        return m_port;
-    }
-
-    public int getExternalPort() {
-        return m_port;
-    }
-
-    public String getNetworkTypeString() {
-        return m_networkType == null ? NetworkType.MAINNET.toString() : NetworkType.TESTNET.toString();
     }
 
     public JsonObject getJsonObject() {
 
         JsonObject json = new JsonObject();
-
-        json.addProperty("port", m_port);
-        json.addProperty("externalPort", m_exPort);
-        json.addProperty("networkType", getNetworkTypeString());
-        json.addProperty("name", m_name);
-        json.addProperty("apiKey", m_apiKey);
         json.addProperty("id", m_id);
+        json.add("namedNode", m_namedNodeUrl.getJsonObject());
+
         return json;
 
     }
@@ -186,14 +133,14 @@ public class ErgoNodeData {
             defaultBtn.getBufferedImageView().setDefaultImage(new Image(newVal != null && m_id.equals(newVal) ? m_radioOnUrl : m_radioOffUrl));
         });
 
-        String valueString = "";
-        String amountString = "";
+        String topInfoString = "Pinging...";
+        String amountString = m_namedNodeUrl.getIP();
         String baseCurrencyString = "";
         String quoteCurrencyString = "";
 
-        Text topValueText = new Text(valueString);
-        topValueText.setFont(m_font);
-        topValueText.setFill(m_secondaryColor);
+        Text topInfoStringText = new Text(topInfoString);
+        topInfoStringText.setFont(m_font);
+        topInfoStringText.setFill(m_secondaryColor);
 
         Text botTimeText = new Text();
         botTimeText.setFont(m_smallFont);
@@ -268,7 +215,7 @@ public class ErgoNodeData {
         topSpacer.setId("bodyBox");
         bottomSpacer.setId("bodyBox");
 
-        HBox topBox = new HBox(topValueText);
+        HBox topBox = new HBox(topInfoStringText);
         topBox.setId("darkBox");
 
         HBox bottomBox = new HBox(botTimeText);
@@ -290,6 +237,58 @@ public class ErgoNodeData {
     }
 
     private void start() {
+        pingIP(m_namedNodeUrl.getIP(), m_namedNodeUrl.getPort());
+    }
+
+    public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
+        return m_lastUpdated;
+    }
+
+    public void addUpdateListener(ChangeListener<LocalDateTime> changeListener) {
+        m_updateListener = changeListener;
+        if (m_updateListener != null) {
+            m_lastUpdated.addListener(m_updateListener);
+
+        }
+        // m_lastUpdated.addListener();
+    }
+
+    public void removeUpdateListener() {
+        if (m_updateListener != null) {
+            m_lastUpdated.removeListener(m_updateListener);
+            m_updateListener = null;
+        }
+    }
+
+    public boolean pingIP(String ip, int port) {
+
+        String[] cmd = {"cmd", "/c", "ping", ip + ":" + port};
+//
+        try {
+            Process proc = Runtime.getRuntime().exec(cmd);
+
+            BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+            List<String> javaOutputList = new ArrayList<String>();
+
+            String s = null;
+            while ((s = stdInput.readLine()) != null) {
+                javaOutputList.add(s);
+                try {
+                    Utils.writeString(logFile.toPath(), s, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+
+                }
+            }
+
+            String[] splitStr = javaOutputList.get(0).trim().split("\\s+");
+            //Version jV = new Version(splitStr[1].replaceAll("/[^0-9.]/g", ""));
+
+            return javaOutputList.size() > 0;
+
+        } catch (Exception e) {
+            return false;
+        }
 
     }
 
