@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipFile;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -438,6 +439,19 @@ public class Utils {
         t.start();
     }
 
+    public static String formatedBytes(long bytes, int decimals) {
+
+        double k = 1024;
+        int dm = decimals < 0 ? 0 : decimals;
+
+        String[] sizes = new String[]{"Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
+
+        int i = (int) Math.floor(Math.log((double) bytes) / Math.log(k));
+
+        return String.format("%." + dm + "f", bytes / Math.pow(k, i)) + " " + sizes[i];
+
+    }
+
     public static BufferedImage greyScaleImage(BufferedImage img) {
 
         int height = img.getHeight();
@@ -523,6 +537,20 @@ public class Utils {
                 byteBuffer.position(), byteBuffer.limit());
         Arrays.fill(byteBuffer.array(), (byte) 0); // clear sensitive data
         return bytes;
+    }
+
+    public static boolean checkJar(File jarFile) {
+        boolean isJar = false;
+        if (jarFile != null && jarFile.isFile()) {
+            try {
+                ZipFile zip = new ZipFile(jarFile);
+                isJar = true;
+                zip.close();
+            } catch (Exception zipException) {
+
+            }
+        }
+        return isJar;
     }
 
     public static void checkAddress(String addressString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {

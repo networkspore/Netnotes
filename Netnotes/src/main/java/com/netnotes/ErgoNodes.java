@@ -20,6 +20,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -56,9 +57,11 @@ public class ErgoNodes extends Network implements NoteInterface {
     private File m_dataFile = null;
     private File m_appDir = null;
 
+    private SimpleObjectProperty<FullErgoNode> m_fullErgoNode = new SimpleObjectProperty<>(null);
+
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-        setStageWidth(400);
+        setStageWidth(SMALL_STAGE_WIDTH);
         setup(null);
         getLastUpdated().set(LocalDateTime.now());
     }
@@ -80,9 +83,18 @@ public class ErgoNodes extends Network implements NoteInterface {
         return m_dataFile;
     }
 
+    public File getAppDir() {
+        return m_appDir;
+    }
+
+    public SimpleObjectProperty<FullErgoNode> fullErgoNodeProperty() {
+        return m_fullErgoNode;
+    }
+
     private void setup(JsonObject json) {
 
         JsonElement directoriesElement = json.get("directories");
+        JsonElement stageElement = json.get("stage");
 
         if (directoriesElement != null && directoriesElement.isJsonObject()) {
             JsonObject directoriesObject = directoriesElement.getAsJsonObject();
@@ -118,6 +130,33 @@ public class ErgoNodes extends Network implements NoteInterface {
         } else {
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
+        }
+
+        if (stageElement != null && stageElement.isJsonObject()) {
+            JsonObject stageObject = stageElement.getAsJsonObject();
+
+            JsonElement widthElement = stageObject.get("width");
+            JsonElement heightElement = stageObject.get("height");
+            JsonElement stagePrevWidthElement = stageObject.get("prevWidth");
+            JsonElement stagePrevHeightElement = stageObject.get("prevHeight");
+            JsonElement stageMaximizedElement = stageObject.get("maximized");
+
+            boolean maximized = stageMaximizedElement != null && stageMaximizedElement.isJsonPrimitive() ? stageMaximizedElement.getAsBoolean() : false;
+
+            if (!maximized) {
+                setStageWidth(widthElement != null && widthElement.isJsonPrimitive() ? widthElement.getAsDouble() : SMALL_STAGE_WIDTH);
+                setStageHeight(heightElement != null && heightElement.isJsonPrimitive() ? heightElement.getAsDouble() : DEFAULT_STAGE_HEIGHT);
+            } else {
+                double prevWidth = stagePrevWidthElement != null && stagePrevWidthElement.isJsonPrimitive() ? stagePrevWidthElement.getAsDouble() : SMALL_STAGE_WIDTH;
+                double prevHeight = stagePrevHeightElement != null && stagePrevHeightElement.isJsonPrimitive() ? stagePrevHeightElement.getAsDouble() : DEFAULT_STAGE_HEIGHT;
+
+                setStageWidth(prevWidth);
+                setStageHeight(prevHeight);
+
+                setStagePrevWidth(prevWidth);
+                setStagePrevHeight(prevHeight);
+
+            }
         }
 
         getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
@@ -317,6 +356,10 @@ public class ErgoNodes extends Network implements NoteInterface {
             removeButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
 
             updateScrollWidth.run();
+
+            if (getStageMaximized()) {
+                m_stage.setMaximized(true);
+            }
         } else {
             if (m_stage.isIconified()) {
                 m_stage.setIconified(false);
@@ -324,5 +367,14 @@ public class ErgoNodes extends Network implements NoteInterface {
             m_stage.show();
             m_stage.toFront();
         }
+
+    }
+
+    @Override
+    public JsonObject getJsonObject() {
+        JsonObject json = super.getJsonObject();
+        json.add("stage", getStageJson());
+
+        return json;
     }
 }

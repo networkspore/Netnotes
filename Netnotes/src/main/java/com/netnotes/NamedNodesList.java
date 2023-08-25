@@ -23,7 +23,7 @@ public class NamedNodesList {
 
     private ArrayList<NamedNodeUrl> m_dataList = new ArrayList<>();
 
-    private boolean m_enableGitHubUpdates;
+    private SimpleBooleanProperty m_updatesProperty;
 
     private SimpleDoubleProperty m_gridWidthProperty = new SimpleDoubleProperty(200);
 
@@ -33,33 +33,25 @@ public class NamedNodesList {
 
     private long m_updateTimeStamp = -1;
 
-    public NamedNodesList(boolean enableGitHubUpdates) {
+    public NamedNodesList(SimpleBooleanProperty updatesProperty) {
 
-        m_enableGitHubUpdates = enableGitHubUpdates;
+        m_updatesProperty = updatesProperty;
 
-        if (m_enableGitHubUpdates) {
+        if (m_updatesProperty.get()) {
             getGitHubList();
         } else {
             setDefaultList();
         }
 
+        m_updatesProperty.addListener((obs, oldval, newVal) -> {
+            if (newVal.booleanValue()) {
+                getGitHubList();
+            }
+        });
     }
 
     public SimpleStringProperty selectedNamedNodeIdProperty() {
         return m_selectedNamedNodeId;
-    }
-
-    public void setEnableGitHubUpdates(boolean enable) {
-        if (enable) {
-            m_enableGitHubUpdates = enable;
-            getGitHubList();
-        }
-        m_enableGitHubUpdates = enable;
-        m_optionsUpdated.set(LocalDateTime.now());
-    }
-
-    public boolean getEnableGitHubUpdates() {
-        return m_enableGitHubUpdates;
     }
 
     public SimpleDoubleProperty gridWidthProperty() {
@@ -153,12 +145,6 @@ public class NamedNodesList {
 
             gridBox.getChildren().add(namedButton);
         }
-    }
-
-    public JsonObject getJsonObject() {
-        JsonObject json = new JsonObject();
-        json.addProperty("getGitHubList", m_enableGitHubUpdates);
-        return json;
     }
 
     public NamedNodeUrl getNamedNodeUrl(String id) {

@@ -783,7 +783,7 @@ public class App extends Application {
     private void showSettings(Stage appStage, VBox bodyVBox) {
         bodyVBox.getChildren().clear();
 
-        boolean isUpdates = m_networksData.getAppData().getUpdates();
+        boolean isUpdates = m_networksData.getAppData().updatesProperty().get();
 
         Button settingsButton = createImageButton(logo, "Settings");
 

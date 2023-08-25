@@ -86,6 +86,8 @@ public class ErgoNodesList {
     private Stage m_addStage = null;
     private String m_defaultAddType = PUBLIC;
 
+    private String m_downloadImgUrl = "/assets/cloud-download-30.png";
+
     public ErgoNodesList(SecretKey secretKey, ErgoNodes ergoNodes) {
         m_ergoNodes = ergoNodes;
         getFile(secretKey);
@@ -164,6 +166,10 @@ public class ErgoNodesList {
             }
         }
 
+    }
+
+    public String getDownloadImgUrl() {
+        return m_downloadImgUrl;
     }
 
     public void add(ErgoNodeData ergoNodeData, boolean doSave) {
@@ -263,6 +269,12 @@ public class ErgoNodesList {
         Runnable updateGrid = () -> {
             gridBox.getChildren().clear();
 
+            FullErgoNode fullErgoNode = m_ergoNodes.fullErgoNodeProperty().get() == null ? new FullErgoNode(FriendlyId.createFriendlyId(), this) : m_ergoNodes.fullErgoNodeProperty().get();
+
+            HBox fullNodeRowItem = fullErgoNode.getRowItem();
+            fullNodeRowItem.prefWidthProperty().bind(width.subtract(scrollWidth));
+            gridBox.getChildren().add(fullNodeRowItem);
+
             int numCells = m_dataList.size();
 
             for (int i = 0; i < numCells; i++) {
@@ -285,6 +297,11 @@ public class ErgoNodesList {
         return m_defaultId;
     }
 
+    public void setDefaultId(String id) {
+        m_defaultId.set(id);
+        save();
+    }
+
     public void shutdown() {
 
     }
@@ -294,17 +311,19 @@ public class ErgoNodesList {
         save();
     }
 
+    public ErgoNodes getErgoNodes() {
+        return m_ergoNodes;
+    }
+
     public void showAddNodeStage() {
         if (m_addStage == null) {
             String friendlyId = FriendlyId.createFriendlyId();
 
             SimpleStringProperty nodeOption = new SimpleStringProperty(m_defaultAddType);
 
-            boolean updatesEnabled = m_ergoNodes.getNetworksData().getAppData().getUpdates();
-
             // Alert a = new Alert(AlertType.NONE, "updates: " + updatesEnabled, ButtonType.CLOSE);
             //a.show();
-            NamedNodesList nodesList = new NamedNodesList(updatesEnabled);
+            NamedNodesList nodesList = new NamedNodesList(m_ergoNodes.getNetworksData().getAppData().updatesProperty());
 
             //private
             SimpleObjectProperty<NetworkType> networkTypeOption = new SimpleObjectProperty<NetworkType>(NetworkType.MAINNET);
@@ -370,12 +389,13 @@ public class ErgoNodesList {
             });
             defaultClientItem.setId("rowBtn");
 
-            MenuItem configureItem = new MenuItem("Custom");
+            MenuItem configureItem = new MenuItem("Custom (Light client)");
             configureItem.setOnAction((e) -> {
 
                 nodeOption.set(CUSTOM);
 
             });
+
             configureItem.setId("rowBtn");
 
             typeBtn.getItems().addAll(defaultClientItem, configureItem);
@@ -387,30 +407,35 @@ public class ErgoNodesList {
             Tooltip enableUpdatesTip = new Tooltip("Update");
             enableUpdatesTip.setShowDelay(new javafx.util.Duration(100));
 
-            BufferedButton enableGitUpdateBtn = new BufferedButton("/assets/cloud-download-30.png", 30);
-            enableGitUpdateBtn.setTooltip(enableUpdatesTip);
+            BufferedButton getNodesListBtn = new BufferedButton(getDownloadImgUrl(), 30);
+            getNodesListBtn.setTooltip(enableUpdatesTip);
             final String updateEffectId = "UPDATE_DISABLED";
             Runnable updateEnableEffect = () -> {
+                boolean updatesEnabled = m_ergoNodes.getNetworksData().getAppData().updatesProperty().get();
 
                 enableUpdatesTip.setText("Updates settings: " + (updatesEnabled ? "Enabled" : "Disabled"));
                 if (!updatesEnabled) {
-                    if (enableGitUpdateBtn.getBufferedImageView().getEffect(updateEffectId) == null) {
-                        enableGitUpdateBtn.getBufferedImageView().applyEffect(new InvertEffect(updateEffectId, 0.7));
+                    if (getNodesListBtn.getBufferedImageView().getEffect(updateEffectId) == null) {
+                        getNodesListBtn.getBufferedImageView().applyEffect(new InvertEffect(updateEffectId, 0.7));
                     }
                 } else {
-                    enableGitUpdateBtn.getBufferedImageView().removeEffect(updateEffectId);
+                    getNodesListBtn.getBufferedImageView().removeEffect(updateEffectId);
                 }
             };
 
-            enableGitUpdateBtn.setOnAction((e) -> {
+            getNodesListBtn.setOnAction((e) -> {
                 nodesList.getGitHubList();
+            });
+
+            m_ergoNodes.getNetworksData().getAppData().updatesProperty().addListener((obs, oldVal, newVal) -> {
+                updateEnableEffect.run();
             });
 
             updateEnableEffect.run();
             Region btnSpacerRegion = new Region();
             HBox.setHgrow(btnSpacerRegion, Priority.ALWAYS);
 
-            HBox publicNodesBox = new HBox(publicNodesText, btnSpacerRegion, enableGitUpdateBtn);
+            HBox publicNodesBox = new HBox(publicNodesText, btnSpacerRegion, getNodesListBtn);
             publicNodesBox.setAlignment(Pos.CENTER_LEFT);
             publicNodesBox.setMinHeight(40);
 
@@ -498,28 +523,6 @@ public class ErgoNodesList {
             ***********Custom properties 
             *
              */
-            Text clientType = new Text(String.format("%-13s", "Client type"));
-            clientType.setFill(App.txtColor);
-            clientType.setFont(App.txtFont);
-
-            MenuButton clientTypeBtn = new MenuButton("Light client");
-            clientTypeBtn.setFont(App.txtFont);
-            clientTypeBtn.setId("formField");
-            HBox.setHgrow(clientTypeBtn, Priority.ALWAYS);
-
-            MenuItem lightClientItem = new MenuItem("Light client");
-            lightClientItem.setId("rowBtn");
-            lightClientItem.setOnAction((e) -> {
-                clientTypeBtn.setText(lightClientItem.getText());
-                clientTypeOption.set(ErgoNodeData.LIGHT_CLIENT);
-            });
-
-            clientTypeBtn.getItems().addAll(lightClientItem);
-
-            HBox clientTypeBox = new HBox(clientType, clientTypeBtn);
-            clientTypeBox.setAlignment(Pos.CENTER_LEFT);
-            clientTypeBox.minHeightProperty().bind(rowHeight);
-
             Text nodeName = new Text(String.format("%-13s", "Name"));
             nodeName.setFill(App.txtColor);
             nodeName.setFont(App.txtFont);
@@ -561,6 +564,7 @@ public class ErgoNodesList {
             TextField apiKeyField = new TextField("");
             apiKeyField.setFont(App.txtFont);
             apiKeyField.setId("formField");
+            apiKeyField.setPromptText("(enter API Key)");
             HBox.setHgrow(apiKeyField, Priority.ALWAYS);
 
             HBox apiKeyBox = new HBox(apiKeyText, apiKeyField);
@@ -653,7 +657,7 @@ public class ErgoNodesList {
             Region urlSpaceRegion = new Region();
             urlSpaceRegion.setMinHeight(40);
 
-            VBox customClientOptionsBox = new VBox(clientTypeBox, nodeNameBox, networkTypeBox, nodeUrlBox, nodePortBox);
+            VBox customClientOptionsBox = new VBox(nodeNameBox, networkTypeBox, nodeUrlBox, nodePortBox, apiKeyBox);
             customClientOptionsBox.setPadding(new Insets(15, 0, 0, 15));
 
             VBox bodyOptionBox = new VBox(lightClientOptions);
