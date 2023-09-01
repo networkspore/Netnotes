@@ -7,6 +7,8 @@ package com.netnotes;
 import javafx.application.Application;
 import javafx.application.HostServices;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 
@@ -16,6 +18,7 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -1616,5 +1619,81 @@ public class App extends Application {
 
         }
 
+    }
+
+    public static Scene getProgressScene(Image icon, String headingString, String titleContextString, SimpleStringProperty fileName, ProgressBar progressBar, Stage stage) {
+
+        double defaultRowHeight = 40;
+        Button closeBtn = new Button();
+        Button maximizeBtn = new Button();
+
+        HBox titleBox = createTopBar(icon, maximizeBtn, closeBtn, stage);
+
+        Text headingText = new Text(headingString);
+        headingText.setFont(txtFont);
+        headingText.setFill(txtColor);
+
+        HBox headingBox = new HBox(headingText);
+        headingBox.prefHeight(defaultRowHeight);
+        headingBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(headingBox, Priority.ALWAYS);
+        headingBox.setPadding(new Insets(10, 10, 10, 10));
+        headingBox.setId("headingBox");
+
+        HBox headingPaddingBox = new HBox(headingBox);
+
+        headingPaddingBox.setPadding(new Insets(5, 0, 2, 0));
+
+        VBox headerBox = new VBox(titleBox, headingPaddingBox);
+
+        headerBox.setPadding(new Insets(0, 5, 0, 5));
+
+        //Region progressLeftRegion = new Region();
+        //progressLeftRegion.minWidthProperty().bind(stage.widthProperty().multiply(0.15));
+        progressBar.prefWidthProperty().bind(stage.widthProperty().multiply(0.7));
+
+        //  Region bodyTopRegion = new Region();
+        HBox progressAlignmentBox = new HBox(progressBar);
+        //  HBox.setHgrow(progressAlignmentBox, Priority.ALWAYS);
+        progressAlignmentBox.setAlignment(Pos.CENTER);
+
+        Text fileNameProgressText = new Text(fileName.get() + " (" + String.format("%.1f", progressBar.getProgress() * 100) + "%)");
+        fileNameProgressText.setFill(txtColor);
+        fileNameProgressText.setFont(txtFont);
+
+        progressBar.progressProperty().addListener((obs, oldVal, newVal) -> {
+            fileNameProgressText.setText(fileName.get() + " (" + String.format("%.1f", newVal.doubleValue() * 100) + "%)");
+        });
+
+        stage.titleProperty().bind(Bindings.concat(fileNameProgressText.textProperty(), " - ", titleContextString));
+
+        HBox fileNameProgressBox = new HBox(fileNameProgressText);
+        fileNameProgressBox.setAlignment(Pos.CENTER);
+        fileNameProgressBox.setPadding(new Insets(20, 0, 0, 0));
+
+        VBox colorBox = new VBox(progressAlignmentBox, fileNameProgressBox);
+        colorBox.setId("bodyBox");
+        HBox.setHgrow(colorBox, Priority.ALWAYS);
+        colorBox.setPadding(new Insets(40, 0, 15, 0));
+
+        VBox bodyBox = new VBox(colorBox);
+        bodyBox.setId("bodyBox");
+        bodyBox.setPadding(new Insets(15));
+        bodyBox.setAlignment(Pos.CENTER);
+
+        VBox bodyPaddingBox = new VBox(bodyBox);
+        bodyPaddingBox.setPadding(new Insets(5, 5, 5, 5));
+
+        Region footerSpacer = new Region();
+        footerSpacer.setMinHeight(5);
+
+        VBox footerBox = new VBox(footerSpacer);
+        VBox layoutBox = new VBox(headerBox, bodyPaddingBox, footerBox);
+        Scene coreFileProgressScene = new Scene(layoutBox, 600, 250);
+        coreFileProgressScene.getStylesheets().add("/css/startWindow.css");
+
+        // bodyTopRegion.minHeightProperty().bind(stage.heightProperty().subtract(30).divide(2).subtract(progressAlignmentBox.heightProperty()).subtract(fileNameProgressBox.heightProperty().divide(2)));
+        bodyBox.prefHeightProperty().bind(stage.heightProperty().subtract(headerBox.heightProperty()).subtract(footerBox.heightProperty()).subtract(10));
+        return coreFileProgressScene;
     }
 }

@@ -29,7 +29,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-
+import com.rfksystems.blake2b.Blake2b;
 import com.satergo.extra.AESEncryption;
 import com.utils.Utils;
 
@@ -985,7 +985,7 @@ public class TokensList extends Network {
 
                     byte[] bytes = null;
                     try {
-                        bytes = Utils.digestFile(new File(imageFileBtn.getText()));
+                        bytes = Utils.digestFile(new File(imageFileBtn.getText()), Blake2b.BLAKE2_B_256);
                     } catch (Exception e1) {
 
                     }

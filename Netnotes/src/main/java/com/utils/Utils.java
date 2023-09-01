@@ -50,16 +50,36 @@ import java.io.RandomAccessFile;
 import java.net.URLConnection;
 
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.effect.ColorAdjust;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.stage.Stage;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -77,13 +97,18 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.netnotes.ErgoNodes;
+import com.netnotes.HashData;
+import com.netnotes.IconButton;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
 import com.rfksystems.blake2b.Blake2b;
 import com.satergo.extra.AESEncryption;
 
 public class Utils {
+
     // Security.addProvider(new Blake2bProvider());
+    public final static String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
 
     public static String getBcryptHashString(String password) {
         SecureRandom sr;
@@ -104,14 +129,13 @@ public class Utils {
         return result.verified;
     }
 
-    public static byte[] digestFile(File file, String... instance) throws Exception, FileNotFoundException, IOException {
-        String digestInstance = instance != null ? (instance.length == 0 ? Blake2b.BLAKE2_B_256 : instance[0]) : Blake2b.BLAKE2_B_256;
+    public static byte[] digestFile(File file, String digestInstance) throws Exception, FileNotFoundException, IOException {
 
-        final MessageDigest digest = MessageDigest.getInstance(digestInstance);
+        final MessageDigest digest = MessageDigest.getInstance(digestInstance == null ? Blake2b.BLAKE2_B_256 : digestInstance);
 
         FileInputStream fis = new FileInputStream(file);
 
-        byte[] byteArray = new byte[1024];
+        byte[] byteArray = new byte[8 * 1024];
         int bytesCount = 0;
 
         while ((bytesCount = fis.read(byteArray)) != -1) {
@@ -389,8 +413,6 @@ public class Utils {
 
                 URL url = new URL(urlString);
 
-                String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
-
                 URLConnection con = url.openConnection();
 
                 con.setRequestProperty("User-Agent", USER_AGENT);
@@ -440,6 +462,10 @@ public class Utils {
     }
 
     public static String formatedBytes(long bytes, int decimals) {
+
+        if (bytes == 0) {
+            return "0 Bytes";
+        }
 
         double k = 1024;
         int dm = decimals < 0 ? 0 : decimals;
@@ -753,6 +779,130 @@ public class Utils {
         asyncFile.write(ByteBuffer.wrap("Some text to be written".getBytes()), 0);
 
         //Files.writeString(filepath, str, openOptions);
+    }
+
+    public static void moveFileAndHash(File inputFile, File outputFile, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+
+        Task<HashData> task = new Task<HashData>() {
+            @Override
+            public HashData call() throws NoSuchAlgorithmException, MalformedURLException, IOException {
+                long contentLength = -1;
+
+                if (inputFile != null && inputFile.isFile() && outputFile != null && !inputFile.getAbsolutePath().equals(outputFile.getAbsolutePath())) {
+                    contentLength = Files.size(inputFile.toPath());
+                } else {
+                    return null;
+                }
+
+                FileOutputStream outputStream = new FileOutputStream(outputFile);
+
+                final MessageDigest digest = MessageDigest.getInstance(Blake2b.BLAKE2_B_256);
+
+                FileInputStream inputStream = new FileInputStream(inputFile);
+
+                byte[] buffer = new byte[8 * 1024];
+
+                int length;
+                long copied = 0;
+
+                while ((length = inputStream.read(buffer)) != -1) {
+
+                    outputStream.write(buffer, 0, length);
+                    digest.update(buffer, 0, length);
+
+                    copied += (long) length;
+                    updateProgress(length, contentLength);
+
+                }
+                outputStream.close();
+                inputStream.close();
+
+                byte[] hashbytes = digest.digest();
+
+                HashData hashData = new HashData(hashbytes);
+
+                outputStream.close();
+
+                return contentLength == copied ? hashData : null;
+
+            }
+
+        };
+
+        if (progressIndicator != null) {
+            progressIndicator.progressProperty().bind(task.progressProperty());
+        }
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+    }
+
+    public static void getUrlFileHash(String urlString, File outputFile, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+
+        Task<HashData> task = new Task<HashData>() {
+            @Override
+            public HashData call() throws NoSuchAlgorithmException, MalformedURLException, IOException {
+                if (outputFile == null) {
+                    return null;
+                }
+
+                InputStream inputStream = null;
+                FileOutputStream outputStream = new FileOutputStream(outputFile);
+
+                final MessageDigest digest = MessageDigest.getInstance(Blake2b.BLAKE2_B_256);
+
+                URL url = new URL(urlString);
+
+                URLConnection con = url.openConnection();
+
+                con.setRequestProperty("User-Agent", USER_AGENT);
+
+                long contentLength = con.getContentLengthLong();
+                inputStream = con.getInputStream();
+
+                byte[] buffer = new byte[8 * 1024];
+
+                int length;
+                long downloaded = 0;
+
+                while ((length = inputStream.read(buffer)) != -1) {
+
+                    outputStream.write(buffer, 0, length);
+                    digest.update(buffer, 0, length);
+                    if (progressIndicator != null) {
+                        downloaded += (long) length;
+                        updateProgress(downloaded, contentLength);
+                    }
+                }
+
+                byte[] hashbytes = digest.digest();
+
+                HashData hashData = new HashData(hashbytes);
+
+                outputStream.close();
+
+                return contentLength == downloaded ? hashData : null;
+
+            }
+
+        };
+
+        if (progressIndicator != null) {
+            progressIndicator.progressProperty().bind(task.progressProperty());
+        }
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
     }
 
 }

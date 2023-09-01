@@ -2,6 +2,8 @@ package com.netnotes;
 
 import java.time.LocalDateTime;
 
+import javax.crypto.SecretKey;
+
 import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonObject;
@@ -30,6 +32,7 @@ public class NamedNodeUrl {
     private String m_ip = "213.239.193.208";
     private NetworkType m_networkType = NetworkType.MAINNET;
     private String m_apiKey = null;
+    private boolean m_rememberKey = true;
 
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>(null);
 
@@ -58,7 +61,9 @@ public class NamedNodeUrl {
             m_name = nameElement != null && idElement != null ? nameElement.getAsString() : m_networkType.toString() + " #" + m_id;
             m_ip = ipElement != null ? ipElement.getAsString() : m_ip;
             m_port = portElement != null ? portElement.getAsInt() : m_port;
-            m_apiKey = apiKeyElement != null ? apiKeyElement.getAsString() : m_apiKey;
+            if (apiKeyElement != null && apiKeyElement.isJsonPrimitive()) {
+
+            }
 
         }
     }
@@ -96,6 +101,15 @@ public class NamedNodeUrl {
         return m_protocol;
     }
 
+    public boolean getRememberKey() {
+        return m_rememberKey;
+    }
+
+    public String getApiKey() {
+
+        return m_apiKey;
+    }
+
     public JsonObject getJsonObject() {
         JsonObject json = new JsonObject();
         json.addProperty("id", m_id);
@@ -112,7 +126,7 @@ public class NamedNodeUrl {
 
     public IconButton getButton() {
 
-        IconButton btn = new IconButton(null, toString(), IconStyle.ROW);
+        IconButton btn = new IconButton(null, getRowString(), IconStyle.ROW);
         btn.setButtonId(m_id);
         return btn;
 
@@ -122,11 +136,15 @@ public class NamedNodeUrl {
         return m_lastUpdated;
     }
 
-    @Override
-    public String toString() {
+    public String getRowString() {
         String formattedName = String.format("%-28s", m_name);
         String formattedUrl = String.format("%-30s", "(" + m_protocol + "://" + m_ip + ":" + m_port + ")");
 
         return formattedName + " " + formattedUrl;
+    }
+
+    @Override
+    public String toString() {
+        return m_name;
     }
 }

@@ -23,10 +23,13 @@ import com.rfksystems.blake2b.Blake2b;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+import javafx.scene.text.Font;
 
 import java.io.FilenameFilter;
 
 public class Utils {
+
+    public static Font txtFont = Font.font("OCR A Extended", 15);
 
     public static void returnObject(Object object, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 

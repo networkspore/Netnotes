@@ -14,6 +14,7 @@ import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.rfksystems.blake2b.Blake2b;
 import com.utils.Utils;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -160,7 +161,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
         byte[] bytes = null;
         try {
-            bytes = Utils.digestFile(checkFile);
+            bytes = Utils.digestFile(checkFile, Blake2b.BLAKE2_B_256);
             String hashString = Hex.toHexString(bytes);
             try {
                 Files.writeString(logFile.toPath(), "\nhashString: " + hashString + " hashDataString: " + hashData.getHashString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);

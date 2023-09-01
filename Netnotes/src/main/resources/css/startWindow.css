@@ -186,6 +186,20 @@
 #amountField:focused:hover {
     -fx-text-fill: white;
 }
+.progress-bar>.track {
+    -fx-text-box-border: white;
+    -fx-control-inner-background: black;
+    -fx-background-insets: 1 1 2 1;
+    -fx-padding: 0.20em;
+}
+
+.progress-bar>.bar {
+    -fx-background-color: white;
+
+    -fx-background-radius: 2;
+    -fx-background-insets: 1 1 2 1;
+    -fx-padding: 0.20em;
+}
 
 #formField {
 
@@ -313,13 +327,25 @@
 }
 
 .menu-button {
+    
     -fx-opacity: .6;
     -fx-shape: "...";
     -fx-background-color: transparent;
     -fx-background-radius: 0 0 0 0;
     -fx-border-radius: 0 0 0 0;
+    
      
 }
+
+.menu-button .label{
+    -fx-text-fill: #777777;
+}
+
+
+.menu-button:hover .label {
+    -fx-text-fill: white;
+}
+
 .menu-button>.arrow-button {
     -fx-padding: 0;
 }
@@ -329,7 +355,7 @@
 }
 
 .menu-button:hover {
-    -fx-background-color: #77777750;
+    -fx-background-color: #33333360;
     -fx-opacity: 1;
     
 }
@@ -338,6 +364,23 @@
     -fx-background-color: #77777750;
     -fx-opacity: 1;
 }
+
+.menu-item .label{
+    -fx-text-fill: #777777;
+    -fx-opacity: 0.6;
+}
+
+.menu-item:hover {
+    -fx-text-fill: white;
+    -fx-background-color: #33333360;
+    -fx-opacity: 1;
+
+}
+.menu-item:hover .label {
+    -fx-text-fill: white;
+    -fx-opacity: 1;
+}
+
 
 #iconBtn {
     -fx-font-size: 14px;

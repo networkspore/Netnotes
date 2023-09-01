@@ -545,12 +545,12 @@ public class Setup extends Application {
                             String jarFileName = "netnotes.jar";
                             File file = new File(installDir + "\\" + javaFileName);
                             String jarURL = "";
-                            downloadJar(validJava, installDir, file, jarURL, progressBar, bodyVBox);
+                            downloadJar(validJava, installDir, file, jarURL, progressBar);
                         } else {
                             File file = new File(installDir.getAbsolutePath() + "\\" + javaFileName);
 
                             if (!validJava) {
-                                downloadJava(jarFile, file, installDir, javaURL, progressBar, bodyVBox);
+                                downloadJava(jarFile, file, installDir, javaURL, progressBar);
                             }
                         }
 
@@ -721,7 +721,7 @@ public class Setup extends Application {
 
     }
 
-    private static void downloadJar(boolean validJava, File installDir, File file, String urlString, ProgressBar progressBar, VBox bodyVBox) throws Exception {
+    private static void downloadJar(boolean validJava, File installDir, File file, String urlString, ProgressBar progressBar) throws Exception {
 
         Task<Void> task = new Task<Void>() {
             @Override
@@ -777,7 +777,7 @@ public class Setup extends Application {
 
     }
 
-    private void downloadJava(File jarFile, File file, File installDir, String urlString, ProgressBar progressBar, VBox bodyVBox) throws Exception {
+    private void downloadJava(File jarFile, File file, File installDir, String urlString, ProgressBar progressBar) throws Exception {
 
         Task<Void> task = new Task<Void>() {
             @Override
