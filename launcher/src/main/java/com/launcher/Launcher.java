@@ -25,7 +25,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.rfksystems.blake2b.security.Blake2bProvider;
 
-public class Main {
+public class Launcher {
 
     private static File logFile = new File("launcher-log.txt");
 

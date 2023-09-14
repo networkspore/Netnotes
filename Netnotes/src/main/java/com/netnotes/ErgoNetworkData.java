@@ -68,9 +68,12 @@ public class ErgoNetworkData implements InstallerInterface {
     private Stage m_manageStage = null;
     private double m_stageWidth = 700;
     private double m_stageHeight = 500;
+    private ArrayList<NoteInterface> m_networkList = new ArrayList<>();
+
+    private ErgoNodes m_ergoNodes = null;
 
     private InstallableIcon m_focusedInstallable = null;
-    private ArrayList<NoteInterface> m_networkList = new ArrayList<>();
+
     private double m_leftColumnWidth = 200;
     private ErgoNetwork m_ergoNetwork;
     private File m_dataFile;
@@ -116,7 +119,7 @@ public class ErgoNetworkData implements InstallerInterface {
     }
 
     public boolean isEmpty() {
-        return m_networkList.size() == 0;
+        return m_networkList.size() == 0 && m_ergoNodes == null;
     }
 
     public SimpleStringProperty iconStyleProperty() {
@@ -196,7 +199,9 @@ public class ErgoNetworkData implements InstallerInterface {
                             network = new ErgoExplorer(jsonObject, m_ergoNetwork);
                             break;
                         case ErgoNodes.NETWORK_ID:
-                            network = new ErgoNodes(jsonObject, m_ergoNetwork);
+
+                            m_ergoNodes = new ErgoNodes(jsonObject, m_ergoNetwork);
+
                             break;
                         case ErgoMarkets.NETWORK_ID:
                             network = new ErgoMarkets(jsonObject, m_ergoNetwork);
@@ -220,12 +225,18 @@ public class ErgoNetworkData implements InstallerInterface {
     }
 
     private void updateGrid() {
-        int numCells = m_networkList.size();
+
         String currentIconStyle = m_iconStyle.get();
         m_gridBox.getChildren().clear();
 
         if (currentIconStyle.equals(IconStyle.ROW)) {
-            for (int i = 0; i < numCells; i++) {
+            if (m_ergoNodes != null) {
+
+                IconButton iconButton = m_ergoNodes.getButton(currentIconStyle);
+                iconButton.prefWidthProperty().bind(m_gridWidth);
+                m_gridBox.getChildren().add(iconButton);
+            }
+            for (int i = 0; i < m_networkList.size(); i++) {
                 NoteInterface network = m_networkList.get(i);
                 IconButton iconButton = network.getButton(currentIconStyle);
                 iconButton.prefWidthProperty().bind(m_gridWidth);
@@ -237,9 +248,10 @@ public class ErgoNetworkData implements InstallerInterface {
             double imageWidth = 75;
             double cellPadding = 15;
             double cellWidth = imageWidth + (cellPadding * 2);
+            int numCells = m_networkList.size() + (m_ergoNodes != null ? 1 : 0);
 
-            int floor = (int) Math.floor(width / cellWidth);
-            int numCol = floor == 0 ? 1 : floor;
+            int numCol = (int) Math.floor(width / cellWidth);
+            //int numCol = floor == 0 ? 1 : floor;
             // currentNumCols.set(numCol);
             int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
 
@@ -250,6 +262,18 @@ public class ErgoNetworkData implements InstallerInterface {
             }
 
             ItemIterator grid = new ItemIterator();
+
+            if (m_ergoNodes != null) {
+                HBox rowBox = rowsBoxes[0];
+                rowBox.getChildren().add(m_ergoNodes.getButton(currentIconStyle));
+
+                if (grid.getI() < numCol) {
+                    grid.setI(grid.getI() + 1);
+                } else {
+                    grid.setI(0);
+                    grid.setJ(grid.getJ() + 1);
+                }
+            }
 
             for (NoteInterface noteInterface : m_networkList) {
 
@@ -265,14 +289,24 @@ public class ErgoNetworkData implements InstallerInterface {
             }
 
         }
+        try {
+            Files.writeString(logFile.toPath(), "\nupdated grid.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }
     }
 
     private ArrayList<InstallableIcon> updateInstallables() {
         ArrayList<InstallableIcon> installables = new ArrayList<>();
         for (String networkId : INTALLABLE_NETWORK_IDS) {
-            NoteInterface network = getNetwork(networkId);
-            boolean installed = !(network == null);
+            boolean installed;
+            if (networkId == ErgoNodes.NETWORK_ID) {
+                installed = m_ergoNodes != null;
+            } else {
+                NoteInterface network = getNetwork(networkId);
+                installed = network != null;
+            }
+
             InstallableIcon installableIcon = new InstallableIcon(this, networkId, installed);
 
             installables.add(installableIcon);
@@ -538,7 +572,14 @@ public class ErgoNetworkData implements InstallerInterface {
                 noteInterface = new ErgoExplorer(m_ergoNetwork);
                 break;
             case ErgoNodes.NETWORK_ID:
-                noteInterface = new ErgoNodes(m_ergoNetwork);
+                if (m_ergoNodes == null) {
+                    m_ergoNodes = new ErgoNodes(m_ergoNetwork);
+                    m_ergoNodes.addUpdateListener((obs, oldValue, newValue) -> save());
+                    updateAvailableLists(updateInstallables());
+                    save();
+                    updateGrid();
+                }
+
                 break;
             case ErgoMarkets.NETWORK_ID:
                 noteInterface = new ErgoMarkets(m_ergoNetwork);
@@ -546,9 +587,11 @@ public class ErgoNetworkData implements InstallerInterface {
         }
         if (noteInterface != null) {
             addNoteInterface(noteInterface);
-            updateAvailableLists(updateInstallables());
-            save();
-            updateGrid();
+            if (update) {
+                updateAvailableLists(updateInstallables());
+                save();
+                updateGrid();
+            }
         }
 
     }
@@ -584,10 +627,6 @@ public class ErgoNetworkData implements InstallerInterface {
     }
 
     public boolean removeNoteInterface(String networkId) {
-        return removeNoteInterface(networkId, true);
-    }
-
-    public boolean removeNoteInterface(String networkId, boolean update) {
         boolean success = false;
         for (int i = 0; i < m_networkList.size(); i++) {
             NoteInterface noteInterface = m_networkList.get(i);
@@ -615,11 +654,16 @@ public class ErgoNetworkData implements InstallerInterface {
 
     public NoteInterface getNetwork(String networkId) {
         if (networkId != null) {
-            for (int i = 0; i < m_networkList.size(); i++) {
-                NoteInterface network = m_networkList.get(i);
+            if (networkId.equals(ErgoNodes.NETWORK_ID)) {
+                return m_ergoNodes;
+            } else {
 
-                if (network.getNetworkId().equals(networkId)) {
-                    return network;
+                for (int i = 0; i < m_networkList.size(); i++) {
+                    NoteInterface network = m_networkList.get(i);
+
+                    if (network.getNetworkId().equals(networkId)) {
+                        return network;
+                    }
                 }
             }
         }
@@ -644,6 +688,9 @@ public class ErgoNetworkData implements InstallerInterface {
             m_networkList.remove(noteInterface);
             noteInterface.remove();
         }
+        if (m_ergoNodes != null) {
+            removeNetwork(ErgoNodes.NETWORK_ID, false);
+        }
         updateAvailableLists(updateInstallables());
         updateGrid();
         save();
@@ -666,6 +713,9 @@ public class ErgoNetworkData implements InstallerInterface {
             JsonObject jsonObj = noteInterface.getJsonObject();
             jsonArray.add(jsonObj);
 
+        }
+        if (m_ergoNodes != null) {
+            jsonArray.add(m_ergoNodes.getJsonObject());
         }
 
         fileObject.add("networks", jsonArray);

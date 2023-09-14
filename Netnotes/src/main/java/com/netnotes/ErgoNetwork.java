@@ -59,6 +59,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
     private NetworkType m_networkType = NetworkType.MAINNET;
 
     private File logFile = new File("ergoNetwork-log.txt");
+    private ErgoNetworkData m_ergNetData = null;
 
     //private SimpleBooleanProperty m_shuttingdown = new SimpleBooleanProperty(false);
     public ErgoNetwork(NetworksData networksData) {
@@ -67,6 +68,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
         setStageHeight(DEFAULT_STAGE_HEIGHT);
         setStagePrevHeight(DEFAULT_STAGE_HEIGHT);
         setStagePrevWidth(SMALL_STAGE_WIDTH);
+        m_ergNetData = new ErgoNetworkData(getStageIconStyle(), getStageWidth(), this);
         getLastUpdated().set(LocalDateTime.now());
     }
 
@@ -111,6 +113,8 @@ public class ErgoNetwork extends Network implements NoteInterface {
             setStageMaximized(maximized);
         }
 
+        m_ergNetData = new ErgoNetworkData(getStageIconStyle(), getStageWidth(), this);
+
     }
 
     public static Image getAppIcon() {
@@ -143,7 +147,6 @@ public class ErgoNetwork extends Network implements NoteInterface {
             double stageWidth = getStageMaximized() ? getStagePrevWidth() : getStageWidth();
             double stageHeight = getStageMaximized() ? getStagePrevHeight() : getStageHeight();
 
-            ErgoNetworkData ergNetData = new ErgoNetworkData(getStageIconStyle(), stageWidth, this);
             m_stage = new Stage();
             m_stage.setTitle("Ergo Network");
             m_stage.getIcons().add(getIcon());
@@ -163,7 +166,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
             menuButton.setTooltip(manageTip);
             menuButton.setPadding(new Insets(5, 5, 5, 5));
             menuButton.setOnAction(e -> {
-                ergNetData.showwManageStage();
+                m_ergNetData.showwManageStage();
             });
 
             Region menuSpacer = new Region();
@@ -188,7 +191,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
             menuBarPadding.setId("bodyBox");
             VBox headerBox = new VBox(titleBar, menuBarPadding);
 
-            VBox gridBox = ergNetData.getGridBox();
+            VBox gridBox = m_ergNetData.getGridBox();
             gridBox.setPadding(SMALL_INSETS);
 
             ScrollPane scrollPane = new ScrollPane(gridBox);
@@ -207,7 +210,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
             scrollPane.prefViewportHeightProperty().bind(m_stage.heightProperty().subtract(headerBox.heightProperty()).subtract(20));
             scrollPane.prefViewportWidthProperty().bind(m_stage.widthProperty());
-            ergNetData.gridWidthProperty().bind(m_stage.widthProperty().subtract(30).subtract(scrollWidth));
+            m_ergNetData.gridWidthProperty().bind(m_stage.widthProperty().subtract(30).subtract(scrollWidth));
 
             m_stage.show();
             Runnable setUpdated = () -> {
@@ -219,16 +222,16 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
                 if (getStageIconStyle().equals(IconStyle.ICON)) {
                     setStageIconStyle(IconStyle.ROW);
-                    ergNetData.iconStyleProperty().set(IconStyle.ROW);
+                    m_ergNetData.iconStyleProperty().set(IconStyle.ROW);
                 } else {
                     setStageIconStyle(IconStyle.ICON);
-                    ergNetData.iconStyleProperty().set(IconStyle.ICON);
+                    m_ergNetData.iconStyleProperty().set(IconStyle.ICON);
                 }
                 setUpdated.run();
             });
 
-            if (ergNetData.isEmpty()) {
-                ergNetData.showwManageStage();
+            if (m_ergNetData.isEmpty()) {
+                m_ergNetData.showwManageStage();
             }
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
@@ -277,7 +280,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
             closeBtn.setOnAction(e -> {
                 executor.shutdown();
-                ergNetData.shutdown();
+                m_ergNetData.shutdown();
                 m_stage.close();
                 m_stage = null;
 
@@ -285,7 +288,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
             m_stage.setOnCloseRequest((closing) -> {
                 executor.shutdown();
-                ergNetData.shutdown();
+                m_ergNetData.shutdown();
                 m_stage = null;
             });
 
@@ -310,6 +313,9 @@ public class ErgoNetwork extends Network implements NoteInterface {
                 m_stage.setMaximized(true);
             }
             updateScrollSize.run();
+            if (m_ergNetData.isEmpty()) {
+                m_ergNetData.showwManageStage();
+            }
         } else {
             m_stage.show();
         }

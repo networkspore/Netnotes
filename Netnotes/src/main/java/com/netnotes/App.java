@@ -407,7 +407,7 @@ public class App extends Application {
 
         VBox layoutVBox = new VBox(newTopBar, bodyVBox);
 
-        Scene statusScene = new Scene(layoutVBox, 420, 220);
+        Scene statusScene = new Scene(layoutVBox, 420, 215);
         statusScene.getStylesheets().add("/css/startWindow.css");
 
         statusStage.setScene(statusScene);

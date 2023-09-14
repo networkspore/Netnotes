@@ -2,15 +2,12 @@ package com.netnotes;
 
 import java.time.LocalDateTime;
 
-import javax.crypto.SecretKey;
-
 import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonObject;
 import com.netnotes.IconButton.IconStyle;
 
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.scene.control.Button;
 
 import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
@@ -22,9 +19,6 @@ public class NamedNodeUrl {
     public final static String MAINNET_STRING = NetworkType.MAINNET.toString();
 
     //type
-    public final static String LIGHT_CLIENT = "LIGHT_CLIENT";
-    public final static String FULL_NODE = "FULL_NODE";
-
     private int m_port = 9053;
     private String m_id = "DEFAULT_SERVER_#1";
     private String m_name = "Public node #1";
@@ -85,29 +79,49 @@ public class NamedNodeUrl {
         return m_name;
     }
 
+    public void setName(String value) {
+        m_name = value;
+    }
+
     public String getIP() {
         return m_ip;
+    }
+
+    public void setIp(String ip) {
+        m_ip = ip;
     }
 
     public NetworkType getNetworkType() {
         return m_networkType;
     }
 
+    public void setNetworkType(NetworkType networkType) {
+        m_networkType = networkType;
+    }
+
     public int getPort() {
         return m_port;
+    }
+
+    public void setPort(int port) {
+        m_port = port;
     }
 
     public String getProtocol() {
         return m_protocol;
     }
 
-    public boolean getRememberKey() {
-        return m_rememberKey;
+    public void setProtocol(String value) {
+        m_protocol = value;
     }
 
     public String getApiKey() {
 
         return m_apiKey;
+    }
+
+    public void setApiKey(String apiKey) {
+        m_apiKey = apiKey;
     }
 
     public JsonObject getJsonObject() {
@@ -136,9 +150,13 @@ public class NamedNodeUrl {
         return m_lastUpdated;
     }
 
+    public String getUrlString() {
+        return m_protocol + "://" + m_ip + ":" + m_port;
+    }
+
     public String getRowString() {
         String formattedName = String.format("%-28s", m_name);
-        String formattedUrl = String.format("%-30s", "(" + m_protocol + "://" + m_ip + ":" + m_port + ")");
+        String formattedUrl = String.format("%-30s", "(" + getUrlString() + ")");
 
         return formattedName + " " + formattedUrl;
     }

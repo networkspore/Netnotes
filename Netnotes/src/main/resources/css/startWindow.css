@@ -26,6 +26,17 @@
     -fx-background-color: linear-gradient(to bottom, #ffffff15 0%, #000000EE 50%, #11111110 90%);
    
 }
+#smallPrimaryColor {
+    -fx-font-size: 10px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-text-fill: #B2B2B2E6;
+}
+
+#smallSecondaryColor {
+    -fx-font-size: 10px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-text-fill: #666666E6;
+}
 
 #urlField {
     -fx-background-color:#FFFFFFDF;
@@ -43,6 +54,8 @@
     -fx-opacity: 1;
 
 }
+
+
 
 #urlField:focused:hover {
     -fx-text-fill: #000000;
@@ -80,6 +93,14 @@
 #rowBox:hover {
     -fx-opacity: 1;
     -fx-background-color: #33333360;
+}
+
+#unSelected {
+    -fx-opacity: .7;
+}
+
+#selected{
+    -fx-opacity: 1;
 }
 
 #rowBtn {
@@ -214,6 +235,19 @@
 
 #formField:focused:hover {
     -fx-text-fill: white;
+}
+
+#selectedField {
+
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 14px;
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-opacity: .8;
+}
+
+#selectedField:hover {
+    -fx-opacity: 1;
 }
 
 #testColor {

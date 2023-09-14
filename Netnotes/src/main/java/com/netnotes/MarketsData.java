@@ -40,12 +40,12 @@ public class MarketsData {
 
     private File logFile;
 
-    public final static String SCHEDULED = "SCHEDULED";
-    public final static String POLLING = "POLLING";
-    public final static String STARTED = "STARTED";
-    public final static String STARTING = "STARTING";
-    public final static String STOPPED = "STOPPED";
-    public final static String ERROR = "ERROR";
+    public final static String SCHEDULED = "Scheduled";
+    public final static String POLLING = "Polling";
+    public final static String STARTED = "Started";
+    public final static String STARTING = "Starting";
+    public final static String STOPPED = "Stopped";
+    public final static String ERROR = "Error";
 
     public final static String POLLED = "POLLED";
     public final static String REALTIME = "REALTIME";

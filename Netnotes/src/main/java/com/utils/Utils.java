@@ -27,7 +27,9 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,8 +46,10 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.net.URLConnection;
 
@@ -334,8 +338,8 @@ public class Utils {
     }
 
     public static long getNowEpochMillis() {
-        Instant instant = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant();
-        return instant.toEpochMilli();
+
+        return System.currentTimeMillis();
     }
 
     public static long getNowEpochMillis(LocalDateTime now) {
@@ -345,7 +349,7 @@ public class Utils {
 
     public static String formatDateTimeString(LocalDateTime localDateTime) {
 
-        DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss a");
+        DateTimeFormatter formater = DateTimeFormatter.ofPattern("MM-dd-yyyy hh:mm:ss.SSS a");
 
         return formater.format(localDateTime);
     }
@@ -627,6 +631,12 @@ public class Utils {
         return cmdObject;
     }
 
+    public static int getRandomInt(int min, int max) throws NoSuchAlgorithmException {
+        SecureRandom secureRandom = SecureRandom.getInstanceStrong();
+
+        return secureRandom.nextInt(min, max);
+    }
+
     public static void saveJson(SecretKey appKey, JsonObject listJson, File dataFile) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException {
 
         String tokenString = listJson.toString();
@@ -850,6 +860,7 @@ public class Utils {
                 if (outputFile == null) {
                     return null;
                 }
+                Files.deleteIfExists(outputFile.toPath());
 
                 InputStream inputStream = null;
                 FileOutputStream outputStream = new FileOutputStream(outputFile);
@@ -903,6 +914,48 @@ public class Utils {
         Thread t = new Thread(task);
         t.setDaemon(true);
         t.start();
+    }
+
+    public static boolean wmicTerminate(String jarName) {
+        try {
+            File logFile = new File("wmicTerminate-log.txt");
+            //wmic Path win32_process Where "CommandLine Like '%yourname.jar%'" Call Terminate
+            String[] wmicCmd = {"cmd", "/c", "wmic", "Path", "win32_process", "Where", "\"CommandLine", "Like", "'%" + jarName + "%'\"", "Call", "Terminate"};
+            Process wmicProc = Runtime.getRuntime().exec(wmicCmd);
+
+            BufferedReader wmicStderr = new BufferedReader(new InputStreamReader(wmicProc.getErrorStream()));
+            String wmicerr = null;
+
+            Files.writeString(logFile.toPath(), "\nJar name: " + jarName, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(logFile.toPath(), "\nwmic err: " + wmicerr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+            while ((wmicerr = wmicStderr.readLine()) != null) {
+
+                Files.writeString(logFile.toPath(), "\nwmic err: " + wmicerr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+            }
+
+            BufferedReader wmicStdInput = new BufferedReader(new InputStreamReader(wmicProc.getInputStream()));
+
+            String wmicInput = null;
+            boolean gotInput = false;
+
+            while ((wmicInput = wmicStdInput.readLine()) != null) {
+                wmicInput = wmicStdInput.readLine();
+                Files.writeString(logFile.toPath(), "\nwmic: " + wmicInput, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                gotInput = true;
+            }
+
+            wmicProc.waitFor();
+
+            if (gotInput) {
+                return true;
+            }
+
+        } catch (Exception e) {
+            return false;
+        }
+        return false;
     }
 
 }

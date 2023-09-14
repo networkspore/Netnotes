@@ -16,7 +16,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 import javax.crypto.BadPaddingException;
@@ -364,7 +364,14 @@ public class NetworksData implements InstallerInterface {
         return m_networksBox;
     }
 
+    private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
+
+    public SimpleObjectProperty<LocalDateTime> shutdownNowProperty() {
+        return m_shutdownNow;
+    }
+
     public void shutdown() {
+        m_shutdownNow.set(LocalDateTime.now());
 
         for (int i = 0; i < m_noteInterfaceList.size(); i++) {
             NoteInterface noteInterface = m_noteInterfaceList.get(i);
@@ -372,6 +379,7 @@ public class NetworksData implements InstallerInterface {
 
             m_noteInterfaceList.remove(i);
         }
+
         if (m_noteWatcher != null) {
             m_noteWatcher.shutdown();
         }

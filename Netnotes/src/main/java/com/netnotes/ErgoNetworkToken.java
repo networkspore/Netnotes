@@ -85,16 +85,14 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             JsonElement hashHashElement = json.get("hash");
 
             if (hashIdElement != null && hashNameElement != null && hashHashElement != null) {
-                try {
-                    m_hashData = new HashData(hashIdElement.getAsString(), hashNameElement.getAsString(), hashHashElement.getAsString());
-                    try {
-                        Files.writeString(logFile.toPath(), "\nhashData: " + m_hashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
 
-                    }
-                } catch (DecoderException e) {
-                    m_hashData = null;
+                m_hashData = new HashData(hashIdElement.getAsString(), hashNameElement.getAsString(), hashHashElement.getAsString());
+                try {
+                    Files.writeString(logFile.toPath(), "\nhashData: " + m_hashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+
                 }
+
             }
         }
 

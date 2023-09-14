@@ -66,9 +66,10 @@ public class ErgoNodesList {
     public final static String CUSTOM = "CUSTOM";
 
     private File logFile = new File("ergoNodesList-log.txt");
-    private SimpleStringProperty m_defaultId = new SimpleStringProperty(null);
+    private SimpleStringProperty m_selectedId = new SimpleStringProperty(null);
     private ArrayList<ErgoNodeData> m_dataList = new ArrayList<>();
     private ErgoNodes m_ergoNodes;
+    private ErgoNodeLocalData m_ergoLocalNode = null;
 
     private double DEFAULT_ADD_STAGE_WIDTH = 600;
     private double DEFAULT_ADD_STAGE_HEIGHT = 500;
@@ -107,10 +108,11 @@ public class ErgoNodesList {
                 a.setTitle("Ergo Nodes: Loading Error");
                 a.show();
             }
-        }
-
-        if (m_dataList.size() == 0) {
-            showAddNodeStage();
+        } else {
+            m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
+            m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+            add(new ErgoNodeData(this, ErgoNodeData.LIGHT_CLIENT, new NamedNodeUrl()), true);
+            save();
         }
 
     }
@@ -118,14 +120,22 @@ public class ErgoNodesList {
     private void openJson(JsonObject json) {
 
         JsonElement nodesElement = json.get("nodes");
-        JsonElement defaultIdElement = json.get("defaultId");
+
         JsonElement defaultAddTypeElement = json.get("defaultAddType");
         JsonElement addStageElement = json.get("addStage");
 
-        String defaultId = defaultIdElement != null && defaultIdElement.isJsonPrimitive() ? defaultIdElement.getAsString() : null;
         m_defaultAddType = defaultAddTypeElement != null && defaultAddTypeElement.isJsonPrimitive() ? defaultAddTypeElement.getAsString() : PUBLIC;
 
-        m_defaultId.set(defaultId);
+        JsonElement localNodeElement = json == null ? null : json.get("localNode");
+
+        if (localNodeElement != null && localNodeElement.isJsonObject()) {
+
+            m_ergoLocalNode = new ErgoNodeLocalData(localNodeElement.getAsJsonObject(), this);
+            m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+        } else {
+            m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
+            m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+        }
 
         if (nodesElement != null && nodesElement.isJsonArray()) {
             JsonArray jsonArray = nodesElement.getAsJsonArray();
@@ -176,7 +186,7 @@ public class ErgoNodesList {
         if (ergoNodeData != null) {
             m_dataList.add(ergoNodeData);
             if (m_dataList.size() == 1) {
-                m_defaultId.set(ergoNodeData.getId());
+                m_selectedId.set(ergoNodeData.getId());
             }
             ergoNodeData.addUpdateListener((obs, oldval, newval) -> {
                 save();
@@ -221,14 +231,15 @@ public class ErgoNodesList {
         return jsonArray;
     }
 
-    public JsonObject getDataObject() {
+    public JsonObject getJsonObject() {
         JsonObject json = new JsonObject();
-        String defaultId = m_defaultId.get();
-        if (defaultId != null) {
-            json.addProperty("defaultId", defaultId);
-        }
+
         json.add("nodes", getNodesJsonArray());
         json.addProperty("defaultAddType", m_defaultAddType);
+        json.add("addStage", getAddStageJson());
+
+        json.add("localNode", m_ergoLocalNode.getJsonObject());
+
         return json;
     }
 
@@ -243,8 +254,7 @@ public class ErgoNodesList {
     }
 
     public void save() {
-        JsonObject fileJson = getDataObject();
-        fileJson.add("addStage", getAddStageJson());
+        JsonObject fileJson = getJsonObject();
 
         String jsonString = fileJson.toString();
 
@@ -263,18 +273,17 @@ public class ErgoNodesList {
         }
     }
 
+    private ChangeListener<LocalDateTime> m_nodeUpdateListener = (obs, oldval, newVal) -> save();
+
     public VBox getGridBox(SimpleDoubleProperty width, SimpleDoubleProperty scrollWidth) {
         VBox gridBox = new VBox();
 
         Runnable updateGrid = () -> {
             gridBox.getChildren().clear();
 
-            FullErgoNode fullErgoNode = m_ergoNodes.fullErgoNodeProperty().get() == null ? new FullErgoNode(FriendlyId.createFriendlyId(), this) : m_ergoNodes.fullErgoNodeProperty().get();
-
-            HBox fullNodeRowItem = fullErgoNode.getRowItem();
+            HBox fullNodeRowItem = m_ergoLocalNode.getRowItem();
             fullNodeRowItem.prefWidthProperty().bind(width.subtract(scrollWidth));
             gridBox.getChildren().add(fullNodeRowItem);
-
             int numCells = m_dataList.size();
 
             for (int i = 0; i < numCells; i++) {
@@ -293,12 +302,12 @@ public class ErgoNodesList {
         return gridBox;
     }
 
-    public SimpleStringProperty defaultIdProperty() {
-        return m_defaultId;
+    public SimpleStringProperty selectedIdProperty() {
+        return m_selectedId;
     }
 
-    public void setDefaultId(String id) {
-        m_defaultId.set(id);
+    public void setselectedId(String id) {
+        m_selectedId.set(id);
         save();
     }
 
@@ -327,7 +336,7 @@ public class ErgoNodesList {
 
             //private
             SimpleObjectProperty<NetworkType> networkTypeOption = new SimpleObjectProperty<NetworkType>(NetworkType.MAINNET);
-            SimpleStringProperty clientTypeOption = new SimpleStringProperty(NamedNodeUrl.LIGHT_CLIENT);
+            SimpleStringProperty clientTypeOption = new SimpleStringProperty(ErgoNodeData.LIGHT_CLIENT);
 
             Image icon = ErgoNodes.getSmallAppIcon();
             String name = m_ergoNodes.getName();
@@ -839,6 +848,10 @@ public class ErgoNodesList {
             m_addStage.show();
             m_addStage.toFront();
         }
+    }
+
+    public ErgoNodeLocalData getErgoLocalNode() {
+        return m_ergoLocalNode;
     }
 
 }

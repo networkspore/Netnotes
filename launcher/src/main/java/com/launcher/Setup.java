@@ -85,7 +85,7 @@ public class Setup extends Application {
     public static String updateUrl = "https://github.com/networkspore/Netnotes/releases/latest/download";
     public static String javaUrl = "https://www.java.com/en/download/";
 
-    public static final String programFilesDir = System.getenv("LOCALAPPDATA") + "\\Net Notes";
+    public static final String APP_DATA_DIR = System.getenv("LOCALAPPDATA") + "\\Net Notes";
 
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public static Font txtFont = Font.font("OCR A Extended", 15);
@@ -122,28 +122,28 @@ public class Setup extends Application {
 
         for (String each : list) {
 
-            if (each.startsWith(Main.firstRun)) {
+            if (each.startsWith(Launcher.firstRun)) {
 
                 firstRun = true;
             }
-            if (each.startsWith(Main.setupUpdates)) {
+            if (each.startsWith(Launcher.setupUpdates)) {
                 doUpdates = true;
             }
 
-            if (each.startsWith(Main.currentJavaVersionEquals)) {
+            if (each.startsWith(Launcher.currentJavaVersionEquals)) {
 
-                if (each.length() > Main.currentJavaVersionEquals.length()) {
+                if (each.length() > Launcher.currentJavaVersionEquals.length()) {
 
-                    javaVersion = new Version(each.substring(Main.currentJavaVersionEquals.length(), each.length()));
+                    javaVersion = new Version(each.substring(Launcher.currentJavaVersionEquals.length(), each.length()));
                 } else {
                     javaVersion = null;
                 }
             }
 
-            if (each.startsWith(Main.currentAppJarEquals)) {
+            if (each.startsWith(Launcher.currentAppJarEquals)) {
 
-                if (each.length() > Main.currentAppJarEquals.length()) {
-                    currentAppJar = each.substring(Main.currentAppJarEquals.length(), each.length());
+                if (each.length() > Launcher.currentAppJarEquals.length()) {
+                    currentAppJar = each.substring(Launcher.currentAppJarEquals.length(), each.length());
                 } else {
                     currentAppJar = "";
                 }
@@ -171,66 +171,57 @@ public class Setup extends Application {
 
     private void firstRun(Stage appStage, Version javaVersion, String currentAppJar, VBox bodyVBox) {
         bodyVBox.getChildren().clear();
+        bodyVBox.setPadding(new Insets(0, 15, 0, 0));
         setSetupStage(appStage, "Netnotes - Setup", "Setup...", bodyVBox);
 
-        Text directoryTxt = new Text("> Location:");
+        Text directoryTxt = new Text("/> Location:");
         directoryTxt.setFill(txtColor);
         directoryTxt.setFont(txtFont);
 
-        Button directoryBtn = new Button(programFilesDir);
+        Button directoryBtn = new Button(Launcher.currentDirectory);
         directoryBtn.setFont(txtFont);
         directoryBtn.setId("toolBtn");
+        directoryBtn.setAlignment(Pos.CENTER_LEFT);
 
-        Button defaultBtn = new Button("(default)");
+        File appData = new File(APP_DATA_DIR);
+        boolean isAppdata = new File(System.getenv("LOCALAPPDATA")).isDirectory();
+        final String useAppDataString = "(Use AppData)";
+        final String useDefaultString = "(Use default)";
+        Button defaultBtn = new Button(isAppdata ? useAppDataString : useDefaultString);
         defaultBtn.setFont(txtFont);
         defaultBtn.setId("toolBtn");
-        defaultBtn.setVisible(false);
+        defaultBtn.setMinWidth(140);
         defaultBtn.setOnAction(btnEvent -> {
-            directoryBtn.setText(programFilesDir);
-            defaultBtn.setVisible(false);
+            if (defaultBtn.getText().equals(useAppDataString)) {
+                directoryBtn.setText(appData.getAbsolutePath());
+                defaultBtn.setText(useDefaultString);
+            } else {
+                directoryBtn.setText(Launcher.currentDirectory);
+                defaultBtn.setText(isAppdata ? useAppDataString : useDefaultString);
+            }
         });
 
         directoryBtn.setOnAction(btnEvent -> {
 
             DirectoryChooser dirChooser = new DirectoryChooser();
-
+            dirChooser.setInitialDirectory(new File(Launcher.currentDirectory));
             File chosenDir = dirChooser.showDialog(appStage);
             if (chosenDir != null) {
-                directoryBtn.setText(chosenDir.getAbsolutePath());
-                defaultBtn.setVisible(true);
+                String chosenPath = chosenDir.getAbsolutePath();
+                directoryBtn.setText(chosenPath);
+
             }
         });
 
-        HBox.setHgrow(directoryBtn, Priority.ALWAYS);
+        HBox directoryBox = null;
 
-        HBox directoryBox = new HBox(directoryTxt, directoryBtn, defaultBtn);
+        directoryBox = new HBox(directoryTxt, directoryBtn, defaultBtn);
         directoryBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(directoryBox, Priority.ALWAYS);
 
-        Text currentDirTxt = new Text("> Use current directory:");
-        currentDirTxt.setFill(txtColor);
-        currentDirTxt.setFont(txtFont);
+        directoryBtn.prefWidthProperty().bind(directoryBox.widthProperty().subtract(directoryTxt.layoutBoundsProperty().get().getWidth()).subtract(defaultBtn.widthProperty()));
 
-        Button currentDirBtn = new Button("Disabled");
-        currentDirBtn.setId("toolBtn");
-        currentDirBtn.setFont(txtFont);
-        currentDirBtn.setOnAction(btnEvent -> {
-            if (currentDirBtn.getText().equals("Enabled")) {
-                currentDirBtn.setText("Disabled");
-                directoryBtn.setVisible(true);
-                if (!directoryBtn.getText().equals(programFilesDir)) {
-                    defaultBtn.setVisible(true);
-                }
-            } else {
-                currentDirBtn.setText("Enabled");
-                directoryBtn.setVisible(false);
-                defaultBtn.setVisible(false);
-            }
-        });
-
-        HBox currentDirBox = new HBox(currentDirTxt, currentDirBtn);
-        currentDirBox.setAlignment(Pos.CENTER_LEFT);
-
-        Text updatesTxt = new Text("> Updates:");
+        Text updatesTxt = new Text("/> Updates:");
         updatesTxt.setFill(txtColor);
         updatesTxt.setFont(txtFont);
 
@@ -266,13 +257,13 @@ public class Setup extends Application {
         nextBox.setAlignment(Pos.CENTER);
         nextBox.setPadding(new Insets(25, 0, 0, 0));
 
-        bodyVBox.getChildren().addAll(directoryBox, currentDirBox, updatesBox, gBox, nextBox);
+        bodyVBox.getChildren().addAll(directoryBox, updatesBox, gBox, nextBox);
 
         nextBtn.setOnAction(btnEvent -> {
 
             boolean updates = updatesBtn.getText().equals("Enabled");
 
-            String directoryString = currentDirBtn.getText().equals("Enabled") ? Main.currentDirectory : directoryBtn.getText();
+            String directoryString = directoryBtn.getText();
             File directoryFile = new File(directoryString);
 
             if (!directoryFile.isDirectory()) {
@@ -301,7 +292,7 @@ public class Setup extends Application {
         bodyVBox.getChildren().clear();
         setSetupStage(appStage, "Netnotes - Security", "Security...", bodyVBox);
 
-        Text passwordTxt = new Text("> Create password:");
+        Text passwordTxt = new Text("/> Create password:");
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
 
@@ -345,7 +336,7 @@ public class Setup extends Application {
 
                     passwordField.setVisible(false);
 
-                    Text reenterTxt = new Text("> Re-enter password:");
+                    Text reenterTxt = new Text("/> Re-enter password:");
                     reenterTxt.setFill(txtColor);
                     reenterTxt.setFont(txtFont);
 
@@ -369,7 +360,7 @@ public class Setup extends Application {
                             if (passStr.equals(createPassField2.getText())) {
                                 bodyVBox.getChildren().clear();
                                 setSetupStage(appStage, "Netnotes - Saving Settings", "Saving...", bodyVBox);
-                                Text savingFileTxt = new Text("> Creating:  " + installDir.getAbsolutePath());
+                                Text savingFileTxt = new Text("/> Creating:  " + installDir.getAbsolutePath());
                                 savingFileTxt.setFill(txtColor);
                                 savingFileTxt.setFont(txtFont);
 
@@ -403,7 +394,7 @@ public class Setup extends Application {
     private void createSettings(Version javaVersion, String appJar, boolean updates, File installDir, String password, VBox bodyVBox, Stage appStage) throws IOException {
 
         String installDirString = installDir.getAbsolutePath();
-        File settingsFile = new File(installDirString + "\\" + Main.settingsFileName);
+        File settingsFile = new File(installDirString + "\\" + Launcher.settingsFileName);
 
         String hash = getBcryptHashString(password);
 
@@ -429,7 +420,7 @@ public class Setup extends Application {
 
         boolean validJava = javaVersion != null && (javaVersion.compareTo(new Version("17.0.3")) > -1);
 
-        boolean moveFiles = !installDir.getAbsolutePath().equals(Main.currentDirectory);
+        boolean moveFiles = !installDir.getAbsolutePath().equals(Launcher.currentDirectory);
 
         if (validJar && validJava) {
 
@@ -444,7 +435,7 @@ public class Setup extends Application {
 
                     openJar(installDirString + "\\" + jarFile.getName(), launcherFile);
                 } else {
-                    Main.openJar(jarFile.getAbsolutePath());
+                    Launcher.openJar(jarFile.getAbsolutePath());
                 }
                 shutdownNow();
             } catch (Exception e) {
@@ -504,7 +495,7 @@ public class Setup extends Application {
 
         appStage.show();
 
-        Text getJavaTxt = new Text("> Setup files required, would you like to download? (Y/n):");
+        Text getJavaTxt = new Text("/> Setup files required, would you like to download? (Y/n):");
         getJavaTxt.setFill(txtColor);
         getJavaTxt.setFont(txtFont);
 
@@ -574,7 +565,7 @@ public class Setup extends Application {
         setSetupStage(appStage, "Netnotes - Get latest release", "Get the latest release...", bodyVBox);
         appStage.show();
 
-        Text getJavaTxt = new Text("> Java URL:");
+        Text getJavaTxt = new Text("/> Java URL:");
         getJavaTxt.setFill(txtColor);
         getJavaTxt.setFont(txtFont);
 
@@ -589,7 +580,7 @@ public class Setup extends Application {
 
         bodyVBox.getChildren().addAll(javaUrlHbox);
 
-        Text getJarTxt = new Text("> Update URL:");
+        Text getJarTxt = new Text("/> Update URL:");
         getJarTxt.setFill(txtColor);
         getJarTxt.setFont(txtFont);
 
@@ -874,7 +865,7 @@ public class Setup extends Application {
     public static void getReleaseInfo(Version javaVersion, String currentAppJar) throws Exception {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        URI uri = new URI(Main.latestReleaseURLstring);
+        URI uri = new URI(Launcher.latestReleaseURLstring);
 
         Task<Void> task = new Task<Void>() {
             @Override
@@ -940,7 +931,7 @@ public class Setup extends Application {
     private static void setupDownloadField(VBox bodyVBox, ProgressBar progressBar) {
         bodyVBox.getChildren().clear();
 
-        Text downloadingTxt = new Text("> Downloading " + javaName + "...");
+        Text downloadingTxt = new Text("/> Downloading " + javaName + "...");
         downloadingTxt.setFill(txtColor);
         downloadingTxt.setFont(txtFont);
 
@@ -1015,11 +1006,11 @@ public class Setup extends Application {
         imageBox.setAlignment(Pos.CENTER);
         imageBox.setPadding(new Insets(20, 0, 20, 0));
 
-        Text setupTxt = new Text("> " + setupMessage);
+        Text setupTxt = new Text("/> " + setupMessage);
         setupTxt.setFill(txtColor);
         setupTxt.setFont(txtFont);
 
-        Text spacerTxt = new Text(">");
+        Text spacerTxt = new Text("/>");
         spacerTxt.setFill(txtColor);
         spacerTxt.setFont(txtFont);
 
@@ -1034,7 +1025,7 @@ public class Setup extends Application {
 
         VBox layoutVBox = new VBox(topBar, imageBox, bodyVBox);
 
-        Scene setupScene = new Scene(layoutVBox, 625, 450);
+        Scene setupScene = new Scene(layoutVBox, 700, 425);
         setupScene.getStylesheets().add("/css/startWindow.css");
 
         appStage.setScene(setupScene);

@@ -4,6 +4,7 @@ import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
@@ -21,6 +22,7 @@ import com.google.gson.JsonObject;
 
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -43,6 +45,8 @@ import javafx.stage.StageStyle;
 
 public class ErgoNodes extends Network implements NoteInterface {
 
+    private File logFile = new File("ergoNodes-log.txt");
+
     public final static String NAME = "Ergo Nodes";
     public final static String DESCRIPTION = "Ergo Nodes allows you to configure your access to the Ergo blockchain";
     public final static String NETWORK_ID = "ERGO_NODES";
@@ -54,10 +58,10 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     private ScheduledFuture<?> m_lastExecution = null;
 
-    private File m_dataFile = null;
-    private File m_appDir = null;
+    private File m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
+    private File m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
-    private SimpleObjectProperty<FullErgoNode> m_fullErgoNode = new SimpleObjectProperty<>(null);
+    private ErgoNodesList m_ergoNodesList = null;
 
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
@@ -87,16 +91,13 @@ public class ErgoNodes extends Network implements NoteInterface {
         return m_appDir;
     }
 
-    public SimpleObjectProperty<FullErgoNode> fullErgoNodeProperty() {
-        return m_fullErgoNode;
-    }
-
     private void setup(JsonObject json) {
 
-        JsonElement directoriesElement = json.get("directories");
-        JsonElement stageElement = json.get("stage");
+        // JsonElement directoriesElement = json == null ? null : json.get("directories");
+        JsonElement stageElement = json == null ? null : json.get("stage");
 
-        if (directoriesElement != null && directoriesElement.isJsonObject()) {
+
+        /*  if (directoriesElement != null && directoriesElement.isJsonObject()) {
             JsonObject directoriesObject = directoriesElement.getAsJsonObject();
             if (directoriesObject != null) {
                 JsonElement appDirElement = directoriesObject.get("app");
@@ -104,10 +105,7 @@ public class ErgoNodes extends Network implements NoteInterface {
                 m_appDir = appDirElement == null ? new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME) : new File(appDirElement.getAsString());
 
             }
-        } else {
-            m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
-        }
-
+        } */
         if (!m_appDir.isDirectory()) {
 
             try {
@@ -116,19 +114,6 @@ public class ErgoNodes extends Network implements NoteInterface {
                 Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                 a.show();
             }
-
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-            /*String newMarketDataId = FriendlyId.createFriendlyId();
-
-            ErgoNodesList dataList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
-
-            //   dataList.add(new MarketsData(newMarketDataId, KucoinExchange.NETWORK_ID, "ERG", "USDT", MarketsData.REALTIME, MarketsData.TICKER, dataList));
-            //  dataList.defaultIdProperty().set(newMarketDataId);
-            //  dataList.save();
-            dataList = null; */
-
-        } else {
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
         }
 
@@ -159,11 +144,14 @@ public class ErgoNodes extends Network implements NoteInterface {
             }
         }
 
+        m_ergoNodesList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
+
         getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
             ErgoNodesList dataList = new ErgoNodesList(oldVal, this);
             dataList.save();
             dataList = null;
         });
+
     }
 
     @Override
@@ -268,14 +256,16 @@ public class ErgoNodes extends Network implements NoteInterface {
             scrollPane.prefViewportWidthProperty().bind(mainScene.widthProperty());
             scrollPane.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(140));
             scrollPane.setPadding(new Insets(5, 5, 5, 5));
+            scrollPane.setOnMouseClicked(e -> {
+                getErgoNodesList().setselectedId(null);
+            });
 
             SimpleDoubleProperty gridWidth = new SimpleDoubleProperty(m_stage.getWidth());
             SimpleDoubleProperty scrollWidth = new SimpleDoubleProperty(0);
             gridWidth.bind(m_stage.widthProperty().subtract(15));
             m_stage.show();
 
-            ErgoNodesList ergoNodesList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
-            VBox gridBox = ergoNodesList.getGridBox(gridWidth, scrollWidth);
+            VBox gridBox = m_ergoNodesList.getGridBox(gridWidth, scrollWidth);
 
             ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
                 public Thread newThread(Runnable r) {
@@ -334,7 +324,7 @@ public class ErgoNodes extends Network implements NoteInterface {
                 shutdownNowProperty().set(LocalDateTime.now());
             });
             shutdownNowProperty().addListener((obs, oldVal, newVal) -> {
-                ergoNodesList.shutdown();
+                m_ergoNodesList.shutdown();
                 m_stage.close();
                 m_stage = null;
             });
@@ -350,7 +340,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             gridBox.heightProperty().addListener((obs, oldVal, newVal) -> updateScrollWidth.run());
 
-            addButton.setOnAction((e) -> ergoNodesList.showAddNodeStage());
+            addButton.setOnAction((e) -> m_ergoNodesList.showAddNodeStage());
 
             addButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
             removeButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
@@ -360,6 +350,9 @@ public class ErgoNodes extends Network implements NoteInterface {
             if (getStageMaximized()) {
                 m_stage.setMaximized(true);
             }
+            Runnable updateMenuBar = () -> {
+
+            };
         } else {
             if (m_stage.isIconified()) {
                 m_stage.setIconified(false);
@@ -376,5 +369,17 @@ public class ErgoNodes extends Network implements NoteInterface {
         json.add("stage", getStageJson());
 
         return json;
+    }
+
+    public ErgoNodesList getErgoNodesList() {
+        return m_ergoNodesList;
+    }
+
+    @Override
+    public void remove() {
+        super.remove();
+        if (m_ergoNodesList != null && m_ergoNodesList.getErgoLocalNode() != null) {
+            m_ergoNodesList.getErgoLocalNode().stop();
+        }
     }
 }
