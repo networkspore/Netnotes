@@ -129,9 +129,23 @@ public class ErgoNodesList {
         JsonElement localNodeElement = json == null ? null : json.get("localNode");
 
         if (localNodeElement != null && localNodeElement.isJsonObject()) {
+            JsonObject localNodeObject = localNodeElement.getAsJsonObject();
 
-            m_ergoLocalNode = new ErgoNodeLocalData(localNodeElement.getAsJsonObject(), this);
-            m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+            JsonElement idElement = localNodeObject.get("id");
+            JsonElement namedNodeElement = localNodeObject.get("namedNode");
+
+            String id = idElement != null && idElement.isJsonPrimitive() ? idElement.getAsString() : null;
+            NamedNodeUrl namedNodeUrl = namedNodeElement != null && namedNodeElement.isJsonObject() ? new NamedNodeUrl(namedNodeElement.getAsJsonObject()) : null;
+
+            if (id != null && namedNodeUrl != null) {
+                m_ergoLocalNode = new ErgoNodeLocalData(namedNodeUrl, localNodeObject, this);
+
+                m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+            } else {
+                m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
+                m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+            }
+
         } else {
             m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
             m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
@@ -185,9 +199,7 @@ public class ErgoNodesList {
     public void add(ErgoNodeData ergoNodeData, boolean doSave) {
         if (ergoNodeData != null) {
             m_dataList.add(ergoNodeData);
-            if (m_dataList.size() == 1) {
-                m_selectedId.set(ergoNodeData.getId());
-            }
+
             ergoNodeData.addUpdateListener((obs, oldval, newval) -> {
                 save();
             });
@@ -209,10 +221,14 @@ public class ErgoNodesList {
 
     public ErgoNodeData getErgoNodeData(String id) {
         if (id != null) {
-            for (int i = 0; i < m_dataList.size(); i++) {
-                ErgoNodeData ergoNodeData = m_dataList.get(i);
-                if (ergoNodeData.getId().equals(id)) {
-                    return ergoNodeData;
+            if (m_ergoLocalNode != null && m_ergoLocalNode.getId().equals(id)) {
+                return m_ergoLocalNode;
+            } else {
+                for (int i = 0; i < m_dataList.size(); i++) {
+                    ErgoNodeData ergoNodeData = m_dataList.get(i);
+                    if (ergoNodeData.getId().equals(id)) {
+                        return ergoNodeData;
+                    }
                 }
             }
         }
@@ -390,7 +406,7 @@ public class ErgoNodesList {
             MenuButton typeBtn = new MenuButton();
             typeBtn.setAlignment(Pos.CENTER_LEFT);
 
-            MenuItem defaultClientItem = new MenuItem("Public node (Light client)");
+            MenuItem defaultClientItem = new MenuItem("Public node (Remote client)");
             defaultClientItem.setOnAction((e) -> {
 
                 nodeOption.set(PUBLIC);
@@ -398,7 +414,7 @@ public class ErgoNodesList {
             });
             defaultClientItem.setId("rowBtn");
 
-            MenuItem configureItem = new MenuItem("Custom (Light client)");
+            MenuItem configureItem = new MenuItem("Custom (Remote client)");
             configureItem.setOnAction((e) -> {
 
                 nodeOption.set(CUSTOM);
@@ -721,7 +737,7 @@ public class ErgoNodesList {
                 bodyOptionBox.getChildren().add(lightClientOptions);
 
                 addNodeScene.focusOwnerProperty().addListener(listFocusListener);
-                typeBtn.setText("Public node (Light client)");
+                typeBtn.setText("Public node (Remote client)");
                 typeBtn.setPrefWidth(150);
             };
 

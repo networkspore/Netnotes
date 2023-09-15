@@ -20,6 +20,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
@@ -212,7 +213,10 @@ public class ErgoNodes extends Network implements NoteInterface {
             Region menuSpacer = new Region();
             HBox.setHgrow(menuSpacer, Priority.ALWAYS);
 
-            HBox menuBar = new HBox(menuSpacer);
+            BufferedButton settingsBtn = new BufferedButton("/assets/settings-outline-white-120.png", 20);
+            BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png", 20);
+
+            HBox menuBar = new HBox(settingsBtn, menuSpacer, deleteBtn);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -245,7 +249,28 @@ public class ErgoNodes extends Network implements NoteInterface {
             menuBox.setPadding(new Insets(5, 5, 5, 5));
             menuBox.setPrefHeight(buttonHeight);
 
-            VBox layoutBox = new VBox(titleBox, menuBar, scrollPane, menuBox);
+            VBox layoutBox = new VBox(titleBox, menuBarPadding, scrollPane, menuBox);
+
+            Runnable updateMenuBar = () -> Platform.runLater(() -> {
+                String selectedId = m_ergoNodesList.selectedIdProperty().get();
+                if (selectedId == null) {
+                    if (layoutBox.getChildren().contains(menuBarPadding)) {
+                        layoutBox.getChildren().remove(menuBarPadding);
+                    }
+                } else {
+                    ErgoNodeData ergNode = m_ergoNodesList.getErgoNodeData(selectedId);
+                    if (ergNode == null) {
+                        m_ergoNodesList.selectedIdProperty().set(null);
+                    } else {
+                        if (!layoutBox.getChildren().contains(menuBarPadding)) {
+                            layoutBox.getChildren().add(1, menuBarPadding);
+                        }
+                    }
+                }
+            });
+
+            m_ergoNodesList.selectedIdProperty().addListener((obs, oldval, newVal) -> updateMenuBar.run());
+            updateMenuBar.run();
 
             Scene mainScene = new Scene(layoutBox, getStageWidth(), getStageHeight());
             mainScene.getStylesheets().add("/css/startWindow.css");
@@ -350,9 +375,7 @@ public class ErgoNodes extends Network implements NoteInterface {
             if (getStageMaximized()) {
                 m_stage.setMaximized(true);
             }
-            Runnable updateMenuBar = () -> {
 
-            };
         } else {
             if (m_stage.isIconified()) {
                 m_stage.setIconified(false);

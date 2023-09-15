@@ -322,6 +322,11 @@ public class ErgoNodeConfig {
 
             Files.writeString(configFile.toPath(), configFileString);
         }
+
+        if (!configFile.isFile()) {
+            throw new Exception("Config file not found.");
+        }
+
         byte[] fileBytes = Utils.digestFile(configFile, Blake2b.BLAKE2_B_256);
 
         m_configFileHashData = new HashData(fileBytes);

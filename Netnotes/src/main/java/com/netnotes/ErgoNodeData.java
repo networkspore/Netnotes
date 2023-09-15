@@ -55,7 +55,6 @@ public class ErgoNodeData {
     public final static String NODE_INSTALLER = "Node Installer";
     public final static String LOCAL_NODE = "Local Node";
 
-    private String m_id;
     public final SimpleObjectProperty< NamedNodeUrl> namedNodeUrlProperty = new SimpleObjectProperty<>();
 
     private String m_imgUrl = "/assets/ergoNodes-30.png";
@@ -82,7 +81,7 @@ public class ErgoNodeData {
     public final SimpleStringProperty statusString = new SimpleStringProperty("");
     public final SimpleObjectProperty<LocalDateTime> shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
     public final SimpleStringProperty cmdProperty = new SimpleStringProperty("");
-    public final SimpleStringProperty cmdStatusUpdated = new SimpleStringProperty(String.format("%29s", ""));
+    public final SimpleStringProperty cmdStatusUpdated = new SimpleStringProperty(String.format("%29s", Utils.formatDateTimeString(LocalDateTime.now())));
     public final SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
 
     private ChangeListener<LocalDateTime> updateListener = null;
@@ -104,17 +103,13 @@ public class ErgoNodeData {
     public ErgoNodeData(ErgoNodesList ergoNodesList, String clientType, NamedNodeUrl namedNodeUrl) {
         m_ergoNodesList = ergoNodesList;
         m_clientType = clientType;
-        m_id = FriendlyId.createFriendlyId();
+
         namedNodeUrlProperty.set(namedNodeUrl == null ? new NamedNodeUrl() : namedNodeUrl);
-        openJson(null);
+
     }
 
     public String getId() {
-        return m_id;
-    }
-
-    public void setId(String id) {
-        m_id = id;
+        return namedNodeUrlProperty.get().getId();
     }
 
     public String getClientType() {
@@ -131,10 +126,8 @@ public class ErgoNodeData {
 
     public void openJson(JsonObject jsonObj) {
 
-        JsonElement idElement = jsonObj == null ? null : jsonObj.get("id");
         JsonElement namedNodeElement = jsonObj == null ? null : jsonObj.get("namedNode");
 
-        m_id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
         namedNodeUrlProperty.set(namedNodeElement != null && namedNodeElement.isJsonObject() ? new NamedNodeUrl(namedNodeElement.getAsJsonObject()) : new NamedNodeUrl());
 
     }
@@ -147,7 +140,7 @@ public class ErgoNodeData {
         NamedNodeUrl namedNodeUrl = namedNodeUrlProperty.get();
 
         JsonObject json = new JsonObject();
-        json.addProperty("id", m_id);
+
         if (namedNodeUrl != null) {
             json.add("namedNode", namedNodeUrl.getJsonObject());
         }
@@ -361,7 +354,10 @@ public class ErgoNodeData {
         HBox.setHgrow(rowBox, Priority.ALWAYS);
 
         rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
-            m_ergoNodesList.selectedIdProperty().set(getId());
+            Platform.runLater(() -> {
+                getErgoNodesList().selectedIdProperty().set(getId());
+                e.consume();
+            });
         });
 
         Runnable updateSelected = () -> {

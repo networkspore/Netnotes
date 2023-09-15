@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Array;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.NoSuchAlgorithmException;
 
@@ -25,6 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -87,16 +89,16 @@ import com.google.gson.JsonArray;
 
 public class ErgoNodeLocalData extends ErgoNodeData {
 
+    public final static String DEFAULT_NODE_NAME = "Local Node";
+    public final static String DEFAULT_CONFIG_NAME = "ergo.conf";
+    public final static int MAX_CONSOLE_ROWS = 200;
     public final static int MAX_INPUT_BUFFER_SIZE = 30;
 
     final private List<ErgoNodeMsg> m_nodeMsgBuffer = Collections.synchronizedList(new ArrayList<ErgoNodeMsg>());
 
     private File logFile = new File("ergoLocalNode-log.txt");
-    public final static int MAX_CONSOLE_ROWS = 200;
 
     //  public SimpleStringProperty nodeApiAddress;
-    public final static String DEFAULT_NODE_NAME = "Local Node";
-
     private String GitHub_LATEST_URL = "https://api.github.com/repos/ergoplatform/ergo/releases/latest";
 
     private String m_setupImgUrl = "/assets/open-outline-white-20.png";
@@ -111,7 +113,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     private Stage m_setupStage = null;
     private Stage m_configStage = null;
     public final static long EXECUTION_TIME = 500;
-    private ScheduledFuture<?> m_lastExecution = null;
 
     public double SETUP_STAGE_WIDTH = 700;
     public double SETUP_STAGE_HEIGHT = 580;
@@ -131,6 +132,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public final SimpleLongProperty networkBlockHeightProperty = new SimpleLongProperty(-1);
     private AtomicReference<String> m_lastNodeMsgId = new AtomicReference<>(null);
     private AtomicInteger m_inputCycleIndex = new AtomicInteger(0);
+    public final AtomicBoolean isGettingInfo = new AtomicBoolean(false);
     public long INPUT_CYCLE_PERIOD = 100;
 
     private final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
@@ -149,24 +151,40 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     }
 
-    public ErgoNodeLocalData(JsonObject json, ErgoNodesList ergoNodesList) {
-        super(ergoNodesList, json);
-
+    public ErgoNodeLocalData(NamedNodeUrl namedNode, JsonObject json, ErgoNodesList ergoNodesList) {
+        super(ergoNodesList, LOCAL_NODE, namedNode);
+        openJson(json);
         setListeners();
     }
 
     private void setListeners() {
         getErgoNodesList().getErgoNodes().getNetworksData().shutdownNowProperty().addListener((obs, oldVal, newVal) -> stop());
-        syncedProperty.bind(Bindings.greaterThanOrEqual(nodeBlockHeightProperty, networkBlockHeightProperty).and(networkBlockHeightProperty.isNotEqualTo(-1L).and(statusProperty.isNotEqualTo(MarketsData.STOPPED))));
+        // syncedProperty.bind(Bindings.equal(nodeBlockHeightProperty, networkBlockHeightProperty).and(networkBlockHeightProperty.isNotEqualTo(-1L).and(statusProperty.isNotEqualTo(MarketsData.STOPPED))));
         statusProperty.addListener((obs, oldval, newVal) -> {
             if (newVal != null && newVal.equals(MarketsData.STOPPED)) {
                 cmdProperty.set("");
             }
         });
+        Runnable syncUpdate = () -> {
+            long nodeBlockHeight = nodeBlockHeightProperty.get();
+            long networkBlockHeight = networkBlockHeightProperty.get();
+            boolean running = statusProperty.get() != null && !statusProperty.get().equals(MarketsData.STOPPED);
+
+            if (nodeBlockHeight != -1 && networkBlockHeight != -1 && nodeBlockHeight == networkBlockHeight && running) {
+                syncedProperty.set(true);
+            } else {
+                if (nodeBlockHeight > networkBlockHeight && !isGettingInfo.get() && running) {
+                    updateCycle();
+                }
+            }
+        };
+        nodeBlockHeightProperty.addListener((obs, oldVal, newVal) -> syncUpdate.run());
+        networkBlockHeightProperty.addListener((obs, oldval, newVal) -> syncUpdate.run());
+        syncUpdate.run();
     }
 
     public void coreFileError() {
-        Alert a = new Alert(AlertType.WARNING, "Local node core file has been altered." + "\n\nThe node can not be started.", ButtonType.OK);
+        Alert a = new Alert(AlertType.WARNING, "Local node core file has been altered.", ButtonType.OK);
         a.setHeaderText("Error: Config Mismatch");
         a.setTitle("Error: Core File Mistmatch - Local Node - Ergo Nodes");
         a.show();
@@ -174,7 +192,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     }
 
     public void configFileError() {
-        Alert a = new Alert(AlertType.WARNING, "Local node config file has been altered." + "\n\nThe node can not be started.", ButtonType.OK);
+        Alert a = new Alert(AlertType.WARNING, "Local node config file has been altered.", ButtonType.OK);
         a.setHeaderText("Error: Config Mismatch");
         a.setTitle("Error: Config Mistmatch - Local Node - Ergo Nodes");
         a.show();
@@ -183,7 +201,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     @Override
     public void openJson(JsonObject jsonObj) {
-        super.openJson(jsonObj);
+
         if (jsonObj != null) {
 
             JsonElement isSetupElement = jsonObj.get("isSetup");
@@ -204,7 +222,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             String appFileName = m_appDir != null && appFileNameElement != null && appFileNameElement.isJsonPrimitive() ? appFileNameElement.getAsString() : null;
             File appFile = appFileName != null ? new File(m_appDir.getAbsolutePath() + "/" + appFileName) : null;
 
-            if (isSetupProperty.get() && appFile != null && appFile.isFile() && appFileHashDataElement != null && appFileHashDataElement.isJsonObject()) {
+            if (appFile != null && appFile.isFile() && appFileHashDataElement != null && appFileHashDataElement.isJsonObject() && configElement != null && configElement.isJsonObject()) {
                 m_appFileName = appFileName;
                 boolean isCorrectHash = false;
 
@@ -218,7 +236,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                 }
                 if (isCorrectHash) {
+                    try {
+                        m_nodeConfigData = new ErgoNodeConfig(configElement.getAsJsonObject(), m_appDir);
+                    } catch (Exception e) {
 
+                    }
                     if (m_nodeConfigData != null) {
 
                         File configFile = m_nodeConfigData.getConfigFile();
@@ -258,14 +280,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             }
 
-            if (m_appDir != null && isSetupProperty.get()) {
-                try {
-                    m_nodeConfigData = configElement != null && configElement.isJsonObject() ? new ErgoNodeConfig(configElement.getAsJsonObject(), m_appDir) : null;
-                } catch (Exception e) {
-
-                }
-            }
-
         }
 
     }
@@ -296,6 +310,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     private final void updateCycle() {
         //get Network info
         final String localApiString = namedNodeUrlProperty.get().getUrlString() + "/info";
+        isGettingInfo.set(true);
         Utils.getUrlJson(localApiString, (onSucceeded) -> {
             Object sourceObject = onSucceeded.getSource().getValue();
             if (sourceObject != null && sourceObject instanceof JsonObject) {
@@ -318,7 +333,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     networkBlockHeightProperty.set(networkHeight);
 
                 });
-
+                isGettingInfo.set(false);
             }
         }, (onFailed) -> {
             //String errMsg = onFailed.getSource().getException().toString();
@@ -326,14 +341,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 networkBlockHeightProperty.set(-1);
                 peerCountProperty.set(0);
             });
-
+            isGettingInfo.set(false);
         }, null);
 
     }
 
     final private Runnable m_readNodeInput = () -> {
-        int mod = m_inputCycleIndex.incrementAndGet();
-        if (mod % 150 == 0) {
+        int cycle = m_inputCycleIndex.incrementAndGet();
+        if (cycle == 100) {
             m_inputCycleIndex.set(0);
 
             updateCycle();
@@ -414,8 +429,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         if (proc.isAlive()) {
                             statusProperty.set(MarketsData.STARTED);
                             if (m_scheduledFuture == null || (m_scheduledFuture != null && m_scheduledFuture.isDone())) {
-                                m_scheduledFuture = scheduledExecutor.scheduleAtFixedRate(m_readNodeInput, 50, INPUT_CYCLE_PERIOD, TimeUnit.MILLISECONDS);
+                                m_scheduledFuture = scheduledExecutor.scheduleAtFixedRate(m_readNodeInput, 0, INPUT_CYCLE_PERIOD, TimeUnit.MILLISECONDS);
                             }
+
                         }
 
                         String s = null;
@@ -476,6 +492,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             Runnable runError = () -> {
                 isSetupProperty.set(false);
                 statusProperty.set(MarketsData.STOPPED);
+                networkBlockHeightProperty.set(-1);
             };
 
             statusProperty.set(MarketsData.STARTING);
@@ -731,7 +748,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         advFileModeBtn.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
             chooser.setTitle("Select location");
-            chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Node Config", "*.conf"));
+            chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Config (text)", "*.conf", "*.config", "*.cfg"));
             File configFile = chooser.showOpenDialog(stage);
             if (configFile != null && configFile.isFile()) {
                 configFileOption.set(configFile);
@@ -1244,7 +1261,21 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         }
     }
 
-    public void initalSetup() {
+    public static long getRequiredSpace(String blockchainMode) {
+        switch (blockchainMode) {
+            case BlockchainMode.RECENT_ONLY:
+                return 150L * 1024L * 1024L;
+
+            case BlockchainMode.PRUNED:
+                return 500L * 1024L * 1024L;
+
+            case BlockchainMode.FULL:
+            default:
+                return 50L * 1024L * 1024L * 1024L;
+        }
+    }
+
+    public void setup() {
         if (m_setupStage == null) {
 
             SimpleObjectProperty<File> directory = new SimpleObjectProperty<File>(getErgoNodesList().getErgoNodes().getAppDir());
@@ -1255,7 +1286,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             MenuButton configDigestAccess = new MenuButton(DigestAccess.LOCAL);
             MenuButton configBlockchainMode = new MenuButton(BlockchainMode.PRUNED);
 
-            SimpleObjectProperty<File> configFile = new SimpleObjectProperty<>(null);
+            SimpleObjectProperty<File> configFileOption = new SimpleObjectProperty<>(null);
 
             Button nextBtn = new Button("Next");
 
@@ -1264,7 +1295,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             m_setupStage.setResizable(false);
             m_setupStage.initStyle(StageStyle.UNDECORATED);
 
-            Scene initialScene = initialSetupScene(nextBtn, configModeBtn, configDigestAccess, configBlockchainMode, configApiKey, configFile, directory, folderNameField, m_setupStage);
+            Scene initialScene = initialSetupScene(nextBtn, configModeBtn, configDigestAccess, configBlockchainMode, configApiKey, configFileOption, directory, folderNameField, m_setupStage);
             m_setupStage.setScene(initialScene);
 
             m_setupStage.show();
@@ -1274,30 +1305,74 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 final String digestMode = configDigestAccess.getText();
                 final String blockchainMode = configBlockchainMode.getText();
                 final String apiKey = configApiKey.getText();
-                long useableSpace = directory.get().getUsableSpace();
-                long requiredSpace;
+                final File dir = directory.get();
+                String directoryString = dir.getAbsolutePath();
 
-                switch (blockchainMode) {
-                    case BlockchainMode.RECENT_ONLY:
-                        requiredSpace = 100L * 1024L * 1024L;
-                        break;
-                    case BlockchainMode.PRUNED:
-                        requiredSpace = 500L * 1024L * 1024L;
-                        break;
-                    case BlockchainMode.FULL:
-                        requiredSpace = 50L * 1024L * 1024L * 1024L;
-                        break;
-                    default:
-                        requiredSpace = 50L * 1024L * 1024L * 1024L;
+                final File installDir = new File(dir.getAbsolutePath() + "/" + folderNameField.getText());
+
+                long useableSpace = directory.get().getUsableSpace();
+                long requiredSpace = getRequiredSpace(blockchainMode);
+                String errorMsg = "";
+
+                if (!installDir.isDirectory()) {
+                    try {
+                        Files.createDirectory(installDir.toPath());
+
+                    } catch (IOException e1) {
+                        errorMsg = e1.toString();
+                    }
                 }
-                if (requiredSpace > useableSpace) {
-                    Alert a = new Alert(AlertType.NONE, "The selected directory does not meet the space requirements.\n\nUseable space: " + Utils.formatedBytes(useableSpace, 2) + "\nRequired space: " + Utils.formatedBytes(requiredSpace, 2), ButtonType.OK);
-                    a.initOwner(m_setupStage);
-                    a.setHeaderText("Required Space");
-                    a.setTitle("Required Space - Setup - Local Node - Ergo Nodes");
-                    a.show();
+                if (installDir.isDirectory()) {
+                    if (requiredSpace > useableSpace) {
+                        Alert a = new Alert(AlertType.NONE, "The selected directory does not meet the space requirements.\n\nUseable space: " + Utils.formatedBytes(useableSpace, 2) + "\nRequired space: " + Utils.formatedBytes(requiredSpace, 2), ButtonType.OK);
+                        a.initOwner(m_setupStage);
+                        a.setHeaderText("Required Space");
+                        a.setTitle("Required Space - Setup - Local Node - Ergo Nodes");
+                        a.show();
+                    } else {
+                        if (configMode.equals(ConfigMode.BASIC)) {
+
+                            install(configMode, DEFAULT_CONFIG_NAME, digestMode, blockchainMode, apiKey, installDir, initialScene);
+                        } else {
+                            File configFile = configFileOption.get();
+                            if (configFile != null && configFile.isFile()) {
+                                final String configFileName = configFile.getName();
+                                File configParent = configFile.getParentFile();
+                                File newConfig = new File(directoryString + "/" + configFileName);
+
+                                String configFileErr = "Cannot find config file.";
+                                if (!configParent.getAbsolutePath().equals(directoryString)) {
+
+                                    try {
+                                        Files.copy(configFile.toPath(), newConfig.toPath());
+                                    } catch (IOException e1) {
+                                        configFileErr = e1.toString();
+                                    }
+                                }
+                                if (newConfig.isFile()) {
+                                    install(configMode, configFileName, digestMode, blockchainMode, apiKey, installDir, initialScene);
+                                } else {
+                                    Alert a = new Alert(AlertType.NONE, configFileErr, ButtonType.OK);
+                                    a.initOwner(m_setupStage);
+                                    a.setHeaderText("Config File Error");
+                                    a.setTitle("Config File Error - Setup - Local Node - Ergo Nodes");
+                                    a.show();
+                                }
+                            } else {
+                                Alert a = new Alert(AlertType.NONE, "Select an existing config text file, or select 'Basic' mode.", ButtonType.OK);
+                                a.initOwner(m_setupStage);
+                                a.setHeaderText("Config File");
+                                a.setTitle("Config File - Setup - Local Node - Ergo Nodes");
+                                a.show();
+                            }
+                        }
+                    }
                 } else {
-                    install(configMode, digestMode, blockchainMode, apiKey, directory, folderNameField, initialScene);
+                    Alert a = new Alert(AlertType.NONE, errorMsg, ButtonType.OK);
+                    a.initOwner(m_setupStage);
+                    a.setHeaderText("Directory Creation Error");
+                    a.setTitle("Directory Creation Error - Setup - Local Node - Ergo Nodes");
+                    a.show();
                 }
 
             });
@@ -1315,15 +1390,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         return m_consoleOutputProperty;
     }
 
-    public void install(String configMode, String digestMode, String blockchainMode, String apiKeyString, SimpleObjectProperty<File> directory, TextField folderNameField, Scene initialScene) {
+    public void install(String configMode, String configFileName, String digestMode, String blockchainMode, String apiKeyString, File installDir, Scene initialScene) {
         if (m_setupStage == null) {
-            initalSetup();
+            setup();
         } else {
             Button installBtn = new Button("Install");
             Button backBtn = new Button("Back");
 
-            File installDir = new File(directory.get().getAbsolutePath() + "/" + folderNameField.getText());
-
+            // 
             SimpleBooleanProperty getLatestBoolean = new SimpleBooleanProperty(true);
             SimpleStringProperty downloadUrl = new SimpleStringProperty("https://github.com/ergoplatform/ergo/releases/download/v5.0.14/ergo-5.0.14.jar");
             SimpleStringProperty downloadFileName = new SimpleStringProperty("ergo-5.0.14.jar");
@@ -1350,55 +1424,26 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 } else {
                     ProgressBar progressBar = new ProgressBar();
 
-                    if (!installDir.isDirectory()) {
-                        try {
-                            Files.createDirectory(installDir.toPath());
-
-                        } catch (IOException e1) {
-                        }
-                    }
                     boolean isDownload = getLatestBoolean.get();
 
                     Runnable installComplete = () -> {
 
-                        isSetupProperty.set(true);
                         m_setupStage.close();
                         m_setupStage = null;
 
-                        if (configMode.equals(ConfigMode.BASIC)) {
+                        try {
+                            m_nodeConfigData = new ErgoNodeConfig(apiKeyString, configMode, digestMode, blockchainMode, configFileName, m_appDir);
+                            namedNodeUrlProperty.set(new NamedNodeUrl(getId(), blockchainMode, "127.0.0.1", ErgoNodes.MAINNET_PORT, apiKeyString, NetworkType.MAINNET));
+                            isSetupProperty.set(true);
+                            start();
 
-                            try {
-                                m_nodeConfigData = new ErgoNodeConfig(apiKeyString, configMode, digestMode, blockchainMode, m_appDir);
-
-                                namedNodeUrlProperty.set(new NamedNodeUrl(getId(), blockchainMode, "127.0.0.1", ErgoNodes.MAINNET_PORT, apiKeyString, NetworkType.MAINNET));
-
-                                start();
-
-                            } catch (Exception e1) {
-                                Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
-                                a.initOwner(m_setupStage);
-                                a.setTitle("Config Creation Error - Setup - Ergo Nodes");
-                                a.setHeaderText("Config Creation Error");
-                                a.show();
-                                m_setupStage.setScene(initialScene);
-
-                            }
-
-                        } else {
-                            String configFileName = "ergo.conf";
-                            try {
-                                m_nodeConfigData = new ErgoNodeConfig(apiKeyString, configMode, digestMode, blockchainMode, configFileName, m_appDir);
-                                namedNodeUrlProperty.set(new NamedNodeUrl(getId(), ConfigMode.ADVANCED, "127.0.0.1", ErgoNodes.MAINNET_PORT, apiKeyString, NetworkType.MAINNET));
-                                start();
-                            } catch (Exception e1) {
-                                Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
-                                a.initOwner(m_setupStage);
-                                a.setTitle("Config Creation Error - Setup - Ergo Nodes");
-                                a.setHeaderText("Config Creation Error");
-                                a.show();
-                                m_setupStage.setScene(initialScene);
-
-                            }
+                        } catch (Exception e1) {
+                            Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
+                            a.initOwner(m_setupStage);
+                            a.setTitle("Config Creation Error - Setup - Ergo Nodes");
+                            a.setHeaderText("Config Creation Error");
+                            a.show();
+                            m_setupStage.setScene(initialScene);
 
                         }
 
@@ -1617,7 +1662,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 if (getIsSetup()) {
                     start();
                 } else {
-                    initalSetup();
+                    setup();
                 }
             } else {
                 stop();
@@ -1698,20 +1743,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         ipText.setFill(getPrimaryColor());
         ipText.setFont(getSmallFont());
 
-        TextField syncField = new TextField();
+        Text syncText = new Text();
+        syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
+        syncText.setFont(getSmallFont());
 
-        syncField.setId(syncedProperty.get() ? "smallPrimaryColor" : "smallSecondaryColor");
-        syncField.setAlignment(Pos.CENTER);
-        syncField.setEditable(false);
-        syncField.setPadding(new Insets(0));
-        syncField.setFont(getSmallFont());
-        HBox.setHgrow(syncField, Priority.ALWAYS);
+        Region lbotRegion = new Region();
+        lbotRegion.setMinWidth(5);
+        HBox.setHgrow(lbotRegion, Priority.ALWAYS);
 
-        HBox bottomBox = new HBox(ipText, syncField, botTimeText);
+        Region rbotRegion = new Region();
+        rbotRegion.setMinWidth(5);
+        HBox.setHgrow(rbotRegion, Priority.ALWAYS);
+
+        HBox bottomBox = new HBox(ipText, lbotRegion, syncText, rbotRegion, botTimeText);
         bottomBox.setId("darkBox");
         bottomBox.setAlignment(Pos.CENTER_LEFT);
 
-        //syncField.prefWidthProperty().bind(bottomBox.widthProperty().subtract(ipText.layoutBoundsProperty().get().getWidth()).subtract(botTimeText.layoutBoundsProperty().get().getWidth()));
+        //syncText.prefWidthProperty().bind(bottomBox.widthProperty().subtract(ipText.layoutBoundsProperty().get().getWidth()).subtract(botTimeText.layoutBoundsProperty().get().getWidth()));
         HBox.setHgrow(bottomBox, Priority.ALWAYS);
 
         VBox bodyBox = new VBox(topSpacer, topBox, centerBox, bottomBox, bottomSpacer);
@@ -1737,28 +1785,33 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         Runnable updateSynced = () -> {
             String status = statusProperty.get() == null ? MarketsData.STOPPED : statusProperty.get();
+
             if (!status.equals(MarketsData.STOPPED)) {
-                boolean synced = syncedProperty.get();
-                int peerCount = peerCountProperty.get();
-                long networkBlockHeight = networkBlockHeightProperty.get();
-                long nodeBlockHeight = nodeBlockHeightProperty.get();
 
-                if (!synced) {
+                Platform.runLater(() -> {
+                    boolean synced = syncedProperty.get();
+                    int peerCount = peerCountProperty.get();
+                    long networkBlockHeight = networkBlockHeightProperty.get();
+                    long nodeBlockHeight = nodeBlockHeightProperty.get();
 
-                    //  double p = (networkBlockHeight / nodeBlockHeight);
-                    //if (networkBlockHeight == -1 || nodeBlockHeight == -1) {
-                    //    syncField.setText("Updating sync status...");
-                    //  } else {
-                    syncField.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) + (peerCount > 0 ? ",  Peers: " + peerCount : ""));
+                    if (!synced) {
+                        //  double p = (networkBlockHeight / nodeBlockHeight);
+                        //if (networkBlockHeight == -1 || nodeBlockHeight == -1) {
+                        //    syncText.setText("Updating sync status...");
+                        //  } else {
 
-                    //+ " (" + String.format("%.1f", p * 100) + ")");
-                    // }
-                } else {
-                    syncField.setText("Synchronized: " + nodeBlockHeight + (peerCount > 0 ? ",  Peers: " + peerCount : ""));
-                }
+                        syncText.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) + (peerCount > 0 ? " -  Peers: " + peerCount : ""));
 
+                        //+ " (" + String.format("%.1f", p * 100) + ")");
+                        // }
+                    } else {
+                        syncText.setText("Synchronized: " + nodeBlockHeight + (peerCount > 0 ? ",  Peers: " + peerCount : ""));
+                    }
+                });
             } else {
-                syncField.setText("");
+                Platform.runLater(() -> {
+                    syncText.setText("");
+                });
             }
 
         };
@@ -1774,21 +1827,17 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         statusProperty.addListener((obs, oldval, newval) -> updateSynced.run());
         syncedProperty.addListener((obs, oldVal, newVal) -> {
 
-            syncField.setId(newVal ? "smallPrimaryColor" : "smallSecondaryColor");
+            syncText.setFill(newVal ? getPrimaryColor() : getSecondaryColor());
             powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(MarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
 
         });
         updateSynced.run();
 
         rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
-            String currentId = getErgoNodesList().selectedIdProperty().get();
-            if (currentId == null) {
+            Platform.runLater(() -> {
                 getErgoNodesList().selectedIdProperty().set(getId());
-            } else {
-                if (!currentId.equals(getId())) {
-                    getErgoNodesList().selectedIdProperty().set(getId());
-                }
-            }
+                e.consume();
+            });
         });
 
         Runnable updateSelected = () -> {
@@ -1799,6 +1848,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             rowBox.setId(isSelected ? "selected" : "unSelected");
         };
 
+        //double width = bottomBox.layoutBoundsProperty().get().getWidth() - ipText.layoutBoundsProperty().get().getWidth() - botTimeText.layoutBoundsProperty().get().getWidth();
+        // syncField.minWidthProperty().bind(rowBox.widthProperty().subtract(botTimeText.layoutBoundsProperty().get().getWidth()).subtract(200));
         getErgoNodesList().selectedIdProperty().addListener((obs, oldval, newVal) -> updateSelected.run());
         updateSelected.run();
 

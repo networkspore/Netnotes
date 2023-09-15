@@ -20,8 +20,8 @@ public class NamedNodeUrl {
 
     //type
     private int m_port = 9053;
-    private String m_id = "DEFAULT_SERVER_#1";
-    private String m_name = "Public node #1";
+    private String m_id = null;
+    private String m_name = "Public Node #1";
     private String m_protocol = "http";
     private String m_ip = "213.239.193.208";
     private NetworkType m_networkType = NetworkType.MAINNET;
@@ -31,7 +31,7 @@ public class NamedNodeUrl {
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>(null);
 
     public NamedNodeUrl() {
-
+        m_id = FriendlyId.createFriendlyId();
     }
 
     public NamedNodeUrl(JsonObject json) {
