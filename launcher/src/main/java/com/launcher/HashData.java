@@ -1,4 +1,4 @@
-package com.netnotes;
+package com.launcher;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -11,7 +11,6 @@ import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import com.utils.Utils;
 
 public class HashData {
 
@@ -21,9 +20,9 @@ public class HashData {
     private String m_name = DEFAULT_HASH;
     private byte[] m_hashBytes = null;
 
-    public HashData(File file) throws  IOException{
+    public HashData(File file) throws IOException{
       
-        m_hashBytes = Utils.digestFile(file);
+        m_hashBytes = Utils.digestFileBlake2b(file, 32);
     }
 
     public HashData(byte[] bytes) {
@@ -32,6 +31,14 @@ public class HashData {
 
     public HashData(JsonObject json)  {
         openJson(json);
+    }
+
+    public HashData(String hashId, String name, byte[] bytes) {
+
+        m_id = hashId;
+        m_name = name;
+        m_hashBytes = bytes;
+
     }
 
     public HashData(String hashId, String name, String hashString) {
@@ -58,12 +65,12 @@ public class HashData {
                 m_name = nameElement.getAsString();
                 if (hashStringElement != null && hashStringElement.isJsonPrimitive()) {
                     setHashHex(hashStringElement.getAsString());
-                    return;
+                  
                 }
             }
         }
 
-
+      
     }
 
     public String getId() {

@@ -51,6 +51,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.Security;
 import java.security.spec.KeySpec;
 import java.time.Duration;
@@ -78,9 +79,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.netnotes.IconButton.IconStyle;
-import com.rfksystems.blake2b.security.Blake2bProvider;
+
 
 import com.utils.Utils;
+import com.utils.Version;
+
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
@@ -123,16 +126,14 @@ public class App extends Application {
     public static Image openImg = new Image("/assets/open-outline-white-20.png");
     public static Image diskImg = new Image("/assets/save-outline-white-20.png");
 
-    public static String settingsFileName = "settings.conf";
-    public static String networksFileName = "networks.dat";
+    public final static String SETTINGS_FILE_NAME = "settings.conf";
+    public final static String NETWORKS_FILE_NAME = "networks.dat";
 
     public static final String homeString = System.getProperty("user.home");
 
     private File settingsFile = null;
 
-    private File currentDir = null;
-    private File launcherFile = null;
-    private File currentJar = null;
+
 
     private NetworksData m_networksData;
 
@@ -142,64 +143,90 @@ public class App extends Application {
     private final static long EXECUTION_TIME = 500;
     private Stage m_stage;
 
-    private void parseArgs(List<String> args, Stage appStage) {
+    private File m_currentDir = null;
+    private File m_launcherFile = null;
+    private File m_appFile = null;
+    private Version m_javaVersion = null;
+    private HashData m_appHashData = null;
+    private HashData m_launcherHashData = null;
+    private boolean m_updates = false;
 
-        if (args.size() > 0) {
+    private void parseArgs(String argString, Stage appStage) {
 
-            String argString = args.get(0);
+        if( argString != null && argString.length() > 0) {
 
             byte[] bytes = Hex.decode(argString);
 
             String jsonString = new String(bytes, StandardCharsets.UTF_8);
 
             JsonObject obj = new JsonParser().parse(jsonString).getAsJsonObject();
-            JsonElement jarFileElement = obj.get("jarFilePath");
-            JsonElement launcherFiElement = obj.get("launcher");
 
-            if (jarFileElement != null && launcherFiElement != null) {
-                String jarFilePathString = jarFileElement.getAsString();
-                String launcherFilePathString = launcherFiElement.getAsString();
+            try {
+                Files.writeString(logFile.toPath(), "\n" + obj.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+     
+            }
+            
+            m_javaVersion = new Version( obj.get("javaVersion").getAsString());
+            m_appHashData  = new HashData(obj.get("appHashData").getAsJsonObject());
+            m_appFile = new File(obj.get("appFile").getAsString());
+            m_currentDir = m_appFile.getParentFile();
+            m_launcherFile = new File(obj.get("launcherFile").getAsString());
+            m_updates = obj.get("updates").getAsBoolean();
+            m_launcherHashData = new HashData(obj.get("launcherHashData").getAsJsonObject());
+            
+            JsonElement moveElement = obj.get("moveFiles");
 
-                currentJar = new File(jarFilePathString);
-                currentDir = currentJar.getParentFile();
-                launcherFile = new File(launcherFilePathString);
-                File launcherDir = launcherFile.getParentFile();
+            boolean moveFiles = moveElement != null  && moveElement.isJsonPrimitive() ? moveElement.getAsBoolean() : false;
 
-                File destinationFile = new File(currentDir.getAbsolutePath() + "/" + launcherFile.getName());
+            
 
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-
-                        }
-
-                        try {
-                            File desktopFile = new File(homeString + "/Desktop");
-
-                            if (!launcherFile.getAbsolutePath().equals(destinationFile.toString())) {
-
-                                Files.move(launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                                Utils.createLink(destinationFile, launcherDir, "Net Notes.lnk");
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
 
                             }
+                            if (moveFiles) {
+                                try {
+                                    File desktopFile = new File(homeString + "/Desktop");
+                                    File launcherDir = m_launcherFile.getParentFile();
+                                    File destinationFile = new File(m_currentDir.getAbsolutePath() + "/" + m_launcherFile.getName());
 
-                            Utils.createLink(destinationFile, desktopFile, "Net Notes.lnk");
+                                    if (!m_launcherFile.getAbsolutePath().equals(destinationFile.toString())) {
 
-                        } catch (Exception e) {
+                                        Files.move(m_launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                        Utils.createLink(destinationFile, launcherDir, "Net Notes.lnk");
+
+                                        m_launcherFile = destinationFile;
+                                    }
+
+                                    Utils.createLink(destinationFile, desktopFile, "Net Notes.lnk");
+
+                                } catch (Exception e) {
+                                
+                                }
+                            }
+                     
+                            if(m_launcherHashData != null && m_updates){
+                                checkForUpdates();
+                            }
 
                         }
+                    }).start();
+                
 
-                    }
-                }).start();
+            
 
-            }
-
-        } else {
-            currentDir = new File(System.getProperty("user.dir"));
+        }else{
+            shutdownNow();
         }
+
+    }
+
+    public void checkForUpdates(){
 
     }
 
@@ -215,16 +242,18 @@ public class App extends Application {
         Parameters params = getParameters();
         List<String> list = params.getRaw();
 
-        parseArgs(list, appStage);
+        if(list.size() > 0){
+            parseArgs(list.get(0), appStage);
+        }
 
-        if (currentDir != null) {
-            String currentDirString = currentDir.getAbsolutePath();
+        if (m_currentDir != null) {
+            String currentDirString = m_currentDir.getAbsolutePath();
 
-            settingsFile = new File(currentDirString + "/" + settingsFileName);
+            settingsFile = new File(currentDirString + "/" + SETTINGS_FILE_NAME);
 
             if (!settingsFile.isFile()) {
 
-                Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + currentDir.getAbsolutePath() + "\n" + launcherFile.getAbsolutePath(), ButtonType.CLOSE);
+                Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + m_currentDir.getAbsolutePath() + "\n" + m_launcherFile.getAbsolutePath(), ButtonType.CLOSE);
                 a.showAndWait();
                 shutdownNow();
 
@@ -257,10 +286,7 @@ public class App extends Application {
     }
 
     public void startApp(AppData appData, Stage appStage) {
-        if (Security.getProvider("BLAKE2B") == null) {
-            Security.addProvider(new Blake2bProvider());
-
-        }
+    
         appStage.setTitle("Net Notes - Enter Password");
 
         Button closeBtn = new Button();
@@ -421,7 +447,7 @@ public class App extends Application {
 
     // private static int createTries = 0;
     private void openNetnotes(AppData appData, SecretKey appKey, Stage appStage) {
-        File networksFile = new File(networksFileName);
+        File networksFile = new File(NETWORKS_FILE_NAME);
 
         boolean isNetworksFile = networksFile.isFile();
 
@@ -1625,9 +1651,18 @@ public class App extends Application {
 
         double defaultRowHeight = 40;
         Button closeBtn = new Button();
-        Button maximizeBtn = new Button();
 
-        HBox titleBox = createTopBar(icon, maximizeBtn, closeBtn, stage);
+
+        Text fileNameProgressText = new Text(fileName.get() + " (" + String.format("%.1f", progressBar.getProgress() * 100) + "%)");
+        fileNameProgressText.setFill(txtColor);
+        fileNameProgressText.setFont(txtFont);
+
+        Label titleBoxLabel = new Label();
+        titleBoxLabel.setTextFill(txtColor);
+        titleBoxLabel.setFont(txtFont);
+        titleBoxLabel.textProperty().bind(fileNameProgressText.textProperty());
+
+        HBox titleBox = createTopBar(icon, titleBoxLabel, closeBtn, stage);
 
         Text headingText = new Text(headingString);
         headingText.setFont(txtFont);
@@ -1657,9 +1692,7 @@ public class App extends Application {
         //  HBox.setHgrow(progressAlignmentBox, Priority.ALWAYS);
         progressAlignmentBox.setAlignment(Pos.CENTER);
 
-        Text fileNameProgressText = new Text(fileName.get() + " (" + String.format("%.1f", progressBar.getProgress() * 100) + "%)");
-        fileNameProgressText.setFill(txtColor);
-        fileNameProgressText.setFont(txtFont);
+       
 
         progressBar.progressProperty().addListener((obs, oldVal, newVal) -> {
             fileNameProgressText.setText(fileName.get() + " (" + String.format("%.1f", newVal.doubleValue() * 100) + "%)");
@@ -1689,7 +1722,7 @@ public class App extends Application {
 
         VBox footerBox = new VBox(footerSpacer);
         VBox layoutBox = new VBox(headerBox, bodyPaddingBox, footerBox);
-        Scene coreFileProgressScene = new Scene(layoutBox, 600, 250);
+        Scene coreFileProgressScene = new Scene(layoutBox, 600, 260);
         coreFileProgressScene.getStylesheets().add("/css/startWindow.css");
 
         // bodyTopRegion.minHeightProperty().bind(stage.heightProperty().subtract(30).divide(2).subtract(progressAlignmentBox.heightProperty()).subtract(fileNameProgressBox.heightProperty().divide(2)));

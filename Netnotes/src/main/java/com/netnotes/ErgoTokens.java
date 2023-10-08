@@ -35,7 +35,6 @@ import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.rfksystems.blake2b.Blake2b;
 import com.utils.Utils;
 
 import javafx.concurrent.WorkerStateEvent;
@@ -62,6 +61,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import ove.crypto.digest.Blake2b;
 
 public class ErgoTokens extends Network implements NoteInterface {
 
@@ -576,12 +576,12 @@ public class ErgoTokens extends Network implements NoteInterface {
             InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("assets/ergoTokenIcons.zip");
 
             ZipInputStream zipStream = null;
-            String hashId = Blake2b.BLAKE2_B_256;
+         
             try {
 
                 zipStream = new ZipInputStream(is);
-                final MessageDigest digest = MessageDigest.getInstance(hashId);
-
+                final Blake2b digest = Blake2b.Digest.newInstance(32);
+            
                 String tokensPathString = tokensDir.getAbsolutePath() + "\\";
 
                 if (zipStream != null) {
@@ -653,7 +653,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                     }
                 }
-            } catch (IOException | NoSuchAlgorithmException e) {
+            } catch (IOException e) {
                 try {
                     Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {

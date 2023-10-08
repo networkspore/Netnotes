@@ -327,7 +327,7 @@ public class ErgoNodeData {
         HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
         topBox.setId("darkBox");
 
-        Text ipText = new Text(namedNodeUrlProperty.get() != null ? (namedNodeUrlProperty.get().getIP() == null ? "IP INVALID" : namedNodeUrlProperty.get().getIP()) : "Configure node");
+        Text ipText = new Text(namedNodeUrlProperty.get() != null ? (namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : namedNodeUrlProperty.get().getUrlString()) : "Configure node");
         ipText.setFill(m_primaryColor);
         ipText.setFont(m_smallFont);
 
@@ -406,6 +406,27 @@ public class ErgoNodeData {
             lastUpdated.removeListener(updateListener);
             updateListener = null;
         }
+    }
+
+    public void openSettings() {
+
+    }
+
+    public HBox getMenuBar() {
+        Tooltip settingsTip = new Tooltip("Settings");
+        settingsTip.setShowDelay(new Duration(100));
+        BufferedButton settingsBtn = new BufferedButton("/assets/settings-outline-white-120.png", 20);
+        settingsBtn.setTooltip(settingsTip);
+
+        Region menuSpacer = new Region();
+        HBox.setHgrow(menuSpacer, Priority.ALWAYS);
+
+        HBox menuBar = new HBox(menuSpacer, settingsBtn);
+        HBox.setHgrow(menuBar, Priority.ALWAYS);
+        menuBar.setAlignment(Pos.CENTER_LEFT);
+
+        settingsBtn.setOnAction(e -> openSettings());
+        return menuBar;
     }
 
     public void pingIP(String ip) {

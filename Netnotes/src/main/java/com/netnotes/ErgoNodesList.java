@@ -96,7 +96,9 @@ public class ErgoNodesList {
 
     private void getFile(SecretKey secretKey) {
         File dataFile = m_ergoNodes.getDataFile();
-        if (dataFile != null && dataFile.isFile()) {
+        File appDir = m_ergoNodes.getAppDir();
+
+        if (appDir != null && appDir.isDirectory() && dataFile != null && dataFile.isFile()) {
             try {
                 JsonObject json = Utils.readJsonFile(secretKey, m_ergoNodes.getDataFile().toPath());
                 openJson(json);
@@ -109,6 +111,11 @@ public class ErgoNodesList {
                 a.show();
             }
         } else {
+            try {
+                Files.writeString(logFile.toPath(), "\nDefault settings", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+             
+            }
             m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
             m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
             add(new ErgoNodeData(this, ErgoNodeData.LIGHT_CLIENT, new NamedNodeUrl()), true);
@@ -131,13 +138,12 @@ public class ErgoNodesList {
         if (localNodeElement != null && localNodeElement.isJsonObject()) {
             JsonObject localNodeObject = localNodeElement.getAsJsonObject();
 
-            JsonElement idElement = localNodeObject.get("id");
+
             JsonElement namedNodeElement = localNodeObject.get("namedNode");
 
-            String id = idElement != null && idElement.isJsonPrimitive() ? idElement.getAsString() : null;
             NamedNodeUrl namedNodeUrl = namedNodeElement != null && namedNodeElement.isJsonObject() ? new NamedNodeUrl(namedNodeElement.getAsJsonObject()) : null;
 
-            if (id != null && namedNodeUrl != null) {
+            if (namedNodeUrl != null) {
                 m_ergoLocalNode = new ErgoNodeLocalData(namedNodeUrl, localNodeObject, this);
 
                 m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
@@ -199,10 +205,8 @@ public class ErgoNodesList {
     public void add(ErgoNodeData ergoNodeData, boolean doSave) {
         if (ergoNodeData != null) {
             m_dataList.add(ergoNodeData);
-
-            ergoNodeData.addUpdateListener((obs, oldval, newval) -> {
-                save();
-            });
+       
+            ergoNodeData.addUpdateListener(m_nodeUpdateListener);
             if (doSave) {
                 save();
             }
@@ -210,13 +214,35 @@ public class ErgoNodesList {
     }
 
     public void remove(String id) {
-        if (id != null && m_dataList.size() > 0) {
-            for (int i = 0; i < m_dataList.size(); i++) {
-                if (m_dataList.get(i).getId().equals(id)) {
-                    m_dataList.remove(i);
+        if(id != null ){
+            String selectedId = selectedIdProperty().get();
+            if(selectedId != null && selectedId.equals(id)){
+                selectedIdProperty().set(null);
+            }
+            boolean updated = false;
+            if(m_ergoLocalNode.getId().equals(id)){
+                m_ergoLocalNode.remove();
+                m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
+                m_ergoLocalNode.addUpdateListener(m_nodeUpdateListener);
+                updated = true;
+            }else{
+                if (m_dataList.size() > 0) {
+                    for (int i = 0; i < m_dataList.size(); i++) {
+                        ErgoNodeData ergoNodeData = m_dataList.get(i);
+                        if (ergoNodeData.getId().equals(id)) {
+                            m_dataList.remove(i);
+                            ergoNodeData.removeUpdateListener();
+                            updated = true;
+                        }
+                    }
                 }
             }
+            if(updated){
+                save();
+                m_doGridUpdate.set(LocalDateTime.now());
+            }
         }
+        
     }
 
     public ErgoNodeData getErgoNodeData(String id) {
@@ -276,7 +302,11 @@ public class ErgoNodesList {
 
         //  byte[] bytes = jsonString.getBytes(StandardCharsets.UTF_8);
         // String fileHexString = Hex.encodeHexString(bytes);
+        File appDir = m_ergoNodes.getAppDir();
         try {
+            if (!appDir.isDirectory()) {
+                Files.createDirectory(appDir.toPath());
+            }
             Utils.writeEncryptedString(m_ergoNodes.getNetworksData().appKeyProperty().get(), m_ergoNodes.getDataFile(), jsonString);
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException

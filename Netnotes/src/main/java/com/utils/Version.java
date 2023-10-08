@@ -2,10 +2,13 @@ package com.utils;
 
 public class Version implements Comparable<Version> {
 
-    private String version;
+    private String m_version;
 
     public final String get() {
-        return this.version;
+        return m_version;
+    }
+    public Version(){
+        m_version = "0.0.0";
     }
 
     public Version(String version) {
@@ -15,7 +18,7 @@ public class Version implements Comparable<Version> {
         if (!version.matches("[0-9]+(\\.[0-9]+)*")) {
             throw new IllegalArgumentException("Invalid version format");
         }
-        this.version = version;
+        m_version = version;
     }
 
     @Override
@@ -23,7 +26,7 @@ public class Version implements Comparable<Version> {
         if (that == null) {
             return 1;
         }
-        String[] thisParts = this.get().split("\\.");
+        String[] thisParts = m_version.split("\\.");
         String[] thatParts = that.get().split("\\.");
         int length = Math.max(thisParts.length, thatParts.length);
         for (int i = 0; i < length; i++) {
@@ -53,6 +56,12 @@ public class Version implements Comparable<Version> {
             return false;
         }
         return this.compareTo((Version) that) == 0;
+    }
+
+    @Override
+    public String toString(){
+
+        return m_version != null ?( m_version.equals("0.0.0") ? "(Unknown)" : m_version) : "(Unknown)";
     }
 
 }

@@ -14,6 +14,7 @@ public class AppData {
 
     private File m_dataFile;
     private String m_appKey;
+    private boolean m_isDaemon = false;
 
     private SimpleBooleanProperty m_updatesProperty = new SimpleBooleanProperty(true);
 
@@ -25,11 +26,15 @@ public class AppData {
         if (dataObject != null) {
             JsonElement updatesElement = dataObject.get("updates");
             JsonElement appkeyElement = dataObject.get("appKey");
+            JsonElement daemonElement = dataObject.get("isDaemon");
 
             boolean updates = updatesElement != null && updatesElement.isJsonPrimitive() ? updatesElement.getAsBoolean() : true;
+            boolean isDaemon = daemonElement != null && daemonElement.isJsonPrimitive() ? daemonElement.getAsBoolean() : false;
+
             if (appkeyElement != null && appkeyElement.isJsonPrimitive()) {
                 m_appKey = appkeyElement.getAsString();
                 m_updatesProperty.set(updates);
+                m_isDaemon = isDaemon;
             } else {
                 throw new Exception("Null appKey");
             }
@@ -37,6 +42,26 @@ public class AppData {
             throw new Exception("Null Json");
         }
 
+    }
+
+    public void updateRegistry(){
+
+    }
+
+    public boolean getIsDaemon(){
+        return m_isDaemon;
+    }
+
+    public void setIsDaemon(boolean isDaemon) throws IOException{
+        m_isDaemon = isDaemon;
+        if(isDaemon){
+            save();
+            updateRegistry();
+        }else{
+            updateRegistry();
+            save();
+        }
+        
     }
 
     public String getAppKey() {

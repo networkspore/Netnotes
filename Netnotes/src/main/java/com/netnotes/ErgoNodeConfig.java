@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 import javafx.beans.property.SimpleObjectProperty;
 
 import com.google.gson.JsonObject;
-import com.rfksystems.blake2b.Blake2b;
 import com.utils.Utils;
 import com.google.gson.JsonElement;
 
@@ -86,6 +85,16 @@ public class ErgoNodeConfig {
 
     }
 
+    public ErgoNodeConfig(ErgoNodeConfig nodeConfig) {
+        m_configMode = nodeConfig.getConfigMode();
+        m_stateMode = nodeConfig.getStateMode();
+        m_blockchainMode = nodeConfig.getBlockchainMode();
+        m_appDir = nodeConfig.getAppDir();
+        m_configFileName = nodeConfig.getConfigFileName();
+        m_configFileHashData = nodeConfig.getConfigFileHashData();
+        m_apiKeyHash = nodeConfig.getApiKeyHash();
+    }
+
     public void setBasicConfig(JsonObject json) throws Exception {
         if (json != null) {
             JsonElement blockchainModeElement = json.get("blockchainMode");
@@ -119,7 +128,7 @@ public class ErgoNodeConfig {
 
                 String configFileName = configFileNameElement.getAsString();
                 File configFile = new File(m_appDir.getAbsolutePath() + "/" + configFileName);
-                String configFileHashString = new String(Utils.digestFile(configFile, Blake2b.BLAKE2_B_256));
+                String configFileHashString = new String(Utils.digestFile(configFile));
                 HashData configFileHashData = new HashData(configFileHashDataElement.getAsJsonObject());
 
                 if (configFileHashData.getHashString().equals(configFileHashString)) {
@@ -163,6 +172,10 @@ public class ErgoNodeConfig {
         return m_appDir;
     }
 
+    public void setAppDir(File appDir) {
+        m_appDir = appDir;
+    }
+
     public String getConfigMode() {
         return m_configMode;
     }
@@ -193,7 +206,7 @@ public class ErgoNodeConfig {
     public void setApiKey(String apiKeyString) throws FileNotFoundException, IOException, Exception {
 
         if (apiKeyString != null && apiKeyString != "") {
-            final byte[] apiHashbytes = Utils.digestBytesToBytes(apiKeyString.getBytes(), Blake2b.BLAKE2_B_256);
+            final byte[] apiHashbytes = Utils.digestBytesToBytes(apiKeyString.getBytes());
 
             m_apiKeyHash = Hex.encodeHexString(apiHashbytes);
         } else {
@@ -327,7 +340,7 @@ public class ErgoNodeConfig {
             throw new Exception("Config file not found.");
         }
 
-        byte[] fileBytes = Utils.digestFile(configFile, Blake2b.BLAKE2_B_256);
+        byte[] fileBytes = Utils.digestFile(configFile);
 
         m_configFileHashData = new HashData(fileBytes);
 

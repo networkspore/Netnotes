@@ -44,15 +44,33 @@
     -fx-background-radius: 10px;
 
     -fx-opacity: .9;
-    -fx-pref-height: 25px;
-    -fx-font-size: 12px;
-    -fx-font-family: 'OCR A Extended'; 
+    -fx-font-size: 11px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-padding: 3 10 2 10;
+
 }
 
 #urlField:focused {
     -fx-text-fill: #000000;
     -fx-opacity: 1;
 
+}
+
+#titleBtn {
+
+    -fx-text-fill: #cdd4da;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-background-color: transparent;
+    -fx-opacity: .8;
+
+}
+
+#titleBtn:hover {
+    -fx-text-fill: #FFFFFF;
+
+    -fx-opacity: 1;
+    -fx-cursor: pointer;
 }
 
 
@@ -228,13 +246,24 @@
     -fx-font-size:14px;
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
+    -fx-prompt-text-fill: #77777780;
 }
+
+
 #formField:focused{
     -fx-text-fill: white;
 }
 
 #formField:focused:hover {
     -fx-text-fill: white;
+}
+
+#blackField {
+
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 14px;
+    -fx-background-color: black;
+    -fx-text-fill: #777777;
 }
 
 #selectedField {
@@ -523,6 +552,15 @@
 #bodyBox {
     -fx-background-color: #33333350;
 
+}
+
+#checkBtn{
+    -fx-border-color: #333333;
+    -fx-background-color: transparent;
+    -fx-border-radius: 5 5 5 5;
+    -fx-background-radius: 5 5 5 5;
+    -fx-border-width: 1 1 1 1;
+    -fx-border-style: solid;
 }
 
 #bodyRight{

@@ -95,6 +95,7 @@ import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import mslinks.ShellLinkException;
 import mslinks.ShellLinkHelper;
+import ove.crypto.digest.Blake2b;
 import scala.util.Try;
 
 import com.google.gson.JsonElement;
@@ -106,7 +107,6 @@ import com.netnotes.HashData;
 import com.netnotes.IconButton;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
-import com.rfksystems.blake2b.Blake2b;
 import com.satergo.extra.AESEncryption;
 
 public class Utils {
@@ -133,9 +133,13 @@ public class Utils {
         return result.verified;
     }
 
-    public static byte[] digestFile(File file, String digestInstance) throws Exception, FileNotFoundException, IOException {
+    public static byte[] digestFile(File file) throws  IOException {
 
-        final MessageDigest digest = MessageDigest.getInstance(digestInstance == null ? Blake2b.BLAKE2_B_256 : digestInstance);
+        return digestFileBlake2b(file,32);
+    }
+
+    public static byte[] digestFileBlake2b(File file, int digestLength) throws IOException {
+        final Blake2b digest = Blake2b.Digest.newInstance(digestLength);
 
         FileInputStream fis = new FileInputStream(file);
 
@@ -154,6 +158,7 @@ public class Utils {
 
     }
 
+
     public static JsonObject getNetworkTypeObject() {
         JsonObject getExplorerObject = new JsonObject();
 
@@ -170,10 +175,8 @@ public class Utils {
         return getExplorerObject;
     }
 
-    public static byte[] digestBytesToBytes(byte[] bytes, String... instance) throws NoSuchAlgorithmException {
-        String digestInstance = instance != null && instance.length > 0 ? instance[0] : Blake2b.BLAKE2_B_256;
-
-        final MessageDigest digest = MessageDigest.getInstance(digestInstance);
+    public static byte[] digestBytesToBytes(byte[] bytes) {
+        final Blake2b digest = Blake2b.Digest.newInstance(32);
 
         digest.update(bytes);
 
@@ -206,6 +209,7 @@ public class Utils {
 
         return params;
     }
+
 
     public static String getLatestFileString(String directoryString) {
 
@@ -279,6 +283,39 @@ public class Utils {
         }
 
         return latestString;
+    }
+
+    public static Version getFileNameVersion(String fileName){
+        int end = fileName.length() - 4;
+
+        int start = fileName.indexOf("-");
+
+        int i = end;
+        char p = '.';
+
+        while (i > start) {
+            char c = fileName.charAt(i);
+            if (Character.isDigit(c) || Character.compare(c, p) == 0) {
+                i--;
+            } else {
+                break;
+            }
+
+        }
+
+        String versionString = fileName.substring(i + 1, end);
+
+ 
+        if (versionString.matches("[0-9]+(\\.[0-9]+)*")) {
+            Version version = null;
+            try{
+                version = new Version(versionString);
+            }catch(IllegalArgumentException e){
+
+            }
+            return version;
+        }
+        return null;
     }
 
     public static void createLink(File target, File linkDir, String linkName) throws IOException, ShellLinkException {
@@ -602,7 +639,7 @@ public class Utils {
                     testBytes[i] = addressBytes[i];
                 }
 
-                byte[] hashBytes = Utils.digestBytesToBytes(testBytes, Blake2b.BLAKE2_B_256);
+                byte[] hashBytes = Utils.digestBytesToBytes(testBytes);
 
                 if (!(checksumBytes[0] == hashBytes[0]
                         && checksumBytes[1] == hashBytes[1]
@@ -806,7 +843,7 @@ public class Utils {
 
                 FileOutputStream outputStream = new FileOutputStream(outputFile);
 
-                final MessageDigest digest = MessageDigest.getInstance(Blake2b.BLAKE2_B_256);
+                 final Blake2b digest = Blake2b.Digest.newInstance(32);
 
                 FileInputStream inputStream = new FileInputStream(inputFile);
 
@@ -865,7 +902,7 @@ public class Utils {
                 InputStream inputStream = null;
                 FileOutputStream outputStream = new FileOutputStream(outputFile);
 
-                final MessageDigest digest = MessageDigest.getInstance(Blake2b.BLAKE2_B_256);
+                final Blake2b digest = Blake2b.Digest.newInstance(32);
 
                 URL url = new URL(urlString);
 
@@ -956,6 +993,108 @@ public class Utils {
             return false;
         }
         return false;
+    }
+
+    
+    public static URL getLocation(final Class<?> c) {
+
+        if (c == null) {
+            return null; // could not load the class
+        }
+        // try the easy way first
+        try {
+            final URL codeSourceLocation = c.getProtectionDomain().getCodeSource().getLocation();
+            if (codeSourceLocation != null) {
+                return codeSourceLocation;
+            }
+        } catch (final SecurityException e) {
+            // NB: Cannot access protection domain.
+        } catch (final NullPointerException e) {
+            // NB: Protection domain or code source is null.
+        }
+
+        // NB: The easy way failed, so we try the hard way. We ask for the class
+        // itself as a resource, then strip the class's path from the URL string,
+        // leaving the base path.
+        // get the class's raw resource path
+        final URL classResource = c.getResource(c.getSimpleName() + ".class");
+        if (classResource == null) {
+            return null; // cannot find class resource
+        }
+        final String url = classResource.toString();
+        final String suffix = c.getCanonicalName().replace('.', '/') + ".class";
+        if (!url.endsWith(suffix)) {
+            return null; // weird URL
+        }
+        // strip the class's path from the URL string
+        final String base = url.substring(0, url.length() - suffix.length());
+
+        String path = base;
+
+        // remove the "jar:" prefix and "!/" suffix, if present
+        if (path.startsWith("jar:")) {
+            path = path.substring(4, path.length() - 2);
+        }
+
+        try {
+            return new URL(path);
+        } catch (final MalformedURLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Converts the given {@link URL} to its corresponding {@link File}.
+     * <p>
+     * This method is similar to calling {@code new File(url.toURI())} except
+     * that it also handles "jar:file:" URLs, returning the path to the JAR
+     * file.
+     * </p>
+     *
+     * @param url The URL to convert.
+     * @return A file path suitable for use with e.g. {@link FileInputStream}
+     * @throws IllegalArgumentException if the URL does not correspond to a
+     * file.
+     */
+    public static File urlToFile(final URL url) {
+        return url == null ? null : urlToFile(url.toString());
+    }
+
+    /**
+     * Converts the given URL string to its corresponding {@link File}.
+     *
+     * @param url The URL to convert.
+     * @return A file path suitable for use with e.g. {@link FileInputStream}
+     * @throws IllegalArgumentException if the URL does not correspond to a
+     * file.
+     */
+    public static File urlToFile(final String url) {
+        String path = url;
+        if (path.startsWith("jar:")) {
+            // remove "jar:" prefix and "!/" suffix
+            final int index = path.indexOf("!/");
+            path = path.substring(4, index);
+        }
+
+        try {
+
+            if (path.matches("file:[A-Za-z]:.*")) {
+                path = "file:/" + path.substring(5);
+            }
+            return new File(new URL(path).toURI());
+        } catch (final MalformedURLException e) {
+            // NB: URL is not completely well-formed.
+
+        } catch (final URISyntaxException e) {
+            // NB: URL is not completely well-formed.
+        }
+        if (path.startsWith("file:")) {
+            // pass through the URL as-is, minus "file:" prefix
+            path = path.substring(5);
+            return new File(path);
+        }
+        throw new IllegalArgumentException("Invalid URL: " + url);
     }
 
 }

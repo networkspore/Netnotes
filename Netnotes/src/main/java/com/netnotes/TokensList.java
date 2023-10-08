@@ -29,13 +29,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import com.rfksystems.blake2b.Blake2b;
+
 import com.satergo.extra.AESEncryption;
 import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleObjectProperty;
+
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
@@ -985,7 +985,7 @@ public class TokensList extends Network {
 
                     byte[] bytes = null;
                     try {
-                        bytes = Utils.digestFile(new File(imageFileBtn.getText()), Blake2b.BLAKE2_B_256);
+                        bytes = Utils.digestFile(new File(imageFileBtn.getText()));
                     } catch (Exception e1) {
 
                     }

@@ -1,29 +1,24 @@
 package com.netnotes;
 
 import java.awt.Rectangle;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.crypto.SecretKey;
-
-import com.devskiller.friendly_id.FriendlyId;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.satergo.WalletKey.Local;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.value.ChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -35,10 +30,10 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
@@ -66,14 +61,27 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-        setStageWidth(SMALL_STAGE_WIDTH);
-        setup(null);
+        setStageWidth(750);
+        if (!m_appDir.isDirectory()) {
+
+            try {
+                Files.createDirectories(m_appDir.toPath());
+            } catch (IOException e) {
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.show();
+            }
+
+        }
         getLastUpdated().set(LocalDateTime.now());
+        addListeners();
+
     }
 
     public ErgoNodes(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-        setup(jsonObject);
+        openJson(jsonObject);
+        addListeners();
+
     }
 
     public static Image getAppIcon() {
@@ -92,7 +100,16 @@ public class ErgoNodes extends Network implements NoteInterface {
         return m_appDir;
     }
 
-    private void setup(JsonObject json) {
+    public void addListeners() {
+
+        m_ergoNodesList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
+
+        getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+            m_ergoNodesList.save();
+        });
+    }
+
+    private void openJson(JsonObject json) {
 
         // JsonElement directoriesElement = json == null ? null : json.get("directories");
         JsonElement stageElement = json == null ? null : json.get("stage");
@@ -115,6 +132,12 @@ public class ErgoNodes extends Network implements NoteInterface {
                 Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                 a.show();
             }
+
+        }
+
+        try {
+            Files.writeString(logFile.toPath(), "\n" + (json == null ? "null" : json.toString()), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
         }
 
@@ -144,14 +167,6 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             }
         }
-
-        m_ergoNodesList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
-
-        getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
-            ErgoNodesList dataList = new ErgoNodesList(oldVal, this);
-            dataList.save();
-            dataList = null;
-        });
 
     }
 
@@ -210,61 +225,46 @@ public class ErgoNodes extends Network implements NoteInterface {
             Button maximizeBtn = new Button();
 
             HBox titleBox = App.createTopBar(getSmallAppIcon(), maximizeBtn, closeBtn, m_stage);
-            Region menuSpacer = new Region();
-            HBox.setHgrow(menuSpacer, Priority.ALWAYS);
-
-            BufferedButton settingsBtn = new BufferedButton("/assets/settings-outline-white-120.png", 20);
-            BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png", 20);
-
-            HBox menuBar = new HBox(settingsBtn, menuSpacer, deleteBtn);
-            HBox.setHgrow(menuBar, Priority.ALWAYS);
-            menuBar.setAlignment(Pos.CENTER_LEFT);
-            menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 5));
 
             ScrollPane scrollPane = new ScrollPane();
             scrollPane.setId("bodyBox");
 
+        
+
+            BufferedButton addBtn = new BufferedButton("/assets/add-outline-white-40.png", 20);
+            addBtn.setOnAction((e) -> m_ergoNodesList.showAddNodeStage());
+    
+            
+            HBox menuBar = new HBox(addBtn);
+            menuBar.setId("menuBar");
+            menuBar.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(menuBar, Priority.ALWAYS);
+       
             HBox menuBarPadding = new HBox(menuBar);
             menuBarPadding.setPadding(new Insets(0, 2, 5, 2));
             menuBarPadding.setId("bodyBox");
+            HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
 
-            Button addButton = new Button("Add");
-            addButton.setId("menuBarBtn");
-            addButton.setPadding(new Insets(2, 6, 2, 6));
-            addButton.setPrefWidth(getStageWidth() / 2);
-            addButton.setPrefHeight(buttonHeight);
-
-            Button removeButton = new Button("Remove");
-            removeButton.setId("menuBarBtnDisabled");
-            removeButton.setPadding(new Insets(2, 6, 2, 6));
-
-            removeButton.setDisable(true);
-            removeButton.setPrefWidth(getStageWidth() / 2);
-            removeButton.setPrefHeight(buttonHeight);
-
-            HBox menuBox = new HBox(addButton, removeButton);
-            menuBox.setId("blackMenu");
-            menuBox.setAlignment(Pos.CENTER_LEFT);
-            menuBox.setPadding(new Insets(5, 5, 5, 5));
-            menuBox.setPrefHeight(buttonHeight);
-
-            VBox layoutBox = new VBox(titleBox, menuBarPadding, scrollPane, menuBox);
-
+            VBox bodyBox = new VBox(menuBarPadding, scrollPane);
+            bodyBox.setPadding(new Insets(0,2,2,2));
+            VBox layoutBox = new VBox(titleBox, bodyBox);
+  
             Runnable updateMenuBar = () -> Platform.runLater(() -> {
                 String selectedId = m_ergoNodesList.selectedIdProperty().get();
                 if (selectedId == null) {
-                    if (layoutBox.getChildren().contains(menuBarPadding)) {
-                        layoutBox.getChildren().remove(menuBarPadding);
-                    }
+                    menuBar.getChildren().clear();
+                    menuBar.getChildren().add(addBtn);   
+                    
                 } else {
-                    ErgoNodeData ergNode = m_ergoNodesList.getErgoNodeData(selectedId);
-                    if (ergNode == null) {
+                    ErgoNodeData ergNodeData = m_ergoNodesList.getErgoNodeData(selectedId);
+
+                    if (ergNodeData == null) {
                         m_ergoNodesList.selectedIdProperty().set(null);
                     } else {
-                        if (!layoutBox.getChildren().contains(menuBarPadding)) {
-                            layoutBox.getChildren().add(1, menuBarPadding);
-                        }
+                        menuBar.getChildren().clear();
+                        HBox nodeDataBar = ergNodeData.getMenuBar();
+                        menuBar.getChildren().addAll(addBtn, nodeDataBar);
+                        
                     }
                 }
             });
@@ -278,8 +278,8 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
-            scrollPane.prefViewportWidthProperty().bind(mainScene.widthProperty());
-            scrollPane.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(140));
+            scrollPane.prefViewportWidthProperty().bind(mainScene.widthProperty().subtract(4));
+            scrollPane.prefViewportHeightProperty().bind(mainScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBarPadding.heightProperty()).subtract(5));
             scrollPane.setPadding(new Insets(5, 5, 5, 5));
             scrollPane.setOnMouseClicked(e -> {
                 getErgoNodesList().setselectedId(null);
@@ -287,7 +287,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             SimpleDoubleProperty gridWidth = new SimpleDoubleProperty(m_stage.getWidth());
             SimpleDoubleProperty scrollWidth = new SimpleDoubleProperty(0);
-            gridWidth.bind(m_stage.widthProperty().subtract(15));
+            gridWidth.bind(m_stage.widthProperty().subtract(20));
             m_stage.show();
 
             VBox gridBox = m_ergoNodesList.getGridBox(gridWidth, scrollWidth);
@@ -365,10 +365,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             gridBox.heightProperty().addListener((obs, oldVal, newVal) -> updateScrollWidth.run());
 
-            addButton.setOnAction((e) -> m_ergoNodesList.showAddNodeStage());
-
-            addButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
-            removeButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
+            
 
             updateScrollWidth.run();
 
@@ -390,7 +387,11 @@ public class ErgoNodes extends Network implements NoteInterface {
     public JsonObject getJsonObject() {
         JsonObject json = super.getJsonObject();
         json.add("stage", getStageJson());
+        try {
+            Files.writeString(logFile.toPath(), "\nsaving\n" + json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }
         return json;
     }
 

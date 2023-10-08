@@ -4,7 +4,7 @@ import java.io.File;
 import java.nio.file.Files;
 
 import com.devskiller.friendly_id.FriendlyId;
-import com.rfksystems.blake2b.Blake2b;
+
 import com.utils.Utils;
 
 public class FileData {
@@ -37,7 +37,7 @@ public class FileData {
             try {
                 m_contentType = Files.probeContentType(m_file.toPath());
                 m_baseContentType = m_contentType.split("/")[0];
-                m_hashData = new HashData(Utils.digestFile(m_file, Blake2b.BLAKE2_B_256));
+                m_hashData = new HashData(Utils.digestFile(m_file));
                 m_valid = true;
             } catch (Exception e) {
 

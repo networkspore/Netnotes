@@ -70,8 +70,6 @@ public class ErgoNetworkData implements InstallerInterface {
     private double m_stageHeight = 500;
     private ArrayList<NoteInterface> m_networkList = new ArrayList<>();
 
-    private ErgoNodes m_ergoNodes = null;
-
     private InstallableIcon m_focusedInstallable = null;
 
     private double m_leftColumnWidth = 200;
@@ -119,7 +117,7 @@ public class ErgoNetworkData implements InstallerInterface {
     }
 
     public boolean isEmpty() {
-        return m_networkList.size() == 0 && m_ergoNodes == null;
+        return m_networkList.size() == 0;
     }
 
     public SimpleStringProperty iconStyleProperty() {
@@ -200,7 +198,7 @@ public class ErgoNetworkData implements InstallerInterface {
                             break;
                         case ErgoNodes.NETWORK_ID:
 
-                            m_ergoNodes = new ErgoNodes(jsonObject, m_ergoNetwork);
+                            network = new ErgoNodes(jsonObject, m_ergoNetwork);
 
                             break;
                         case ErgoMarkets.NETWORK_ID:
@@ -230,12 +228,7 @@ public class ErgoNetworkData implements InstallerInterface {
         m_gridBox.getChildren().clear();
 
         if (currentIconStyle.equals(IconStyle.ROW)) {
-            if (m_ergoNodes != null) {
 
-                IconButton iconButton = m_ergoNodes.getButton(currentIconStyle);
-                iconButton.prefWidthProperty().bind(m_gridWidth);
-                m_gridBox.getChildren().add(iconButton);
-            }
             for (int i = 0; i < m_networkList.size(); i++) {
                 NoteInterface network = m_networkList.get(i);
                 IconButton iconButton = network.getButton(currentIconStyle);
@@ -248,7 +241,7 @@ public class ErgoNetworkData implements InstallerInterface {
             double imageWidth = 75;
             double cellPadding = 15;
             double cellWidth = imageWidth + (cellPadding * 2);
-            int numCells = m_networkList.size() + (m_ergoNodes != null ? 1 : 0);
+            int numCells = m_networkList.size();
 
             int numCol = (int) Math.floor(width / cellWidth);
             //int numCol = floor == 0 ? 1 : floor;
@@ -262,18 +255,6 @@ public class ErgoNetworkData implements InstallerInterface {
             }
 
             ItemIterator grid = new ItemIterator();
-
-            if (m_ergoNodes != null) {
-                HBox rowBox = rowsBoxes[0];
-                rowBox.getChildren().add(m_ergoNodes.getButton(currentIconStyle));
-
-                if (grid.getI() < numCol) {
-                    grid.setI(grid.getI() + 1);
-                } else {
-                    grid.setI(0);
-                    grid.setJ(grid.getJ() + 1);
-                }
-            }
 
             for (NoteInterface noteInterface : m_networkList) {
 
@@ -300,12 +281,8 @@ public class ErgoNetworkData implements InstallerInterface {
         ArrayList<InstallableIcon> installables = new ArrayList<>();
         for (String networkId : INTALLABLE_NETWORK_IDS) {
             boolean installed;
-            if (networkId == ErgoNodes.NETWORK_ID) {
-                installed = m_ergoNodes != null;
-            } else {
-                NoteInterface network = getNetwork(networkId);
-                installed = network != null;
-            }
+
+            installed = getNetwork(networkId) != null;
 
             InstallableIcon installableIcon = new InstallableIcon(this, networkId, installed);
 
@@ -572,14 +549,7 @@ public class ErgoNetworkData implements InstallerInterface {
                 noteInterface = new ErgoExplorer(m_ergoNetwork);
                 break;
             case ErgoNodes.NETWORK_ID:
-                if (m_ergoNodes == null) {
-                    m_ergoNodes = new ErgoNodes(m_ergoNetwork);
-                    m_ergoNodes.addUpdateListener((obs, oldValue, newValue) -> save());
-                    updateAvailableLists(updateInstallables());
-                    save();
-                    updateGrid();
-                }
-
+                noteInterface = new ErgoNodes(m_ergoNetwork);
                 break;
             case ErgoMarkets.NETWORK_ID:
                 noteInterface = new ErgoMarkets(m_ergoNetwork);
@@ -602,7 +572,9 @@ public class ErgoNetworkData implements InstallerInterface {
         String networkId = noteInterface.getNetworkId();
 
         if (getNetwork(networkId) == null) {
+
             m_networkList.add(noteInterface);
+
             noteInterface.addUpdateListener((obs, oldValue, newValue) -> save());
 
             return true;
@@ -654,18 +626,15 @@ public class ErgoNetworkData implements InstallerInterface {
 
     public NoteInterface getNetwork(String networkId) {
         if (networkId != null) {
-            if (networkId.equals(ErgoNodes.NETWORK_ID)) {
-                return m_ergoNodes;
-            } else {
 
-                for (int i = 0; i < m_networkList.size(); i++) {
-                    NoteInterface network = m_networkList.get(i);
+            for (int i = 0; i < m_networkList.size(); i++) {
+                NoteInterface network = m_networkList.get(i);
 
-                    if (network.getNetworkId().equals(networkId)) {
-                        return network;
-                    }
+                if (network.getNetworkId().equals(networkId)) {
+                    return network;
                 }
             }
+
         }
         return null;
     }
@@ -688,9 +657,7 @@ public class ErgoNetworkData implements InstallerInterface {
             m_networkList.remove(noteInterface);
             noteInterface.remove();
         }
-        if (m_ergoNodes != null) {
-            removeNetwork(ErgoNodes.NETWORK_ID, false);
-        }
+
         updateAvailableLists(updateInstallables());
         updateGrid();
         save();
@@ -713,9 +680,6 @@ public class ErgoNetworkData implements InstallerInterface {
             JsonObject jsonObj = noteInterface.getJsonObject();
             jsonArray.add(jsonObj);
 
-        }
-        if (m_ergoNodes != null) {
-            jsonArray.add(m_ergoNodes.getJsonObject());
         }
 
         fileObject.add("networks", jsonArray);

@@ -7,8 +7,6 @@ import java.time.LocalDateTime;
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
 
-import com.rfksystems.blake2b.Blake2b;
-
 import com.utils.Utils;
 
 import javafx.application.Platform;
@@ -195,7 +193,7 @@ public class AddressButton extends Button {
                     testBytes[i] = addressBytes[i];
                 }
 
-                byte[] hashBytes = Utils.digestBytesToBytes(testBytes, Blake2b.BLAKE2_B_256);
+                byte[] hashBytes = Utils.digestBytesToBytes(testBytes);
 
                 byte[] resultBytes = new byte[]{hashBytes[0], hashBytes[1], hashBytes[2], hashBytes[3]};
 
