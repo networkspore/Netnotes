@@ -2,45 +2,22 @@ package com.launcher;
 
 import javafx.event.EventHandler;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
 import java.net.URL;
-import java.net.URLConnection;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.security.Key;
 import java.security.NoSuchAlgorithmException;
-import java.security.Provider;
 import java.security.SecureRandom;
-import java.security.Security;
-import java.text.CharacterIterator;
-import java.text.StringCharacterIterator;
-import java.time.Duration;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.zip.ZipException;
-import java.util.zip.ZipFile;
 
-import org.apache.commons.codec.DecoderException;
+import java.time.Duration;
+
+import java.util.Optional;
+
 import org.apache.commons.codec.binary.Hex;
 import org.reactfx.util.FxTimer;
 
-import com.devskiller.friendly_id.FriendlyId;
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -54,8 +31,6 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -63,11 +38,11 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.DialogEvent;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
@@ -84,7 +59,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
-import javafx.stage.DirectoryChooser;
+
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.application.HostServices;
@@ -93,12 +68,6 @@ public class Setup extends Application {
 
     private File logFile = new File("loaderSetup-log.txt");
     
-    public static final String visitGitHub = "visitGitHub";
-    public static final String firstRun = "FirstRun";
-    public static final String NO_APP_FILE = "noAppFile";
-    public static final String NO_JAVA = "noJava";
-
-    private static final Color SECONDARY_COLOR = new Color(.4, .4, .4, .9);
     
     public static final String CURRENT_DIRECTORY = System.getProperty("user.dir");
     public static final String SETTINGS_FILE_NAME = "settings.conf";
@@ -110,7 +79,7 @@ public class Setup extends Application {
 
     public static String JAVA_URL = "https://www.java.com/en/download/";
 
-    public static final String APP_DATA_DIR = System.getenv("LOCALAPPDATA") + "\\Net Notes";
+    public static final String APP_DATA_DIR = System.getenv("LOCALAPPDATA") + "\\Netnotes";
 
     public final static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public final static Font txtFont = Font.font("OCR A Extended", 15);
@@ -211,17 +180,13 @@ public class Setup extends Application {
             }catch(IOException e1){
                //  visitWebsites(new File(CURRENT_DIRECTORY), appStage);
             }
-           firstRun(appStage);
+        
         }        
 
     }
 
     public void startApp(Stage appStage) throws IOException{
-        try {
-            Files.writeString(logFile.toPath(), "\nchecking for updates", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-      
-        }
+        
 
             m_notesDir = new File(m_appDir.getAbsolutePath() + "/notes");
             m_outDir = new File(m_appDir.getAbsolutePath() + "/out");
@@ -268,25 +233,15 @@ public class Setup extends Application {
             });
     }
 
-
-
-    private void checkForAllUpdates(Stage appStage, Runnable complete){
-
-        try {
-            Files.writeString(logFile.toPath(), "\nchecking for updates", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
+    private void getApp(ProgressBar progressBar, Text statusText, Runnable complete, Runnable failed){
       
-        }
 
+     
         Utils.getUrlJsonArray(GitHub_ALL_RELEASES_URL, (onSucceeded)->{
               Object sourceObject = onSucceeded.getSource().getValue();
                 if (sourceObject != null && sourceObject instanceof JsonArray) {
                     JsonArray allReleases = (JsonArray) sourceObject;
-                    try {
-                        Files.writeString(new File("allReleases.json").toPath(), allReleases.toString());
-                    } catch (IOException e) {
-            
-                    }
+                   
                     int length = allReleases.size();
               
                     int j = length -1;
@@ -322,27 +277,15 @@ public class Setup extends Application {
                                         if(name.startsWith("releaseInfo")){
                                             
                                             releaseInfoObject.set(assetObject);
-                                            try {
-                                                Files.writeString(new File("releaseInfoAsset.json").toPath(), assetObject.toString());
-                                            } catch (IOException e) {
-                                              
-                                            }
+                                         
                                         }else{
                                             if(name.endsWith("exe")){
                                                 launcherAsset.set(assetObject);
-                                                try {
-                                                    Files.writeString(new File("launcherAsset.json").toPath(), assetObject.toString());
-                                                } catch (IOException e) {
-                                                
-                                                }
+                                               
                                             }else{
                                                 if(name.endsWith("jar")){
                                                     appAsset.set(assetObject);
-                                                    try {
-                                                        Files.writeString(new File("appAsset.json").toPath(), assetObject.toString());
-                                                    } catch (IOException e) {
-                                                    
-                                                    }
+                                                 
                                                 }
                                             }
                                         }
@@ -374,13 +317,176 @@ public class Setup extends Application {
                                 Object jsonObjectSourceObject = onReleaseInfoSucceeded.getSource().getValue();
                                 if (jsonObjectSourceObject != null && jsonObjectSourceObject instanceof JsonObject) {
                                     JsonObject releaseInfo = (JsonObject) jsonObjectSourceObject;
+                                    JsonElement applicationElement = releaseInfo.get("application");
+          
 
-                                    try {
-                                        Files.writeString(new File("releaseInfo.json").toPath(), releaseInfo.toString());
-                                    } catch (IOException e) {
-                                       
+                                    if(applicationElement != null && applicationElement.isJsonObject()){
+                                        JsonObject applicationInfoObject = applicationElement.getAsJsonObject();
+                                        JsonElement appHashDataElement = applicationInfoObject.get("hashData");
+                                  
+                                        HashData appObjectHashData = appHashDataElement != null && appHashDataElement.isJsonObject() ? new HashData(appHashDataElement.getAsJsonObject()) : null;
+
+                                  
+
+                                        boolean isGetApp =  appObjectHashData != null;
+                                   
+
+                                        if(isGetApp){    
+
+                                            JsonObject appAssetObject = appAsset.get();
+                                            JsonElement appAssetDownloadUrlElement = appAssetObject.get("browser_download_url");
+                                            JsonElement appAssetNameElement = appAssetObject.get("name");
+
+                                        
+
+                                            Stage getAppStage = new Stage();
+                                            getAppStage.getIcons().add(logo);
+                                            getAppStage.setResizable(false);
+                                            getAppStage.initStyle(StageStyle.UNDECORATED);
+                                            
+                                            String appFileName = appAssetNameElement.getAsString();
+
+
+                                            File appFile = new File(m_appDir.getAbsolutePath() + "/" + appFileName);
+
+                                             progressBar.progressProperty().addListener((obs, oldVal, newVal) -> {
+                                                if(newVal.doubleValue() != 1){
+                                                    statusText.setText(appFileName + " (" + String.format("%.1f", newVal.doubleValue() * 100) + "%)");
+                                                }else{
+                                                    statusText.setText("Checking...");
+                                                }
+                                            });
+                                  
+                                            Utils.getUrlFileHash(appAssetDownloadUrlElement.getAsString(), appFile, onHashData->{
+                                                Object onHashDataObject = onHashData.getSource().getValue();
+                                                if(onHashDataObject != null && onHashDataObject instanceof HashData){
+                                                    m_appHashData = (HashData) onHashDataObject;
+                                                    m_appFile = appFile;
+                                                    complete.run();
+                                                }else{
+                                                    failed.run();
+                                                }
+                                            }, onFailedDownload->{
+                                                try {
+                                                    Files.writeString(logFile.toPath(), "\nFailed getting app: " + onFailedDownload.getSource().getMessage(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                } catch (IOException e) {
+
+                                                }
+                                                failed.run();
+                                            }, progressBar);
+
+                                        }else{
+                                            failed.run();
+                                        }
+                                    }else{
+                                        failed.run();
                                     }
+                                }
+                            }, (onFailed)->{
+                                failed.run();
+                            }, null);
+                        }else{
+                            failed.run();
+                        }
+                    }else{
+                        failed.run();
+                    }
+                }else{
+                    failed.run();
+                }
+            }, onFailed->{
+                failed.run();
+            }, null);
 
+
+                                            
+    }                   
+
+
+
+    private void checkForAllUpdates(Stage appStage, Runnable complete){
+
+ 
+        Utils.getUrlJsonArray(GitHub_ALL_RELEASES_URL, (onSucceeded)->{
+              Object sourceObject = onSucceeded.getSource().getValue();
+                if (sourceObject != null && sourceObject instanceof JsonArray) {
+                    JsonArray allReleases = (JsonArray) sourceObject;
+            
+                    int length = allReleases.size();
+              
+                    int j = length -1;
+
+                    SimpleObjectProperty<JsonObject> releaseInfoObject = new SimpleObjectProperty<>(null);
+                    SimpleObjectProperty<JsonObject> appAsset = new SimpleObjectProperty<>(null);
+                    SimpleObjectProperty<JsonObject> launcherAsset = new SimpleObjectProperty<>(null);
+                    SimpleBooleanProperty foundRelease = new SimpleBooleanProperty(false);
+                    
+                    while(j > -1 && !foundRelease.get()){
+                        JsonObject gitHubApiJson = allReleases.get(j).getAsJsonObject();
+
+                        JsonElement assetsElement = gitHubApiJson.get("assets");
+                        if (assetsElement != null && assetsElement.isJsonArray()) {
+                            JsonArray assetsArray = assetsElement.getAsJsonArray();
+                            
+                
+
+                            for(int i = 0; i < assetsArray.size(); i++){
+                                
+                                JsonElement assetElement = assetsArray.get(i);
+
+                                if (assetElement != null && assetElement.isJsonObject()) {
+                                    
+                                    JsonObject assetObject = assetElement.getAsJsonObject();
+
+                                    JsonElement downloadUrlElement = assetObject.get("browser_download_url");
+                                    JsonElement nameElement = assetObject.get("name");
+
+                                    if (nameElement != null && nameElement.isJsonPrimitive() && downloadUrlElement != null && downloadUrlElement.isJsonPrimitive()) {
+                                        String name = nameElement.getAsString();
+                                        
+                                        if(name.startsWith("releaseInfo")){
+                                            
+                                            releaseInfoObject.set(assetObject);
+                                       
+                                        }else{
+                                            if(name.endsWith("exe")){
+                                                launcherAsset.set(assetObject);
+                                           
+                                            }else{
+                                                if(name.endsWith("jar")){
+                                                    appAsset.set(assetObject);
+                                                   
+                                                }
+                                            }
+                                        }
+
+
+                                    }
+                                }
+                            }
+                            
+                            if(launcherAsset.get() != null && appAsset.get() != null && releaseInfoObject.get() != null){
+                                foundRelease.set(true);
+                            }else{
+                                launcherAsset.set(null);
+                                appAsset.set(null);
+                                releaseInfoObject.set(null);
+                                
+                            }
+                        }
+                        j--;
+                    }
+
+                    if(foundRelease.get()){
+                        JsonObject releaseInfoAssetObject = releaseInfoObject.get();
+
+                        JsonElement releaseInfoDownloadUrlElement = releaseInfoAssetObject.get("browser_download_url");
+       
+                        if(releaseInfoDownloadUrlElement != null && releaseInfoDownloadUrlElement.isJsonPrimitive()){
+                            Utils.getUrlJson(releaseInfoDownloadUrlElement.getAsString(), (onReleaseInfoSucceeded)->{
+                                Object jsonObjectSourceObject = onReleaseInfoSucceeded.getSource().getValue();
+                                if (jsonObjectSourceObject != null && jsonObjectSourceObject instanceof JsonObject) {
+                                    JsonObject releaseInfo = (JsonObject) jsonObjectSourceObject;
                                     JsonElement applicationElement = releaseInfo.get("application");
                                     JsonElement launcherElement = releaseInfo.get("launcher");
 
@@ -512,30 +618,18 @@ public class Setup extends Application {
 
     public void getUrlApp(String url, String name, String hashHex, Stage appStage, Runnable complete){
         ProgressBar progressBar = new ProgressBar();
-        try {
-            Files.writeString(logFile.toPath(), "\noppening progress scene.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            
-        }
+    
         
-        Scene progressScene = getProgressScene(icon, "Downloading", "Setup - Net Notes", name, progressBar, appStage);
+        Scene progressScene = getProgressScene(icon, "Downloading", "Setup - Netnotes", name, progressBar, appStage);
         appStage.setScene(progressScene);
 
         File appUpdateFile = new File(m_appDir.getAbsolutePath() + "/" + name);
         Utils.getUrlFileHash(url, appUpdateFile, (appAssetSucceded)->{
-            try{
-                Files.writeString(logFile.toPath(),"\napp download succeeded", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            }catch(IOException e){
-                
-            }
+      
             Object appAssetHashDataObject = appAssetSucceded.getSource().getValue();
             if(appAssetHashDataObject != null && appAssetHashDataObject instanceof HashData){
                 HashData appUpdateHashData = (HashData) appAssetHashDataObject;
-                try{
-                    Files.writeString(logFile.toPath(),"\napp download hash: " + appUpdateHashData.getHashStringHex() + "\nexoected Hash:" + hashHex, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                }catch(IOException e){
-                    
-                }
+         
                 if(appUpdateHashData.getHashStringHex().equals(hashHex)){
                     
                     if(m_appFile != null && m_appFile.isFile() && m_appFile.getParentFile().getAbsolutePath().equals(m_appDir.getAbsolutePath())){
@@ -582,31 +676,18 @@ public class Setup extends Application {
         String url = appAssetDownloadUrlElement.getAsString();
 
         ProgressBar progressBar = new ProgressBar();
-        try {
-            Files.writeString(logFile.toPath(), "\noppening launcher progress scene.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            
-        }
-        
-        Scene progressScene = getProgressScene(icon, "Downloading", "Setup - Net Notes", name, progressBar, appStage);
+   
+        Scene progressScene = getProgressScene(icon, "Downloading", "Setup - Netnotes", name, progressBar, appStage);
         appStage.setScene(progressScene);
 
         File launcherUpdateFile = new File(m_appDir.getAbsolutePath() + "/launcher-"+version +".tmp");
 
         Utils.getUrlFileHash(url, launcherUpdateFile, (onSucceded)->{
-            try{
-                Files.writeString(logFile.toPath(),"\nlauncher download succeeded", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            }catch(IOException e){
-                
-            }
+        
             Object launcherAssetHashDataObject = onSucceded.getSource().getValue();
             if(launcherAssetHashDataObject != null && launcherAssetHashDataObject instanceof HashData){
                 HashData launcherUpdateHashData = (HashData) launcherAssetHashDataObject;
-                try{
-                    Files.writeString(logFile.toPath(),"\nlauncher download hash: " + launcherUpdateHashData.getHashStringHex() + "\nexoected Hash:" + hashHex, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                }catch(IOException e){
-                    
-                }
+           
                 m_launcherUpdateFile = launcherUpdateFile;
                 m_launcherUpdateHashData  = launcherUpdateHashData;
                 
@@ -614,18 +695,15 @@ public class Setup extends Application {
             complete.run();
             
         }, (onFailed)->{
-            try {
-                Files.writeString(logFile.toPath(), "\nLauncher download failed: " + onFailed.getSource().getMessage(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-                
-            }
+       
             complete.run();
         }, progressBar);
     }
-    
+    private boolean m_firstRun = false;
  
     private void firstRun(Stage appStage) {
         VBox bodyVBox = new VBox();
+        m_firstRun = true;
         bodyVBox.setPadding(new Insets(0, 15, 0, 0));
         setSetupStage(appStage, "Netnotes - Setup", "Setup...", bodyVBox);
         appStage.setHeight(425);
@@ -727,7 +805,7 @@ public class Setup extends Application {
 
                 Alert a = new Alert(AlertType.NONE, "This will create the directory:\n\n" + directoryString + "\n\n ", ButtonType.OK, ButtonType.CANCEL);
                 a.initOwner(appStage);
-                a.setTitle("Create Directory - Setup - Net Notes");
+                a.setTitle("Create Directory - Setup - Netnotes");
                 a.setHeaderText("Setup");
                 Optional<ButtonType> result = a.showAndWait();
                 if (result.isPresent() && result.get() == ButtonType.OK) {
@@ -750,13 +828,15 @@ public class Setup extends Application {
 
     private void createPassword(Stage appStage) {
         VBox bodyVBox = new VBox();
-        setSetupStage(appStage, "Netnotes - Password", "Password", bodyVBox);
+        setSetupStage(appStage, "Create Password - Netnotes", "Create password...", bodyVBox);
+     
+        appStage.setHeight(360);
 
-        appStage.setHeight(350);
-
-        Text passwordTxt = new Text("> Create password:");
+        Text passwordTxt = new Text("> Password:");
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
+
+  
 
         PasswordField passwordField = new PasswordField();
 
@@ -770,6 +850,9 @@ public class Setup extends Application {
 
         HBox passwordBox = new HBox(passwordTxt, passwordField);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
+        Insets defaultInsets = passwordBox.getInsets();
+        Insets inputInsets = new Insets(defaultInsets.getTop(), 30, defaultInsets.getBottom(), defaultInsets.getLeft());
+        passwordBox.setPadding(inputInsets);
 
         Button clickRegion = new Button();
         clickRegion.setMaxWidth(Double.MAX_VALUE);
@@ -797,6 +880,7 @@ public class Setup extends Application {
                     bodyVBox.getChildren().remove(clickRegion);
 
                     passwordField.setVisible(false);
+     
 
                     Text reenterTxt = new Text("> Re-enter password:");
                     reenterTxt.setFill(txtColor);
@@ -805,6 +889,7 @@ public class Setup extends Application {
                     Platform.runLater(() -> createPassField2.requestFocus());
 
                     HBox secondPassBox = new HBox(reenterTxt, createPassField2);
+                    secondPassBox.setPadding(inputInsets);
                     secondPassBox.setAlignment(Pos.CENTER_LEFT);
 
                     bodyVBox.getChildren().addAll(secondPassBox, clickRegion);
@@ -817,12 +902,13 @@ public class Setup extends Application {
 
                         KeyCode keyCode2 = pressEvent.getCode();
 
-                        if ((keyCode2 == KeyCode.ENTER)) {
+                        if (keyCode2 == KeyCode.ENTER) {
 
                             if (passStr.equals(createPassField2.getText())) {
                                 bodyVBox.getChildren().clear();
-                                setSetupStage(appStage, "Netnotes - Saving Settings", "Saving...", bodyVBox);
-                                Text savingFileTxt = new Text("> Creating configuration:  " + m_appDir.getAbsolutePath() + "\\settings.conf");
+                                setSetupStage(appStage, "Settings File - Netnotes", "Creating settings file...", bodyVBox);
+                             
+                                Text savingFileTxt = new Text("> Location:  " + m_appDir.getAbsolutePath() + "\\settings.conf...");
                                 savingFileTxt.setFill(txtColor);
                                 savingFileTxt.setFont(txtFont);
 
@@ -838,11 +924,13 @@ public class Setup extends Application {
                                     }
                                 });
                             } else {
+                    
                                 bodyVBox.getChildren().remove(secondPassBox);
                                 createPassField2.setText("");
                                 passwordField.setText("");
                                 passwordField.setVisible(true);
                                 secondPassBox.getChildren().clear();
+                      
                                 Platform.runLater(() -> passwordField.requestFocus());
                             }
                         }
@@ -882,15 +970,15 @@ public class Setup extends Application {
 
 
              if((validJava && validJar) || (validJava && m_updates)){
-                Files.writeString(logFile.toPath(), "\nchecking... starting app.");
+               
                 startApp(appStage);
             }else{
-                Files.writeString(logFile.toPath(), "\nchecking... files required.");
+               
                 visitWebsites(appStage);
             }
         }catch(IOException e){
             try {
-                Files.writeString(logFile.toPath(), "\nchecking io error: " + e.toString());
+                Files.writeString(logFile.toPath(), "\nChecking setup io error: " + e.toString());
             } catch (IOException e1) {
   
             }
@@ -918,22 +1006,23 @@ public class Setup extends Application {
     private void visitWebsites(Stage appStage) {
 
         VBox bodyVBox = new VBox();
-        setSetupStage(appStage, "Requirements - Net Notes", "Requirements", bodyVBox);
+        setSetupStage(appStage, "Setup - Netnotes", "Setup", bodyVBox);
         appStage.show();
         boolean validJava = (m_javaVersion != null && (m_javaVersion.compareTo(new Version("17.0.0")) > -1));
         boolean validJar = Utils.checkJar(m_appFile);
 
         if(!validJar || !validJava){
-            String errorString = !validJava ? "Java 17+ is required.\n" : "";
-            errorString += (!validJar ? "Application 'netnotes-x.x.x.jar' required." : "");
+            String errorString = !validJava ? "Environment: Java 17+\n" : "";
+            errorString += (!validJar ? "Application: netnotes-x.x.x.jar" : "");
 
             Alert a = new Alert(AlertType.NONE, errorString, ButtonType.OK);
-            a.setHeaderText("Requirements");
-            a.setTitle("Requirements - Setup - Net Notes");;
+            a.setHeaderText("Requirements:");
+            a.setTitle("Requirements - Setup - Netnotes");;
             a.initOwner(appStage);
             a.show();
         }
-    
+
+
         Text getJavaTxt = new Text("> Java URL:");
         getJavaTxt.setFill(txtColor);
         getJavaTxt.setFont(txtFont);
@@ -947,16 +1036,16 @@ public class Setup extends Application {
             services.showDocument(JAVA_URL);
         });
 
-        Button javaRequiredBtn = new Button(validJava ? "(Valid '"+m_javaVersion.get() +"')": "(Required 17.0.0+)");
+        Button javaRequiredBtn = new Button(validJava ? "✓": "x");
         javaRequiredBtn.setId("inactiveMainImageBtn");
         javaRequiredBtn.setFont(txtFont);
-        javaRequiredBtn.setPrefWidth(140);
+        javaRequiredBtn.setPrefWidth(30);
         javaRequiredBtn.setOnAction(e->{
             m_javaVersion = Utils.checkJava();
             if(m_javaVersion != null && (m_javaVersion.compareTo(new Version("17.0.0")) > -1)){
-                javaRequiredBtn.setText("(Valid '"+m_javaVersion.get() +"')");
+                javaRequiredBtn.setText("✓");
             }else{
-                javaRequiredBtn.setText("(Required)");
+                javaRequiredBtn.setText("x");
             }
         });
 
@@ -967,44 +1056,102 @@ public class Setup extends Application {
 
         bodyVBox.getChildren().addAll(javaUrlHbox);
 
-        Text getJarTxt = new Text("> Application");
+        Text applicationTxt = new Text("> Application");
+        applicationTxt.setFill(txtColor);
+        applicationTxt.setFont(txtFont);
+
+        TextField applicationTxtField = new TextField();
+        applicationTxtField.setDisable(true);
+        HBox.setHgrow(applicationTxtField,Priority.ALWAYS);
+
+        HBox applicationTxtBox = new HBox(applicationTxt, applicationTxtField);
+        applicationTxtBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(applicationTxtBox,Priority.ALWAYS);
+        
+
+        Text getJarTxt = new Text("  URL:");
         getJarTxt.setFill(txtColor);
         getJarTxt.setFont(txtFont);
 
-        TextField getJarTxtField = new TextField("");
-        getJarTxtField.setDisable(true);
 
-        TextField latestURLBtn = new TextField(GitHub_USERDL_URL);
+        Button latestURLBtn = new Button(GitHub_USERDL_URL);
         latestURLBtn.setFont(txtFont);
-        latestURLBtn.setId("toolBtn");
+        latestURLBtn.setId("inactiveMainImageBtn");
         latestURLBtn.setAlignment(Pos.CENTER_LEFT);
         latestURLBtn.setOnAction(btnEvent -> {
             services.showDocument(GitHub_USERDL_URL);
         });
 
+        Image dlImage = new Image("/assets/cloud-download-30.png");
+        
+        ImageView dlImgView = new ImageView(dlImage);
+        dlImgView.setPreserveRatio(true);
+        dlImgView.setFitWidth(20);
 
-        HBox getJarBox = new HBox(getJarTxt,getJarTxtField);
+        Tooltip getLatestAppTip = new Tooltip("Get latest: " + GitHub_ALL_RELEASES_URL);
+
+        Button getLatestAppBtn = new Button();
+        getLatestAppBtn.setTooltip(getLatestAppTip);
+        getLatestAppBtn.setGraphic(dlImgView);
+        getLatestAppBtn.setContentDisplay(ContentDisplay.CENTER);
+        
+        ProgressBar progressBar = new ProgressBar();
+        HBox.setHgrow(progressBar,Priority.ALWAYS);
+
+        HBox getJarBox = new HBox(getJarTxt, latestURLBtn, getLatestAppBtn);
         getJarBox.setAlignment(Pos.CENTER_LEFT);
+        
+        HBox progressBox = new HBox(progressBar);
+        progressBox.setAlignment(Pos.CENTER);
+        progressBox.setPadding(new Insets(60, 0,20,0));
+        HBox.setHgrow(progressBox, Priority.ALWAYS);
 
-        Text jarUrlTxt = new Text("    URL:");
-        jarUrlTxt.setFill(txtColor);
-        jarUrlTxt.setFont(txtFont);
+        Text dlLabelText = new Text();
+        dlLabelText.setFill(txtColor);
+        dlLabelText.setFont(txtFont);
 
-        HBox jarUrlBox = new HBox(jarUrlTxt, latestURLBtn);
-        jarUrlBox.setAlignment(Pos.CENTER_LEFT);
-       
+        HBox dlLabelBox = new HBox(dlLabelText);
+        dlLabelBox.setAlignment(Pos.CENTER);
+
+        progressBar.prefWidthProperty().bind(progressBox.widthProperty().subtract(120));
+
+        HBox selectAppBox = new HBox();
+     
+        HBox gBox = new HBox();
+        HBox nextBox = new HBox();
+
+        getLatestAppBtn.setOnAction(e->{
+      
+            bodyVBox.getChildren().removeAll(selectAppBox, getJarBox, gBox, nextBox);
+            
+
+            bodyVBox.getChildren().addAll( progressBox, dlLabelBox);
+
+            getApp(progressBar,dlLabelText, ()->{
+        
+                checkSetup(appStage);
+            }, ()->{
+         
+                bodyVBox.getChildren().removeAll(progressBox, dlLabelBox);
+                bodyVBox.getChildren().addAll(getJarBox, selectAppBox, gBox, nextBox );
+
+            });
+
+        });
+
+
+
 
         HBox.setHgrow(getJarBox, Priority.ALWAYS);
-        latestURLBtn.prefWidthProperty().bind(getJarBox.widthProperty().subtract(getJarTxt.getLayoutBounds().getWidth()));
+        latestURLBtn.prefWidthProperty().bind(getJarBox.widthProperty().subtract(getJarTxt.getLayoutBounds().getWidth()).subtract(getLatestAppBtn.widthProperty()));
     
         Region  jarBodySpacerRegion = new Region();
         jarBodySpacerRegion.setMinHeight(5);
 
-         bodyVBox.getChildren().addAll(getJarBox, jarUrlBox);
+         bodyVBox.getChildren().addAll(applicationTxtBox, getJarBox);
 
 
-
-        Text appJarTxt = new Text("    File:");
+        Text appJarTxt = new Text("  File:");
         appJarTxt.setFill(txtColor);
         appJarTxt.setFont(txtFont);
 
@@ -1032,7 +1179,7 @@ public class Setup extends Application {
             }
         });
        
-        HBox selectAppBox = new HBox(appJarTxt, selectBtn);
+        selectAppBox.getChildren().addAll(appJarTxt, selectBtn);
         selectAppBox.setAlignment(Pos.CENTER_LEFT);
 
         
@@ -1081,17 +1228,21 @@ public class Setup extends Application {
                 checkSetup(appStage);    
         });
 
+        
+     
         Region hBar = new Region();
         hBar.setPrefHeight(2);
         hBar.setId("hGradient");
 
-        HBox gBox = new HBox(hBar);
+       
         gBox.setAlignment(Pos.CENTER);
         gBox.setPadding(new Insets(25, 0, 0, 0));
         gBox.prefWidthProperty().bind(appStage.widthProperty());
         hBar.prefWidthProperty().bind(gBox.widthProperty().subtract(80));
 
-        HBox nextBox = new HBox(nextBtn);
+        gBox.getChildren().add(hBar);
+
+        nextBox.getChildren().add(nextBtn);
         nextBox.setAlignment(Pos.CENTER);
         nextBox.setPadding(new Insets(25, 0, 0, 0));
         
@@ -1100,8 +1251,8 @@ public class Setup extends Application {
         bodyVBox.getChildren().addAll(gBox, nextBox);
 
 
-        appStage.setWidth(700);
-        appStage.setHeight(465);
+ 
+        appStage.setHeight(480);
     }
 
    
@@ -1260,25 +1411,24 @@ public class Setup extends Application {
 
         HashData appHashData = m_appHashData == null ? new HashData(m_appFile) : m_appHashData; 
         
-        
-        Files.writeString(logFile.toPath(), "\nhashData:\n" + appHashData.getJsonObject(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        
         JsonObject obj = new JsonObject();
         obj.addProperty("updates", m_updates);
         obj.addProperty("javaVersion", m_javaVersion.get());
-
-        obj.addProperty("moveFiles", !m_appDir.getAbsolutePath().equals(new File(CURRENT_DIRECTORY).getAbsolutePath()));
-
         obj.add("appHashData", appHashData.getJsonObject());
         obj.addProperty("appFile", m_appFile.getAbsolutePath());
         obj.addProperty("launcherFile", m_launcherFile.getAbsolutePath());
         obj.add("launcherHashData", m_launcherHashData.getJsonObject());
+
         if(m_updates && m_launcherUpdateFile != null && m_launcherUpdateFile.isFile()){
             obj.addProperty("launcherUpdateFile", m_launcherUpdateFile.getAbsolutePath());
             obj.add("launcherUpdateHashData", m_launcherUpdateHashData.getJsonObject());
         }
-
-
+        if(m_firstRun){
+            obj.addProperty("firstRun", true);
+        }
+        if(!m_appDir.getAbsolutePath().equals(new File(CURRENT_DIRECTORY).getAbsolutePath())){
+            obj.addProperty("moveFiles", true);
+        }
 
         Files.writeString(logFile.toPath(), obj.toString());
 

@@ -40,7 +40,7 @@ import javafx.geometry.Pos;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
+import mslinks.ShellLinkException;
 import javafx.scene.input.KeyCode;
 
 import java.awt.Rectangle;
@@ -131,7 +131,7 @@ public class App extends Application {
 
     public static final String homeString = System.getProperty("user.home");
 
-    private File settingsFile = null;
+    
 
 
 
@@ -143,13 +143,13 @@ public class App extends Application {
     private final static long EXECUTION_TIME = 500;
     private Stage m_stage;
 
+    private File settingsFile = null;
     private File m_currentDir = null;
     private File m_launcherFile = null;
     private File m_appFile = null;
     private Version m_javaVersion = null;
     private HashData m_appHashData = null;
     private HashData m_launcherHashData = null;
-    private boolean m_updates = false;
 
     private void parseArgs(String argString, Stage appStage) {
 
@@ -161,61 +161,87 @@ public class App extends Application {
 
             JsonObject obj = new JsonParser().parse(jsonString).getAsJsonObject();
 
-            try {
-                Files.writeString(logFile.toPath(), "\n" + obj.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-     
-            }
-            
             m_javaVersion = new Version( obj.get("javaVersion").getAsString());
             m_appHashData  = new HashData(obj.get("appHashData").getAsJsonObject());
             m_appFile = new File(obj.get("appFile").getAsString());
             m_currentDir = m_appFile.getParentFile();
             m_launcherFile = new File(obj.get("launcherFile").getAsString());
-            m_updates = obj.get("updates").getAsBoolean();
             m_launcherHashData = new HashData(obj.get("launcherHashData").getAsJsonObject());
             
+            JsonElement launcherUpdateFileElement = obj.get("launcherUpdateFile");
+            JsonElement launcherUpdateHashDataElement = obj.get("launcherUpdateHashData");
+
             JsonElement moveElement = obj.get("moveFiles");
-
-            boolean moveFiles = moveElement != null  && moveElement.isJsonPrimitive() ? moveElement.getAsBoolean() : false;
-
+            JsonElement firstRunElement = obj.get("firstRun");
             
+            boolean moveFiles = moveElement != null  && moveElement.isJsonPrimitive() ? moveElement.getAsBoolean() : false;
+            boolean firstRun = firstRunElement != null && firstRunElement.isJsonPrimitive() ? firstRunElement.getAsBoolean() : false;
+            
+            File launcherUpdateFile = launcherUpdateFileElement != null && launcherUpdateFileElement.isJsonPrimitive() ? new File(launcherUpdateFileElement.getAsString()) : null;
+            HashData launcherUpdateHashData = launcherUpdateHashDataElement != null && launcherUpdateHashDataElement.isJsonObject() ? new HashData(launcherUpdateHashDataElement.getAsJsonObject()) : null;
 
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                Thread.sleep(1000);
-                            } catch (InterruptedException e) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
 
-                            }
-                            if (moveFiles) {
+                    File launcherDir = m_launcherFile.getParentFile();
+                    File destinationFile = new File(m_currentDir.getAbsolutePath() + "/Netnotes.exe");
+           
+                    if(launcherUpdateFile != null && launcherUpdateFile.isFile() && launcherUpdateHashData != null){
+                        try {
+                            Files.move(launcherUpdateFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            m_launcherFile = destinationFile;
+                            m_launcherHashData = launcherUpdateHashData;
+                        } catch (IOException e) {
+                            
+                        }
+                    }else{
+                        if (moveFiles) {
+                            if (!m_launcherFile.getAbsolutePath().equals(destinationFile.toString())) {
                                 try {
-                                    File desktopFile = new File(homeString + "/Desktop");
-                                    File launcherDir = m_launcherFile.getParentFile();
-                                    File destinationFile = new File(m_currentDir.getAbsolutePath() + "/" + m_launcherFile.getName());
-
-                                    if (!m_launcherFile.getAbsolutePath().equals(destinationFile.toString())) {
-
-                                        Files.move(m_launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                                        Utils.createLink(destinationFile, launcherDir, "Net Notes.lnk");
-
-                                        m_launcherFile = destinationFile;
-                                    }
-
-                                    Utils.createLink(destinationFile, desktopFile, "Net Notes.lnk");
-
-                                } catch (Exception e) {
-                                
+                                    Files.move(m_launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                    m_launcherFile = destinationFile;
+                                } catch (IOException e) {
+                            
                                 }
                             }
-                     
-                            if(m_launcherHashData != null && m_updates){
-                                checkForUpdates();
-                            }
-
                         }
-                    }).start();
+                    }
+                    if(!m_launcherFile.getName().equals("Netnotes.exe")){
+                         try {
+                            Files.move(m_launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException e) {
+                        
+                        }
+                        m_launcherFile = destinationFile;
+                    }
+
+                    if(firstRun){
+                        File desktopFile = new File(homeString + "/Desktop");
+
+                        try {
+                            Utils.createLink(m_launcherFile, desktopFile, "Netnotes.lnk");
+                        } catch (IOException | ShellLinkException e) {
+                            
+                        }
+                        if(moveFiles){
+                            try {
+                                Utils.createLink(m_launcherFile, launcherDir, "Netnotes.lnk");
+                            } catch (IOException | ShellLinkException e) {
+        
+                            }
+                        }
+                   
+                    }
+                
+          
+                }
+            }).start();
                 
 
             
@@ -226,9 +252,6 @@ public class App extends Application {
 
     }
 
-    public void checkForUpdates(){
-
-    }
 
     @Override
     public void start(Stage appStage) {
@@ -277,7 +300,7 @@ public class App extends Application {
             }
 
         } else {
-            Alert a = new Alert(AlertType.NONE, "Unable to open Net Notes.", ButtonType.CLOSE);
+            Alert a = new Alert(AlertType.NONE, "Unable to open Netnotes.", ButtonType.CLOSE);
             a.initOwner(appStage);
             a.showAndWait();
             shutdownNow();
@@ -287,13 +310,13 @@ public class App extends Application {
 
     public void startApp(AppData appData, Stage appStage) {
     
-        appStage.setTitle("Net Notes - Enter Password");
+        appStage.setTitle("Netnotes - Enter Password");
 
         Button closeBtn = new Button();
 
-        HBox titleBox = createTopBar(icon, "Net Notes - Enter Password", closeBtn, appStage);
+        HBox titleBox = createTopBar(icon, "Netnotes - Enter Password", closeBtn, appStage);
 
-        Button imageButton = createImageButton(logo, "Net Notes");
+        Button imageButton = createImageButton(logo, "Netnotes");
 
         HBox imageBox = new HBox(imageButton);
         imageBox.setAlignment(Pos.CENTER);
@@ -337,7 +360,7 @@ public class App extends Application {
             shutdownNow();
         });
 
-        Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
+        Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying..");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -395,7 +418,7 @@ public class App extends Application {
         Stage statusStage = new Stage();
         statusStage.setResizable(false);
         statusStage.initStyle(StageStyle.UNDECORATED);
-        statusStage.setTitle("Net Notes - Verifying");
+        statusStage.setTitle("Netnotes - Verifying");
         statusStage.getIcons().add(logo);
 
         statusStage.setTitle(title);
@@ -517,7 +540,7 @@ public class App extends Application {
 
     public void verifyAppKey(Runnable runnable) {
 
-        String title = "Net Notes - Enter Password";
+        String title = "Netnotes - Enter Password";
 
         Stage passwordStage = new Stage();
         passwordStage.getIcons().add(logo);
@@ -529,7 +552,7 @@ public class App extends Application {
 
         HBox titleBox = createTopBar(icon, title, closeBtn, passwordStage);
 
-        Button imageButton = createImageButton(logo, "Net Notes");
+        Button imageButton = createImageButton(logo, "Netnotes");
 
         HBox imageBox = new HBox(imageButton);
         imageBox.setAlignment(Pos.CENTER);
@@ -567,7 +590,7 @@ public class App extends Application {
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
-        Stage statusStage = getStatusStage("Net Notes - Verifying...", "Verifying..");
+        Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying..");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -621,7 +644,7 @@ public class App extends Application {
         Button networksBtn = new Button();
         Button maximizeBtn = new Button();
 
-        appStage.setTitle("Net Notes: Networks");
+        appStage.setTitle("Netnotes: Networks");
 
         HBox titleBox = createTopBar(icon, maximizeBtn, closeBtn, appStage);
 
@@ -829,7 +852,7 @@ public class App extends Application {
         passwordBtn.setOnAction(e -> {
             Stage passwordStage = new Stage();
 
-            createPassword("Net Notes - Password", logo, logo, passwordStage, (onSuccess) -> {
+            createPassword("Netnotes - Password", logo, logo, passwordStage, (onSuccess) -> {
                 Object sourceObject = onSuccess.getSource().getValue();
 
                 if (sourceObject != null && sourceObject instanceof String) {
@@ -837,7 +860,7 @@ public class App extends Application {
 
                     if (!newPassword.equals("")) {
 
-                        Stage statusStage = getStatusStage("Net Notes - Saving...", "Saving...");
+                        Stage statusStage = getStatusStage("Netnotes - Saving...", "Saving...");
                         statusStage.show();
                         FxTimer.runLater(Duration.ofMillis(100), () -> {
                             String hash = Utils.getBcryptHashString(newPassword);
@@ -856,8 +879,8 @@ public class App extends Application {
 
                         });
                     } else {
-                        Alert a = new Alert(AlertType.NONE, "Net Notes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
-                        a.setTitle("Net Notes: Password not changed");
+                        Alert a = new Alert(AlertType.NONE, "Netnotes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
+                        a.setTitle("Netnotes: Password not changed");
                         a.initOwner(appStage);
                         a.show();
                     }
@@ -1609,7 +1632,7 @@ public class App extends Application {
 
             m_tray = java.awt.SystemTray.getSystemTray();
 
-            m_trayIcon = new java.awt.TrayIcon((java.awt.Image) imgBuf, "Net Notes");
+            m_trayIcon = new java.awt.TrayIcon((java.awt.Image) imgBuf, "Netnotes");
             m_trayIcon.setActionCommand("show");
 
             m_trayIcon.addActionListener(event -> Platform.runLater(() -> {
@@ -1619,7 +1642,7 @@ public class App extends Application {
 
             }));
 
-            java.awt.MenuItem openItem = new java.awt.MenuItem("Show Net Notes");
+            java.awt.MenuItem openItem = new java.awt.MenuItem("Show Netnotes");
             openItem.addActionListener(event -> Platform.runLater(() -> m_networksData.show()));
 
             java.awt.Font defaultFont = java.awt.Font.decode(null);

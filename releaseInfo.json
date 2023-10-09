@@ -3,19 +3,19 @@
         "hashData": {
             "id": "LESLiyuE7OKQa3luTmaBj",
             "name": "Blake2b-256",
-            "hash": "bd6a2e88b34cde0b60743aec89aec749c0b4d42ccf3948ac89beec42f116cd64"
+            "hash": "1de95915cc198343009434f2c4579135b52f048a3b93071d9a3c7686dc32ac76"
         },
-        "name": "Netnotes.exe",
-        "version":"0.0.2",
+        "name": "netnotes-0.0.3.exe",
+        "version":"0.0.3",
         "tag":"devPreRelease"
     },"application":{
         "hashData": {
             "id": "Mnq6m3D62PSCGBbpdCOF4",
             "name": "Blake2b-256",
-            "hash": "508888934247364075c1e2b3caef438d9dc374462be88b76e3f10742f2b9903f"
+            "hash": "2e5f9609d7e2425394c1cceec6364f1017de73b0af4a7d23c61775da9e09ca4d"
         },
-        "name": "netnotes-0.0.2.jar",
-        "version":"0.0.2",
+        "name": "netnotes-0.0.3.jar",
+        "version":"0.0.3",
         "tag":"devPreRelease"
     }
     
