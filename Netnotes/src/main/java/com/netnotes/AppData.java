@@ -155,7 +155,7 @@ public class AppData {
             throw new Exception("launcher did not send args");
         }
 
-        m_isDaemon = true;//isDaemonElement != null && isDaemonElement.isJsonPrimitive() ?  isDaemonElement.getAsBoolean() : false;
+        m_isDaemon = isDaemonElement != null && isDaemonElement.isJsonPrimitive() ?  isDaemonElement.getAsBoolean() : false;
         m_javaVersion = new Version(javaVersionString);
         m_launcherFile.set(new File(launcherFileString));
         m_launcherHashData.set(new HashData(launcherHashDataObject));
