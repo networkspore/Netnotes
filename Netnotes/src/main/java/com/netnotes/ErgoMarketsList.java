@@ -339,7 +339,7 @@ public class ErgoMarketsList {
         //  byte[] bytes = jsonString.getBytes(StandardCharsets.UTF_8);
         // String fileHexString = Hex.encodeHexString(bytes);
         try {
-            Utils.writeEncryptedString(m_ergoMarkets.getNetworksData().appKeyProperty().get(), m_ergoMarkets.getDataFile(), jsonString);
+            Utils.writeEncryptedString(m_ergoMarkets.getNetworksData().getAppData().appKeyProperty().get(), m_ergoMarkets.getDataFile(), jsonString);
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
                 | IOException e) {

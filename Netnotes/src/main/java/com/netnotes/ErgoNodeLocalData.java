@@ -1157,7 +1157,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         downloadBtn.setOnAction(e -> getLatestUrl.run());
         ErgoNodes ergoNodes = getErgoNodesList().getErgoNodes();
         Runnable downloadBtnEffect = () -> {
-            if (!ergoNodes.getNetworksData().getAppData().updatesProperty().get()) {
+            if (!ergoNodes.getNetworksData().getAppData().getUpdates()) {
                 if (downloadBtn.getBufferedImageView().getEffect("updateEffectId") == null) {
                     downloadBtn.getBufferedImageView().applyEffect(new InvertEffect("updateEffectId", 0.7));
                 }
@@ -1165,16 +1165,16 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 downloadBtn.getBufferedImageView().removeEffect("updateEffectId");
             }
         };
-
+        /*
         ergoNodes.getNetworksData().getAppData().updatesProperty().addListener((obs, oldVal, newVal) -> {
             downloadBtnEffect.run();
             if (newVal.booleanValue()) {
                 getLatestUrl.run();
             }
 
-        });
+        }); */
 
-        if (ergoNodes.getNetworksData().getAppData().updatesProperty().get()) {
+        if (ergoNodes.getNetworksData().getAppData().getUpdates()) {
             getLatestUrl.run();
         }
 

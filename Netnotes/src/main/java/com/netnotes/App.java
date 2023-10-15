@@ -40,22 +40,17 @@ import javafx.geometry.Pos;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import mslinks.ShellLinkException;
-import javafx.scene.input.KeyCode;
 
+import javafx.scene.input.KeyCode;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
-import java.nio.file.StandardCopyOption;
+
 import java.nio.file.StandardOpenOption;
-import java.security.Security;
-import java.security.spec.KeySpec;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
@@ -66,23 +61,11 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import javax.crypto.spec.SecretKeySpec;
-
-import org.bouncycastle.util.encoders.Hex;
-
 import org.reactfx.util.FxTimer;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.netnotes.IconButton.IconStyle;
 
-
 import com.utils.Utils;
-import com.utils.Version;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
@@ -92,6 +75,8 @@ public class App extends Application {
     public static final String CMD_SHOW_APPSTAGE = "SHOW_APPSTAGE";
     public static final long NOTE_EXECUTION_TIME = 100;
     public static final String notesFileName = "notes.dat";
+   
+    private static final String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
 
     public static final String GET_DATA = "GET_DATA";
 
@@ -129,11 +114,6 @@ public class App extends Application {
     public final static String SETTINGS_FILE_NAME = "settings.conf";
     public final static String NETWORKS_FILE_NAME = "networks.dat";
 
-    public static final String homeString = System.getProperty("user.home");
-
-    
-
-
 
     private NetworksData m_networksData;
 
@@ -141,122 +121,22 @@ public class App extends Application {
     private java.awt.SystemTray m_tray;
     private java.awt.TrayIcon m_trayIcon;
     private final static long EXECUTION_TIME = 500;
-    private Stage m_stage;
+    //private Stage m_stage;
+    
+    private Stage m_persistenceStage = null;
+    private ScheduledFuture<?> m_lastExecution = null;
 
-    private File settingsFile = null;
-    private File m_currentDir = null;
-    private File m_launcherFile = null;
-    private File m_appFile = null;
-    private Version m_javaVersion = null;
-    private HashData m_appHashData = null;
-    private HashData m_launcherHashData = null;
 
-    private void parseArgs(String argString, Stage appStage) {
-
-        if( argString != null && argString.length() > 0) {
-
-            byte[] bytes = Hex.decode(argString);
-
-            String jsonString = new String(bytes, StandardCharsets.UTF_8);
-
-            JsonObject obj = new JsonParser().parse(jsonString).getAsJsonObject();
-
-            m_javaVersion = new Version( obj.get("javaVersion").getAsString());
-            m_appHashData  = new HashData(obj.get("appHashData").getAsJsonObject());
-            m_appFile = new File(obj.get("appFile").getAsString());
-            m_currentDir = m_appFile.getParentFile();
-            m_launcherFile = new File(obj.get("launcherFile").getAsString());
-            m_launcherHashData = new HashData(obj.get("launcherHashData").getAsJsonObject());
-            
-            JsonElement launcherUpdateFileElement = obj.get("launcherUpdateFile");
-            JsonElement launcherUpdateHashDataElement = obj.get("launcherUpdateHashData");
-
-            JsonElement moveElement = obj.get("moveFiles");
-            JsonElement firstRunElement = obj.get("firstRun");
-            
-            boolean moveFiles = moveElement != null  && moveElement.isJsonPrimitive() ? moveElement.getAsBoolean() : false;
-            boolean firstRun = firstRunElement != null && firstRunElement.isJsonPrimitive() ? firstRunElement.getAsBoolean() : false;
-            
-            File launcherUpdateFile = launcherUpdateFileElement != null && launcherUpdateFileElement.isJsonPrimitive() ? new File(launcherUpdateFileElement.getAsString()) : null;
-            HashData launcherUpdateHashData = launcherUpdateHashDataElement != null && launcherUpdateHashDataElement.isJsonObject() ? new HashData(launcherUpdateHashDataElement.getAsJsonObject()) : null;
-
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        return;
-                    }
-
-                    File launcherDir = m_launcherFile.getParentFile();
-                    File destinationFile = new File(m_currentDir.getAbsolutePath() + "/Netnotes.exe");
-           
-                    if(launcherUpdateFile != null && launcherUpdateFile.isFile() && launcherUpdateHashData != null){
-                        try {
-                            Files.move(launcherUpdateFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                            m_launcherFile = destinationFile;
-                            m_launcherHashData = launcherUpdateHashData;
-                        } catch (IOException e) {
-                            
-                        }
-                    }else{
-                        if (moveFiles) {
-                            if (!m_launcherFile.getAbsolutePath().equals(destinationFile.toString())) {
-                                try {
-                                    Files.move(m_launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                                    m_launcherFile = destinationFile;
-                                } catch (IOException e) {
-                            
-                                }
-                            }
-                        }
-                    }
-                    if(!m_launcherFile.getName().equals("Netnotes.exe")){
-                         try {
-                            Files.move(m_launcherFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                        } catch (IOException e) {
-                        
-                        }
-                        m_launcherFile = destinationFile;
-                    }
-
-                    if(firstRun){
-                        File desktopFile = new File(homeString + "/Desktop");
-
-                        try {
-                            Utils.createLink(m_launcherFile, desktopFile, "Netnotes.lnk");
-                        } catch (IOException | ShellLinkException e) {
-                            
-                        }
-                        if(moveFiles){
-                            try {
-                                Utils.createLink(m_launcherFile, launcherDir, "Netnotes.lnk");
-                            } catch (IOException | ShellLinkException e) {
-        
-                            }
-                        }
-                   
-                    }
-                
-          
-                }
-            }).start();
-                
-
-            
-
-        }else{
-            shutdownNow();
-        }
-
-    }
 
 
     @Override
     public void start(Stage appStage) {
-        //  Platform.setImplicitExit(true);
-        AppData appData = null;
+        try {
+            Files.writeString(logFile.toPath(), "\nstarted", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+       
+        }
+        
         appStage.setResizable(false);
         appStage.initStyle(StageStyle.UNDECORATED);
         appStage.setTitle("Netnotes");
@@ -264,52 +144,77 @@ public class App extends Application {
 
         Parameters params = getParameters();
         List<String> list = params.getRaw();
+        String arg0 = list.size() > 0 ? list.get(0) : null;
 
-        if(list.size() > 0){
-            parseArgs(list.get(0), appStage);
-        }
+        if(arg0 != null){
+            try {
+                
+                AppData appData = new AppData(arg0);
+                 try {
+                        Files.writeString(logFile.toPath(), "\nAutorun: " +appData.getAutoRun() + "\nappKey:" + appData.appKeyProperty().get().toString() + "\nisdaemon: " + appData.isDaemon(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+                
+                    }
+                if(appData.getAutoRun() && appData.appKeyProperty().get() != null && appData.isDaemon() ){
+                    try {
+                        Files.writeString(logFile.toPath(), "\nisDaemon", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+                
+                    }
+                    Platform.setImplicitExit(true);                                        
 
-        if (m_currentDir != null) {
-            String currentDirString = m_currentDir.getAbsolutePath();
-
-            settingsFile = new File(currentDirString + "/" + SETTINGS_FILE_NAME);
-
-            if (!settingsFile.isFile()) {
-
-                Alert a = new Alert(AlertType.NONE, "Unable to access user app data. Ensure you have access to:\n\nLocation: " + m_currentDir.getAbsolutePath() + "\n" + m_launcherFile.getAbsolutePath(), ButtonType.CLOSE);
-                a.showAndWait();
-                shutdownNow();
-
-            } else {
-
-                try {
-                    appData = new AppData(settingsFile);
-
-                } catch (Exception e) {
-                    Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                    a.showAndWait();
-                }
-
-                if (appData != null && appData.getAppKey() != null) {
-
+                    openNetnotes(appData, appStage);
+                }else{
                     startApp(appData, appStage);
-                } else {
-                    //init?
-                    shutdownNow();
                 }
+                
+            } catch (Exception e) {
+                    Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                a.initOwner(appStage);
+                a.showAndWait();
+                try {
+                    Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+            
+                }
+                shutdownNow();
             }
+        }else{
+            TextField textField = new TextField();
+            Button closeBtn = new Button();
+            showGetTextInput("Application 'exe' may be out of date. Would you like to download the latest version? (Y/n)","Invalid parmeters", logo, textField, closeBtn, appStage  );
+            closeBtn.setOnAction(e->{
+                shutdownNow();
+            });
+            textField.setOnKeyPressed(e -> {
 
-        } else {
-            Alert a = new Alert(AlertType.NONE, "Unable to open Netnotes.", ButtonType.CLOSE);
-            a.initOwner(appStage);
-            a.showAndWait();
-            shutdownNow();
+                KeyCode keyCode = e.getCode();
+
+                if (keyCode == KeyCode.ENTER || keyCode == KeyCode.Y) {
+
+                    m_networkServices.showDocument(GitHub_USERDL_URL);
+                    shutdownNow();
+                }else{
+                    if(keyCode == KeyCode.N){
+                        shutdownNow();
+                    }else{
+                        textField.setText("");
+                    }
+                }
+            });
+        
         }
 
     }
 
+
     public void startApp(AppData appData, Stage appStage) {
-    
+        
+        try {
+            Files.writeString(logFile.toPath(), "\nStaring app", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+       
+        }
         appStage.setTitle("Netnotes - Enter Password");
 
         Button closeBtn = new Button();
@@ -383,7 +288,8 @@ public class App extends Application {
                         if (result.verified) {
 
                             try {
-                                openNetnotes(appData, createKey(chars), appStage);
+                                appData.createKey(chars);
+                                openNetnotes(appData, appStage);
                                 chars = null;
                             } catch (Exception e1) {
                                 Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CLOSE);
@@ -399,21 +305,7 @@ public class App extends Application {
         appStage.show();
     }
 
-    private static SecretKey createKey(char[] chars) throws Exception {
-
-        byte[] charBytes = Utils.charsToBytes(chars);
-
-        charBytes = Utils.digestBytesToBytes(charBytes);
-
-        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-
-        KeySpec spec = new PBEKeySpec(chars, charBytes, 65536, 256);
-        SecretKey tmp = factory.generateSecret(spec);
-        SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
-
-        return secret;
-    }
-
+   
     public static Stage getStatusStage(String title, String statusMessage) {
         Stage statusStage = new Stage();
         statusStage.setResizable(false);
@@ -469,19 +361,12 @@ public class App extends Application {
     }
 
     // private static int createTries = 0;
-    private void openNetnotes(AppData appData, SecretKey appKey, Stage appStage) {
+    private void openNetnotes(AppData appData,  Stage appStage) {
         File networksFile = new File(NETWORKS_FILE_NAME);
 
         boolean isNetworksFile = networksFile.isFile();
 
-        m_networksData = new NetworksData(appData, appKey, m_networkServices, networksFile, isNetworksFile);
-
-        m_stage = new Stage();
-        m_stage.initStyle(StageStyle.UTILITY);
-        m_stage.setOpacity(0);
-        m_stage.setHeight(0);
-        m_stage.setWidth(0);
-        m_stage.show();
+        m_networksData = new NetworksData(appData, m_networkServices, networksFile, isNetworksFile);    
 
         m_networksData.cmdSwitchProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -534,8 +419,13 @@ public class App extends Application {
             javax.swing.SwingUtilities.invokeLater(this::addAppToTray);
         }
 
-        showMainStage(appStage, isNetworksFile);
-
+        loadMainStage(appStage, isNetworksFile);
+        if(!appData.isDaemon()){
+            m_networksData.show();
+        }else{
+          // appStage.show();
+        }
+       
     }
 
     public void verifyAppKey(Runnable runnable) {
@@ -635,9 +525,13 @@ public class App extends Application {
         passwordStage.show();
 
     }
-    private ScheduledFuture<?> m_lastExecution = null;
 
-    private void showMainStage(Stage appStage, boolean isNetworksFile) {
+    private void loadMainStage(Stage appStage, boolean isNetworksFile) {
+        m_persistenceStage = new Stage(StageStyle.UTILITY);
+        m_persistenceStage.setHeight(0);
+        m_persistenceStage.setWidth(0);
+        m_persistenceStage.setX(java.lang.Double.MAX_VALUE);
+        m_persistenceStage.show();
 
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
@@ -774,8 +668,10 @@ public class App extends Application {
             m_networksData.showManageNetworkStage();
         }
     }
+    
 
     private void showNetworks(Scene appScene, VBox header, VBox bodyVBox) {
+  
 
         bodyVBox.getChildren().clear();
 
@@ -835,7 +731,7 @@ public class App extends Application {
     private void showSettings(Stage appStage, VBox bodyVBox) {
         bodyVBox.getChildren().clear();
 
-        boolean isUpdates = m_networksData.getAppData().updatesProperty().get();
+        boolean isUpdates = m_networksData.getAppData().getUpdates();
 
         Button settingsButton = createImageButton(logo, "Settings");
 
@@ -1087,15 +983,14 @@ public class App extends Application {
         return formater.format(time);
     }
 
-    public static String showGetTextInput(String prompt, String title, Image img) {
-
-        Stage textInputStage = new Stage();
+    public static void showGetTextInput(String prompt, String title, Image img, TextField textField, Button closeBtn, Stage textInputStage) {
+        
         textInputStage.setTitle(title);
         textInputStage.getIcons().add(logo);
         textInputStage.setResizable(false);
         textInputStage.initStyle(StageStyle.UNDECORATED);
 
-        Button closeBtn = new Button();
+  
 
         HBox titleBox = createTopBar(icon, title, closeBtn, textInputStage);
 
@@ -1108,14 +1003,11 @@ public class App extends Application {
         promptTxt.setFill(txtColor);
         promptTxt.setFont(txtFont);
 
-        TextField textField = new TextField();
+
         textField.setFont(txtFont);
         textField.setId("textField");
 
-        closeBtn.setOnAction(event -> {
-            textField.setText("");
-            textInputStage.close();
-        });
+
 
         HBox.setHgrow(textField, Priority.ALWAYS);
 
@@ -1145,20 +1037,9 @@ public class App extends Application {
 
         textInputStage.setScene(textInputScene);
 
-        textField.setOnKeyPressed(e -> {
+      
+        textInputStage.show();
 
-            KeyCode keyCode = e.getCode();
-
-            if (keyCode == KeyCode.ENTER) {
-
-                textInputStage.close();
-
-            }
-        });
-        textInputStage.showAndWait();
-        String returnValue = textField.getText();
-
-        return returnValue.equals("") ? null : returnValue;
 
     }
 
@@ -1639,7 +1520,11 @@ public class App extends Application {
                 if (event.getActionCommand().equals("show")) {
                     m_networksData.show();
                 }
-
+                try {
+                    Files.writeString(logFile.toPath(), "app - trayIcon action: " + event.getActionCommand(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+                
+                }
             }));
 
             java.awt.MenuItem openItem = new java.awt.MenuItem("Show Netnotes");
@@ -1665,7 +1550,12 @@ public class App extends Application {
             m_tray.add(m_trayIcon);
 
         } catch (java.awt.AWTException e) {
-
+            try {
+                Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+              
+            }
+            
         }
 
     }

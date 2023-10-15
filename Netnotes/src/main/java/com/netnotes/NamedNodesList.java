@@ -23,7 +23,7 @@ public class NamedNodesList {
 
     private ArrayList<NamedNodeUrl> m_dataList = new ArrayList<>();
 
-    private SimpleBooleanProperty m_updatesProperty;
+    private boolean m_updates;
 
     private SimpleDoubleProperty m_gridWidthProperty = new SimpleDoubleProperty(200);
 
@@ -33,21 +33,17 @@ public class NamedNodesList {
 
     private long m_updateTimeStamp = -1;
 
-    public NamedNodesList(SimpleBooleanProperty updatesProperty) {
+    public NamedNodesList(boolean updates) {
 
-        m_updatesProperty = updatesProperty;
+        m_updates = updates;
 
-        if (m_updatesProperty.get()) {
+        if (updates) {
             getGitHubList();
         } else {
             setDefaultList();
         }
 
-        m_updatesProperty.addListener((obs, oldval, newVal) -> {
-            if (newVal.booleanValue()) {
-                getGitHubList();
-            }
-        });
+     
     }
 
     public SimpleStringProperty selectedNamedNodeIdProperty() {

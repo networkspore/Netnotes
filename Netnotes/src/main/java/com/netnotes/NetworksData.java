@@ -70,7 +70,7 @@ public class NetworksData implements InstallerInterface {
     private String m_selectedId;
     private VBox m_networksBox;
 
-    private SimpleObjectProperty<SecretKey> m_secretKey = new SimpleObjectProperty<SecretKey>(null);
+    
 
     private double m_leftColumnWidth = 175;
 
@@ -102,16 +102,16 @@ public class NetworksData implements InstallerInterface {
     private boolean m_stageMaximized = false;
     private AppData m_appData;
 
-    public NetworksData(AppData appData, SecretKey secretKey, HostServices hostServices, File networksFile, boolean isFile) {
+    public NetworksData(AppData appData,  HostServices hostServices, File networksFile, boolean isFile) {
         m_appData = appData;
-        m_secretKey.set(secretKey);
+       
         m_networksFile = networksFile;
         m_networksBox = new VBox();
         m_hostServices = hostServices;
         m_appDir = new File(System.getProperty("user.dir"));
 
         if (isFile) {
-            readFile(appKeyProperty().get(), networksFile.toPath());
+            readFile(m_appData.appKeyProperty().get(), networksFile.toPath());
         }
 
         m_notesDir = new File(m_appDir.getAbsolutePath() + "/notes");
@@ -164,7 +164,11 @@ public class NetworksData implements InstallerInterface {
                 }
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
+                    try {
+                        Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e1) {
 
+                    }
             }
 
         } catch (IOException e) {
@@ -387,11 +391,18 @@ public class NetworksData implements InstallerInterface {
     }
 
     public void show() {
+        try {
+            Files.writeString(logFile.toPath(), "ntetworksData: Show called", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+        
+        }
+        
         com.grack.nanojson.JsonObject showJson = new com.grack.nanojson.JsonObject();
 
         showJson.put("type", "CMD");
         showJson.put("cmd", App.CMD_SHOW_APPSTAGE);
         showJson.put("timeStamp", System.currentTimeMillis());
+
 
         m_cmdSwitch.set(showJson);
     }
@@ -784,13 +795,7 @@ public class NetworksData implements InstallerInterface {
         });
     }
 
-    public SimpleObjectProperty<SecretKey> appKeyProperty() {
-        return m_secretKey;
-    }
-
-    public void setAppKey(SecretKey secretKey) {
-        m_secretKey.set(secretKey);
-    }
+  
 
     public void save() {
         JsonObject fileObject = new JsonObject();
@@ -823,7 +828,7 @@ public class NetworksData implements InstallerInterface {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
 
-            cipher.init(Cipher.ENCRYPT_MODE, appKeyProperty().get(), parameterSpec);
+            cipher.init(Cipher.ENCRYPT_MODE, getAppData().appKeyProperty().get(), parameterSpec);
 
             byte[] encryptedData = cipher.doFinal(jsonString.getBytes());
 

@@ -106,7 +106,7 @@ public class WalletsDataList {
         if (dataFile != null && dataFile.isFile()) {
             try {
 
-                openJson(Utils.readJsonFile(m_ergoWallet.getNetworksData().appKeyProperty().get(), dataFile.toPath()));
+                openJson(Utils.readJsonFile(m_ergoWallet.getNetworksData().getAppData().appKeyProperty().get(), dataFile.toPath()));
 
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
@@ -1034,7 +1034,7 @@ public class WalletsDataList {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
 
-            cipher.init(Cipher.ENCRYPT_MODE, m_ergoWallet.getNetworksData().appKeyProperty().get(), parameterSpec);
+            cipher.init(Cipher.ENCRYPT_MODE, m_ergoWallet.getNetworksData().getAppData().appKeyProperty().get(), parameterSpec);
 
             byte[] encryptedData = cipher.doFinal(jsonString.getBytes());
 

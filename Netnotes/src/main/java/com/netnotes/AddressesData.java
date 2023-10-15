@@ -195,32 +195,54 @@ public class AddressesData {
     public SimpleDoubleProperty getTotalDoubleProperty() {
         return m_totalQuote;
     }
-
+    private Stage m_promptStage = null;
     public void addAddress() {
-        String addressName = App.showGetTextInput("Address name", "Address", App.branchImg);
-        if (addressName != null) {
-            int nextAddressIndex = m_wallet.nextAddressIndex();
-            m_wallet.myAddresses.put(nextAddressIndex, addressName);
-            AddressData addressData = null;
-            try {
+        TextField textField = new TextField();
+        Button closeBtn = new Button();
+        if(m_promptStage == null){
+            m_promptStage = new Stage();
+            App.showGetTextInput("Address name", "Address name", App.branchImg, textField, closeBtn, m_promptStage);
+            closeBtn.setOnAction(e->{
+                m_promptStage.close();
+                m_promptStage = null;
+            });
+            m_promptStage.setOnCloseRequest(e->{
+                closeBtn.fire();
+            });
+            textField.setOnKeyPressed(e -> {
 
-                Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
-                addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
+                KeyCode keyCode = e.getCode();
 
-            } catch (Failure e1) {
+                if (keyCode == KeyCode.ENTER) {
+                    String addressName = textField.getText();
+                    if (!addressName.equals("")) {
+                        int nextAddressIndex = m_wallet.nextAddressIndex();
+                        m_wallet.myAddresses.put(nextAddressIndex, addressName);
+                        AddressData addressData = null;
+                        try {
 
-                Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
-                a.show();
-            }
-            if (addressData != null) {
-                m_addressDataList.add(addressData);
-                addressData.getLastUpdated().addListener((a, b, c) -> {
+                            Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
+                            addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
 
-                    m_totalQuote.set(calculateCurrentTotal());
-                });
-                updateAddressBox();
-            }
+                        } catch (Failure e1) {
+
+                            Alert a = new Alert(AlertType.ERROR, e1.toString(), ButtonType.OK);
+                            a.showAndWait();
+                        }
+                        if (addressData != null) {
+                            m_addressDataList.add(addressData);
+                            addressData.getLastUpdated().addListener((a, b, c) -> {
+
+                                m_totalQuote.set(calculateCurrentTotal());
+                            });
+                            updateAddressBox();
+                        }
+                    }
+                    closeBtn.fire();
+                }
+            });
         }
+
     }
 
     public VBox getAddressBox() {
@@ -291,7 +313,7 @@ public class AddressesData {
 
         if (noteInterface != null && noteInterface instanceof ErgoMarkets) {
             ErgoMarkets ergoMarkets = (ErgoMarkets) noteInterface;
-            SecretKey secretKey = m_walletData.getNetworksData().appKeyProperty().get();
+            SecretKey secretKey = m_walletData.getNetworksData().getAppData().appKeyProperty().get();
             if (m_ergoMarketsList != null) {
                 m_ergoMarketsList.shutdown();
             }

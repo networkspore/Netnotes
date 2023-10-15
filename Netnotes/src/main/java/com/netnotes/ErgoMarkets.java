@@ -88,7 +88,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
             String newMarketDataId = FriendlyId.createFriendlyId();
 
-            ErgoMarketsList dataList = new ErgoMarketsList(getNetworksData().appKeyProperty().get(), this);
+            ErgoMarketsList dataList = new ErgoMarketsList(getNetworksData().getAppData().appKeyProperty().get(), this);
 
             dataList.add(new MarketsData(newMarketDataId, KucoinExchange.NETWORK_ID, "ERG", "USDT", MarketsData.REALTIME, MarketsData.TICKER, dataList));
             dataList.defaultIdProperty().set(newMarketDataId);
@@ -100,7 +100,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
 
         }
 
-        getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+        getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
             ErgoMarketsList dataList = new ErgoMarketsList(oldVal, this);
             dataList.save();
             dataList = null;
@@ -128,7 +128,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
         if (m_stage == null) {
             String title = getName();
 
-            ErgoMarketsList marketsList = new ErgoMarketsList(getNetworksData().appKeyProperty().get(), this);
+            ErgoMarketsList marketsList = new ErgoMarketsList(getNetworksData().getAppData().appKeyProperty().get(), this);
             double buttonHeight = 100;
 
             m_stage = new Stage();
@@ -266,7 +266,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
     }
 
     public void getData(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        ErgoMarketsList dataList = new ErgoMarketsList(getNetworksData().appKeyProperty().get(), this);
+        ErgoMarketsList dataList = new ErgoMarketsList(getNetworksData().getAppData().appKeyProperty().get(), this);
 
         Utils.returnObject(dataList.getDataObject(), onSucceeded, onFailed);
     }

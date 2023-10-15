@@ -86,7 +86,7 @@ public class Launcher {
 
     }
 
-
+    /* 
     private static void openSetup(boolean firstRun, String javaVersion, String appFilePath, String currentDirectory) {
 
         JsonObject json = new JsonObject();
@@ -101,7 +101,7 @@ public class Launcher {
 
         Application.launch(Setup.class, json.toString());
 
-    }
+    }*/
 
    /* public static void openUpdater(boolean updates, String javaVersion, File appFile)  {
         JsonObject json = new JsonObject();

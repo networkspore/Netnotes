@@ -105,7 +105,7 @@ public class ErgoNetworkData implements InstallerInterface {
         boolean isFile = m_dataFile.isFile();
 
         if (isFile) {
-            readFile(m_ergoNetwork.getNetworksData().appKeyProperty().get(), m_dataFile.toPath());
+            readFile(m_ergoNetwork.getNetworksData().getAppData().appKeyProperty().get(), m_dataFile.toPath());
         }
 
         m_iconStyle.addListener((obs, oldVal, newVal) -> updateGrid());
@@ -697,7 +697,7 @@ public class ErgoNetworkData implements InstallerInterface {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
 
-            cipher.init(Cipher.ENCRYPT_MODE, m_ergoNetwork.getNetworksData().appKeyProperty().get(), parameterSpec);
+            cipher.init(Cipher.ENCRYPT_MODE, m_ergoNetwork.getNetworksData().getAppData().appKeyProperty().get(), parameterSpec);
 
             byte[] encryptedData = cipher.doFinal(jsonString.getBytes());
 

@@ -307,7 +307,7 @@ public class ErgoNodesList {
             if (!appDir.isDirectory()) {
                 Files.createDirectory(appDir.toPath());
             }
-            Utils.writeEncryptedString(m_ergoNodes.getNetworksData().appKeyProperty().get(), m_ergoNodes.getDataFile(), jsonString);
+            Utils.writeEncryptedString(m_ergoNodes.getNetworksData().getAppData().appKeyProperty().get(), m_ergoNodes.getDataFile(), jsonString);
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
                 | IOException e) {
@@ -378,7 +378,7 @@ public class ErgoNodesList {
 
             // Alert a = new Alert(AlertType.NONE, "updates: " + updatesEnabled, ButtonType.CLOSE);
             //a.show();
-            NamedNodesList nodesList = new NamedNodesList(m_ergoNodes.getNetworksData().getAppData().updatesProperty());
+            NamedNodesList nodesList = new NamedNodesList(m_ergoNodes.getNetworksData().getAppData().getUpdates());
 
             //private
             SimpleObjectProperty<NetworkType> networkTypeOption = new SimpleObjectProperty<NetworkType>(NetworkType.MAINNET);
@@ -466,7 +466,7 @@ public class ErgoNodesList {
             getNodesListBtn.setTooltip(enableUpdatesTip);
             final String updateEffectId = "UPDATE_DISABLED";
             Runnable updateEnableEffect = () -> {
-                boolean updatesEnabled = m_ergoNodes.getNetworksData().getAppData().updatesProperty().get();
+                boolean updatesEnabled = m_ergoNodes.getNetworksData().getAppData().getUpdates();
 
                 enableUpdatesTip.setText("Updates settings: " + (updatesEnabled ? "Enabled" : "Disabled"));
                 if (!updatesEnabled) {
@@ -482,9 +482,7 @@ public class ErgoNodesList {
                 nodesList.getGitHubList();
             });
 
-            m_ergoNodes.getNetworksData().getAppData().updatesProperty().addListener((obs, oldVal, newVal) -> {
-                updateEnableEffect.run();
-            });
+        
 
             updateEnableEffect.run();
             Region btnSpacerRegion = new Region();

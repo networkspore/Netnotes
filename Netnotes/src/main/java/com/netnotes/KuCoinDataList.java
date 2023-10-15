@@ -75,7 +75,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             if (sourceObject != null && sourceObject instanceof JsonObject) {
 
                 readTickers(m_favoritesList, getDataJson((JsonObject) sourceObject), onSuccess -> {
-                    getFile(getNetworksData().appKeyProperty().get());
+                    getFile(getNetworksData().getAppData().appKeyProperty().get());
                     sortByChangeRate(false);
                     sort();
                     updateGridBox();
@@ -87,7 +87,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                     } catch (IOException e) {
 
                     }
-                    getFile(getNetworksData().appKeyProperty().get());
+                    getFile(getNetworksData().getAppData().appKeyProperty().get());
                     m_notConnected = true;
                     m_statusMsg.set("Not connected");
                     updateGridBox();
@@ -100,7 +100,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                 } catch (IOException e) {
 
                 }
-                getFile(getNetworksData().appKeyProperty().get());
+                getFile(getNetworksData().getAppData().appKeyProperty().get());
                 m_notConnected = true;
                 m_statusMsg.set("Not connected");
                 updateGridBox();
@@ -111,13 +111,13 @@ public class KuCoinDataList extends Network implements NoteInterface {
             } catch (IOException e) {
 
             }
-            getFile(getNetworksData().appKeyProperty().get());
+            getFile(getNetworksData().getAppData().appKeyProperty().get());
             m_notConnected = true;
             m_statusMsg.set("Not connected");
             updateGridBox();
         });
 
-        getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+        getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
             save(newVal);
         });
     }
@@ -156,7 +156,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             updateGridBox();
 
             if (doSave) {
-                save(getNetworksData().appKeyProperty().get());
+                save(getNetworksData().getAppData().appKeyProperty().get());
             }
         }
     }
@@ -169,7 +169,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             updateGridBox();
 
             if (doSave) {
-                save(getNetworksData().appKeyProperty().get());
+                save(getNetworksData().getAppData().appKeyProperty().get());
             }
         }
     }

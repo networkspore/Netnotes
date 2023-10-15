@@ -54,15 +54,16 @@ public class HashData {
 
         if (idElement != null && idElement.isJsonPrimitive()) {
             m_id = idElement.getAsString();
-            if (nameElement != null && nameElement.isJsonPrimitive()) {
-                m_name = nameElement.getAsString();
-                if (hashStringElement != null && hashStringElement.isJsonPrimitive()) {
-                    setHashHex(hashStringElement.getAsString());
-                    return;
-                }
-            }
+            
         }
-
+        if (nameElement != null && nameElement.isJsonPrimitive()) {
+            m_name = nameElement.getAsString();
+          
+        }
+        if (hashStringElement != null && hashStringElement.isJsonPrimitive()) {
+            setHashHex(hashStringElement.getAsString());
+         
+        }
 
     }
 
@@ -79,7 +80,8 @@ public class HashData {
     }
 
     public String getHashStringHex() {
-        return Hex.encodeHexString(m_hashBytes);
+       
+        return  Hex.encodeHexString(m_hashBytes);
     }
 
     public byte[] getHashBytes() {
@@ -91,11 +93,13 @@ public class HashData {
     }
 
     public void setHashHex(String hashHexString) {
+        
         try {
             m_hashBytes = Hex.decodeHex(hashHexString);
         } catch (DecoderException e) {
-            m_hashBytes = null;
+   
         }
+     
     }
 
     public void setHash(byte[] hashBytes) {

@@ -102,9 +102,9 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     public void addListeners() {
 
-        m_ergoNodesList = new ErgoNodesList(getNetworksData().appKeyProperty().get(), this);
+        m_ergoNodesList = new ErgoNodesList(getNetworksData().getAppData().appKeyProperty().get(), this);
 
-        getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+        getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
             m_ergoNodesList.save();
         });
     }

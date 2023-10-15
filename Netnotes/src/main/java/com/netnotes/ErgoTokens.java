@@ -97,16 +97,16 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
-            setupTokens(getNetworksData().appKeyProperty().get(), tokensDir);
+            setupTokens(getNetworksData().getAppData().appKeyProperty().get(), tokensDir);
         } else {
             m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
             m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
         }
 
-        ergoNetwork.getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+        ergoNetwork.getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
             TokensList tokensList = new TokensList(oldVal, m_networkType, this);
 
-            save(getNetworksData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
+            save(getNetworksData().getAppData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
         });
 
     }
@@ -157,7 +157,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 m_testnetDataFile = new File(testnetDataElement.getAsString());
             }
 
-            setupTokens(getNetworksData().appKeyProperty().get(), tokensDir);
+            setupTokens(getNetworksData().getAppData().appKeyProperty().get(), tokensDir);
         } else {
 
             if (dataElement == null) {
@@ -172,10 +172,10 @@ public class ErgoTokens extends Network implements NoteInterface {
                 m_testnetDataFile = new File(testnetDataElement.getAsString());
             }
         }
-        ergoNetwork.getNetworksData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+        ergoNetwork.getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
             TokensList tokensList = new TokensList(oldVal, m_networkType, this);
 
-            save(getNetworksData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
+            save(getNetworksData().getAppData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
         });
 
     }
@@ -206,7 +206,7 @@ public class ErgoTokens extends Network implements NoteInterface {
     public void showTokensStage() {
         if (m_tokensStage == null) {
 
-            TokensList tokensList = new TokensList(getNetworksData().appKeyProperty().get(), m_networkType, this);
+            TokensList tokensList = new TokensList(getNetworksData().getAppData().appKeyProperty().get(), m_networkType, this);
             tokensList.addUpdateListener((obs, oldVal, newVal) -> {
 
                 try {
@@ -214,7 +214,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 } catch (IOException e) {
 
                 }
-                save(getNetworksData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
+                save(getNetworksData().getAppData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
             });
 
             double tokensStageWidth = 375;
@@ -292,7 +292,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
                 m_tokensStage.setTitle(getName() + ": Tokens " + (m_networkType == NetworkType.MAINNET ? "(MAINNET)" : "(TESTNET)"));
 
-                tokensList.setNetworkType(getNetworksData().appKeyProperty().get(), m_networkType);
+                tokensList.setNetworkType(getNetworksData().getAppData().appKeyProperty().get(), m_networkType);
             });
 
             Tooltip explorerTip = new Tooltip(getExplorerInterface() == null ? "Explorer disabled" : getExplorerInterface().getName());

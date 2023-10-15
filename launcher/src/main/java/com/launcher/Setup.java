@@ -2,18 +2,30 @@ package com.launcher;
 
 import javafx.event.EventHandler;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
 import java.time.Duration;
-
+import java.util.List;
 import java.util.Optional;
+
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.DESedeKeySpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.binary.Hex;
 import org.reactfx.util.FxTimer;
@@ -73,11 +85,11 @@ public class Setup extends Application {
     public static final String SETTINGS_FILE_NAME = "settings.conf";
 
 
-    private String GitHub_ALL_RELEASES_URL = "https://api.github.com/repos/networkspore/Netnotes/releases";
+    private final static String GitHub_ALL_RELEASES_URL = "https://api.github.com/repos/networkspore/Netnotes/releases";
 
-    private String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
+    private final static String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
 
-    public static String JAVA_URL = "https://www.java.com/en/download/";
+    public final static String JAVA_URL = "https://www.java.com/en/download/";
 
     public static final String APP_DATA_DIR = System.getenv("LOCALAPPDATA") + "\\Netnotes";
 
@@ -111,15 +123,26 @@ public class Setup extends Application {
     private HashData m_appHashData = null;
     private HashData m_launcherHashData = null;
     private boolean m_updates = true;
+    private boolean m_autoUpdate = false;
+    private boolean m_isDaemon = false;
     
     private File m_launcherUpdateFile = null;
     private HashData m_launcherUpdateHashData = null;
+    private boolean m_autoRun = false;
 
     @Override
     public void start(Stage appStage) {
         // HostServices hostServices;
         Platform.setImplicitExit(true);
    
+        Parameters params = getParameters();
+        List<String> list = params.getRaw();
+
+        for(String arg : list){
+            if(arg.equals("--daemon")){
+                m_isDaemon = true;
+            }
+        }
 
         appStage.getIcons().add(logo);
         appStage.setResizable(false);
@@ -146,8 +169,16 @@ public class Setup extends Application {
             JsonObject launcherData = jsonString != null ? new JsonParser().parse(jsonString).getAsJsonObject() : null;
             JsonElement appKeyElement = launcherData != null ? launcherData.get("appKey") : null;
             JsonElement updatesElement = launcherData != null ? launcherData.get("updates") : null;
+            JsonElement autoUpdateElement = launcherData != null ? launcherData.get("autoUpdate") : null;
+            JsonElement autoRunFileElement = launcherData != null ? launcherData.get("autoRunFile") : null;
+            JsonElement autoRunElement = launcherData != null ? launcherData.get("autoRun") : null;
 
+            m_autoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : m_autoRun;
+            m_autoRunFile = autoRunFileElement != null && autoRunFileElement.isJsonPrimitive() ? new File(autoRunFileElement.getAsString()) : null;
+
+            m_autoUpdate = autoUpdateElement != null && autoUpdateElement.isJsonPrimitive() ? autoUpdateElement.getAsBoolean() : false;
             m_updates = updatesElement != null && updatesElement.isJsonPrimitive() ? updatesElement.getAsBoolean() : true;
+
             String appKey = appKeyElement != null && appKeyElement.isJsonPrimitive() ? appKeyElement.getAsString() : null;
             
 
@@ -162,10 +193,14 @@ public class Setup extends Application {
             m_appHashData = m_appFile != null ? new HashData(m_appFile) : null;   
 
             if (m_javaVersion == null || m_appHashData == null || m_settingsFile == null) { 
-                if(m_settingsFile == null){
-                    firstRun(appStage);
+                if(!m_isDaemon){
+                    if(m_settingsFile == null){
+                        firstRun(appStage);
+                    }else{
+                        checkSetup(appStage);
+                    }
                 }else{
-                    checkSetup(appStage);
+                    shutdownNow();
                 }
             }else{
              
@@ -202,12 +237,13 @@ public class Setup extends Application {
 
             m_watchFile = new File(m_outDir.getAbsolutePath() + "/" + Launcher.NOTES_ID + ".out");
 
+            Files.writeString(logFile.toPath(), "\nStarting app...", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
    
 
             Launcher.showIfNotRunning(m_watchFile, m_writeFile, () -> {
           
 
-                if(m_updates){
+                if((m_updates && !m_isDaemon) || (m_updates && m_autoUpdate && m_isDaemon)){
                     checkForAllUpdates(appStage, ()->{
                        
                         try{
@@ -401,7 +437,9 @@ public class Setup extends Application {
 
                                             
     }                   
+    
 
+  
 
 
     private void checkForAllUpdates(Stage appStage, Runnable complete){
@@ -415,10 +453,10 @@ public class Setup extends Application {
                     int length = allReleases.size();
               
                     int j = length -1;
-
                     SimpleObjectProperty<JsonObject> releaseInfoObject = new SimpleObjectProperty<>(null);
                     SimpleObjectProperty<JsonObject> appAsset = new SimpleObjectProperty<>(null);
                     SimpleObjectProperty<JsonObject> launcherAsset = new SimpleObjectProperty<>(null);
+
                     SimpleBooleanProperty foundRelease = new SimpleBooleanProperty(false);
                     
                     while(j > -1 && !foundRelease.get()){
@@ -428,7 +466,7 @@ public class Setup extends Application {
                         if (assetsElement != null && assetsElement.isJsonArray()) {
                             JsonArray assetsArray = assetsElement.getAsJsonArray();
                             
-                
+                            
 
                             for(int i = 0; i < assetsArray.size(); i++){
                                 
@@ -512,7 +550,8 @@ public class Setup extends Application {
                                         
                                         boolean isGetLauncher =  launcherReleaseHashData != null  && m_launcherHashData != null && !m_launcherHashData.getHashStringHex().equals(launcherReleaseHashHex);
 
-                                        if(isGetApp){    
+                                        Runnable doUpdates = () ->{
+                                            if(isGetApp){    
 
                                             JsonObject appAssetObject = appAsset.get();
                                             JsonElement appAssetDownloadUrlElement = appAssetObject.get("browser_download_url");
@@ -555,6 +594,32 @@ public class Setup extends Application {
                                                 }
                                                 complete.run();
                                             }
+                                        }
+                                        };
+
+                                        if(!m_autoUpdate){
+                                            Button closeBtn = new Button();
+                                            TextField promptField = new TextField(); 
+                                            showGetTextInput(appStage, "Update? (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
+                                            closeBtn.setOnAction(e->{
+                                                complete.run();
+                                            });
+
+                                            promptField.setOnKeyPressed(e1 -> {
+                                                KeyCode keyCode = e1.getCode();
+                                                if(keyCode == KeyCode.ENTER || keyCode == KeyCode.Y){
+                                                    doUpdates.run();
+                                                }else{
+                                                    if(keyCode == KeyCode.N){
+                                                        complete.run();
+                                                    }else{
+                                                        promptField.setText("");
+                                                    }
+                                                }
+                                            });
+
+                                        }else{
+                                            doUpdates.run();
                                         }
                                         
 
@@ -706,7 +771,7 @@ public class Setup extends Application {
         m_firstRun = true;
         bodyVBox.setPadding(new Insets(0, 15, 0, 0));
         setSetupStage(appStage, "Netnotes - Setup", "Setup...", bodyVBox);
-        appStage.setHeight(425);
+        appStage.setHeight(480);
         Text directoryTxt = new Text("> Location:");
         directoryTxt.setFill(txtColor);
         directoryTxt.setFont(txtFont);
@@ -760,6 +825,8 @@ public class Setup extends Application {
         updatesTxt.setFill(txtColor);
         updatesTxt.setFont(txtFont);
 
+
+
         Button updatesBtn = new Button("Enabled");
         updatesBtn.setId("inactiveMainImageBtn");
         updatesBtn.setFont(txtFont);
@@ -770,10 +837,125 @@ public class Setup extends Application {
                 updatesBtn.setText("Enabled");
             }
         });
-
+       
         HBox updatesBox = new HBox(updatesTxt, updatesBtn);
         updatesBox.setAlignment(Pos.CENTER_LEFT);
         updatesBox.setPadding(new Insets(3, 0, 0, 0));
+
+
+        Text autoUpdateTxt = new Text("> Auto-update:");
+        autoUpdateTxt.setFill(txtColor);
+        autoUpdateTxt.setFont(txtFont);
+
+        Button autoUpdateBtn = new Button("Disabled");
+        autoUpdateBtn.setId("inactiveMainImageBtn");
+        autoUpdateBtn.setFont(txtFont);
+
+
+        autoUpdateBtn.setOnAction(btnEvent -> {
+            if (autoUpdateBtn.getText().equals("Enabled")) {
+                autoUpdateBtn.setText("Disabled");
+            } else {
+                autoUpdateBtn.setText("Enabled");
+            }
+        });
+
+        HBox autoUpdateBox = new HBox(autoUpdateTxt, autoUpdateBtn);
+        autoUpdateBox.setAlignment(Pos.CENTER_LEFT);
+        autoUpdateBox.setPadding(new Insets(3, 0, 0, 0));
+
+
+        Text autoRunTxt = new Text("> Auto-run:");
+        autoRunTxt.setFill(txtColor);
+        autoRunTxt.setFont(txtFont);
+
+        Button autoRunBtn = new Button("Disabled");
+        autoRunBtn.setId("inactiveMainImageBtn");
+        autoRunBtn.setFont(txtFont);
+
+        FileChooser keyFileChooser = new FileChooser();
+        keyFileChooser.setTitle("Create key file");
+        
+
+        Button autoRunFileBtn = new Button("...");
+        autoRunFileBtn.setId("inactiveMainImageBtn");
+        autoRunFileBtn.setFont(txtFont);
+        autoRunFileBtn.setAlignment(Pos.CENTER_LEFT);
+        
+ 
+        HBox autoRunBox = new HBox(autoRunTxt, autoRunBtn);
+        autoRunBox.setAlignment(Pos.CENTER_LEFT);
+        autoRunBox.setPadding(new Insets(3, 0, 0, 0));
+        HBox.setHgrow(autoRunBox, Priority.ALWAYS);
+        autoRunFileBtn.prefWidthProperty().bind(autoRunBox.widthProperty().subtract(autoRunTxt.getLayoutBounds().getWidth()).subtract(autoRunBtn.widthProperty()));
+        autoRunBtn.setOnAction(btnEvent -> {
+            if (autoRunBtn.getText().equals("Enabled")) {
+                autoRunBtn.setText("Disabled");
+                if(autoRunBox.getChildren().contains(autoRunFileBtn)){
+                    autoRunBox.getChildren().remove(autoRunFileBtn);
+                }
+                autoRunFileBtn.setText("...");
+            } else {
+                Alert a = new Alert(AlertType.NONE, "This will add Netnotes to the auto-run list of the Windows registry. and requires a start-up key to be saved to disk.\n\nNotice:\nWhile this will not expose your password, or vital information, it can give access to the 'Networks' data generated by Netnotes. Access to this information could be used to undermine the integrity checks of the application and therefore this feature should only be used where access to the file system is secured and date integrity is verified by other means.\n\n", ButtonType.CANCEL, ButtonType.OK);
+                a.setTitle("Security Warning");
+                a.setHeaderText("Security Warning");
+                a.initOwner(appStage);
+                Optional<ButtonType> result = a.showAndWait();
+                if(result.isPresent() && result.get() == ButtonType.OK){
+                    File keyFile = keyFileChooser.showSaveDialog(appStage);
+                    try {
+                        
+                        if(keyFile != null){
+                            Files.writeString(keyFile.toPath(), "keyFile");
+                            Files.delete(keyFile.toPath());
+                            if(!autoRunBox.getChildren().contains(autoRunFileBtn)){
+                                autoRunBox.getChildren().add(1, autoRunFileBtn);
+                            }
+                            autoRunFileBtn.setText(keyFile.getAbsolutePath());
+                            autoRunBtn.setText("Enabled");
+                            
+                        }
+                    } catch (Exception e1) {
+                        Alert err = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
+                        err.setTitle(e1.getCause().toString());
+                        err.setHeaderText(e1.getCause().toString());
+                        err.initOwner(appStage);
+                        err.show();
+                    }
+                }
+            }
+        });
+
+        autoRunFileBtn.setOnAction(e->{
+       
+            File keyFile = keyFileChooser.showSaveDialog(appStage);
+            try {
+               
+                
+                if(keyFile != null){
+                    Files.writeString(keyFile.toPath(), "keyFile");
+                    Files.delete(keyFile.toPath());
+                    if(!autoRunBox.getChildren().contains(autoRunFileBtn)){
+                        autoRunBox.getChildren().add(1, autoRunFileBtn);
+                    }
+                    autoRunFileBtn.setText(keyFile.getAbsolutePath());
+                    autoRunBtn.setText("Enabled");
+                    
+                }
+            } catch (Exception e1) {
+                Alert err = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
+                err.setTitle(e1.getCause().toString());
+                err.setHeaderText(e1.getCause().toString());
+                err.initOwner(appStage);
+                err.show();
+                autoRunBtn.setText("Disabled");
+                if(autoRunBox.getChildren().contains(autoRunFileBtn)){
+                    autoRunBox.getChildren().remove(autoRunFileBtn);
+                }
+                autoRunFileBtn.setText("...");
+            }
+        });
+
 
         Button nextBtn = new Button("Next");
         nextBtn.setId("toolSelected");
@@ -792,11 +974,16 @@ public class Setup extends Application {
         nextBox.setAlignment(Pos.CENTER);
         nextBox.setPadding(new Insets(25, 0, 0, 0));
 
-        bodyVBox.getChildren().addAll(directoryBox, updatesBox, gBox, nextBox);
+        bodyVBox.getChildren().addAll(directoryBox, updatesBox,autoUpdateBox, autoRunBox, gBox, nextBox);
 
         nextBtn.setOnAction(btnEvent -> {
 
             m_updates = updatesBtn.getText().equals("Enabled");
+            m_autoUpdate = autoUpdateBtn.getText().equals("Enabled");
+            m_autoRun = autoRunBtn.getText().equals("Enabled");
+            if(m_autoRun){
+                m_autoRunFile = new File(autoRunFileBtn.getText());
+            }
 
             String directoryString = directoryBtn.getText();
         
@@ -919,8 +1106,8 @@ public class Setup extends Application {
                                     } catch (Exception e) {
                                         Alert err = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                                         err.initOwner(appStage);
-                                        err.show();
-                                        firstRun(appStage);
+                                        err.showAndWait();
+                                        shutdownNow();
                                     }
                                 });
                             } else {
@@ -941,18 +1128,33 @@ public class Setup extends Application {
 
     }
 
-  
+    private void generateKeys() throws NoSuchAlgorithmException{
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        KeyPair keyPair = keyPairGenerator.genKeyPair();
 
-    private void createSettings(String password,Stage appStage) throws IOException {
+    }
+  
+    private File m_autoRunFile = null;
+
+    private void createSettings(String password,Stage appStage) throws Exception {
 
         File settingsFile = new File( m_appDir.getAbsolutePath() + "\\" + SETTINGS_FILE_NAME);
 
         String hash = getBcryptHashString(password);
 
+        if(m_autoRun && m_autoRunFile != null){
+            writeKeyFile(password);
+        }
+
         JsonObject jsonObj = new JsonObject();
         jsonObj.addProperty("appKey", hash);
         jsonObj.addProperty("updates", m_updates);
-
+        jsonObj.addProperty("autoUpdate", m_autoUpdate);
+        jsonObj.addProperty("autoRun", m_autoRun);
+        if(m_autoRunFile != null && m_autoRunFile.isFile()){
+            jsonObj.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());
+        }
         String jsonString = jsonObj.toString();
 
         Files.writeString(settingsFile.toPath(), jsonString);
@@ -1403,19 +1605,13 @@ public class Setup extends Application {
     }
 
     public void openJar() throws IOException  {
-
   
         if(!Utils.checkJar(m_appFile)){
             throw new IOException("Invalid jar file.");
         }
-
-        HashData appHashData = m_appHashData == null ? new HashData(m_appFile) : m_appHashData; 
         
         JsonObject obj = new JsonObject();
-        obj.addProperty("updates", m_updates);
         obj.addProperty("javaVersion", m_javaVersion.get());
-        obj.add("appHashData", appHashData.getJsonObject());
-        obj.addProperty("appFile", m_appFile.getAbsolutePath());
         obj.addProperty("launcherFile", m_launcherFile.getAbsolutePath());
         obj.add("launcherHashData", m_launcherHashData.getJsonObject());
 
@@ -1429,8 +1625,11 @@ public class Setup extends Application {
         if(!m_appDir.getAbsolutePath().equals(new File(CURRENT_DIRECTORY).getAbsolutePath())){
             obj.addProperty("moveFiles", true);
         }
+        if(m_isDaemon && m_autoRunFile != null && m_autoRunFile.isFile()){
+            obj.addProperty("isDaemon", true);
+        }
 
-        Files.writeString(logFile.toPath(), obj.toString());
+        Files.writeString(logFile.toPath(), obj.toString() + "\nappfile: " + m_appFile.getAbsolutePath().toString());
 
         String hexJson = Hex.encodeHexString(obj.toString().getBytes());
 
@@ -1460,17 +1659,33 @@ public class Setup extends Application {
         return imageBtn;
     }
     
-    public static void showGetTextInput(Stage appStage, String prompt, String title, Image img, Button closeBtn,  TextField inputField) {
+    public static void showGetTextInput(Stage appStage, String prompt, String title, String heading, Image img, Button closeBtn,  TextField inputField) {
 
   
-
         HBox titleBox = createTopBar(icon, title, closeBtn, appStage);
 
-        Button imageButton = createImageButton(img, title);
+        ImageView waitingView = new ImageView(logo);
+        waitingView.setFitHeight(135);
+        waitingView.setPreserveRatio(true);
 
-        HBox imageBox = new HBox(imageButton);
+        HBox imageBox = new HBox(waitingView);
+        HBox.setHgrow(imageBox, Priority.ALWAYS);
         imageBox.setAlignment(Pos.CENTER);
+        imageBox.setPadding(new Insets(20, 0, 20, 0));
 
+        Text setupTxt = new Text("> " + heading);
+        setupTxt.setFill(txtColor);
+        setupTxt.setFont(txtFont);
+
+        Text spacerTxt = new Text(">");
+        spacerTxt.setFill(txtColor);
+        spacerTxt.setFont(txtFont);
+
+        HBox line2 = new HBox(spacerTxt);
+        line2.setAlignment(Pos.CENTER_LEFT);
+        line2.setPadding(new Insets(10, 0, 6, 0));
+
+        
         Text promptTxt = new Text("> " + prompt + ":");
         promptTxt.setFill(txtColor);
         promptTxt.setFont(txtFont);
@@ -1490,17 +1705,20 @@ public class Setup extends Application {
         inputBox.setAlignment(Pos.CENTER_LEFT);
 
     
-        VBox.setMargin(inputBox, new Insets(5, 10, 0, 20));
+        VBox bodyBox = new VBox(setupTxt, line2, inputBox);
+        bodyBox.setPadding(new Insets(5,10,0,20));
 
-        VBox layoutVBox = new VBox(titleBox, imageBox, inputBox);
+        VBox layoutVBox = new VBox(titleBox, imageBox,bodyBox);
+        
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
-
-        Scene textInputScene = new Scene(layoutVBox, 600, 425);
+        
+        Scene textInputScene = new Scene(layoutVBox, 625, 350);
 
         textInputScene.getStylesheets().add("/css/startWindow.css");
 
         appStage.setScene(textInputScene);
 
+        appStage.setHeight(330);
     
         if(appStage.isIconified()){
             appStage.setIconified(false);
@@ -1666,5 +1884,27 @@ public class Setup extends Application {
         // bodyTopRegion.minHeightProperty().bind(stage.heightProperty().subtract(30).divide(2).subtract(progressAlignmentBox.heightProperty()).subtract(fileNameProgressBox.heightProperty().divide(2)));
         bodyBox.prefHeightProperty().bind(stage.heightProperty().subtract(headerBox.heightProperty()).subtract(footerBox.heightProperty()).subtract(10));
         return coreFileProgressScene;
+    }
+
+    public void writeKeyFile(String password) throws Exception {
+        char[] chars = password.toCharArray();
+        byte[] charBytes = Utils.charsToBytes(chars);
+
+        charBytes = Utils.digestBytesToBytes(charBytes);
+
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+        KeySpec spec = new PBEKeySpec(chars, charBytes, 65536, 256);
+        SecretKey tmp = factory.generateSecret(spec);
+       
+        byte [] data = tmp.getEncoded();
+ 
+
+      //  FileOutputStream out = new FileOutputStream(m_autoRunFile);
+      //  out.write(rawkey);
+       // out.close();    
+
+       Files.write(m_autoRunFile.toPath(), data);
+        
     }
 }
