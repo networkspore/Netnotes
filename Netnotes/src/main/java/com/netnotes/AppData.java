@@ -45,6 +45,8 @@ public class AppData {
     
     public static final String HOME_DIRECTORY = System.getProperty("user.home");
     public static final File DESKTOP_DIRECTORY = new File(HOME_DIRECTORY + "/Desktop");
+    public static final File STARTUP_DIRECTORY = new File(HOME_DIRECTORY + "/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup");
+    public static final File PROGRAMS_DIRECTORY = new File(HOME_DIRECTORY + "/AppData/Roaming/Microsoft/Windows/Start Menu/Programs");
 
     public File m_currentDirectory = null;
     public File m_settingsFile = null;
@@ -66,7 +68,7 @@ public class AppData {
 
     private SimpleObjectProperty<SecretKey> m_secretKey = new SimpleObjectProperty<SecretKey>(null);
 
-    private File m_autoRunKeyFile = null;
+    private File m_autoRunFile = null;
 
     public AppData(String argString) throws Exception {
 
@@ -93,14 +95,17 @@ public class AppData {
 
         readFile();
         parseArgs(argsJson);
-        if(m_autoRun = true && m_autoRunKeyFile != null && m_autoRunKeyFile.isFile() && isDaemon()){
+        if(m_autoRun = true && m_autoRunFile != null && m_autoRunFile.isFile() && isDaemon()){
+            Files.writeString(logFile.toPath(), "\nautorun enabled", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             loadAppKey();
+        }else{
+            Files.writeString(logFile.toPath(), "\nautorun disabled", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         }
     }
 
     private void readFile() throws Exception{
 
-        Files.writeString(logFile.toPath(), "\nopening; " + m_settingsFile.getAbsolutePath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        Files.writeString(logFile.toPath(), "\nopening: " + m_settingsFile.getAbsolutePath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         String settingsString = Files.readString(m_settingsFile.toPath());
 
         JsonObject json = new JsonParser().parse(settingsString).getAsJsonObject();
@@ -127,9 +132,9 @@ public class AppData {
         if (appkeyElement != null && appkeyElement.isJsonPrimitive()) {
 
             m_appKey = appkeyElement.getAsString();
-            m_updatesProperty =updates;
+            m_updatesProperty = updates;
             m_autoUpdateProperty = autoUpdate;
-            m_autoRunKeyFile = autoRunKeyFileElement != null && autoRunKeyFileElement.isJsonPrimitive() ? new File(autoRunKeyFileElement.getAsString()) : null;
+            m_autoRunFile = autoRunKeyFileElement != null && autoRunKeyFileElement.isJsonPrimitive() ? new File(autoRunKeyFileElement.getAsString()) : null;
             m_autoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : false;
 
         } else {
@@ -159,16 +164,11 @@ public class AppData {
         m_javaVersion = new Version(javaVersionString);
         m_launcherFile.set(new File(launcherFileString));
         m_launcherHashData.set(new HashData(launcherHashDataObject));
-        
-        
 
         JsonElement launcherUpdateFileElement = argsJson.get("launcherUpdateFile");
         JsonElement launcherUpdateHashDataElement = argsJson.get("launcherUpdateHashData");
-
-        JsonElement moveElement = argsJson.get("moveFiles");
         JsonElement firstRunElement = argsJson.get("firstRun");
         
-        boolean moveFiles = moveElement != null  && moveElement.isJsonPrimitive() ? moveElement.getAsBoolean() : false;
         boolean firstRun = firstRunElement != null && firstRunElement.isJsonPrimitive() ? firstRunElement.getAsBoolean() : false;
         
         File launcherUpdateFile = launcherUpdateFileElement != null && launcherUpdateFileElement.isJsonPrimitive() ? new File(launcherUpdateFileElement.getAsString()) : null;
@@ -185,57 +185,49 @@ public class AppData {
                     return;
                 }
 
-                File launcherDir = m_launcherFile.get().getParentFile();
+               
                 File destinationFile = new File(m_currentDirectory.getAbsolutePath() + "/Netnotes.exe");
-        
+               
+                
                 if(launcherUpdateFile != null && launcherUpdateFile.isFile() && launcherUpdateHashData != null){
                     try {
                         Files.move(launcherUpdateFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                         m_launcherFile.set(destinationFile);
                         m_launcherHashData.set(launcherUpdateHashData);
+                     
                     } catch (IOException e) {
                         
                     }
+                  
                 }else{
                  
                     if (!m_launcherFile.get().getAbsolutePath().equals(destinationFile.getAbsolutePath())) {
                         try {
                             Files.move(m_launcherFile.get().toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                             m_launcherFile.set( destinationFile);
+                   
                         } catch (IOException e) {
                     
                         }
                     }
                     
                 }
-                /*if(!m_launcherFile.getName().equals("Netnotes.exe")){
-                        try {
-                        Files.move(m_launcherFile.get().toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                    
-                    }
-                    m_launcherFile.set(destinationFile);
-                }*/
+              
 
                 if(firstRun){
-                    
-
-                    try {
-                        Utils.createLink(m_launcherFile.get(), DESKTOP_DIRECTORY, "Netnotes.lnk");
-                    } catch (IOException | ShellLinkException e) {
-                        
+                    createDesktopLink();
+                    if(m_autoRun && m_autoRunFile != null && m_autoRunFile.isFile()){
+                        createStartupLink();
                     }
-                    if(moveFiles){
-                        try {
-                            Utils.createLink(m_launcherFile.get(), launcherDir, "Netnotes.lnk");
-                        } catch (IOException | ShellLinkException e) {
-    
-                        }
-                    }
-                
                 }
+
+                
             
-        
+                 try {
+                    Files.writeString(logFile.toPath(), "\n" + "args parsed", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+               
+                }
             }
         }).start();
                 
@@ -243,11 +235,52 @@ public class AppData {
        
     }
 
+    public void createDesktopLink(){
+        File oldLink = new File(DESKTOP_DIRECTORY.getAbsolutePath() + "/" + "Netnotes.lnk");
+        if(oldLink.isFile()){
+            oldLink.delete();
+        }
+        
+        try {
+            Utils.createLink(m_launcherFile.get().getAbsolutePath(), DESKTOP_DIRECTORY, "Netnotes.lnk");
+        } catch (IOException | ShellLinkException e) {
+
+        
+        }
+    }
+
+    public void removeStartupLink(){
+        File oldLink = new File(STARTUP_DIRECTORY.getAbsolutePath() + "/" + "Netnotes.lnk");
+        if(oldLink.isFile()){
+            oldLink.delete();
+        }
+    }
+
+    public void createStartupLink(){
+        
+        
+        if(STARTUP_DIRECTORY.isDirectory()){
+            removeStartupLink();
+            try {
+                Utils.createLink(m_launcherFile.get().getAbsolutePath() + " --daemon", STARTUP_DIRECTORY, "Netnotes.lnk");
+            } catch (IOException | ShellLinkException e) {
+
+            }
+        }
+        else{
+            try {
+                Files.writeString(logFile.toPath(), "\n" + "no startup directory found", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+            
+            }
+        }
+        
+    }
 
     private void loadAppKey() throws Exception  {
-        if(m_autoRunKeyFile != null && m_autoRunKeyFile.isFile()){
-            Files.writeString(logFile.toPath(), "\nLoading appkey: " + m_autoRunKeyFile.length() ,StandardOpenOption.CREATE, StandardOpenOption.APPEND );
-            byte[] fileBytes = Files.readAllBytes(m_autoRunKeyFile.toPath());
+        if(m_autoRunFile != null && m_autoRunFile.isFile()){
+            Files.writeString(logFile.toPath(), "\nLoading appkey: " + m_autoRunFile.length() ,StandardOpenOption.CREATE, StandardOpenOption.APPEND );
+            byte[] fileBytes = Files.readAllBytes(m_autoRunFile.toPath());
 
             
 
@@ -274,12 +307,19 @@ public class AppData {
     }
 
 
-    public void saveAppKey(File keyFile, String password) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException{
+    private void saveAppKey( char[] chars, File keyFile) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException{
         if(m_secretKey != null && m_secretKey.get() != null){
-        
-            byte [] data = m_secretKey.get().getEncoded();
-    
-            Files.write(keyFile.toPath(), data);
+
+            byte[] charBytes = Utils.charsToBytes(chars);
+
+            charBytes = Utils.digestBytesToBytes(charBytes);
+
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+            KeySpec spec = new PBEKeySpec(chars, charBytes, 65536, 256);
+            SecretKey tmp = factory.generateSecret(spec);
+            
+            Files.write(keyFile.toPath(), tmp.getEncoded());
         }
     }
 
@@ -287,24 +327,24 @@ public class AppData {
         return m_isDaemon;
     }
 
-    public void updateRegistry(){
-
-    }
-
     public boolean getAutoRun(){
         return m_autoRun;
     }
 
-    public void setAutoRun(boolean isDaemon) throws IOException{
-        m_autoRun = isDaemon;
-        if(isDaemon){
-            save();
-            updateRegistry();
-        }else{
-            updateRegistry();
-            save();
-        }
-        
+    public void enableAutoRun(String keyString, File autoRunFile) throws Exception{
+        m_autoRun = true;
+        m_autoRunFile = autoRunFile;
+        saveAppKey(keyString.toCharArray(), autoRunFile);
+        createStartupLink();
+        save();
+    }
+    
+
+    public void disableAutoRun() throws IOException{
+        m_autoRun = false;
+        m_autoRunFile = null;
+        removeStartupLink();
+        save();
     }
 
     public String getAppKey() {
@@ -363,6 +403,11 @@ public class AppData {
         dataObject.addProperty("appKey", m_appKey);
         dataObject.addProperty("updates", m_updatesProperty);
         dataObject.addProperty("autoUpdate", m_autoUpdateProperty);
+        dataObject.addProperty("autoRun", m_autoRun);
+        if(m_autoRunFile != null && m_autoRunFile.isFile()){
+            dataObject.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());
+        }
+
         return dataObject;
     }
 

@@ -318,10 +318,10 @@ public class Utils {
         return null;
     }
 
-    public static void createLink(File target, File linkDir, String linkName) throws IOException, ShellLinkException {
+    public static void createLink(String target, File linkDir, String linkName) throws IOException, ShellLinkException {
         //ShellLinkHelper link = new ShellLinkHelper(new ShellLink());
 
-        ShellLinkHelper.createLink(target.getAbsolutePath(), linkDir.getAbsolutePath() + "/" + linkName);
+        ShellLinkHelper.createLink(target, linkDir.getAbsolutePath() + "/" + linkName);
 
     }
 
@@ -978,7 +978,7 @@ public class Utils {
             boolean gotInput = false;
 
             while ((wmicInput = wmicStdInput.readLine()) != null) {
-                wmicInput = wmicStdInput.readLine();
+            
                 Files.writeString(logFile.toPath(), "\nwmic: " + wmicInput, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 gotInput = true;
             }
@@ -994,6 +994,7 @@ public class Utils {
         }
         return false;
     }
+
 
     
     public static URL getLocation(final Class<?> c) {
