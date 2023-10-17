@@ -538,12 +538,19 @@ public class NetworksData implements InstallerInterface {
                 m_focusedInstallable = null;
             });
 
-            m_addNetworkStage.show();
-            m_addNetworkStage.toFront();
+            
             updateAvailableLists();
+            Platform.runLater(()->{
+                m_addNetworkStage.show();
+                m_addNetworkStage.requestFocus();
+            });
+            
         } else {
-            m_addNetworkStage.show();
-            m_addNetworkStage.toFront();
+             Platform.runLater(()->{
+                m_addNetworkStage.show();
+                m_addNetworkStage.toFront();
+                m_addNetworkStage.requestFocus();
+            });
         }
     }
 

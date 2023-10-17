@@ -611,7 +611,7 @@ public class Setup extends Application {
                                         if(!m_autoUpdate){
                                             Button closeBtn = new Button();
                                             TextField promptField = new TextField(); 
-                                            showGetTextInput(appStage, "Update? ("+ (isGetApp ? appAssetName : "") + (isGetLauncher ? launcherName : "") +") (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
+                                            showGetTextInput(appStage, "Update? ("+ (isGetApp ? appAssetName : "") + (isGetApp && isGetLauncher ? ", ":"")+ (isGetLauncher ? launcherName : "") +") (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
                                             closeBtn.setOnAction(e->{
                                                 complete.run();
                                             });

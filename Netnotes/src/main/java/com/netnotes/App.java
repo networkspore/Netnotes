@@ -172,6 +172,7 @@ public class App extends Application {
                 
                     }
                     startApp(appData, appStage);
+                  
                 }
                 
             } catch (Exception e) {
@@ -271,10 +272,10 @@ public class App extends Application {
             shutdownNow();
         });
 
-        Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying..");
+       
 
         passwordField.setOnKeyPressed(e -> {
-
+             Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying..");
             KeyCode keyCode = e.getCode();
 
             if (keyCode == KeyCode.ENTER) {
@@ -296,6 +297,12 @@ public class App extends Application {
                             try {
                                 appData.createKey(chars);
                                 openNetnotes(appData, appStage);
+                                File networksFile = new File(NETWORKS_FILE_NAME);
+
+                                boolean isNetworksFile = networksFile.isFile();
+                                if(!isNetworksFile){
+                                    m_networksData.showManageNetworkStage();
+                                }
                                 chars = null;
                             } catch (Exception e1) {
                                 Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CLOSE);
@@ -308,7 +315,18 @@ public class App extends Application {
                 }
             }
         });
+       
+       
+
+
         appStage.show();
+  
+      
+        Platform.runLater(()->{
+            passwordField.requestFocus();
+        });
+     
+        
     }
 
    
@@ -371,6 +389,12 @@ public class App extends Application {
         File networksFile = new File(NETWORKS_FILE_NAME);
 
         boolean isNetworksFile = networksFile.isFile();
+        m_persistenceStage = new Stage(StageStyle.UTILITY);
+        m_persistenceStage.setHeight(0);
+        m_persistenceStage.setWidth(0);
+        m_persistenceStage.setX(java.lang.Double.MAX_VALUE);
+        m_persistenceStage.show();
+
 
         m_networksData = new NetworksData(appData, m_networkServices, networksFile, isNetworksFile);    
 
@@ -389,11 +413,11 @@ public class App extends Application {
                                     //  Alert a = new Alert(AlertType.NONE, "msg", ButtonType.CLOSE);
                                     //  a.show();
                                     if (appStage.isIconified()) {
-                                        appStage.requestFocus();
+                                       
                                         appStage.setIconified(false);
                                         appStage.show();
                                         appStage.toFront();
-
+                                        appStage.requestFocus();
                                     } else {
                                         if (appStage.isShowing()) {
 
@@ -406,7 +430,11 @@ public class App extends Application {
                                             verifyAppKey(() -> {
 
                                                 appStage.show();
-
+                                                if(!networksFile.isFile()){
+                                                    m_networksData.showManageNetworkStage();
+                                                }
+                                                
+                                              //  if(m_networksData.)
                                             });
 
                                         }
@@ -428,8 +456,6 @@ public class App extends Application {
         loadMainStage(appStage, isNetworksFile);
         if(!appData.isDaemon()){
             m_networksData.show();
-        }else{
-          // appStage.show();
         }
        
     }
@@ -529,9 +555,12 @@ public class App extends Application {
                 Platform.runLater(() -> passwordField.requestFocus());
             }
         });
-
-        passwordStage.show();
-
+        Platform.runLater(() ->{
+            passwordStage.show();
+            passwordStage.toFront();
+        
+            passwordField.requestFocus();}
+        );
     }
 
     
@@ -639,12 +668,7 @@ public class App extends Application {
 
 
     private void loadMainStage(Stage appStage, boolean isNetworksFile) {
-        m_persistenceStage = new Stage(StageStyle.UTILITY);
-        m_persistenceStage.setHeight(0);
-        m_persistenceStage.setWidth(0);
-        m_persistenceStage.setX(java.lang.Double.MAX_VALUE);
-        m_persistenceStage.show();
-
+   
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
         Button networksBtn = new Button();
