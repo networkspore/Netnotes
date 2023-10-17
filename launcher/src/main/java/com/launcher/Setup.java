@@ -563,57 +563,55 @@ public class Setup extends Application {
                                         
                                         boolean isGetLauncher =  launcherReleaseHashData != null  && m_launcherHashData != null && !m_launcherHashData.getHashStringHex().equals(launcherReleaseHashHex);
 
+                                        JsonObject appAssetObject = appAsset.get();
+                                        JsonElement appAssetDownloadUrlElement = appAssetObject.get("browser_download_url");
+                                        JsonElement appAssetNameElement = appAssetObject.get("name");
+
+                                        String appAssetName = appAssetNameElement.getAsString();
+                                        String appAssetUrl = appAssetDownloadUrlElement.getAsString();
+
+                                        JsonObject launcherAssetObject = launcherAsset.get();
+                                        JsonElement launcherAssetDownloadUrlElement = launcherAssetObject.get("browser_download_url");
+                                        JsonElement launcherAssetNameElement = launcherAssetObject.get("name");
+                                        String launcherName = launcherAssetNameElement.getAsString();
+                                        String launcherUrl = launcherAssetDownloadUrlElement.getAsString();
+
                                         Runnable doUpdates = () ->{
                                             if(isGetApp){    
 
-                                            JsonObject appAssetObject = appAsset.get();
-                                            JsonElement appAssetDownloadUrlElement = appAssetObject.get("browser_download_url");
-                                            JsonElement appAssetNameElement = appAssetObject.get("name");
-                                            
-                                            if(appAssetDownloadUrlElement != null && appAssetDownloadUrlElement.isJsonPrimitive()){
-                                                String appAssetName = appAssetNameElement.getAsString();
-                                                String appAssetUrl = appAssetDownloadUrlElement.getAsString();
-
                                                 getUrlApp(appAssetUrl, appAssetName, appReleaseHashHex, appStage, ()->{
                                                     if(isGetLauncher){
-                                                        getUrlLauncher(launcherAsset.get(), launcherReleaseHashHex, launcherReleaseVersionString, appStage, complete);
+                                                        getUrlLauncher(launcherUrl, launcherName, launcherReleaseHashHex, launcherReleaseVersionString, appStage, complete);
                                                     }else{
                                                         complete.run();
                                                     }
                                                 });
+                                           
                                             }else{
                                                 try {
-                                                    Files.writeString(logFile.toPath(), "\nasset information not available", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                                } catch (IOException e) {
-                                                    
-                                                }
-                                                complete.run();
-                                            }
-                                        }else{
-                                            try {
-                                                Files.writeString(logFile.toPath(), "\nnot getting app file.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                            } catch (IOException e) {
-                                         
-                                            }
-                                            if(isGetLauncher){
-                                               
-                                                getUrlLauncher(launcherAsset.get(), launcherReleaseHashHex, launcherReleaseVersionString, appStage, complete);
-                                                
-                                            }else{
-                                                try {
-                                                    Files.writeString(logFile.toPath(), "\nnot getting launcher file.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                    Files.writeString(logFile.toPath(), "\nnot getting app file.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                                 } catch (IOException e) {
                                             
                                                 }
-                                                complete.run();
+                                                if(isGetLauncher){
+                                                
+                                                    getUrlLauncher(launcherUrl, launcherName, launcherReleaseHashHex, launcherReleaseVersionString, appStage, complete);
+                                                    
+                                                }else{
+                                                    try {
+                                                        Files.writeString(logFile.toPath(), "\nnot getting launcher file.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                    } catch (IOException e) {
+                                                
+                                                    }
+                                                    complete.run();
+                                                }
                                             }
-                                        }
                                         };
 
                                         if(!m_autoUpdate){
                                             Button closeBtn = new Button();
                                             TextField promptField = new TextField(); 
-                                            showGetTextInput(appStage, "Update? (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
+                                            showGetTextInput(appStage, "Update? ("+ (isGetApp ? appAssetName : "") + (isGetLauncher ? launcherName : "") +") (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
                                             closeBtn.setOnAction(e->{
                                                 complete.run();
                                             });
@@ -747,11 +745,8 @@ public class Setup extends Application {
     }
 
     
-    public void getUrlLauncher(JsonObject launcherAssetObject, String hashHex, String version, Stage appStage, Runnable complete){
-        JsonElement appAssetDownloadUrlElement = launcherAssetObject.get("browser_download_url");
-        JsonElement appAssetNameElement = launcherAssetObject.get("name");
-        String name = appAssetNameElement.getAsString();
-        String url = appAssetDownloadUrlElement.getAsString();
+    public void getUrlLauncher(String url, String name, String hashHex, String version, Stage appStage, Runnable complete){
+        
 
         ProgressBar progressBar = new ProgressBar();
    
