@@ -1,31 +1,21 @@
 package com.netnotes;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.commons.io.FileUtils;
 import org.bouncycastle.util.encoders.Hex;
 
 import com.google.gson.JsonElement;
@@ -34,25 +24,26 @@ import com.google.gson.JsonParser;
 import com.utils.Utils;
 import com.utils.Version;
 
-import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.stage.Stage;
+
 import mslinks.ShellLinkException;
 
 public class AppData {
     private File logFile = new File("appdata-log.txt");
     public static final String SETTINGS_FILE_NAME = "settings.conf";
-    
+    public final static String SHORTCUT_NAME = "Netnotes.lnk";
+
     public static final String HOME_DIRECTORY = System.getProperty("user.home");
     public static final File DESKTOP_DIRECTORY = new File(HOME_DIRECTORY + "/Desktop");
     public static final File STARTUP_DIRECTORY = new File(HOME_DIRECTORY + "/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup");
     public static final File PROGRAMS_DIRECTORY = new File(HOME_DIRECTORY + "/AppData/Roaming/Microsoft/Windows/Start Menu/Programs");
 
+    
+
     public File m_currentDirectory = null;
     public File m_settingsFile = null;
 
     private String m_appKey;
-    private boolean m_autoRun = false;
     private boolean m_isDaemon = false;
 
     private boolean m_updatesProperty = true;
@@ -95,7 +86,7 @@ public class AppData {
 
         readFile();
         parseArgs(argsJson);
-        if(m_autoRun = true && m_autoRunFile != null && m_autoRunFile.isFile() && isDaemon()){
+        if(m_autoRunFile != null && m_autoRunFile.isFile() && isDaemon()){
             Files.writeString(logFile.toPath(), "\nautorun enabled", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             loadAppKey();
         }else{
@@ -120,7 +111,6 @@ public class AppData {
     private void openJson(JsonObject dataObject) throws Exception{
         
 
-        JsonElement autoRunElement = dataObject.get("autoRun");
         JsonElement autoRunKeyFileElement = dataObject.get("autoRunFile");
         JsonElement autoUpdateElement = dataObject.get("autoUpdate");
         JsonElement updatesElement = dataObject.get("updates");
@@ -135,7 +125,7 @@ public class AppData {
             m_updatesProperty = updates;
             m_autoUpdateProperty = autoUpdate;
             m_autoRunFile = autoRunKeyFileElement != null && autoRunKeyFileElement.isJsonPrimitive() ? new File(autoRunKeyFileElement.getAsString()) : null;
-            m_autoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : false;
+         
 
         } else {
             throw new Exception("Null appKey");
@@ -215,13 +205,55 @@ public class AppData {
               
 
                 if(firstRun){
-                    createDesktopLink();
-                    if(m_autoRun && m_autoRunFile != null && m_autoRunFile.isFile()){
-                        createStartupLink();
+                    JsonElement desktopShortcutElement = argsJson.get("desktopShortcut");
+                    JsonElement startMenuShortcutElement = argsJson.get("startMenuShortcut");
+                    JsonElement autoRunElement = argsJson.get("autoRun");
+                    
+                    boolean isDesktopShortcut = desktopShortcutElement != null && desktopShortcutElement.isJsonPrimitive() ? desktopShortcutElement.getAsBoolean() : false;
+                    boolean isStartMenuShortcut = startMenuShortcutElement != null && startMenuShortcutElement.isJsonPrimitive() ? startMenuShortcutElement.getAsBoolean() : false;
+                    boolean isAutoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : false;
+
+                    if(isDesktopShortcut){
+                        try {
+                            createDesktopLink();
+                        } catch (Exception e) {
+                            try {
+                                Files.writeString(logFile.toPath(), "\ncreateDestkopShortcut failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e1) {
+                            
+                            }
+                        }
                     }
+                    if(isStartMenuShortcut){
+                      
+                        try {
+                            createStartMenuShortcut();
+                        } catch (Exception e) {
+                           try {
+                                Files.writeString(logFile.toPath(), "\ncreateStartMenuShortcut failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e1) {
+                            
+                            }
+                        }
+                     
+                    }
+
+                    if(isAutoRun){
+                       
+                        try {
+                            createStartupLink();
+                        } catch (Exception e) {
+                            try {
+                                Files.writeString(logFile.toPath(), "\ncreateStartupLink failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e1) {
+                            
+                            }
+                        }
+                    }
+                   
                 }
 
-                
+                 
             
                  try {
                     Files.writeString(logFile.toPath(), "\n" + "args parsed", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -235,46 +267,92 @@ public class AppData {
        
     }
 
-    public void createDesktopLink(){
-        File oldLink = new File(DESKTOP_DIRECTORY.getAbsolutePath() + "/" + "Netnotes.lnk");
+  
+
+    public boolean isDesktopLink(){
+        return (new File(DESKTOP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME)).isFile();
+    }
+
+    public void createDesktopLink() throws Exception{
+        File oldLink = new File(DESKTOP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME);
         if(oldLink.isFile()){
             oldLink.delete();
         }
         
-        try {
-            Utils.createLink(m_launcherFile.get().getAbsolutePath(), DESKTOP_DIRECTORY, "Netnotes.lnk");
-        } catch (IOException | ShellLinkException e) {
 
-        
+        Utils.createLink(m_launcherFile.get().getAbsolutePath(), DESKTOP_DIRECTORY, SHORTCUT_NAME);
+       
+    }
+
+    public void removeDesktopLink(){
+        File desktopLinkFile = new File(DESKTOP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME);
+        if(desktopLinkFile.isFile()){
+            desktopLinkFile.delete();
         }
     }
 
-    public void removeStartupLink(){
-        File oldLink = new File(STARTUP_DIRECTORY.getAbsolutePath() + "/" + "Netnotes.lnk");
+    public void removeStartMenuShortcut() throws IOException {
+        File startMenuDirectory= new File(PROGRAMS_DIRECTORY  .getAbsolutePath() + "/" + "Netnotes");
+     
+        FileUtils.deleteDirectory(startMenuDirectory);
+      
+    }
+
+    public boolean isStartMenuShortcut(){
+        
+        File startMenuDirectory= new File(PROGRAMS_DIRECTORY.getAbsolutePath() + "/" + "Netnotes");
+        if(!startMenuDirectory.isDirectory()){
+            File programShortcut = new File(startMenuDirectory.getAbsolutePath() + "/" + SHORTCUT_NAME);
+            return programShortcut.isFile();
+        }else{
+            return false;
+        }     
+    }
+
+    public void createStartMenuShortcut() throws Exception{
+        
+        File startMenuDirectory= new File(PROGRAMS_DIRECTORY  .getAbsolutePath() + "/" + "Netnotes");
+        if(!startMenuDirectory.isDirectory()){
+          
+            Files.createDirectory(startMenuDirectory.toPath());
+           
+        }
+        
+        File programShortcut = new File(startMenuDirectory.getAbsolutePath() + "/" + SHORTCUT_NAME);
+        if(programShortcut.isFile()){
+            programShortcut.delete();
+        }
+
+      
+        Utils.createLink(m_launcherFile.get().getAbsolutePath(), startMenuDirectory, SHORTCUT_NAME);
+     
+
+    }
+
+    public void removeStartupLink() throws Exception{
+        File oldLink = new File(STARTUP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME);
         if(oldLink.isFile()){
             oldLink.delete();
         }
     }
 
-    public void createStartupLink(){
+    public void createStartupLink() throws Exception{
         
+        removeStartupLink();
         
+        Utils.createLink(m_launcherFile.get().getAbsolutePath() + " --daemon", STARTUP_DIRECTORY, SHORTCUT_NAME);
+          
+       
+    }
+
+    public boolean isStartupShortcut(){
         if(STARTUP_DIRECTORY.isDirectory()){
-            removeStartupLink();
-            try {
-                Utils.createLink(m_launcherFile.get().getAbsolutePath() + " --daemon", STARTUP_DIRECTORY, "Netnotes.lnk");
-            } catch (IOException | ShellLinkException e) {
-
+            File startupFile = new File(STARTUP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME);
+            if(startupFile.isFile()){
+                return true;
             }
         }
-        else{
-            try {
-                Files.writeString(logFile.toPath(), "\n" + "no startup directory found", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-            
-            }
-        }
-        
+        return false;
     }
 
     private void loadAppKey() throws Exception  {
@@ -327,12 +405,13 @@ public class AppData {
         return m_isDaemon;
     }
 
-    public boolean getAutoRun(){
-        return m_autoRun;
+    public File getAutoRunFile(){
+        return m_autoRunFile;
     }
 
+
     public void enableAutoRun(String keyString, File autoRunFile) throws Exception{
-        m_autoRun = true;
+       
         m_autoRunFile = autoRunFile;
         saveAppKey(keyString.toCharArray(), autoRunFile);
         createStartupLink();
@@ -340,8 +419,10 @@ public class AppData {
     }
     
 
-    public void disableAutoRun() throws IOException{
-        m_autoRun = false;
+    public void disableAutoRun() throws Exception{
+        if(m_autoRunFile != null && m_autoRunFile.isFile()){
+            m_autoRunFile.delete();
+        }
         m_autoRunFile = null;
         removeStartupLink();
         save();
@@ -403,7 +484,7 @@ public class AppData {
         dataObject.addProperty("appKey", m_appKey);
         dataObject.addProperty("updates", m_updatesProperty);
         dataObject.addProperty("autoUpdate", m_autoUpdateProperty);
-        dataObject.addProperty("autoRun", m_autoRun);
+
         if(m_autoRunFile != null && m_autoRunFile.isFile()){
             dataObject.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());
         }

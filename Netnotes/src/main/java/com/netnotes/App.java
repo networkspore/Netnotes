@@ -155,15 +155,8 @@ public class App extends Application {
             try {
                 
                 AppData appData = new AppData(arg0);
-                 try {
-                     Files.writeString(logFile.toPath(), "\nget startup list", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            
-                       
-                    } catch (Exception e) {
-                        Files.writeString(logFile.toPath(), "\nget startup list error: " +e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    }
-                
-                if(appData.getAutoRun() && appData.appKeyProperty().get() != null && appData.isDaemon() ){
+           
+                if(appData.appKeyProperty().get() != null && appData.isDaemon() ){
                     try {
                         Files.writeString(logFile.toPath(), "\nisDaemon", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e) {
@@ -182,7 +175,7 @@ public class App extends Application {
                 }
                 
             } catch (Exception e) {
-                    Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
                 a.initOwner(appStage);
                 a.showAndWait();
                 try {
@@ -945,13 +938,14 @@ public class App extends Application {
         FileChooser keyFileChooser = new FileChooser();
         keyFileChooser.setTitle("Create key file");
         
+        File autoRunFile = m_networksData.getAppData().getAutoRunFile();
 
-        Button autoRunFileBtn = new Button("...");
+        Button autoRunFileBtn = new Button(autoRunFile != null && autoRunFile.isFile() ? autoRunFile.getAbsolutePath() : "...");
         autoRunFileBtn.setId("menuBtn");
         autoRunFileBtn.setFont(txtFont);
         autoRunFileBtn.setAlignment(Pos.CENTER_LEFT);
 
-        Button autoRunBtn = new Button(m_networksData.getAppData().getAutoRun() ? "Enabled" : "Disabled");
+        Button autoRunBtn = new Button(m_networksData.getAppData().isStartupShortcut() && autoRunFile != null && autoRunFile.isFile() ? "Enabled" : "Disabled");
         autoRunBtn.setFont(txtFont);
         autoRunBtn.setId("toolBtn");
         
@@ -972,12 +966,14 @@ public class App extends Application {
                         if(keyFile != null){
                             Files.writeString(keyFile.toPath(), "keyFile");
                             Files.delete(keyFile.toPath());
+                             m_networksData.getAppData().enableAutoRun((String) sourceObject, keyFile);
+                             
                             if(!autoRunBox.getChildren().contains(autoRunFileBtn)){
                                 autoRunBox.getChildren().add(1, autoRunFileBtn);
                             }
                             autoRunFileBtn.setText(keyFile.getAbsolutePath());
                             autoRunBtn.setText("Enabled");
-                            m_networksData.getAppData().enableAutoRun((String) sourceObject, keyFile);
+                           
                         }
                     } catch (Exception e1) {
                         Alert err = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
