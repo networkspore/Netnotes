@@ -65,9 +65,11 @@ public class ErgoWallet extends Network implements NoteInterface {
     private ScheduledFuture<?> m_lastExecution = null;
 
     private ErgoNetworkData m_ergNetData;
+    private ErgoNetwork m_ergoNetwork;
 
     public ErgoWallet(ErgoNetworkData ergNetData, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+        m_ergoNetwork = ergoNetwork;
         setupWallet();
         setStageIconStyle(IconStyle.ROW);
         getLastUpdated().set(LocalDateTime.now());
@@ -77,7 +79,7 @@ public class ErgoWallet extends Network implements NoteInterface {
     public ErgoWallet(ErgoNetworkData ergNetData, JsonObject jsonObject, ErgoNetwork ergoNetwork) {
 
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-
+        m_ergoNetwork = ergoNetwork;
         m_ergNetData = ergNetData;
 
         JsonElement directoriesElement = jsonObject.get("directories");
@@ -366,7 +368,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void setupWallet() {
 
-        m_appDir = m_appDir == null ? new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME) : m_appDir;
+        m_appDir = m_appDir == null ? new File(m_ergoNetwork.getErgoNetworkDir().getAbsolutePath() + "/" + NAME) : m_appDir;
 
         m_walletsDir = m_walletsDir == null ? new File(m_appDir.getAbsolutePath() + "/wallets") : m_walletsDir;
         m_dataFile = new File(m_appDir.getAbsolutePath() + "/ergoWallets.dat");
