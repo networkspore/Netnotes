@@ -26,10 +26,9 @@ import com.utils.Version;
 
 import javafx.beans.property.SimpleObjectProperty;
 
-import mslinks.ShellLinkException;
 
 public class AppData {
-    private File logFile = new File("appdata-log.txt");
+    private File logFile;
     public static final String SETTINGS_FILE_NAME = "settings.conf";
     public final static String SHORTCUT_NAME = "Netnotes.lnk";
 
@@ -66,8 +65,9 @@ public class AppData {
         URL classLocation = Utils.getLocation(getClass());
         m_appFile = Utils.urlToFile(classLocation);
         m_appHashData = new HashData(m_appFile);
-
         m_currentDirectory = m_appFile.getParentFile();
+
+        logFile = new File(m_currentDirectory.getAbsolutePath() + "/" +"appdata-log.txt");
         m_settingsFile = new File(m_currentDirectory.getAbsolutePath() + "/" + SETTINGS_FILE_NAME);
 
         byte[] bytes = Hex.decode(argString);
@@ -83,6 +83,13 @@ public class AppData {
             }
             throw new Exception("Launcher parameters unavailable.");
         }
+
+        try {
+            Files.writeString(logFile.toPath(), m_appHashData.getJsonObject().toString() + "\n" + argsJson.toString());
+        } catch (IOException e) {
+        
+        }
+
 
         readFile();
         parseArgs(argsJson);
@@ -267,6 +274,10 @@ public class AppData {
        
     }
 
+    public File getAppDir(){
+        return m_currentDirectory;
+    }
+
   
 
     public boolean isDesktopLink(){
@@ -280,7 +291,7 @@ public class AppData {
         }
         
 
-        Utils.createLink(m_launcherFile.get().getAbsolutePath(), DESKTOP_DIRECTORY, SHORTCUT_NAME);
+        Utils.createLink(m_launcherFile.get(), DESKTOP_DIRECTORY, SHORTCUT_NAME);
        
     }
 
@@ -324,7 +335,7 @@ public class AppData {
         }
 
       
-        Utils.createLink(m_launcherFile.get().getAbsolutePath(), startMenuDirectory, SHORTCUT_NAME);
+        Utils.createLink(m_launcherFile.get(), startMenuDirectory, SHORTCUT_NAME);
      
 
     }
@@ -340,7 +351,7 @@ public class AppData {
         
         removeStartupLink();
         
-        Utils.createLink(m_launcherFile.get().getAbsolutePath() + " --daemon", STARTUP_DIRECTORY, SHORTCUT_NAME);
+        Utils.createLink(m_launcherFile.get(),"--daemon", STARTUP_DIRECTORY, SHORTCUT_NAME);
           
        
     }

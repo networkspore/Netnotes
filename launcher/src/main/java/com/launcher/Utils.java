@@ -274,25 +274,25 @@ public class Utils {
         return false;
     }
 
-    public static String getLatestFileString(String directoryString) {
+    public static File getLatestFile(File directory) {
 
-        if (!Files.isDirectory(Paths.get(directoryString))) {
-            return "";
+        if (!Files.isDirectory(directory.toPath())) {
+            return null;
         }
 
         String fileFormat = "netnotes-0.0.0.jar";
         int fileLength = fileFormat.length();
 
-        File f = new File(directoryString);
+     
 
-        File[] matchingFiles = f.listFiles(new FilenameFilter() {
+        File[] matchingFiles = directory.listFiles(new FilenameFilter() {
             public boolean accept(File dir, String name) {
                 return name.startsWith("netnotes") && name.endsWith(".jar");
             }
         });
 
         if (matchingFiles == null) {
-            return "";
+            return null;
         }
 
         int start = 7;
@@ -352,7 +352,7 @@ public class Utils {
 
         }
 
-        return latestString;
+        return latestString.equals("") ? null : new File(directory.getAbsolutePath() + "/" + latestString);
     }
 
     

@@ -6,7 +6,7 @@
 
   <groupId>com.launcher</groupId>
   <artifactId>launcher</artifactId>
-  <version>0.0.3</version>
+  <version>0.0.5</version>
 
   <name>launcher</name>
   <url>https://github.com/networkspore/Netnotes</url>
@@ -65,7 +65,7 @@
           </configuration>
         </plugin>
 
-        
+         
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>

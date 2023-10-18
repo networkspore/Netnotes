@@ -50,7 +50,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public final static String NETWORK_ID = "ERGO_NETWORK";
     public final static PriceCurrency NATIVE_CURRENCY = new ErgoCurrency();
 
-    public final static File ERGO_NETWORK_DIR = new File(System.getProperty("user.dir") + "/Ergo Network");
+    private File m_ergoNetworkDirectory = null;
 
     private final static long EXECUTION_TIME = 500;
 
@@ -68,12 +68,14 @@ public class ErgoNetwork extends Network implements NoteInterface {
         setStageHeight(DEFAULT_STAGE_HEIGHT);
         setStagePrevHeight(DEFAULT_STAGE_HEIGHT);
         setStagePrevWidth(SMALL_STAGE_WIDTH);
+        m_ergoNetworkDirectory = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
         m_ergNetData = new ErgoNetworkData(getStageIconStyle(), getStageWidth(), this);
         getLastUpdated().set(LocalDateTime.now());
     }
 
     public ErgoNetwork(JsonObject json, NetworksData networksData) {
         super(getAppIcon(), NAME, NETWORK_ID, networksData);
+        m_ergoNetworkDirectory = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
 
         JsonElement networkTypeElement = json.get("networkType");
         JsonElement stageElement = json.get("stage");
@@ -115,6 +117,10 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
         m_ergNetData = new ErgoNetworkData(getStageIconStyle(), getStageWidth(), this);
 
+    }
+
+    public File getErgoNetworkDir(){
+        return m_ergoNetworkDirectory;
     }
 
     public static Image getAppIcon() {

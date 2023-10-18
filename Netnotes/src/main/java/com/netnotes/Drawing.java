@@ -2,11 +2,10 @@ package com.netnotes;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
-import java.io.File;
+
 
 public class Drawing {
 
-    private static File logFile = new File("drawing-log.txt");
 
     public static void drawBarFillColor(int direction, boolean fillInverse, int fillColor, int RGB1, int RGB2, BufferedImage img, int x1, int y1, int x2, int y2) {
         /*cancel draw if out of bounds?

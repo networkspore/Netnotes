@@ -1,30 +1,17 @@
 package com.launcher;
 
-import java.io.BufferedReader;
 import java.io.File;
-
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 import java.nio.file.Files;
-
 import java.nio.file.StandardOpenOption;
-import java.security.Security;
 
 import javafx.application.Application;
 import javafx.application.Platform;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-
 import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.codec.binary.Hex;
-
-import com.google.gson.JsonObject;
-
 
 public class Launcher {
 

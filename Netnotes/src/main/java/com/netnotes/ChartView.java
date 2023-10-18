@@ -38,7 +38,7 @@ import javafx.scene.layout.Priority;
 
 public class ChartView {
 
-    private File logFile = new File("pricechart-log.txt");
+    private File logFile;
 
     private NumberClass m_numberClass = new NumberClass();
 

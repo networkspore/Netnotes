@@ -52,7 +52,7 @@ import javafx.stage.StageStyle;
 
 public class ErgoMarketsList {
 
-    private File logFile = new File("MarketsList-log.txt");
+    private File logFile = new File("Netnotes-log.txt");
     private String m_id = FriendlyId.createFriendlyId();
     private ArrayList<MarketsData> m_dataList = new ArrayList<>();
     private ErgoMarkets m_ergoMarkets;
@@ -344,7 +344,7 @@ public class ErgoMarketsList {
                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
                 | IOException e) {
             try {
-                Files.writeString(logFile.toPath(), "\n" + e.toString());
+                Files.writeString(logFile.toPath(), "\nMarketsList: " + e.toString());
             } catch (IOException e1) {
 
             }

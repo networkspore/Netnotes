@@ -16,6 +16,7 @@ import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -93,6 +94,7 @@ import org.ergoplatform.appkit.NetworkType;
 import java.io.FilenameFilter;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
+import mslinks.ShellLink;
 import mslinks.ShellLinkException;
 import mslinks.ShellLinkHelper;
 import ove.crypto.digest.Blake2b;
@@ -318,11 +320,56 @@ public class Utils {
         return null;
     }
 
-    public static void createLink(String target, File linkDir, String linkName) throws IOException, ShellLinkException {
+    public static void createLink(File targetFile, File linkDir, String linkName) throws IOException, ShellLinkException {
         //ShellLinkHelper link = new ShellLinkHelper(new ShellLink());
 
-        ShellLinkHelper.createLink(target, linkDir.getAbsolutePath() + "/" + linkName);
+        ShellLinkHelper.createLink(targetFile.getAbsolutePath(), linkDir.getAbsolutePath() + "/" + linkName);
 
+    }
+
+    public static void createLink(File targetFile, String args, File linkDir, String linkName) throws IOException, ShellLinkException {
+        //ShellLinkHelper link = new ShellLinkHelper(new ShellLink());
+        String target = ShellLinkHelper.resolveEnvVariables(targetFile.getAbsolutePath());
+   
+        ShellLinkHelper helper = new ShellLinkHelper(new ShellLink());
+        String[] parts = target.split(":");
+        if (parts.length != 2) {
+            throw new ShellLinkException("Wrong path '" + target + "'");
+        }
+        helper.setLocalTarget(parts[0], parts[1]);
+        ShellLink link = helper.getLink();
+        
+        link.setCMDArgs(args);
+
+       Path savingPath = new File(linkDir.getAbsolutePath() + "/" + linkName).toPath();
+        if (Files.isDirectory(savingPath)) {
+            throw new IOException("can't save ShellLink to \"" + savingPath + "\" because there is a directory with this name");
+        }
+
+        link.setLinkFileSource(savingPath);
+
+        Path savingDir = savingPath.getParent();
+        try {
+            Path targetPath = Paths.get(link.resolveTarget());
+            if (!link.getHeader().getLinkFlags().hasRelativePath()) {
+                // this will always be false on linux
+                if (savingDir.getRoot().equals(targetPath.getRoot())) {
+                    link.setRelativePath(savingDir.relativize(targetPath).toString());
+                }
+            }
+
+            if (!link.getHeader().getLinkFlags().hasWorkingDir()) {
+                // this will always be false on linux
+                if (Files.isRegularFile(targetPath)) {
+                    link.setWorkingDir(targetPath.getParent().toString());
+                }
+            }
+        } catch (InvalidPathException e) {
+            // skip automatic relative path and working dir if path is some special folder
+        }
+
+        Files.createDirectories(savingDir);
+        link.serialize(Files.newOutputStream(savingPath));
     }
 
     public static PriceAmount getAmountByString(String text, PriceCurrency priceCurrency) {

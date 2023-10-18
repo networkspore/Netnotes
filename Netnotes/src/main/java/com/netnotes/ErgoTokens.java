@@ -82,7 +82,7 @@ public class ErgoTokens extends Network implements NoteInterface {
     public ErgoTokens(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
 
-        m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
+        m_appDir = new File(ergoNetwork.getErgoNetworkDir().getAbsolutePath() + "/" + NAME);
 
         if (!m_appDir.isDirectory()) {
 
@@ -132,7 +132,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_appDir = new File(appDirElement.getAsString());
         } else {
 
-            m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
+            m_appDir = new File(ergoNetwork.getErgoNetworkDir().getAbsolutePath() + "/" + NAME);
         }
 
         if (!m_appDir.isDirectory()) {

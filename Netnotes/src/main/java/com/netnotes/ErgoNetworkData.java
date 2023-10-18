@@ -91,7 +91,7 @@ public class ErgoNetworkData implements InstallerInterface {
         m_iconStyle = new SimpleStringProperty(iconStyle);
         m_gridWidth = new SimpleDoubleProperty(gridWidth);
 
-        File appDir = ErgoNetwork.ERGO_NETWORK_DIR;
+        File appDir = ergoNetwork.getErgoNetworkDir();
 
         if (!appDir.isDirectory()) {
             try {

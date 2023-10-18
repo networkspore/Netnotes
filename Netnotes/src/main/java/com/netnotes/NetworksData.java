@@ -84,7 +84,7 @@ public class NetworksData implements InstallerInterface {
 
     private Rectangle m_rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
     private HostServices m_hostServices;
-    private File m_appDir;
+  
 
     private File m_notesDir;
     private File m_outDir;
@@ -108,14 +108,14 @@ public class NetworksData implements InstallerInterface {
         m_networksFile = networksFile;
         m_networksBox = new VBox();
         m_hostServices = hostServices;
-        m_appDir = new File(System.getProperty("user.dir"));
+
 
         if (isFile) {
             readFile(m_appData.appKeyProperty().get(), networksFile.toPath());
         }
 
-        m_notesDir = new File(m_appDir.getAbsolutePath() + "/notes");
-        m_outDir = new File(m_appDir.getAbsolutePath() + "/out");
+        m_notesDir = new File(m_appData.getAppDir().getAbsolutePath() + "/notes");
+        m_outDir = new File(m_appData.getAppDir().getAbsolutePath() + "/out");
         if (!m_notesDir.isDirectory()) {
             try {
                 Files.createDirectory(m_notesDir.toPath());
@@ -311,7 +311,7 @@ public class NetworksData implements InstallerInterface {
     }
 
     public File getAppDir() {
-        return m_appDir;
+        return m_appData.getAppDir();
     }
 
     public HostServices getHostServices() {

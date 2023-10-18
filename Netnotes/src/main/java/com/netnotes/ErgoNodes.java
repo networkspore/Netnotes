@@ -54,13 +54,16 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     private ScheduledFuture<?> m_lastExecution = null;
 
-    private File m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
-    private File m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
+    private File m_appDir = null;
+    private File m_dataFile = null;
 
     private ErgoNodesList m_ergoNodesList = null;
 
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+        m_appDir = new File(ergoNetwork.getErgoNetworkDir() + "/" + NAME);
+        m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
+
         setStageWidth(750);
         if (!m_appDir.isDirectory()) {
 
@@ -79,6 +82,9 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     public ErgoNodes(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+        m_appDir = new File(ergoNetwork.getErgoNetworkDir() + "/" + NAME);
+        m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
+        
         openJson(jsonObject);
         addListeners();
 

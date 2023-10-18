@@ -39,7 +39,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
     public final static String NAME = "Ergo Markets";
     public final static String NETWORK_ID = "ERGO_MARKETS";
 
-    private File logFile = new File("ergoMarket-log.txt");
+    private File logFile = new File("netnotes-log.txt");
 
     private File m_dataFile = null;
     private File m_appDir = null;
@@ -61,6 +61,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
     }
 
     private void setup(JsonObject json) {
+        File ergoNetworkDir = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
 
         JsonElement directoriesElement = json.get("directories");
 
@@ -68,12 +69,13 @@ public class ErgoMarkets extends Network implements NoteInterface {
             JsonObject directoriesObject = directoriesElement.getAsJsonObject();
             if (directoriesObject != null) {
                 JsonElement appDirElement = directoriesObject.get("app");
+               
 
-                m_appDir = appDirElement == null ? new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME) : new File(appDirElement.getAsString());
+                m_appDir = appDirElement == null ? new File(ergoNetworkDir.getAbsolutePath() + "/" + NAME) : new File(appDirElement.getAsString());
 
             }
         } else {
-            m_appDir = new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME);
+            m_appDir = new File(ergoNetworkDir.getAbsolutePath() + "/" + NAME);
         }
 
         if (!m_appDir.isDirectory()) {
