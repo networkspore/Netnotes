@@ -1,17 +1,30 @@
 package com.netnotes;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -21,10 +34,13 @@ import org.bouncycastle.util.encoders.Hex;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.satergo.extra.AESEncryption;
 import com.utils.Utils;
 import com.utils.Version;
 
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 
 public class AppData {
@@ -39,11 +55,12 @@ public class AppData {
 
     
 
-    public File m_currentDirectory = null;
+    public File m_appDir = null;
     public File m_settingsFile = null;
 
     private String m_appKey;
     private boolean m_isDaemon = false;
+    private boolean m_isFirstRun = false;
 
     private boolean m_updatesProperty = true;
     private boolean m_autoUpdateProperty = false;
@@ -59,63 +76,45 @@ public class AppData {
     private SimpleObjectProperty<SecretKey> m_secretKey = new SimpleObjectProperty<SecretKey>(null);
 
     private File m_autoRunFile = null;
+    private boolean m_setupAutoRun = false;
 
-    public AppData(String argString) throws Exception {
+    private Stage m_persistenceStage = null;
+
+    public AppData()throws Exception {
 
         URL classLocation = Utils.getLocation(getClass());
         m_appFile = Utils.urlToFile(classLocation);
         m_appHashData = new HashData(m_appFile);
-        m_currentDirectory = m_appFile.getParentFile();
+        m_appDir = m_appFile.getParentFile();
 
-        logFile = new File(m_currentDirectory.getAbsolutePath() + "/" +"appdata-log.txt");
-        m_settingsFile = new File(m_currentDirectory.getAbsolutePath() + "/" + SETTINGS_FILE_NAME);
+        logFile = new File(m_appDir.getAbsolutePath() + "/" +"netnotes-log.txt");
+        m_settingsFile = new File(m_appDir.getAbsolutePath() + "/" + SETTINGS_FILE_NAME);
 
-        byte[] bytes = Hex.decode(argString);
-        String jsonString = new String(bytes);
-        JsonElement jsonStringElement = new JsonParser().parse(jsonString);
-        JsonObject argsJson = jsonStringElement != null && jsonStringElement.isJsonObject() ? jsonStringElement.getAsJsonObject() : null;
-
-        if(argsJson == null){
-            try {
-                Files.writeString(logFile.toPath(), "\nLauncher parameters unavailable.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-            
-            }
-            throw new Exception("Launcher parameters unavailable.");
-        }
-
-        try {
-            Files.writeString(logFile.toPath(), m_appHashData.getJsonObject().toString() + "\n" + argsJson.toString());
-        } catch (IOException e) {
-        
-        }
+       
 
 
         readFile();
-        parseArgs(argsJson);
-        if(m_autoRunFile != null && m_autoRunFile.isFile() && isDaemon()){
-            Files.writeString(logFile.toPath(), "\nautorun enabled", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            loadAppKey();
-        }else{
-            Files.writeString(logFile.toPath(), "\nautorun disabled", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        }
+        
+        m_persistenceStage = new Stage(StageStyle.UTILITY);
+        m_persistenceStage.setHeight(0);
+        m_persistenceStage.setWidth(0);
+        m_persistenceStage.setX(java.lang.Double.MAX_VALUE);
+        m_persistenceStage.show();
+
+      
     }
 
-    private void readFile() throws Exception{
+    private void readFile()throws Exception{
 
-        Files.writeString(logFile.toPath(), "\nopening: " + m_settingsFile.getAbsolutePath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         String settingsString = Files.readString(m_settingsFile.toPath());
-
         JsonObject json = new JsonParser().parse(settingsString).getAsJsonObject();
       
-        Files.writeString(logFile.toPath(), "\n" + json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
         openJson(json);
 
     
     }
 
-    private void openJson(JsonObject dataObject) throws Exception{
+    private void openJson(JsonObject dataObject) throws Exception {
         
 
         JsonElement autoRunKeyFileElement = dataObject.get("autoRunFile");
@@ -139,14 +138,34 @@ public class AppData {
         }
      
     }
+   
+    public void parseArgs(String argString, Runnable firstRun, Runnable normal) throws Exception{
 
-    private void parseArgs(JsonObject argsJson) throws Exception{
+        byte[] bytes = Hex.decode(argString);
+        String jsonString = new String(bytes);
+        JsonElement jsonStringElement = new JsonParser().parse(jsonString);
+        JsonObject argsJson = jsonStringElement != null && jsonStringElement.isJsonObject() ? jsonStringElement.getAsJsonObject() : null;
+
+        if(argsJson == null){
+            try {
+                Files.writeString(logFile.toPath(), "\nAppdata: Launcher parameters unavailable.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+            
+            }
+            throw new Exception("Appdata: Launcher parameters unavailable.");
+        }
+
 
         JsonElement javaVersionElement =  argsJson.get("javaVersion");
         JsonElement launcherFileElement = argsJson.get("launcherFile");
         JsonElement launcherHashDataElement = argsJson.get("launcherHashData");
         JsonElement isDaemonElement = argsJson.get("isDaemon");
+        JsonElement firstRunElement = argsJson.get("firstRun");
 
+        JsonElement launcherUpdateFileElement = argsJson.get("launcherUpdateFile");
+        JsonElement launcherUpdateHashDataElement = argsJson.get("launcherUpdateHashData");
+        
+        
 
         String javaVersionString =  javaVersionElement != null && javaVersionElement.isJsonPrimitive() ? javaVersionElement.getAsString() : null;
         String launcherFileString = launcherFileElement != null && launcherFileElement.isJsonPrimitive() ? launcherFileElement.getAsString() : null;
@@ -162,120 +181,117 @@ public class AppData {
         m_launcherFile.set(new File(launcherFileString));
         m_launcherHashData.set(new HashData(launcherHashDataObject));
 
-        JsonElement launcherUpdateFileElement = argsJson.get("launcherUpdateFile");
-        JsonElement launcherUpdateHashDataElement = argsJson.get("launcherUpdateHashData");
-        JsonElement firstRunElement = argsJson.get("firstRun");
-        
-        boolean firstRun = firstRunElement != null && firstRunElement.isJsonPrimitive() ? firstRunElement.getAsBoolean() : false;
+       
+        m_isFirstRun = firstRunElement != null && firstRunElement.isJsonPrimitive() ? firstRunElement.getAsBoolean() : false;
         
         File launcherUpdateFile = launcherUpdateFileElement != null && launcherUpdateFileElement.isJsonPrimitive() ? new File(launcherUpdateFileElement.getAsString()) : null;
         HashData launcherUpdateHashData = launcherUpdateHashDataElement != null && launcherUpdateHashDataElement.isJsonObject() ? new HashData(launcherUpdateHashDataElement.getAsJsonObject()) : null;
 
-  
+        File destinationFile = new File(m_appDir.getAbsolutePath() + "/Netnotes.exe");
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    return;
-                }
+        boolean isLauncherUpdated = launcherUpdateFile != null && launcherUpdateFile.isFile() && launcherUpdateHashData != null;
+        boolean isLauncherDirectory = !m_launcherFile.get().getAbsolutePath().equals(destinationFile.getAbsolutePath());
 
-               
-                File destinationFile = new File(m_currentDirectory.getAbsolutePath() + "/Netnotes.exe");
-               
-                
-                if(launcherUpdateFile != null && launcherUpdateFile.isFile() && launcherUpdateHashData != null){
+        if(isLauncherUpdated || isLauncherDirectory || m_isFirstRun){
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
                     try {
-                        Files.move(launcherUpdateFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                        m_launcherFile.set(destinationFile);
-                        m_launcherHashData.set(launcherUpdateHashData);
-                     
-                    } catch (IOException e) {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                    
+                    if(isLauncherUpdated && launcherUpdateFile != null){
+                        try {
+                            Files.move(launcherUpdateFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            m_launcherFile.set(destinationFile);
+                            m_launcherHashData.set(launcherUpdateHashData);
+                        
+                        } catch (IOException e) {
+                            
+                        }
+                    
+                    }else{
+                    
+                        if (isLauncherDirectory) {
+                            try {
+                                Files.move(m_launcherFile.get().toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                m_launcherFile.set( destinationFile);
+                    
+                            } catch (IOException e) {
+                        
+                            }
+                        }
                         
                     }
-                  
-                }else{
-                 
-                    if (!m_launcherFile.get().getAbsolutePath().equals(destinationFile.getAbsolutePath())) {
-                        try {
-                            Files.move(m_launcherFile.get().toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                            m_launcherFile.set( destinationFile);
-                   
-                        } catch (IOException e) {
-                    
-                        }
-                    }
-                    
-                }
-              
-
-                if(firstRun){
-                    JsonElement desktopShortcutElement = argsJson.get("desktopShortcut");
-                    JsonElement startMenuShortcutElement = argsJson.get("startMenuShortcut");
-                    JsonElement autoRunElement = argsJson.get("autoRun");
-                    
-                    boolean isDesktopShortcut = desktopShortcutElement != null && desktopShortcutElement.isJsonPrimitive() ? desktopShortcutElement.getAsBoolean() : false;
-                    boolean isStartMenuShortcut = startMenuShortcutElement != null && startMenuShortcutElement.isJsonPrimitive() ? startMenuShortcutElement.getAsBoolean() : false;
-                    boolean isAutoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : false;
-
-                    if(isDesktopShortcut){
-                        try {
-                            createDesktopLink();
-                        } catch (Exception e) {
-                            try {
-                                Files.writeString(logFile.toPath(), "\ncreateDestkopShortcut failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e1) {
-                            
-                            }
-                        }
-                    }
-                    if(isStartMenuShortcut){
-                      
-                        try {
-                            createStartMenuShortcut();
-                        } catch (Exception e) {
-                           try {
-                                Files.writeString(logFile.toPath(), "\ncreateStartMenuShortcut failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e1) {
-                            
-                            }
-                        }
-                     
-                    }
-
-                    if(isAutoRun){
-                       
-                        try {
-                            createStartupLink();
-                        } catch (Exception e) {
-                            try {
-                                Files.writeString(logFile.toPath(), "\ncreateStartupLink failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e1) {
-                            
-                            }
-                        }
-                    }
-                   
-                }
-
-                 
-            
-                 try {
-                    Files.writeString(logFile.toPath(), "\n" + "args parsed", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-               
-                }
-            }
-        }).start();
                 
 
+                    if(m_isFirstRun){
+                        JsonElement desktopShortcutElement = argsJson.get("desktopShortcut");
+                        JsonElement startMenuShortcutElement = argsJson.get("startMenuShortcut");
+                        JsonElement autoRunElement = argsJson.get("autoRun");
+                        
+                        boolean isDesktopShortcut = desktopShortcutElement != null && desktopShortcutElement.isJsonPrimitive() ? desktopShortcutElement.getAsBoolean() : false;
+                        boolean isStartMenuShortcut = startMenuShortcutElement != null && startMenuShortcutElement.isJsonPrimitive() ? startMenuShortcutElement.getAsBoolean() : false;
+                        m_setupAutoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : false;
+
+                        if(isDesktopShortcut){
+                            try {
+                                createDesktopLink();
+                            } catch (Exception e) {
+                                try {
+                                    Files.writeString(logFile.toPath(), "\nAppdata: createDestkopShortcut failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                } catch (IOException e1) {
+                                
+                                }
+                            }
+                        }
+                        if(isStartMenuShortcut){
+                        
+                            try {
+                                createStartMenuShortcut();
+                            } catch (Exception e) {
+                            try {
+                                    Files.writeString(logFile.toPath(), "\nAppdata: createStartMenuShortcut failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                } catch (IOException e1) {
+                                
+                                }
+                            }
+                        
+                        }
+
+                  
+                        firstRun.run();
+                
+                    }else{
+                        normal.run();
+                    }
+
+                }
+            }).start();
+
+        }else{
+           
+            normal.run();
+            
+        }
+        
+     
        
     }
 
+    public boolean isFirstRun(){
+        return m_isFirstRun;
+    }
+
+    public boolean isSetupAutoRun(){
+        return m_setupAutoRun;
+    }
+
     public File getAppDir(){
-        return m_currentDirectory;
+        return m_appDir;
     }
 
   
@@ -366,65 +382,193 @@ public class AppData {
         return false;
     }
 
-    private void loadAppKey() throws Exception  {
-        if(m_autoRunFile != null && m_autoRunFile.isFile()){
-            Files.writeString(logFile.toPath(), "\nLoading appkey: " + m_autoRunFile.length() ,StandardOpenOption.CREATE, StandardOpenOption.APPEND );
-            byte[] fileBytes = Files.readAllBytes(m_autoRunFile.toPath());
+    public void loadAppKey(Runnable success, Runnable failed) throws Exception  {
+        
+        byte[] fileBytes = m_autoRunFile != null && m_autoRunFile.isFile() ? Files.readAllBytes(m_autoRunFile.toPath()) : null;
 
+       /* if(fileBytes != null){
+            Utils.getWin32_BIOSHashData((onBiosData)->{
             
+                Object biosDataObject = onBiosData.getSource().getValue();
+                if(biosDataObject != null && biosDataObject instanceof HashData){
+                    HashData biosHashData = (HashData) biosDataObject;
+                    Utils.getWin32_BaseboardHashData((onBaseboardData)->{
+                        Object baseboardDataObject = onBaseboardData.getSource().getValue();
 
-            m_secretKey.set(new SecretKeySpec(fileBytes, "AES"));
+                        if(baseboardDataObject != null && baseboardDataObject instanceof HashData){
+                            HashData baseboardHashData = (HashData) baseboardDataObject;
+                            try{
+                                SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+                            
+                                KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashString().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
+                                SecretKey idKeyTmpKey = factory.generateSecret(idKeySpec);
+            
+                                
 
-             Files.writeString(logFile.toPath(), "\nsecret key loaded: " +m_secretKey.get().toString() ,StandardOpenOption.CREATE, StandardOpenOption.APPEND );
+                                byte[] iv = new byte[]{
+                                    fileBytes[0], fileBytes[1], fileBytes[2], fileBytes[3],
+                                    fileBytes[4], fileBytes[5], fileBytes[6], fileBytes[7],
+                                    fileBytes[8], fileBytes[9], fileBytes[10], fileBytes[11]
+                                };
+
+                                ByteBuffer encryptedData = ByteBuffer.wrap(fileBytes, 12, fileBytes.length - 12);
+
+
+                                byte[] keyBytes = AESEncryption.decryptData(iv, new SecretKeySpec(idKeyTmpKey.getEncoded(), "AES"), encryptedData);
+                                
+
+                                m_secretKey.set(new SecretKeySpec(keyBytes, "AES"));
+                                success.run();
+                            }catch(Exception e){
+                                failed.run();
+                            }
+                        }else{
+                            failed.run();
+                        }
+                    },onBaseboardFailed ->failed.run());
+                }else{
+                    failed.run();
+                }
+            },(onbiosfailed)->failed.run());
+            
+        }else{
+            failed.run();
         }
+           */
+        
 
     }
 
     
-     public void createKey(char[] chars) throws Exception {
+    private void saveAppKey(String password ){
+        try {
+            Files.writeString(logFile.toPath(), "saving appkey: " + m_autoRunFile.getAbsolutePath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+       
+        }
+      
+                Utils.getWin32_BiosHashData((onBiosData)->{
+                       Object biosDataObject = onBiosData.getSource().getValue();
 
-        byte[] charBytes = Utils.charsToBytes(chars);
+                    if(biosDataObject != null && biosDataObject instanceof HashData){
+                        HashData biosHashData = (HashData) biosDataObject;
+                    Utils.getWin32_BaseboardHashData((onBaseboardData)->{
+                    Object baseboardDataObject = onBaseboardData.getSource().getValue();
 
-        charBytes = Utils.digestBytesToBytes(charBytes);
+                    if(baseboardDataObject != null && baseboardDataObject instanceof HashData){
+                        HashData baseboardHashData = (HashData) baseboardDataObject;
+                        try{
+                            
+
+                            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+                        
+                            KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashString().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
+                            SecretKey idKeyTmpKey = factory.generateSecret(idKeySpec);
+
+                            SecureRandom secureRandom = SecureRandom.getInstanceStrong();
+                            byte[] iV = new byte[12];
+                            secureRandom.nextBytes(iV);
+
+                            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                            GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
+                            cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(idKeyTmpKey.getEncoded(), "AES"), parameterSpec);
+
+                            
+
+                            
+                            byte[] encryptedData = cipher.doFinal(createKeyBytes(password));
+                            
+
+                            if (m_autoRunFile.isFile()) {
+                                Files.delete(m_autoRunFile.toPath());
+                            }
+
+                            FileOutputStream outputStream = new FileOutputStream(m_autoRunFile);
+                            FileChannel fc = outputStream.getChannel();
+
+                            ByteBuffer byteBuffer = ByteBuffer.wrap(iV);
+
+                            fc.write(byteBuffer);
+
+                            int written = 0;
+                            int bufferLength = 1024 * 8;
+
+                            while (written < encryptedData.length) {
+
+                                if (written + bufferLength > encryptedData.length) {
+                                    byteBuffer = ByteBuffer.wrap(encryptedData, written, encryptedData.length - written);
+                                } else {
+                                    byteBuffer = ByteBuffer.wrap(encryptedData, written, bufferLength);
+                                }
+
+                                written += fc.write(byteBuffer);
+                            }
+
+                            outputStream.close();
+                        }catch(Exception e){
+                            try {
+                                Files.writeString(logFile.toPath(), "writing key failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e1) {
+                        
+                            }
+                        }
+                    }
+                }, (onBaseboardFailed)->{
+                    try {
+                        Files.writeString(logFile.toPath(), "bios hashdata faield: " + onBaseboardFailed.getSource().getMessage(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+                
+                    }
+                });
+            }
+                }, (onNoBiosData)->{});
+          
+   
+            
+    
+    }
+
+
+    
+     public void createKey(String password) throws Exception {
+
+
+        m_secretKey.set( new SecretKeySpec(createKeyBytes(password), "AES"));
+
+    }
+
+    public byte[] createKeyBytes(String password) throws Exception {
+
+        byte[] bytes = password.getBytes(StandardCharsets.UTF_8);
+
+    
 
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
 
-        KeySpec spec = new PBEKeySpec(chars, charBytes, 65536, 256);
+        KeySpec spec = new PBEKeySpec(password.toCharArray(), bytes, 65536, 256);
         SecretKey tmp = factory.generateSecret(spec);
-        m_secretKey.set( new SecretKeySpec(tmp.getEncoded(), "AES"));
+        return tmp.getEncoded();
 
     }
 
 
-    private void saveAppKey( char[] chars, File keyFile) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException{
-        if(m_secretKey != null && m_secretKey.get() != null){
-
-            byte[] charBytes = Utils.charsToBytes(chars);
-
-            charBytes = Utils.digestBytesToBytes(charBytes);
-
-            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-
-            KeySpec spec = new PBEKeySpec(chars, charBytes, 65536, 256);
-            SecretKey tmp = factory.generateSecret(spec);
-            
-            Files.write(keyFile.toPath(), tmp.getEncoded());
-        }
-    }
-
-    public boolean isDaemon(){
-        return m_isDaemon;
+    public boolean isAutorun(){
+        return m_autoRunFile != null && m_autoRunFile.isFile() && m_isDaemon;
     }
 
     public File getAutoRunFile(){
         return m_autoRunFile;
     }
+    public void setAutoRunFile(File file){
+        m_autoRunFile = file;
+    }
 
+    public void enableAutoRun(String password) throws Exception{
+        Files.writeString(m_autoRunFile.toPath(), "keyFile");
+        Files.delete(m_autoRunFile.toPath());
+    
 
-    public void enableAutoRun(String keyString, File autoRunFile) throws Exception{
-       
-        m_autoRunFile = autoRunFile;
-        saveAppKey(keyString.toCharArray(), autoRunFile);
+        saveAppKey(password);
         createStartupLink();
         save();
     }
@@ -496,7 +640,7 @@ public class AppData {
         dataObject.addProperty("updates", m_updatesProperty);
         dataObject.addProperty("autoUpdate", m_autoUpdateProperty);
 
-        if(m_autoRunFile != null && m_autoRunFile.isFile()){
+        if(m_autoRunFile != null){
             dataObject.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());
         }
 

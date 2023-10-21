@@ -443,22 +443,28 @@ public class NetworksData implements InstallerInterface {
             menuBar.setPadding(new Insets(1, 0, 1, 0));
 
             VBox headerBox = new VBox(menuBar);
-            headerBox.setPadding(new Insets(0, 5, 2, 5));
             headerBox.setId("bodyBox");
 
             Button installBtn = new Button("Install");
             installBtn.setFont(App.txtFont);
 
+            Button installAllBtn = new Button("All");
+            installAllBtn.setMinWidth(60);
+            installAllBtn.setFont(App.txtFont);
+
             Button removeBtn = new Button("Remove");
             removeBtn.setPrefWidth(m_leftColumnWidth);
             removeBtn.setId("menuBarBtn");
+            
+            Button removeAllBtn = new Button("All");
+            removeAllBtn.setId("menuBarBtn");
+            removeAllBtn.setMinWidth(60);
 
             Region vSpacerOne = new Region();
             VBox.setVgrow(vSpacerOne, Priority.ALWAYS);
             HBox.setHgrow(m_installedVBox, Priority.ALWAYS);
 
             VBox installedVBox = new VBox(m_installedVBox, vSpacerOne);
-
             installedVBox.setId("bodyBox");
             VBox.setVgrow(installedVBox, Priority.ALWAYS);
 
@@ -468,33 +474,43 @@ public class NetworksData implements InstallerInterface {
             Region topSpacer = new Region();
             VBox.setVgrow(topSpacer, Priority.ALWAYS);
 
-            HBox addBox = new HBox(leftSpacer, installBtn);
+            Region installAllSpacer = new Region();
+            installAllSpacer.setMinWidth(5);
+
+            HBox addBox = new HBox(leftSpacer, installBtn, installAllSpacer, installAllBtn);
             addBox.setPadding(new Insets(15));
             HBox.setHgrow(m_notInstalledVBox, Priority.ALWAYS);
 
             VBox notInstalledVBox = new VBox(m_notInstalledVBox, topSpacer);
-            notInstalledVBox.setId("bodyRight");
+           
 
             VBox.setVgrow(notInstalledVBox, Priority.ALWAYS);
             HBox.setHgrow(notInstalledVBox, Priority.ALWAYS);
 
             VBox.setVgrow(m_installedVBox, Priority.ALWAYS);
-            HBox rmvBtnBox = new HBox(removeBtn);
-            rmvBtnBox.setPadding(new Insets(5, 5, 5, 5));
-            VBox leftSide = new VBox(installedVBox, rmvBtnBox);
 
+            HBox rmvBtnBox = new HBox(removeBtn, removeAllBtn);
+    
+
+            VBox leftSide = new VBox(installedVBox, rmvBtnBox);
             leftSide.setPadding(new Insets(5));
             leftSide.prefWidth(m_leftColumnWidth);
             VBox.setVgrow(leftSide, Priority.ALWAYS);
-            VBox rightSide = new VBox(notInstalledVBox, addBox);
-            rightSide.setPadding(new Insets(5));
+
+
+           VBox rightSide = new VBox(notInstalledVBox, addBox);
             HBox.setHgrow(rightSide, Priority.ALWAYS);
 
             HBox columnsHBox = new HBox(leftSide, rightSide);
             VBox.setVgrow(columnsHBox, Priority.ALWAYS);
-
+            columnsHBox.setId("bodyBox");
             columnsHBox.setPadding(new Insets(10, 10, 10, 10));
-            VBox layoutVBox = new VBox(titleBox, headerBox, columnsHBox);
+
+            VBox bodyBox = new VBox(headerBox, columnsHBox);
+            bodyBox.setPadding(new Insets(0,2,2,2));
+            VBox.setVgrow(bodyBox, Priority.ALWAYS);
+            
+            VBox layoutVBox = new VBox(titleBox, bodyBox);
 
             Scene addNetworkScene = new Scene(layoutVBox, 700, 400);
             addNetworkScene.getStylesheets().add("/css/startWindow.css");
@@ -536,6 +552,14 @@ public class NetworksData implements InstallerInterface {
                     removeNetwork(m_focusedInstallable.getNetworkId());
                 }
                 m_focusedInstallable = null;
+            });
+
+             removeAllBtn.setOnAction(e -> {
+                removeAll();
+            });
+
+            installAllBtn.setOnAction(e -> {
+                addAll();
             });
 
             
@@ -710,6 +734,34 @@ public class NetworksData implements InstallerInterface {
 
         save();
     }
+
+    public void addAll() {
+        for (String networkId : INTALLABLE_NETWORK_IDS) {
+            if (getNoteInterface(networkId) == null) {
+                installNetwork(networkId);
+            }
+        }
+        updateInstallables();
+        updateAvailableLists();
+ 
+        save();
+    }
+
+    public void removeAll() {
+
+        while (m_noteInterfaceList.size() > 0) {
+            NoteInterface noteInterface = m_noteInterfaceList.get(0);
+            m_noteInterfaceList.remove(noteInterface);
+            noteInterface.remove();
+        }
+
+        updateAvailableLists();
+        updateInstallables();
+
+        save();
+    }
+
+
 
     public void setSelected(String networkId) {
         if (m_selectedId != null) {

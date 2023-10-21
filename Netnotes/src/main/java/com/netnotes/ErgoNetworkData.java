@@ -1,5 +1,6 @@
 package com.netnotes;
 
+import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -15,10 +16,8 @@ import java.security.InvalidKeyException;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -37,6 +36,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.netnotes.IconButton.IconStyle;
 import com.satergo.extra.AESEncryption;
+import com.utils.Utils;
 
 import javafx.beans.property.SimpleDoubleProperty;
 
@@ -55,7 +55,7 @@ import javafx.stage.StageStyle;
 
 public class ErgoNetworkData implements InstallerInterface {
 
-    private File logFile = new File("ErgoNetworkData-log.txt");
+    private File logFile;
 
     public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
         ErgoTokens.NETWORK_ID,
@@ -87,6 +87,7 @@ public class ErgoNetworkData implements InstallerInterface {
     private ScheduledFuture<?> m_lastExecution = null;
 
     public ErgoNetworkData(String iconStyle, double gridWidth, ErgoNetwork ergoNetwork) {
+        new File(ergoNetwork.getNetworksData().getAppDir().getAbsolutePath() + "/netnotes-log.txt");
         m_ergoNetwork = ergoNetwork;
         m_iconStyle = new SimpleStringProperty(iconStyle);
         m_gridWidth = new SimpleDoubleProperty(gridWidth);
@@ -154,7 +155,7 @@ public class ErgoNetworkData implements InstallerInterface {
 
         } catch (IOException e) {
             try {
-                Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(logFile.toPath(), "\nergNetData: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
 
             }
@@ -270,11 +271,7 @@ public class ErgoNetworkData implements InstallerInterface {
             }
 
         }
-        try {
-            Files.writeString(logFile.toPath(), "\nupdated grid.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
+     
     }
 
     private ArrayList<InstallableIcon> updateInstallables() {
@@ -327,7 +324,8 @@ public class ErgoNetworkData implements InstallerInterface {
             Button installBtn = new Button("Install");
             installBtn.setFont(App.txtFont);
 
-            Button installAllBtn = new Button("All");
+            Button installAllBtn =  new Button("All");
+            installAllBtn.setMinWidth(60);
             installAllBtn.setFont(App.txtFont);
 
             Button removeBtn = new Button("Remove");
@@ -335,6 +333,7 @@ public class ErgoNetworkData implements InstallerInterface {
             removeBtn.setId("menuBarBtn");
 
             Button removeAllBtn = new Button("All");
+            removeAllBtn.setMinWidth(60);
             removeAllBtn.setId("menuBarBtn");
 
             Region vSpacerOne = new Region();
@@ -467,6 +466,7 @@ public class ErgoNetworkData implements InstallerInterface {
             });
 
             m_manageStage.show();
+            Utils.centerStage(m_manageStage, GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds());
 
             Rectangle maxRect = m_ergoNetwork.getNetworksData().getMaximumWindowBounds();
 
@@ -476,7 +476,7 @@ public class ErgoNetworkData implements InstallerInterface {
         } else {
             m_manageStage.show();
         }
-
+      
     }
 
     private void updateAvailableLists(ArrayList<InstallableIcon> m_installables) {
@@ -732,7 +732,7 @@ public class ErgoNetworkData implements InstallerInterface {
 
             } catch (IOException e) {
                 try {
-                    Files.writeString(logFile.toPath(), "\nIO exception:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nergNetData: save():" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
                 }
@@ -740,7 +740,7 @@ public class ErgoNetworkData implements InstallerInterface {
 
         } catch (NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
             try {
-                Files.writeString(logFile.toPath(), "\nKey error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(logFile.toPath(), "\nergNetData Key error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
 
             }

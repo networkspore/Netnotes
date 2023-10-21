@@ -12,6 +12,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 
+
 public class HashData {
 
     public static String DEFAULT_HASH = "Blake2b-256";
@@ -20,9 +21,9 @@ public class HashData {
     private String m_name = DEFAULT_HASH;
     private byte[] m_hashBytes = null;
 
-    public HashData(File file) throws IOException{
+    public HashData(File file) throws  IOException{
       
-        m_hashBytes = Utils.digestFileBlake2b(file, 32);
+        m_hashBytes = Utils.digestFile(file);
     }
 
     public HashData(byte[] bytes) {
@@ -31,14 +32,6 @@ public class HashData {
 
     public HashData(JsonObject json)  {
         openJson(json);
-    }
-
-    public HashData(String hashId, String name, byte[] bytes) {
-
-        m_id = hashId;
-        m_name = name;
-        m_hashBytes = bytes;
-
     }
 
     public HashData(String hashId, String name, String hashString) {
@@ -61,16 +54,17 @@ public class HashData {
 
         if (idElement != null && idElement.isJsonPrimitive()) {
             m_id = idElement.getAsString();
-            if (nameElement != null && nameElement.isJsonPrimitive()) {
-                m_name = nameElement.getAsString();
-                if (hashStringElement != null && hashStringElement.isJsonPrimitive()) {
-                    setHashHex(hashStringElement.getAsString());
-                  
-                }
-            }
+            
+        }
+        if (nameElement != null && nameElement.isJsonPrimitive()) {
+            m_name = nameElement.getAsString();
+          
+        }
+        if (hashStringElement != null && hashStringElement.isJsonPrimitive()) {
+            setHashHex(hashStringElement.getAsString());
+         
         }
 
-      
     }
 
     public String getId() {
@@ -86,7 +80,8 @@ public class HashData {
     }
 
     public String getHashStringHex() {
-        return Hex.encodeHexString(m_hashBytes);
+       
+        return  Hex.encodeHexString(m_hashBytes);
     }
 
     public byte[] getHashBytes() {
@@ -98,11 +93,13 @@ public class HashData {
     }
 
     public void setHashHex(String hashHexString) {
+        
         try {
             m_hashBytes = Hex.decodeHex(hashHexString);
         } catch (DecoderException e) {
-            m_hashBytes = null;
+   
         }
+     
     }
 
     public void setHash(byte[] hashBytes) {

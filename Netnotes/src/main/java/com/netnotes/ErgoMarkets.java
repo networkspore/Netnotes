@@ -9,8 +9,6 @@ import java.time.LocalDateTime;
 import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonArray;
-import com.satergo.WalletKey.Local;
 import com.utils.Utils;
 
 import javafx.beans.property.SimpleDoubleProperty;
@@ -39,13 +37,13 @@ public class ErgoMarkets extends Network implements NoteInterface {
     public final static String NAME = "Ergo Markets";
     public final static String NETWORK_ID = "ERGO_MARKETS";
 
-    private File logFile = new File("netnotes-log.txt");
+    //private File logFile = new File("netnotes-log.txt");
 
     private File m_dataFile = null;
     private File m_appDir = null;
     private Stage m_stage = null;
 
-    private boolean m_tunnelOpen = false;
+
 
     public ErgoMarkets(NoteInterface noteInterface) {
         super(getAppIcon(), NAME, NETWORK_ID, noteInterface);

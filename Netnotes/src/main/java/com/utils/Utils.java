@@ -46,6 +46,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -1000,34 +1001,201 @@ public class Utils {
         t.start();
     }
 
+
+
+    public static void getWin32_BaseboardHashData(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed){
+        Task<HashData> task = new Task<HashData>() {
+            @Override
+            public HashData call() throws IOException, InterruptedException {
+                 File psbaseboardIdLogFile = new File("psbaseboardId-log.txt");
+           
+                //et-CimInstance -Class Win32_BaseBoard | Format-Table Manufacturer, Product, SerialNumber, Version 
+    
+                String[] psCmd = {"powershell", "Get-CimInstance", "-ClassName", "Win32_BaseBoard"};
+                Process psProc = Runtime.getRuntime().exec(psCmd);
+
+                BufferedReader psStderr = new BufferedReader(new InputStreamReader(psProc.getErrorStream()));
+                BufferedReader psStdInput = new BufferedReader(new InputStreamReader(psProc.getInputStream()));
+
+                String psInput = null;
+                
+                String colProduct = null;
+                String colManufacturer = null;
+                String colSerialNumber = null;
+               
+
+                while ((psInput = psStdInput.readLine()) != null) {
+                    int index = psInput.indexOf(" ");
+                    if(index > 1){
+                        String colName = psInput.substring(0, index);
+
+                        switch(colName){
+                            case "Product":
+                                index = psInput.indexOf(":", index);
+                                colProduct = psInput.substring(index+2);
+                                break;
+                            case "Manufacturer":
+                                index = psInput.indexOf(":", index);
+                                colManufacturer = psInput.substring(index+2);
+                                break;
+                            case "SerialNumber":
+                                index = psInput.indexOf(":", index);
+                                colSerialNumber = psInput.substring(index+2);
+                                break;
+                        
+                        }
+                    }
+            
+                }
+
+
+
+                while ((psStderr.readLine()) != null) {
+
+                // Files.writeString(logFile.toPath(), "\nps err: " + pserr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    return null;
+                }
+
+                psProc.waitFor();
+
+                if(colProduct != null && colManufacturer != null  && colSerialNumber != null){
+                    String idString = colProduct + colManufacturer  + colSerialNumber;
+                     Files.writeString(psbaseboardIdLogFile.toPath(), idString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    return new HashData(Utils.digestBytesToBytes(Utils.charsToBytes(idString.toCharArray())));
+                    
+                    
+                }
+
+              
+            
+                return null;
+               
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+    }
+
+    public static void getWin32_BiosHashData(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed){
+        Task<HashData> task = new Task<HashData>() {
+            @Override
+            public HashData call() throws IOException, InterruptedException {
+                 File psbaseboardIdLogFile = new File("psbiosId-log.txt");
+
+    
+                String[] psCmd = {"powershell", "Get-CimInstance", "-ClassName", "Win32_Bios"};
+                Process psProc = Runtime.getRuntime().exec(psCmd);
+
+                BufferedReader psStderr = new BufferedReader(new InputStreamReader(psProc.getErrorStream()));
+                BufferedReader psStdInput = new BufferedReader(new InputStreamReader(psProc.getInputStream()));
+
+                String psInput = null;
+                
+                String colVersion = null;
+                String colManufacturer = null;
+                String colSerialNumber = null;
+
+               // psProc.isAlive()
+               
+
+                while ((psInput = psStdInput.readLine()) != null) {
+                    int index = psInput.indexOf(" ");
+                    if(index > 1){
+                        String colName = psInput.substring(0, index);
+
+                        switch(colName){
+                            case "Version":
+                                index = psInput.indexOf(":", index);
+                                colVersion = psInput.substring(index+2);
+                                break;
+                            case "Manufacturer":
+                                index = psInput.indexOf(":", index);
+                                colManufacturer = psInput.substring(index+2);
+                                break;
+                            case "SerialNumber":
+                                index = psInput.indexOf(":", index);
+                                colSerialNumber = psInput.substring(index+2);
+                                break;
+                        
+                        }
+                    }
+            
+                }
+
+
+
+                while ((psStderr.readLine()) != null) {
+
+                // Files.writeString(logFile.toPath(), "\nps err: " + pserr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    return null;
+                }
+
+                psProc.waitFor();
+
+                if(colVersion != null && colManufacturer != null  && colSerialNumber != null){
+                    String idString = colVersion + colManufacturer  + colSerialNumber;
+                     Files.writeString(psbaseboardIdLogFile.toPath(), idString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    return new HashData(Utils.digestBytesToBytes(Utils.charsToBytes(idString.toCharArray())));
+                    
+                    
+                }
+
+              
+            
+                return null;
+               
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+    }
+
+    public static void centerStage(Stage stage, Rectangle screenRectangle){
+        stage.setX(screenRectangle.getWidth()/2 - stage.getWidth()/2);
+        stage.setY(screenRectangle.getHeight()/2 - stage.getHeight()/2);
+    }
+
+
     public static boolean wmicTerminate(String jarName) {
         try {
-            File logFile = new File("wmicTerminate-log.txt");
-            //wmic Path win32_process Where "CommandLine Like '%yourname.jar%'" Call Terminate
+          //  File logFile = new File("wmicTerminate-log.txt");
+     
             String[] wmicCmd = {"cmd", "/c", "wmic", "Path", "win32_process", "Where", "\"CommandLine", "Like", "'%" + jarName + "%'\"", "Call", "Terminate"};
             Process wmicProc = Runtime.getRuntime().exec(wmicCmd);
 
             BufferedReader wmicStderr = new BufferedReader(new InputStreamReader(wmicProc.getErrorStream()));
-            String wmicerr = null;
+            //String wmicerr = null;
 
-            Files.writeString(logFile.toPath(), "\nJar name: " + jarName, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            Files.writeString(logFile.toPath(), "\nwmic err: " + wmicerr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
-            while ((wmicerr = wmicStderr.readLine()) != null) {
-
-                Files.writeString(logFile.toPath(), "\nwmic err: " + wmicerr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            }
+         
 
             BufferedReader wmicStdInput = new BufferedReader(new InputStreamReader(wmicProc.getInputStream()));
 
-            String wmicInput = null;
+           // String wmicInput = null;
             boolean gotInput = false;
 
-            while ((wmicInput = wmicStdInput.readLine()) != null) {
+            while ((wmicStdInput.readLine()) != null) {
             
-                Files.writeString(logFile.toPath(), "\nwmic: " + wmicInput, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            
                 gotInput = true;
+            }
+
+            while ((wmicStderr.readLine()) != null) {
+
+               // Files.writeString(logFile.toPath(), "\nwmic err: " + wmicerr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                return false;
             }
 
             wmicProc.waitFor();
