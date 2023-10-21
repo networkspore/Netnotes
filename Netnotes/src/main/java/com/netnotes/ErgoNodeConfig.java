@@ -340,9 +340,8 @@ public class ErgoNodeConfig {
             throw new Exception("Config file not found.");
         }
 
-        byte[] fileBytes = Utils.digestFile(configFile);
-
-        m_configFileHashData = new HashData(fileBytes);
+      
+        m_configFileHashData = new HashData(configFile);
 
     }
 

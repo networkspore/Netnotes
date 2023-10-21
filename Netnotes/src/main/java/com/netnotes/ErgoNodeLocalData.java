@@ -250,51 +250,55 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                 try {
                     m_appFileHashData = new HashData(appFileHashDataElement.getAsJsonObject());
-                    byte[] appFileBytes = Utils.digestFile(appFile);
-                    String appFileHashString = appFileBytes != null ? Hex.toHexString(appFileBytes) : null;
-                    isCorrectHash = m_appFileHashData.getHashString() != null && appFileHashString != null && m_appFileHashData.getHashStringHex().equals(appFileHashString);
+                    m_appVersion.set(appVersionElement != null && appVersionElement.isJsonPrimitive() ? new Version(appVersionElement.getAsString()) : new Version());
 
+                    HashData appFileHashData = new HashData(appFile);
+
+                    isCorrectHash = m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashString());
+                    
                 } catch (Exception e) {
-
+                    try {
+                        Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e1) {
+              
+                    }
                 }
                 
                 if (isCorrectHash) {
 
                     try {
                         m_nodeConfigData = new ErgoNodeConfig(configElement.getAsJsonObject(), m_appDir);
-                        m_appVersion.set(appVersionElement != null && appVersionElement.isJsonPrimitive() ? new Version(appVersionElement.getAsString()) : new Version());
                         
-                    } catch (Exception e) {
-                  
+                        if (m_nodeConfigData != null && m_nodeConfigData.getConfigFile() != null && m_nodeConfigData.getConfigFile().isFile() &&  m_nodeConfigData.getConfigFileHashData() != null) {
+                           
+                            HashData configFileHashData = new HashData(m_nodeConfigData.getConfigFile());
                         
-                    }
-                    if (m_nodeConfigData != null) {
+                            String nodeConfigHash = m_nodeConfigData.getConfigFileHashData().getHashStringHex();
+                            if (nodeConfigHash.equals(configFileHashData.getHashStringHex()) ) {
 
-                        File configFile = m_nodeConfigData.getConfigFile();
-                        String configFileHashString = null;
-                        try {
-                            configFileHashString = configFile != null && configFile.isFile() ? Hex.toHexString(Utils.digestFile(configFile)) : null;
-                        } catch (Exception e) {
-
-                        }
-                        String nodeConfigHash = m_nodeConfigData.getConfigFileHashData() != null ? m_nodeConfigData.getConfigFileHashData().getHashStringHex() : null;
-                        if (configFileHashString != null && nodeConfigHash != null && nodeConfigHash.equals(configFileHashString)) {
-
-                            if (m_runOnStart) {
-                                runNode(configFile, appFile);
+                                if (m_runOnStart) {
+                                    runNode(m_nodeConfigData.getConfigFile(), appFile);
+                                }
+                            } else {
+                                
+                                m_runOnStart = false;
+                                isSetupProperty.set(false);
+                                configFileError();
                             }
+                      
                         } else {
-                         
+                    
                             m_runOnStart = false;
                             isSetupProperty.set(false);
                             configFileError();
                         }
-                    } else {
-                  
+                     } catch (Exception e) {
                         m_runOnStart = false;
                         isSetupProperty.set(false);
                         configFileError();
+                        
                     }
+                   
 
                 } else {
                     m_runOnStart = false;
@@ -578,25 +582,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             Platform.runLater(() -> statusProperty.set(MarketsData.STARTING));
             File appFile = getAppFile();
+
             File configFile = m_nodeConfigData != null ? m_nodeConfigData.getConfigFile() : null;
-            String appFileHash = m_appFileHashData != null ? m_appFileHashData.getHashStringHex() : null;
-            String configFileHash = m_nodeConfigData != null && m_nodeConfigData.getConfigFileHashData() != null ? m_nodeConfigData.getConfigFileHashData().getHashStringHex() : null;
-
-            if (appFile != null && appFile.isFile() && configFile != null && configFile.isFile() && appFileHash != null && configFileHash != null) {
-                byte[] appFileHashBytes = null;
-                byte[] configFileHashBytes = null;
-                try {
-                    appFileHashBytes = Utils.digestFile(appFile);
-                    configFileHashBytes = Utils.digestFile(configFile);
-                } catch (Exception e) {
-
+          
+           
+            if (appFile != null && appFile.isFile() && configFile != null && configFile.isFile() && m_appFileHashData != null && m_nodeConfigData != null  && m_nodeConfigData.getConfigFileHashData()  != null) {
+                 try {
+                    Files.writeString(logFile.toPath(), "\nappFile: " + m_appFileHashData.getHashStringHex() + "\nconfigFile: " + m_nodeConfigData.getConfigFileHashData().getHashStringHex(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+            
                 }
-                if (appFileHashBytes != null && configFileHashBytes != null) {
-                    String appFileHashBytesString = Hex.toHexString(configFileHashBytes);
-                    String configFileHashBytesString =  Hex.toHexString(configFileHashBytes);
+                try {
+                    HashData appFileHashData = new HashData( Utils.digestFile(appFile));
+                    HashData configFileHashData = new HashData(Utils.digestFile(configFile));
+               
 
-                    if (appFileHash.equals(appFileHashBytesString)) {
-                        if (configFileHash.equals(configFileHashBytesString)) {
+                    if (m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex())) {
+                        if (m_nodeConfigData.getConfigFileHashData().getHashStringHex().equals(configFileHashData.getHashStringHex())) {
                             runNode(appFile, configFile);
                         } else {
                             runError.run();
@@ -609,7 +611,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         coreFileError();
                     }
 
-                } else {
+                 } catch (Exception e) {
                     runError.run();
                 }
             } else {
@@ -1530,7 +1532,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                     m_appDir = installDir;
                                     m_appFileName = downloadFileName.get();
                                     m_appFileHashData = (HashData) sourceObject;
+                                    try {
+                                        Files.writeString(logFile.toPath(), "\n" +m_appFileName +": " + m_appFileHashData.getJsonObject(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                    } catch (IOException e1) {
 
+                                    }
                                     installComplete.run();
                                 } else {
                                     Alert a = new Alert(AlertType.NONE, "Check the download URL and destination path and then try again.", ButtonType.OK);
@@ -1562,22 +1568,17 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                 m_stage.setScene(progressScene);
 
                                 if (customFile.getAbsolutePath().equals(appFile.getAbsolutePath())) {
-                                    String errorString = null;
-                                    byte[] bytes = null;
+                              
                                     try {
-                                        bytes = Utils.digestFile(appFile);
-                                    } catch (Exception e1) {
-                                        errorString = e1.toString();
-                                    }
-                                    if (bytes != null) {
+                                       
                                         m_appDir = installDir;
                                         m_appFileName = fileNameProperty.get();
-                                        m_appFileHashData = new HashData(bytes);
+                                        m_appFileHashData = new HashData(appFile);
 
                                         installComplete.run();
-                                    } else {
+                                    } catch(Exception er) {
 
-                                        Alert a = new Alert(AlertType.NONE, errorString, ButtonType.OK);
+                                        Alert a = new Alert(AlertType.NONE, "Error: " + er.toString(), ButtonType.OK);
                                         a.initOwner(m_stage);
                                         a.setTitle("Error - Setup - Ergo Nodes");
                                         a.setHeaderText("Error");

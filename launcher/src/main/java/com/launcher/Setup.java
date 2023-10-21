@@ -165,6 +165,7 @@ public class Setup extends Application {
         appStage.setResizable(false);
         appStage.initStyle(StageStyle.UNDECORATED);
 
+        showStatusStage(appStage, "Opening", "Opening...");
    
        
         try {
