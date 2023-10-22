@@ -111,11 +111,8 @@ public class ErgoNodesList {
                 a.show();
             }
         } else {
-            try {
-                Files.writeString(logFile.toPath(), "\nDefault settings", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-             
-            }
+     
+          
             m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
             m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
             add(new ErgoNodeData(this, ErgoNodeData.LIGHT_CLIENT, new NamedNodeUrl()), true);
@@ -312,7 +309,7 @@ public class ErgoNodesList {
                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
                 | IOException e) {
             try {
-                Files.writeString(logFile.toPath(), "\n" + e.toString());
+                Files.writeString(logFile.toPath(), "\nErgoNodesList: " + e.toString());
             } catch (IOException e1) {
 
             }

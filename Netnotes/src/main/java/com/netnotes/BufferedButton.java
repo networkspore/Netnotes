@@ -1,8 +1,6 @@
 package com.netnotes;
 
-import javafx.geometry.Insets;
 import javafx.scene.control.Button;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.image.Image;
 
 public class BufferedButton extends Button {

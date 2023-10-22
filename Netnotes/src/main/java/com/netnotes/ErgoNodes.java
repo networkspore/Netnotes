@@ -41,7 +41,7 @@ import javafx.stage.StageStyle;
 
 public class ErgoNodes extends Network implements NoteInterface {
 
-    private File logFile = new File("ergoNodes-log.txt");
+    private File logFile = new File("netnotes-log.txt");
 
     public final static String NAME = "Ergo Nodes";
     public final static String DESCRIPTION = "Ergo Nodes allows you to configure your access to the Ergo blockchain";
@@ -141,11 +141,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
         }
 
-        try {
-            Files.writeString(logFile.toPath(), "\n" + (json == null ? "null" : json.toString()), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
+    
 
         if (stageElement != null && stageElement.isJsonObject()) {
             JsonObject stageObject = stageElement.getAsJsonObject();
@@ -393,11 +389,7 @@ public class ErgoNodes extends Network implements NoteInterface {
     public JsonObject getJsonObject() {
         JsonObject json = super.getJsonObject();
         json.add("stage", getStageJson());
-        try {
-            Files.writeString(logFile.toPath(), "\nsaving\n" + json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
+       
         return json;
     }
 

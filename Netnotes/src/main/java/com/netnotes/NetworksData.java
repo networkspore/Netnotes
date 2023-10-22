@@ -7,11 +7,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.WatchService;
+
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -36,7 +35,6 @@ import com.satergo.extra.AESEncryption;
 
 import javafx.application.HostServices;
 import javafx.application.Platform;
-import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
@@ -45,12 +43,10 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -92,7 +88,7 @@ public class NetworksData implements InstallerInterface {
 
     private NoteWatcher m_noteWatcher = null;
 
-    private File logFile = new File("networkData-log.txt");
+    private File logFile = new File("netnotes-log.txt");
     private SimpleStringProperty m_stageIconStyle = new SimpleStringProperty(IconStyle.ICON);
 
     private double m_stageWidth = 700;
@@ -165,7 +161,7 @@ public class NetworksData implements InstallerInterface {
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                     try {
-                        Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        Files.writeString(logFile.toPath(), "\nNetworksData: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e1) {
 
                     }
@@ -173,7 +169,7 @@ public class NetworksData implements InstallerInterface {
 
         } catch (IOException e) {
             try {
-                Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(logFile.toPath(), "\nNetworks Data:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
 
             }
@@ -391,11 +387,7 @@ public class NetworksData implements InstallerInterface {
     }
 
     public void show() {
-        try {
-            Files.writeString(logFile.toPath(), "ntetworksData: Show called", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-        
-        }
+  
         
         com.grack.nanojson.JsonObject showJson = new com.grack.nanojson.JsonObject();
 
@@ -872,11 +864,7 @@ public class NetworksData implements InstallerInterface {
 
         String jsonString = fileObject.toString();
 
-        try {
-            Files.writeString(logFile.toPath(), jsonString);
-        } catch (IOException e1) {
-
-        }
+   
 
         try {
 

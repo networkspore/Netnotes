@@ -30,7 +30,6 @@ import com.utils.Utils;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener.Change;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
@@ -72,7 +71,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public static String API_URL = "https://api.kucoin.com";
 
-    private File logFile = new File("kucoinExchange-log.txt");
+    private File logFile = new File("netnotes-log.txt");
 
     public static java.awt.Color POSITIVE_HIGHLIGHT_COLOR = new java.awt.Color(0xff3dd9a4, true);
     public static java.awt.Color POSITIVE_COLOR = new java.awt.Color(0xff028A0F, true);
@@ -89,7 +88,7 @@ public class KucoinExchange extends Network implements NoteInterface {
     private File m_testnetDataFile = null;
     private Stage m_appStage = null;
 
-    private static long MIN_QUOTE_MILLIS = 5000;
+    //private static long MIN_QUOTE_MILLIS = 5000;
 
     private SimpleObjectProperty<JsonObject> m_cmdObjectProperty = new SimpleObjectProperty<>(null);
 
@@ -142,20 +141,20 @@ public class KucoinExchange extends Network implements NoteInterface {
     }
 
     public boolean removeMsgListener(MessageInterface item) {
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "removing listener:" + item.getId(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         MessageInterface listener = getListener(item.getId());
         if (listener != null) {
             boolean removed = m_msgListeners.remove(listener);
 
-            try {
+            /*try {
                 Files.writeString(logFile.toPath(), "removed listener:" + item.getId() + " " + removed, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
 
-            }
+            }*/
 
             if (m_msgListeners.size() == 0) {
                 m_websocketClient.close();
@@ -244,11 +243,11 @@ public class KucoinExchange extends Network implements NoteInterface {
         if (m_openTunnels.size() == 5) {
             return false;
         }
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "opening tunnel " + tunnelId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         if (!m_openTunnels.contains(tunnelId)) {
             m_openTunnels.add(tunnelId);
             m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"openTunnel\", \"newTunnelId\": \"" + tunnelId + "\", \"response\": true}");
@@ -260,11 +259,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
         m_openTunnels.remove(tunnelId);
 
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "closing tunnel" + tunnelId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         m_websocketClient.send("{\"id\": \"" + m_clientId + "\", \"type\": \"closeTunnel\", \"tunnelId\": \"" + tunnelId + "\", \"response\": true}");
 
         return true;
@@ -537,11 +536,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public void requestSocket(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "Requesting socket: " + PUBLIC_TOKEN_URL, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e1) {
 
-        }
+        }*/
         Task<JsonObject> task = new Task<JsonObject>() {
             @Override
             public JsonObject call() {
@@ -583,11 +582,11 @@ public class KucoinExchange extends Network implements NoteInterface {
                     }
                     String jsonString = outputStream.toString();
 
-                    try {
+                    /*try {
                         Files.writeString(logFile.toPath(), "\nKucoin post results:\n" + jsonString + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e1) {
 
-                    }
+                    }*/
 
                     JsonObject jsonObject = new JsonParser().parse(jsonString).getAsJsonObject();
                     return jsonObject;
@@ -615,11 +614,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
                 JsonObject jsonObject = (JsonObject) e.getSource().getValue();
 
-                try {
+                /*try {
                     Files.writeString(logFile.toPath(), "\nKucoinExchange - connectToExchange:\n" + jsonObject.toString() + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
-                }
+                }*/
 
                 if (jsonObject != null) {
                     JsonElement dataElement = jsonObject.get("data");
@@ -709,18 +708,12 @@ public class KucoinExchange extends Network implements NoteInterface {
                     public void run() {
                         //  long sinceLastPong = System.currentTimeMillis() - m_pong;
                         send(pingString);
-                        try {
+                        /*try {
                             Files.writeString(logFile.toPath(), "ping: " + System.currentTimeMillis(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                         } catch (IOException e) {
 
-                        }
-                        /*if (sinceLastPong > 10000) {
-                            if (m_websocketClient != null) {
-                                m_websocketClient.close();
-                                m_pingTimer.cancel();
-                                m_pingTimer.purge();
-                            }
                         }*/
+                       
                     }
                 };
                 m_pingTimer.schedule(pingTask, 0, pingInterval);
@@ -737,11 +730,11 @@ public class KucoinExchange extends Network implements NoteInterface {
             @Override
             public void onMessage(String s) {
 
-                try {
+                /*try {
                     Files.writeString(logFile.toPath(), "\nwebsocket message:\n" + s + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
-                }
+                }*/
                 if (s != null) {
                     JsonElement messageElement = new JsonParser().parse(s);
                     if (messageElement != null && messageElement.isJsonObject()) {
@@ -800,12 +793,9 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             @Override
             public void onError(Exception e) {
-                /*ArrayList<WebClientListener> listeners = getMessageListeners();
-                for (WebClientListener messagelistener : listeners) {
-                    messagelistener.error(e);
-                }*/
+                
                 try {
-                    Files.writeString(logFile.toPath(), "\nwebsocket error:\n" + e.toString() + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nKucoinExcehange - websocket error:" + e.toString() + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
                 }
@@ -829,8 +819,8 @@ public class KucoinExchange extends Network implements NoteInterface {
             switch (subject) {
                 case "GET_QUOTE":
                     if (transactionCurrencyElement != null && quoteCurrencyElement != null) {
-                        String transactionCurrency = transactionCurrencyElement.getAsString();
-                        String quoteCurrency = quoteCurrencyElement.getAsString();
+                      //  String transactionCurrency = transactionCurrencyElement.getAsString();
+                      //  String quoteCurrency = quoteCurrencyElement.getAsString();
 
                         return true;
                     } else {
@@ -845,33 +835,33 @@ public class KucoinExchange extends Network implements NoteInterface {
     }
 
     public boolean isClientReady() {
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "isClientReady():" + (m_websocketClient != null && m_websocketClient.isOpen() && m_connectionStatus.get() == 4), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         return m_websocketClient != null && m_websocketClient.isOpen() && m_connectionStatus.get() == 4;
     }
 
     public void getCandlesDataset(String symbol, String timespan, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
 
         String urlString = API_URL + "/api/v1/market/candles?type=" + timespan + "&symbol=" + symbol;
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\ngetting url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         Utils.getUrlJson(urlString, onSuccess, onFailed, null);
 
     }
 
     public boolean getAllTickers(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         String urlString = API_URL + "/api/v1/market/allTickers";
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\ngetting url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
 
         return false;
@@ -879,11 +869,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public boolean getTicker(String symbol, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         String urlString = API_URL + "/api/v1/market/orderbook/level1?symbol=" + symbol;
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\ngetting ticker: " + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
 
         return false;
@@ -891,11 +881,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public boolean getAllTickers(int page, int pageSize, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         String urlString = API_URL + "/api/v1/market/allTickers?currentPage=" + page + "&pageSize=" + pageSize;
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\ngetting url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
 
         return false;
@@ -903,11 +893,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public boolean getSymbols(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         String urlString = API_URL + "/api/v2/symbols";
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\ngetting url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
 
         return false;
@@ -964,11 +954,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public void subscribeToCandles(String symbol, String timespan) {
 
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\nSubscribing to " + symbol + " - " + timespan, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
 
         String topic = "/market/candles:" + symbol + "_" + timespan;
 
@@ -982,11 +972,11 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public void subscribeToCandles(String tunnelId, String symbol, String timespan) {
 
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "\nSubscribing to " + symbol + " - " + timespan, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
 
         String topic = "/market/candles:" + symbol + "_" + timespan;
 
@@ -999,11 +989,11 @@ public class KucoinExchange extends Network implements NoteInterface {
     }
 
     public void subscribeToTicker(String id, String symbol) {
-        try {
+        /*try {
             Files.writeString(logFile.toPath(), "subscribing to ticker " + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
 
-        }
+        }*/
         m_websocketClient.send(createMessageString("subscribe", "/market/ticker:" + symbol, true, id));
     }
 
@@ -1025,27 +1015,27 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public void unsubscribeToTicker(String id, String symbol) {
         if (m_msgListeners.size() != 0) {
-            try {
+            /*try {
                 Files.writeString(logFile.toPath(), "\nunsubscribing from ticker " + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
 
-            }
+            }*/
             if (!tickerNeeded(symbol)) {
 
                 m_websocketClient.send(createMessageString("unsubscribe", "/market/ticker:" + symbol, true, id));
             } else {
                 try {
-                    Files.writeString(logFile.toPath(), " ticker needed: not unsubscribing", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nKuCoinExchange - ticker needed: not unsubscribing", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e) {
 
                 }
             }
         } else {
-            try {
+            /*try {
                 Files.writeString(logFile.toPath(), "\nunsubscribe ticker: " + symbol + " not needed (no listeners, auto-shutdown expected.)" + symbol, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
 
-            }
+            }*/
         }
     }
 

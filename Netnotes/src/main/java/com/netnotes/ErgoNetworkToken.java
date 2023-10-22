@@ -2,14 +2,11 @@ package com.netnotes;
 
 import java.awt.Rectangle;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 
-import org.apache.commons.codec.DecoderException;
-import org.bouncycastle.util.encoders.Hex;
 import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
@@ -21,7 +18,6 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
-import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;

@@ -4,10 +4,8 @@ import java.awt.Desktop;
 import java.awt.Rectangle;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -18,9 +16,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -32,11 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.naming.Binding;
-import javax.swing.text.html.Option;
 
 import org.apache.commons.io.FileUtils;
-import org.bouncycastle.util.encoders.Hex;
 import org.ergoplatform.appkit.NetworkType;
 import org.reactfx.util.FxTimer;
 
@@ -77,7 +70,6 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -222,11 +214,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public void openJson(JsonObject jsonObj) {
         
         if (jsonObj != null) {
-            try {
+            /*try {
                 Files.writeString(logFile.toPath(), "\nJsonData: " + jsonObj.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
             
-            }
+            }*/
             
             JsonElement isSetupElement = jsonObj.get("isSetup");
             JsonElement runOnStartElement = jsonObj.get("runOnStart");
@@ -257,9 +249,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     m_appVersion.set(appVersionElement != null && appVersionElement.isJsonPrimitive() ? new Version(appVersionElement.getAsString()) : new Version());
 
                     HashData appFileHashData = new HashData(appFile);
-
+/*
                     Files.writeString(logFile.toPath(), "\nAppfiledata: " +appFileHashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
+*/
                     isCorrectHash = m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex());
                     
                 } catch (Exception e) {
@@ -362,9 +354,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             Object sourceObject = onSucceeded.getSource().getValue();
             if (sourceObject != null && sourceObject instanceof JsonObject) {
                 JsonObject json = (JsonObject) sourceObject;
-                //Status(int blockHeight, int headerHeight, int networkHeight, int peerCount) {}
-                //ew Status(o.getInt("fullHeight"), o.getInt("headersHeight"), o.getInt("maxPeerHeight"), o.getInt("peersCount"));
-                JsonElement fullHeightElement = json.get("fullHeight");
+
+                //JsonElement fullHeightElement = json.get("fullHeight");
                 JsonElement maxPeerHeightElement = json.get("maxPeerHeight");
                 JsonElement peerCountElement = json.get("peersCount");
                 //  JsonElement headerHeightElement = json.get("headerHeight");
@@ -593,11 +584,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
           
            
             if (appFile != null && appFile.isFile() && configFile != null && configFile.isFile() && m_appFileHashData != null && m_nodeConfigData != null  && m_nodeConfigData.getConfigFileHashData()  != null) {
-                 try {
+                /*
+                try {
                     Files.writeString(logFile.toPath(), "\nappFile: " + m_appFileHashData.getHashStringHex() + "\nconfigFile: " + m_nodeConfigData.getConfigFileHashData().getHashStringHex(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e) {
             
-                }
+                }*/
                 try {
                     HashData appFileHashData = new HashData( Utils.digestFile(appFile));
                     HashData configFileHashData = new HashData(Utils.digestFile(configFile));
@@ -1539,11 +1531,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                     m_appDir = installDir;
                                     m_appFileName = downloadFileName.get();
                                     m_appFileHashData = (HashData) sourceObject;
+                                    /*
                                     try {
                                         Files.writeString(logFile.toPath(), "\n" +m_appFileName +": " + m_appFileHashData.getJsonObject(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                     } catch (IOException e1) {
 
-                                    }
+                                    }*/
                                     installComplete.run();
                                 } else {
                                     Alert a = new Alert(AlertType.NONE, "Check the download URL and destination path and then try again.", ButtonType.OK);

@@ -70,7 +70,7 @@ public class ErgoTokens extends Network implements NoteInterface {
     public final static String NAME = "Ergo Tokens";
     public final static String NETWORK_ID = "ERGO_TOKENS";
 
-    private File logFile = new File("ErgoTokens-log.txt");
+    private File logFile = new File("netnotes-log.txt");
     private File m_dataFile = null;
     private File m_testnetDataFile = null;
     private File m_appDir = null;
@@ -209,11 +209,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             TokensList tokensList = new TokensList(getNetworksData().getAppData().appKeyProperty().get(), m_networkType, this);
             tokensList.addUpdateListener((obs, oldVal, newVal) -> {
 
-                try {
-                    Files.writeString(logFile.toPath(), "\nSaving updates", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }
+          
                 save(getNetworksData().getAppData().appKeyProperty().get(), tokensList.getJsonObject(), m_networkType);
             });
 
@@ -564,11 +560,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 a.show();
             }
         }
-        try {
-            Files.writeString(logFile.toPath(), "setupTokens " + "Createddir: " + createdtokensDirectory, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
 
-        }
 
         if (tokensDir.isDirectory() && createdtokensDirectory) {
             ArrayList<ErgoNetworkToken> ergoTokenList = new ArrayList<ErgoNetworkToken>();
@@ -622,25 +614,17 @@ public class ErgoTokens extends Network implements NoteInterface {
                                 byte[] hashbytes = digest.digest();
 
                                 HashData hashData = new HashData(hashbytes);
-                                try {
-                                    Files.writeString(logFile.toPath(), "\n" + hashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                } catch (IOException e1) {
-
-                                }
+                        
 
                                 ErgoNetworkToken token = createToken(fileName, fileString, hashData);
-                                try {
-                                    Files.writeString(logFile.toPath(), "\n" + token.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                } catch (IOException e1) {
-
-                                }
+                              
                                 if (token != null) {
                                     ergoTokenList.add(token);
                                 }
 
                             } catch (IOException ex) {
                                 try {
-                                    Files.writeString(logFile.toPath(), "\n" + ex.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                    Files.writeString(logFile.toPath(), "\nErgoTokens:" + ex.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                 } catch (IOException e1) {
 
                                 }
@@ -655,7 +639,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 }
             } catch (IOException e) {
                 try {
-                    Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nErgoTokens:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
                 }
@@ -666,7 +650,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                         zipStream.close();
                     } catch (IOException e2) {
                         try {
-                            Files.writeString(logFile.toPath(), "\n" + e2.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            Files.writeString(logFile.toPath(), "\nErgoTokens: " + e2.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                         } catch (IOException e1) {
 
                         }
@@ -788,7 +772,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                     Files.writeString(m_testnetDataFile.toPath(), tokenString);
                 } catch (IOException e) {
                     try {
-                        Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        Files.writeString(logFile.toPath(), "\nErgoTokens:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e1) {
 
                     }
@@ -839,7 +823,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                 } catch (IOException e) {
                     try {
-                        Files.writeString(logFile.toPath(), "\nIO exception:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        Files.writeString(logFile.toPath(), "\nErgoTokens: IO exception:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e1) {
 
                     }
@@ -847,7 +831,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             } catch (NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                 try {
-                    Files.writeString(logFile.toPath(), "\nKey error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nErgoTokens: Key error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
                 }

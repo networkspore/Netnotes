@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 
 import javax.crypto.SecretKey;
 
@@ -18,8 +17,6 @@ import org.ergoplatform.appkit.Parameters;
 import org.ergoplatform.appkit.SignedTransaction;
 import org.ergoplatform.appkit.UnsignedTransaction;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import com.satergo.Wallet;
@@ -59,7 +56,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
+
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 

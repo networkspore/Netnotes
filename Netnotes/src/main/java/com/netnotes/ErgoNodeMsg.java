@@ -4,12 +4,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+
 
 import com.devskiller.friendly_id.FriendlyId;
 import com.utils.Utils;
 
-import javafx.application.Platform;
 
 public class ErgoNodeMsg {
 

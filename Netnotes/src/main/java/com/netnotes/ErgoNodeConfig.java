@@ -17,7 +17,7 @@ import org.apache.commons.codec.binary.Hex;
 
 public class ErgoNodeConfig {
 
-    private File logFile = new File("ergoNodeConfig-log.txt");
+    private File logFile = new File("netnotes-log.txt");
 
     public static class ConfigMode {
 
@@ -51,11 +51,11 @@ public class ErgoNodeConfig {
 
     public double STAGE_MIN_WIDTH = 500;
     public double STAGE_MIN_HEIGHT = 850;
-    private double m_StageWidth = STAGE_MIN_WIDTH;
+    /*private double m_StageWidth = STAGE_MIN_WIDTH;
     private double m_stageHeight = STAGE_MIN_HEIGHT;
     private double m_stagePrevWidth = STAGE_MIN_WIDTH;
     private double m_stagePrevHeight = STAGE_MIN_HEIGHT;
-    private boolean m_stageMaximized = false;
+    private boolean m_stageMaximized = false;*/
 
     public ErgoNodeConfig(String apiKeyString, File appDir) throws FileNotFoundException, IOException, Exception {
         this(apiKeyString, ConfigMode.BASIC, DigestAccess.LOCAL, BlockchainMode.RECENT_ONLY, appDir);
@@ -112,7 +112,7 @@ public class ErgoNodeConfig {
     }
 
     public void openJson(JsonObject json, File appDir) throws Exception {
-        Files.writeString(logFile.toPath(), "\n" + json.toString() + "\n" + appDir.toString() + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        
 
         if (json != null && appDir != null && appDir.isDirectory()) {
             m_appDir = appDir;
@@ -153,7 +153,7 @@ public class ErgoNodeConfig {
                     }
 
                 } else {
-                    Files.writeString(logFile.toPath(), "\nhash data mismatch", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nErgoNodeConfig: hash data mismatch", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 }
 
             }

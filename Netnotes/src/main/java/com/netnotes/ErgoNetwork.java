@@ -2,12 +2,9 @@ package com.netnotes;
 
 import java.awt.Rectangle;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.time.LocalDateTime;
 
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -19,23 +16,20 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.Alert.AlertType;
+
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.TextAlignment;
+
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-import javafx.application.Platform;
+
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -58,7 +52,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
     private NetworkType m_networkType = NetworkType.MAINNET;
 
-    private File logFile = new File("ergoNetwork-log.txt");
+   // private File logFile = new File("netnotes-log.txt");
     private ErgoNetworkData m_ergNetData = null;
 
     //private SimpleBooleanProperty m_shuttingdown = new SimpleBooleanProperty(false);
@@ -331,7 +325,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
         JsonElement subjecElement = note.get("subject");
-        JsonElement networkTypeElement = note.get("networkType");
+        //JsonElement networkTypeElement = note.get("networkType");
 
         if (subjecElement != null) {
             String subject = subjecElement.getAsString();

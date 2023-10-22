@@ -2,22 +2,18 @@ package com.launcher;
 
 import javafx.event.EventHandler;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.time.Duration;
 import java.util.List;
@@ -26,7 +22,6 @@ import java.util.Optional;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -277,7 +272,7 @@ public class Setup extends Application {
 
         VBox layoutVBox = new VBox(newTopBar, bodyVBox);
 
-        Scene statusScene = new Scene(layoutVBox, 420, 215);
+        Scene statusScene = new Scene(layoutVBox, 700, 215);
         statusScene.getStylesheets().add("/css/startWindow.css");
 
         statusStage.setScene(statusScene);
@@ -1253,6 +1248,7 @@ public class Setup extends Application {
         jsonObj.addProperty("autoUpdate", m_autoUpdate);
         if(m_autoRunFile != null && m_autoRun){
             jsonObj.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());
+          
         }
         String jsonString = jsonObj.toString();
 
@@ -1985,6 +1981,4 @@ public class Setup extends Application {
         return coreFileProgressScene;
     }
 
-
-        
 }

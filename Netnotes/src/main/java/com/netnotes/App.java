@@ -79,7 +79,7 @@ public class App extends Application {
     public static final long NOTE_EXECUTION_TIME = 100;
     public static final String notesFileName = "notes.dat";
    
-    private static final String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
+  //  private static final String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
 
     public static final String GET_DATA = "GET_DATA";
 
@@ -152,73 +152,35 @@ public class App extends Application {
 
         try {
             AppData appData = new AppData();
-            logFile = new File(appData.getAppDir().getAbsolutePath() + "/netnotes-log.txt");
+           
             if(arg0 == null){
                 throw new Exception("null args");
             }
             
-            
-            appData.parseArgs(arg0,()->{
-                if(appData.isSetupAutoRun()){
-                    Platform.runLater(()->{
-                        verifyAppKey(appStage, appData, (onSucceded)->{
-                            Object sourceObject = onSucceded.getSource().getValue();
-                            if(sourceObject != null && sourceObject instanceof String){
-                                try {
-                                    String password = (String) sourceObject;
-                                    appData.createKey(password);
-                                  
-                                    appData.enableAutoRun(password);
-                                    appStage.show();
-                                    openNetnotes(appData, appStage);
-                                   
-                                } catch (Exception e1) {
-                                    try {
-                                        Files.writeString(logFile.toPath(), "\nerror loading key: " + e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                    } catch (IOException e2) {
-                                        
-                                    }
-                                    shutdownNow();
-                                    
-                                }
-                            }
-                        },()->{
-                            
-                            shutdownNow();
-                        });
-                    });
-                }else{
+            appData.parseArgs(arg0,()->{         
+                
+                if(appData.isAutorun() || appData.isSetupAutoRun()){
                     try {
-                        Files.writeString(logFile.toPath(), "\nfirstrun not autorun", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e3) {
                         
-                    }
-                    startApp(appData, appStage);
-                }
-            },()->{
-                    
-    
-                if(appData.isAutorun() ){
-
-                    try {
                         appData.loadAppKey(()->{
-                           Platform.runLater(()-> openNetnotes(appData, appStage));
+                            openNetnotes(appData, appStage);
                         }, ()->{
-                            showAutoRunFailed(appStage, ()->{
+                            
+                            createAutorunKeyDialog(appStage, appData.isSetupAutoRun(), ()->{
                                 appStage.hide();
                                 verifyAppKey(appStage,appData, (onSucceded)->{
-                                    
-                                    
+                                
                                     Object sourceObject = onSucceded.getSource().getValue();
                                     if(sourceObject != null && sourceObject instanceof String){
 
-                                        
                                         try {
-                                                
-                                            m_networksData.getAppData().enableAutoRun((String) sourceObject);
+                                            String password = (String) sourceObject;
+                                            sourceObject = null;
+                                            appData.enableAutoRun(password);
+                                            appData.createKey(password);
+                                            password = null;
+                                            openNetnotes(appData, appStage);
                                             
-                                            Platform.runLater(()->openNetnotes(appData, appStage));
-                                        
                                         } catch (Exception e1) {
                                             try {
                                                 Files.writeString(logFile.toPath(), "\nerror loading key: " + e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -229,45 +191,39 @@ public class App extends Application {
                                             
                                         }
                                     }else{
-                                        Platform.runLater(()->startApp(appData, appStage));
+                                        startApp(appData, appStage);
                                     }
                                 },()->{
                                     shutdownNow();
                                 });
-    
+
                             }, ()->{
-                               Platform.runLater(()->startApp(appData, appStage));
+                                startApp(appData, appStage);
                             });
                         });
                     } catch (Exception e) {
                         
-
                         try {
-                            Files.writeString(logFile.toPath(), "\nerror loading key: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            Files.writeString(logFile.toPath(), "\nError Opening App: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                         } catch (IOException e1) {
-                         
+                        
                         }
-                        shutdownNow();
-                    }     
-                
+                        startApp(appData, appStage);
+                    }
                 }else{
-                    Platform.runLater(()->startApp(appData, appStage));
-                   
-                    
-                }
+                    startApp(appData, appStage);
+                }     
+                
             
             });
         } catch (Exception ex) {
             try {
-                Files.writeString(logFile.toPath(), "\nerror loading key: " + ex.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(logFile.toPath(), "\nCritical Error: " + ex.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
                 
             }
             shutdownNow();
         }
-                
-                
-        
 
     }
 
@@ -636,11 +592,11 @@ public class App extends Application {
         );
     }
 
-    public void showAutoRunFailed(Stage appStage, Runnable newKey, Runnable disableAutorun){
+    public void createAutorunKeyDialog(Stage appStage, boolean isNewKey, Runnable newKey, Runnable disableAutorun){
 
         TextField inpuTextField = new TextField();
         Button closeBtn = new Button();
-        showGetTextInput("Cannot load autorun key. Create new key? (Y/n)", "Invalid Autorun Key", logo, inpuTextField, closeBtn, appStage);
+        showGetTextInput(!isNewKey ? "Autrun key invalid. " : "" + "Create autorun key? (Y/n)", "Autorun - Setup", logo, inpuTextField, closeBtn, appStage);
         closeBtn.setOnAction(e->{
                 shutdownNow();
             });
@@ -737,12 +693,13 @@ public class App extends Application {
                         BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), appData.getAppKeyBytes());
                         Platform.runLater(() ->{
                             passwordField.setText("");
-                            statusStage.close();
+                            
                             if (result.verified) {
-                                Utils.returnObject(password, onSucceeded, (onFailed)->{});
+                                Utils.returnObject((Object)password, onSucceeded, (onFailed)->{});
                              
                                 
                             }
+                            statusStage.close();
                         } );
 
                     });
@@ -1368,10 +1325,6 @@ public class App extends Application {
     public static void showGetTextInput(String prompt, String title, Image img, TextField textField, Button closeBtn, Stage textInputStage) {
         
         textInputStage.setTitle(title);
-        textInputStage.getIcons().add(logo);
-        textInputStage.setResizable(false);
-        textInputStage.initStyle(StageStyle.UNDECORATED);
-
   
 
         HBox titleBox = createTopBar(icon, title, closeBtn, textInputStage);
@@ -1398,27 +1351,26 @@ public class App extends Application {
         HBox passwordBox = new HBox(promptTxt, textField);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button clickRegion = new Button();
-        clickRegion.setPrefWidth(Double.MAX_VALUE);
-        clickRegion.setId("transparentColor");
-        clickRegion.setPrefHeight(500);
-
-        clickRegion.setOnAction(e -> {
-            textField.requestFocus();
-
-        });
-
+    
         VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
 
-        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene textInputScene = new Scene(layoutVBox, 600, 425);
+        Scene textInputScene = new Scene(layoutVBox, 600, 330);
 
         textInputScene.getStylesheets().add("/css/startWindow.css");
 
         textInputStage.setScene(textInputScene);
 
+        textInputScene.focusOwnerProperty().addListener((obs, oldVal,newVal)->{
+            if(!(newVal instanceof TextField)){
+                Platform.runLater(()->textField.requestFocus());
+            }
+        });
+        Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        textInputStage.setX((screenRect.getWidth()/2) - (textInputScene.getWidth()/2));
+        textInputStage.setY((screenRect.getHeight()/2) - (textInputScene.getHeight()/2));
       
         textInputStage.show();
 

@@ -1,7 +1,6 @@
 package com.netnotes;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.apache.commons.codec.DecoderException;

@@ -61,7 +61,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
     private void setup(JsonObject json) {
         File ergoNetworkDir = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
 
-        JsonElement directoriesElement = json.get("directories");
+        JsonElement directoriesElement = json != null ? json.get("directories") : null;
 
         if (directoriesElement != null && directoriesElement.isJsonObject()) {
             JsonObject directoriesObject = directoriesElement.getAsJsonObject();

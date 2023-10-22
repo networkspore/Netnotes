@@ -2,21 +2,14 @@ package com.netnotes;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.ergoplatform.appkit.ErgoClient;
-import org.ergoplatform.appkit.NetworkType;
-import org.ergoplatform.appkit.RestApiErgoClient;
 
-import com.devskiller.friendly_id.FriendlyId;
+import org.ergoplatform.appkit.NetworkType;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
@@ -29,7 +22,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
-import javafx.scene.control.TextArea;
+
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;

@@ -1,14 +1,15 @@
 package com.netnotes;
 
+import java.awt.TextField;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
@@ -38,6 +39,7 @@ import com.satergo.extra.AESEncryption;
 import com.utils.Utils;
 import com.utils.Version;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -139,7 +141,7 @@ public class AppData {
      
     }
    
-    public void parseArgs(String argString, Runnable firstRun, Runnable normal) throws Exception{
+    public void parseArgs(String argString, Runnable complete) throws Exception{
 
         byte[] bytes = Hex.decode(argString);
         String jsonString = new String(bytes);
@@ -235,7 +237,7 @@ public class AppData {
                         
                         boolean isDesktopShortcut = desktopShortcutElement != null && desktopShortcutElement.isJsonPrimitive() ? desktopShortcutElement.getAsBoolean() : false;
                         boolean isStartMenuShortcut = startMenuShortcutElement != null && startMenuShortcutElement.isJsonPrimitive() ? startMenuShortcutElement.getAsBoolean() : false;
-                        m_setupAutoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() ? autoRunElement.getAsBoolean() : false;
+                        
 
                         if(isDesktopShortcut){
                             try {
@@ -261,12 +263,15 @@ public class AppData {
                             }
                         
                         }
+                        
+
+                        m_setupAutoRun = autoRunElement != null && autoRunElement.isJsonPrimitive() && m_autoRunFile != null ? autoRunElement.getAsBoolean() : false;
 
                   
-                        firstRun.run();
+                        Platform.runLater(()->complete.run());
                 
                     }else{
-                        normal.run();
+                         Platform.runLater(()->complete.run());
                     }
 
                 }
@@ -274,7 +279,7 @@ public class AppData {
 
         }else{
            
-            normal.run();
+            complete.run();
             
         }
         
@@ -356,10 +361,14 @@ public class AppData {
 
     }
 
-    public void removeStartupLink() throws Exception{
+    public void removeStartupLink(){
         File oldLink = new File(STARTUP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME);
         if(oldLink.isFile()){
-            oldLink.delete();
+            try{
+                oldLink.delete();
+            }catch(SecurityException e){
+
+            }
         }
     }
 
@@ -377,14 +386,14 @@ public class AppData {
             File startupFile = new File(STARTUP_DIRECTORY.getAbsolutePath() + "/" + SHORTCUT_NAME);
             if(startupFile.isFile()){
                 return true;
-            }
+            } 
         }
         return false;
     }
 
     public void loadAppKey(Runnable success, Runnable failed) throws Exception  {
         
-        byte[] fileBytes = m_autoRunFile != null && m_autoRunFile.isFile() ? Files.readAllBytes(m_autoRunFile.toPath()) : null;
+        byte[] fileBytes = isAutorun() && !isFirstRun() ? Files.readAllBytes(m_autoRunFile.toPath()) : null;
 
         if(fileBytes != null){
              Utils.getWin32_BiosHashData((onBiosData)->{
@@ -440,25 +449,19 @@ public class AppData {
 
     
     private void saveAppKey(String password ){
-        try {
-            Files.writeString(logFile.toPath(), "saving appkey: " + m_autoRunFile.getAbsolutePath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-       
-        }
-      
-                Utils.getWin32_BiosHashData((onBiosData)->{
-                       Object biosDataObject = onBiosData.getSource().getValue();
+     
+        Utils.getWin32_BiosHashData((onBiosData)->{
+            Object biosDataObject = onBiosData.getSource().getValue();
 
-                    if(biosDataObject != null && biosDataObject instanceof HashData){
-                        HashData biosHashData = (HashData) biosDataObject;
-                    Utils.getWin32_BaseboardHashData((onBaseboardData)->{
+            if(biosDataObject != null && biosDataObject instanceof HashData){
+                HashData biosHashData = (HashData) biosDataObject;
+                Utils.getWin32_BaseboardHashData((onBaseboardData)->{
                     Object baseboardDataObject = onBaseboardData.getSource().getValue();
 
                     if(baseboardDataObject != null && baseboardDataObject instanceof HashData){
                         HashData baseboardHashData = (HashData) baseboardDataObject;
-                        try{
-                            
-
+                    
+                         try {
                             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
                         
                             KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashStringHex().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
@@ -473,43 +476,27 @@ public class AppData {
                             cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(idKeyTmpKey.getEncoded(), "AES"), parameterSpec);
 
                             
-
-                            
                             byte[] encryptedData = cipher.doFinal(createKeyBytes(password));
                             
+                            Path autorunFilePath = m_autoRunFile.toPath();
+                           
+                            Files.write(autorunFilePath, iV);
+                           
+                            Files.write(autorunFilePath, encryptedData, StandardOpenOption.APPEND);
 
-                            if (m_autoRunFile.isFile()) {
-                                Files.delete(m_autoRunFile.toPath());
-                            }
-
-                            FileOutputStream outputStream = new FileOutputStream(m_autoRunFile);
-                            FileChannel fc = outputStream.getChannel();
-
-                            ByteBuffer byteBuffer = ByteBuffer.wrap(iV);
-
-                            fc.write(byteBuffer);
-
-                            int written = 0;
-                            int bufferLength = 1024 * 8;
-
-                            while (written < encryptedData.length) {
-
-                                if (written + bufferLength > encryptedData.length) {
-                                    byteBuffer = ByteBuffer.wrap(encryptedData, written, encryptedData.length - written);
-                                } else {
-                                    byteBuffer = ByteBuffer.wrap(encryptedData, written, bufferLength);
-                                }
-
-                                written += fc.write(byteBuffer);
-                            }
-
-                            outputStream.close();
-                        }catch(Exception e){
+                        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException  e) {
                             try {
-                                Files.writeString(logFile.toPath(), "writing key failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                Files.writeString(logFile.toPath(), "Create autorunkey failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                             } catch (IOException e1) {
-                        
+                       
                             }
+                        }
+                        
+                    }else{
+                        try {
+                            Files.writeString(logFile.toPath(), "Create autorunkey failed: baseboard returned null", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e1) {
+                    
                         }
                     }
                 }, (onBaseboardFailed)->{
@@ -519,11 +506,14 @@ public class AppData {
                 
                     }
                 });
-            }
-                }, (onNoBiosData)->{});
-          
-   
+            }else{
+                try {
+                    Files.writeString(logFile.toPath(), "Create autorunkey failed: bios returned null", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
             
+                }
+            }
+        }, (onNoBiosData)->{});
     
     }
 
@@ -536,7 +526,7 @@ public class AppData {
 
     }
 
-    public byte[] createKeyBytes(String password) throws Exception {
+    public byte[] createKeyBytes(String password) throws NoSuchAlgorithmException, InvalidKeySpecException  {
 
         byte[] bytes = password.getBytes(StandardCharsets.UTF_8);
 
@@ -560,16 +550,18 @@ public class AppData {
     }
     public void setAutoRunFile(File file){
         m_autoRunFile = file;
+        try {
+            save();
+        } catch (IOException e) {
+  
+        }
     }
 
     public void enableAutoRun(String password) throws Exception{
-        Files.writeString(m_autoRunFile.toPath(), "keyFile");
-        Files.delete(m_autoRunFile.toPath());
-    
-
+   
         saveAppKey(password);
         createStartupLink();
-        save();
+ 
     }
     
 

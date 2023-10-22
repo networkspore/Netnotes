@@ -113,7 +113,7 @@ public class MarketsData {
             m_id = FriendlyId.createFriendlyId();
         }
 
-        logFile = new File("marketsdata-" + m_id + "-log.txt");
+        logFile = new File("netnotes-log.txt");
     }
 
     public MarketsData(String id, String marketId, String baseSymbol, String quoteSymbol, String updateType, String updateValue, ErgoMarketsList marketsList) {
@@ -124,7 +124,7 @@ public class MarketsData {
         m_updateType = updateType;
         m_value = updateValue;
         m_marketsList = marketsList;
-        logFile = new File("marketsdata-" + m_id + "-log.txt");
+        logFile = new File("netnotes-log.txt");
     }
 
     public static String getFriendlyUpdateTypeName(String type) {
@@ -279,11 +279,11 @@ public class MarketsData {
             }
 
             public void onMsgChanged(JsonObject json) {
-                try {
+                /*try {
                     Files.writeString(logFile.toPath(), json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e) {
 
-                }
+                }*/
 
                 JsonElement subjectElement = json.get("subject");
                 JsonElement topicElement = json.get("topic");
@@ -299,11 +299,11 @@ public class MarketsData {
             }
 
             public void onReady() {
-                try {
+                /*try {
                     Files.writeString(logFile.toPath(), "\nready", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e) {
 
-                }
+                }*/
 
                 exchange.subscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
             }
