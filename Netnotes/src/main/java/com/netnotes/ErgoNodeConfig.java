@@ -128,10 +128,10 @@ public class ErgoNodeConfig {
 
                 String configFileName = configFileNameElement.getAsString();
                 File configFile = new File(m_appDir.getAbsolutePath() + "/" + configFileName);
-                String configFileHashString = new String(Utils.digestFile(configFile));
+                HashData configHashData = new HashData(configFile);
                 HashData configFileHashData = new HashData(configFileHashDataElement.getAsJsonObject());
 
-                if (configFileHashData.getHashString().equals(configFileHashString)) {
+                if (configFileHashData.getHashStringHex().equals(configHashData.getHashStringHex())) {
 
                     m_apiKeyHash = apiKeyHashElement.getAsString();
                     m_configMode = configModeElement.getAsString();

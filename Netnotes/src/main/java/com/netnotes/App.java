@@ -472,9 +472,10 @@ public class App extends Application {
                                     //  a.show();
                                     if (appStage.isIconified()) {
                                         Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+                                      
+                                        appStage.setIconified(false);
                                         appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
                                         appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
-                                        appStage.setIconified(false);
                                         appStage.show();
                                         appStage.toFront();
                                         appStage.requestFocus();
@@ -505,6 +506,7 @@ public class App extends Application {
                                                 appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
                                                 appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
                                                 appStage.show();
+                                                appStage.requestFocus();
                                             });
 
                                         }
@@ -625,9 +627,10 @@ public class App extends Application {
                 Platform.runLater(() -> passwordField.requestFocus());
             }
         });
-        Platform.runLater(() ->{
-            passwordStage.show();
+             passwordStage.show();
             passwordStage.toFront();
+        Platform.runLater(() ->{
+       
         
             passwordField.requestFocus();}
         );

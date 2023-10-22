@@ -204,7 +204,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     public void coreFileError() {
         Alert a = new Alert(AlertType.WARNING, "Local node core file has been altered.", ButtonType.OK);
-        a.setHeaderText("Error: Config Mismatch");
+        a.setHeaderText("Error: Core Mismatch");
         a.setTitle("Error: Core File Mistmatch - Local Node - Ergo Nodes");
         a.show();
 
@@ -222,7 +222,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public void openJson(JsonObject jsonObj) {
         
         if (jsonObj != null) {
-         
+            try {
+                Files.writeString(logFile.toPath(), "\nJsonData: " + jsonObj.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+            
+            }
             
             JsonElement isSetupElement = jsonObj.get("isSetup");
             JsonElement runOnStartElement = jsonObj.get("runOnStart");
@@ -254,7 +258,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                     HashData appFileHashData = new HashData(appFile);
 
-                    isCorrectHash = m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashString());
+                    Files.writeString(logFile.toPath(), "\nAppfiledata: " +appFileHashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+                    isCorrectHash = m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex());
                     
                 } catch (Exception e) {
                     try {
@@ -1503,6 +1509,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                             m_nodeConfigData = new ErgoNodeConfig(apiKeyString, configMode, digestMode, blockchainMode, configFileName, m_appDir);
                             namedNodeUrlProperty.set(new NamedNodeUrl(getId(), blockchainMode, "127.0.0.1", ErgoNodes.MAINNET_PORT, apiKeyString, NetworkType.MAINNET));
                             isSetupProperty.set(true);
+                            lastUpdated.set(LocalDateTime.now());
                             start();
 
                         } catch (Exception e1) {
@@ -1515,7 +1522,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                         }
 
-                        lastUpdated.set(LocalDateTime.now());
+                        
 
                     };
 

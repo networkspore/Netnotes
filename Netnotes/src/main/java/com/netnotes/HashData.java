@@ -75,10 +75,7 @@ public class HashData {
         return m_name;
     }
 
-    public String getHashString() {
-        return new String(m_hashBytes);
-    }
-
+ 
     public String getHashStringHex() {
        
         return  Hex.encodeHexString(m_hashBytes);

@@ -386,55 +386,54 @@ public class AppData {
         
         byte[] fileBytes = m_autoRunFile != null && m_autoRunFile.isFile() ? Files.readAllBytes(m_autoRunFile.toPath()) : null;
 
-       /* if(fileBytes != null){
-            Utils.getWin32_BIOSHashData((onBiosData)->{
-            
-                Object biosDataObject = onBiosData.getSource().getValue();
-                if(biosDataObject != null && biosDataObject instanceof HashData){
-                    HashData biosHashData = (HashData) biosDataObject;
-                    Utils.getWin32_BaseboardHashData((onBaseboardData)->{
+        if(fileBytes != null){
+             Utils.getWin32_BiosHashData((onBiosData)->{
+                    Object biosDataObject = onBiosData.getSource().getValue();
+
+                    if(biosDataObject != null && biosDataObject instanceof HashData){
+                        HashData biosHashData = (HashData) biosDataObject;
+                        Utils.getWin32_BaseboardHashData((onBaseboardData)->{
                         Object baseboardDataObject = onBaseboardData.getSource().getValue();
 
                         if(baseboardDataObject != null && baseboardDataObject instanceof HashData){
                             HashData baseboardHashData = (HashData) baseboardDataObject;
                             try{
-                                SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-                            
-                                KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashString().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
-                                SecretKey idKeyTmpKey = factory.generateSecret(idKeySpec);
-            
+
+                                    SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
                                 
+                                    KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashStringHex().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
+                                    SecretKey idKeyTmpKey = factory.generateSecret(idKeySpec);
+                
+                                    byte[] iv = new byte[]{
+                                        fileBytes[0], fileBytes[1], fileBytes[2], fileBytes[3],
+                                        fileBytes[4], fileBytes[5], fileBytes[6], fileBytes[7],
+                                        fileBytes[8], fileBytes[9], fileBytes[10], fileBytes[11]
+                                    };
 
-                                byte[] iv = new byte[]{
-                                    fileBytes[0], fileBytes[1], fileBytes[2], fileBytes[3],
-                                    fileBytes[4], fileBytes[5], fileBytes[6], fileBytes[7],
-                                    fileBytes[8], fileBytes[9], fileBytes[10], fileBytes[11]
-                                };
-
-                                ByteBuffer encryptedData = ByteBuffer.wrap(fileBytes, 12, fileBytes.length - 12);
+                                    ByteBuffer encryptedData = ByteBuffer.wrap(fileBytes, 12, fileBytes.length - 12);
 
 
-                                byte[] keyBytes = AESEncryption.decryptData(iv, new SecretKeySpec(idKeyTmpKey.getEncoded(), "AES"), encryptedData);
-                                
+                                    byte[] keyBytes = AESEncryption.decryptData(iv, new SecretKeySpec(idKeyTmpKey.getEncoded(), "AES"), encryptedData);
+                                    
 
-                                m_secretKey.set(new SecretKeySpec(keyBytes, "AES"));
-                                success.run();
-                            }catch(Exception e){
+                                    m_secretKey.set(new SecretKeySpec(keyBytes, "AES"));
+                                    success.run();
+                                }catch(Exception e){
+                                    failed.run();
+                                }
+                            }else{
                                 failed.run();
                             }
-                        }else{
-                            failed.run();
-                        }
-                    },onBaseboardFailed ->failed.run());
-                }else{
-                    failed.run();
-                }
+                        },onBaseboardFailed ->failed.run());
+                    }else{
+                        failed.run();
+                    }
             },(onbiosfailed)->failed.run());
             
         }else{
             failed.run();
         }
-           */
+           
         
 
     }
@@ -462,7 +461,7 @@ public class AppData {
 
                             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
                         
-                            KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashString().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
+                            KeySpec idKeySpec = new PBEKeySpec(biosHashData.getHashStringHex().toCharArray(), baseboardHashData.getHashBytes(), 65536, 256);
                             SecretKey idKeyTmpKey = factory.generateSecret(idKeySpec);
 
                             SecureRandom secureRandom = SecureRandom.getInstanceStrong();

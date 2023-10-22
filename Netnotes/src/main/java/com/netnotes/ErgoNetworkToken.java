@@ -158,14 +158,13 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
 
         byte[] bytes = null;
         try {
-            bytes = Utils.digestFile(checkFile);
-            String hashString = Hex.toHexString(bytes);
+            HashData checkFileHashData = new HashData(checkFile);
             try {
-                Files.writeString(logFile.toPath(), "\nhashString: " + hashString + " hashDataString: " + hashData.getHashString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(logFile.toPath(), "\nhashString: " +checkFileHashData.getHashStringHex()+ " hashDataString: " + hashData.getHashStringHex(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e) {
 
             }
-            if (hashString.equals(hashData.getHashString())) {
+            if (checkFileHashData.getHashStringHex().equals(hashData.getHashStringHex())) {
                 setImageByFile(checkFile);
             }
         } catch (Exception e) {
