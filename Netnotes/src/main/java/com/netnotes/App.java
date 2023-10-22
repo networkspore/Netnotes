@@ -163,6 +163,7 @@ public class App extends Application {
                     try {
                         
                         appData.loadAppKey(()->{
+                            appStage.hide();
                             openNetnotes(appData, appStage);
                         }, ()->{
                             
@@ -458,11 +459,12 @@ public class App extends Application {
                                                 if(!networksFile.isFile()){
                                                     m_networksData.showManageNetworkStage();
                                                 }
+                                                
+                                                appStage.show();
+                                                appStage.requestFocus();
                                                 Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
                                                 appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
                                                 appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
-                                                appStage.show();
-                                                appStage.requestFocus();
                                             });
 
                                         }
