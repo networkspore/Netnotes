@@ -41,7 +41,10 @@ import com.utils.Utils;
 import javafx.beans.property.SimpleDoubleProperty;
 
 import javafx.beans.property.SimpleStringProperty;
-
+import javafx.beans.value.ChangeListener;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -68,7 +71,8 @@ public class ErgoNetworkData implements InstallerInterface {
     private Stage m_manageStage = null;
     private double m_stageWidth = 700;
     private double m_stageHeight = 500;
-    private ArrayList<NoteInterface> m_networkList = new ArrayList<>();
+   // private ArrayList<NoteInterface> m_networkList = new ArrayList<>();
+    private ObservableList<NoteInterface> m_networkList = FXCollections.observableArrayList();
 
     private InstallableIcon m_focusedInstallable = null;
 
@@ -566,6 +570,8 @@ public class ErgoNetworkData implements InstallerInterface {
 
     }
 
+    
+
     public boolean addNoteInterface(NoteInterface noteInterface) {
         // int i = 0;
 
@@ -745,6 +751,14 @@ public class ErgoNetworkData implements InstallerInterface {
 
             }
         }
+    }
+
+    public void addNetworkListener(ListChangeListener<NoteInterface> listener){
+        
+        m_networkList.addListener(listener);
+    }
+
+    public void addNetworkListener(Object listener) {
     }
 
 }

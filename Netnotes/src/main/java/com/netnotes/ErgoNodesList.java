@@ -4,7 +4,6 @@ import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -31,7 +30,6 @@ import com.google.gson.JsonArray;
 import com.utils.Utils;
 
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
@@ -65,7 +63,7 @@ public class ErgoNodesList {
     public final static String PUBLIC = "PUBLIC";
     public final static String CUSTOM = "CUSTOM";
 
-    private File logFile = new File("ergoNodesList-log.txt");
+    private File logFile = new File("ergonotes-log.txt");
     private SimpleStringProperty m_selectedId = new SimpleStringProperty(null);
     private ArrayList<ErgoNodeData> m_dataList = new ArrayList<>();
     private ErgoNodes m_ergoNodes;
@@ -343,6 +341,41 @@ public class ErgoNodesList {
         m_doGridUpdate.addListener((obs, oldval, newval) -> updateGrid.run());
 
         return gridBox;
+    }
+
+    public void getMenu(MenuButton menuBtn, SimpleObjectProperty<ErgoNodeData> selectedNode){
+
+        Runnable updateMenu = () -> {
+            menuBtn.getItems().clear();
+
+            MenuItem localNodeMenuItem = m_ergoLocalNode.getMenuItem();
+            localNodeMenuItem.setOnAction(e->{
+                selectedNode.set(m_ergoLocalNode);
+            });
+
+            menuBtn.getItems().add( localNodeMenuItem );
+            int numCells = m_dataList.size();
+
+            for (int i = 0; i < numCells; i++) {
+                
+                ErgoNodeData nodeData = m_dataList.get(i);
+                MenuItem menuItem = nodeData.getMenuItem();
+                
+                menuItem.setOnAction(e->{
+                    selectedNode.set(nodeData);
+                });
+
+                menuBtn.getItems().add(menuItem);
+            }
+
+            selectedNode.set(m_ergoLocalNode);
+
+        };
+
+        updateMenu.run();
+
+        m_doGridUpdate.addListener((obs, oldval, newval) -> updateMenu.run());
+
     }
 
     public SimpleStringProperty selectedIdProperty() {

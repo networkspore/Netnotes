@@ -34,16 +34,21 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.netnotes.IconButton.IconStyle;
 import com.satergo.Wallet;
+
 import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.collections.ListChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -55,13 +60,13 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -185,6 +190,8 @@ public class WalletsDataList {
 
     }
 
+    public final static String INSTALL_NODES = "(install 'Ergo Nodes')";
+
     public void showAddWalletStage() {
         String friendlyId = FriendlyId.createFriendlyId();
 
@@ -220,16 +227,11 @@ public class WalletsDataList {
         headingBox.setPadding(new Insets(10, 15, 10, 15));
         headingBox.setId("headingBox");
 
-        /*HBox menuBar = new HBox();
-        HBox.setHgrow(menuBar, Priority.ALWAYS);
-        menuBar.setAlignment(Pos.CENTER_LEFT);
-        menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(1, 5, 1, 5)); */
+
         HBox headingPaddingBox = new HBox(headingBox);
 
         headingPaddingBox.setPadding(new Insets(5, 0, 2, 0));
-        //  VBox menuBarBox = new VBox(menuBar);
-        //   menuBarBox.setId("bodyBox");
+
         VBox headerBox = new VBox(headingPaddingBox);
 
         headerBox.setPadding(new Insets(2, 5, 0, 5));
@@ -238,7 +240,7 @@ public class WalletsDataList {
         walletName.setFill(App.txtColor);
         walletName.setFont(App.txtFont);
 
-        TextField walletNameField = new TextField("Wallet " + friendlyId);
+        TextField walletNameField = new TextField("Wallet #" + friendlyId);
         walletNameField.setFont(App.txtFont);
         walletNameField.setId("formField");
         HBox.setHgrow(walletNameField, Priority.ALWAYS);
@@ -250,43 +252,56 @@ public class WalletsDataList {
         networkTxt.setFill(App.txtColor);
         networkTxt.setFont(App.txtFont);
 
-        MenuButton nodesMenuBtn = new MenuButton(ErgoNodes.NAME);
-        nodesMenuBtn.setPrefWidth(150);
+        
+        
+        SimpleObjectProperty<ErgoNodeData> selectedNodeData = new SimpleObjectProperty<>(null);
+
+        MenuButton nodesMenuBtn = new MenuButton();
         nodesMenuBtn.setFont(App.txtFont);
         nodesMenuBtn.setTextFill(App.altColor);
-        nodesMenuBtn.setUserData(ErgoNodes.NETWORK_ID);
-        nodesMenuBtn.setPrefWidth(200);
-
-        MenuItem networkNoneItem = new MenuItem("(none)");
-        MenuItem networkErgoItem = new MenuItem(ErgoNodes.NAME);
-        nodesMenuBtn.getItems().add(networkNoneItem);
-        nodesMenuBtn.getItems().add(networkErgoItem);
-
-        MenuButton nodesMenuBtn2 = new MenuButton("(default)");
-        nodesMenuBtn2.setPadding(new Insets(4, 5, 0, 5));
-        nodesMenuBtn2.setPrefWidth(150);
-        nodesMenuBtn2.setFont(Font.font("OCR A Extended", 12));
-        nodesMenuBtn2.setTextFill(App.altColor);
-        nodesMenuBtn2.setUserData(null);
-
-        networkNoneItem.setOnAction(e -> {
-            nodesMenuBtn.setText(networkNoneItem.getText());
-            nodesMenuBtn.setUserData(null);
-            nodesMenuBtn2.setVisible(false);
+        nodesMenuBtn.setOnAction(e->{
+            if(nodesMenuBtn.getText().equals(INSTALL_NODES)){
+                m_ergoWallet.getErgoNetworkData().showwManageStage();
+            }
         });
-        networkErgoItem.setOnAction(e -> {
-            nodesMenuBtn.setText(networkErgoItem.getText());
-            nodesMenuBtn.setUserData(ErgoNodes.NETWORK_ID);
-            nodesMenuBtn2.setVisible(true);
-        });
+        
+        
 
-        MenuItem nodeDefaultItem = new MenuItem("default");
-        nodeDefaultItem.setOnAction(e -> {
-            nodesMenuBtn.setText(networkNoneItem.getText());
-            nodesMenuBtn.setUserData(null);
-        });
+        Runnable updateMenuBtn = () ->{
+            if(selectedNodeData.get() != null){
+                ErgoNodeData selectedNode = selectedNodeData.get();
+                nodesMenuBtn.setText(selectedNode.getName());
+            
+            }else{
+                NoteInterface noteInterface = m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+                if(noteInterface == null){
+                    nodesMenuBtn.setText(INSTALL_NODES);
+                }else{
+                    nodesMenuBtn.setText("Select node...");
+                }
+            }
+        
+        };
 
-        nodesMenuBtn2.getItems().add(nodeDefaultItem);
+        Runnable getAvailableNodes = () ->{
+            ErgoNodes ergoNodes = (ErgoNodes) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+            if(ergoNodes != null){
+                ergoNodes.getErgoNodesList().getMenu(nodesMenuBtn, selectedNodeData);
+                if(selectedNodeData.get() == null){
+                    nodesMenuBtn.setText("Select node...");
+                }
+            }else{
+                nodesMenuBtn.getItems().clear();
+                selectedNodeData.set(null);
+            }
+        };
+
+        selectedNodeData.addListener((obs, oldval,newval) -> updateMenuBtn.run());
+
+        m_ergoWallet.getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> getAvailableNodes.run());
+
+        getAvailableNodes.run();
+        updateMenuBtn.run();
 
         Text networkTypeTxt = new Text(String.format("%-15s", "Network type"));
         networkTypeTxt.setFill(App.txtColor);
@@ -311,8 +326,10 @@ public class WalletsDataList {
         walletTypeMenuBtn.getItems().add(mainnetItem);
         walletTypeMenuBtn.getItems().add(testnetItem);
 
-        HBox networkSelectBox = new HBox(networkTxt, nodesMenuBtn, nodesMenuBtn2);
+        HBox networkSelectBox = new HBox(networkTxt, nodesMenuBtn);
         networkSelectBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(networkSelectBox, Priority.ALWAYS);
+        nodesMenuBtn.prefWidthProperty().bind(networkSelectBox.widthProperty().subtract(networkTxt.getLayoutBounds().getWidth()));
 
         HBox networkTypeBox = new HBox(networkTypeTxt, walletTypeMenuBtn);
         networkTypeBox.setAlignment(Pos.CENTER_LEFT);
@@ -424,7 +441,7 @@ public class WalletsDataList {
             NetworkType networkType = (NetworkType) walletTypeMenuBtn.getUserData();
 
             String nodeId = nodesMenuBtn.getUserData() == null ? null : (String) nodesMenuBtn.getUserData();
-            String selectedNode = nodeId == null ? null : nodesMenuBtn2.getText();
+            String selectedNode = nodeId == null ? null : selectedNodeData.get().getId();
             String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
             String explorerUpdates = explorerUpdatesBtn.getUserData() == null ? null : (String) explorerUpdatesBtn.getUserData();
             String marketsId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
@@ -460,7 +477,7 @@ public class WalletsDataList {
                 NetworkType networkType = (NetworkType) walletTypeMenuBtn.getUserData();
 
                 String nodeId = nodesMenuBtn.getUserData() == null ? null : (String) nodesMenuBtn.getUserData();
-                String selectedNode = nodeId == null ? null : nodesMenuBtn2.getText();
+                String selectedNode = nodeId == null ? null : selectedNodeData.get().getId();
                 String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                 String explorerUpdates = explorerUpdatesBtn.getUserData() == null ? null : (String) explorerUpdatesBtn.getUserData();
                 String marketId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();
@@ -510,7 +527,8 @@ public class WalletsDataList {
                                     Wallet.create(walletFile.toPath(), mnemonic, seedPhrase, passwordString.toCharArray());
 
                                     String nodeId = nodesMenuBtn.getUserData() == null ? null : (String) nodesMenuBtn.getUserData();
-                                    String selectedNode = nodeId == null ? null : nodesMenuBtn2.getText();
+                                    String selectedNode = nodeId == null ? null : selectedNodeData.get().getId();
+
                                     String explorerId = explorersBtn.getUserData() == null ? null : (String) explorersBtn.getUserData();
                                     String explorerUpdates = explorerUpdatesBtn.getUserData() == null ? null : (String) explorerUpdatesBtn.getUserData();
                                     String marketsId = marketBtn.getUserData() == null ? null : (String) marketBtn.getUserData();

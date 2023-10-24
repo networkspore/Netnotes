@@ -1922,6 +1922,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         return rowBox;
     }
+    
+    @Override
+    public MenuItem getMenuItem(){
+        NamedNodeUrl nodeUrl = namedNodeUrlProperty.get();
+        return new MenuItem(nodeUrl.getName());
+    }
 
 
 
@@ -2453,7 +2459,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appNetworkTypeBox.setAlignment(Pos.CENTER_LEFT);
         appNetworkTypeBox.minHeightProperty().bind(rowHeight);
         
-       Text appRunOnStartText = new Text(String.format("%-14s", "Version"));
+       Text appRunOnStartText = new Text(String.format("%-14s", "Autorun"));
         appRunOnStartText.setFill(getPrimaryColor());
         appRunOnStartText.setFont(App.txtFont);
 

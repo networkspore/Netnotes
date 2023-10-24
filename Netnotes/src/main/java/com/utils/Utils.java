@@ -1007,7 +1007,7 @@ public class Utils {
         Task<HashData> task = new Task<HashData>() {
             @Override
             public HashData call() throws IOException, InterruptedException {
-                 File psbaseboardIdLogFile = new File("psbaseboardId-log.txt");
+                // File psbaseboardIdLogFile = new File("psbaseboardId-log.txt");
            
                 //et-CimInstance -Class Win32_BaseBoard | Format-Table Manufacturer, Product, SerialNumber, Version 
     
@@ -1060,7 +1060,7 @@ public class Utils {
 
                 if(colProduct != null && colManufacturer != null  && colSerialNumber != null){
                     String idString = colProduct + colManufacturer  + colSerialNumber;
-                     Files.writeString(psbaseboardIdLogFile.toPath(), idString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    // Files.writeString(psbaseboardIdLogFile.toPath(), idString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     return new HashData(Utils.digestBytesToBytes(Utils.charsToBytes(idString.toCharArray())));
                     
                     
@@ -1086,7 +1086,7 @@ public class Utils {
         Task<HashData> task = new Task<HashData>() {
             @Override
             public HashData call() throws IOException, InterruptedException {
-                 File psbaseboardIdLogFile = new File("psbiosId-log.txt");
+                 //File psbaseboardIdLogFile = new File("psbiosId-log.txt");
 
     
                 String[] psCmd = {"powershell", "Get-CimInstance", "-ClassName", "Win32_Bios"};
@@ -1140,7 +1140,7 @@ public class Utils {
 
                 if(colVersion != null && colManufacturer != null  && colSerialNumber != null){
                     String idString = colVersion + colManufacturer  + colSerialNumber;
-                     Files.writeString(psbaseboardIdLogFile.toPath(), idString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                   
                     return new HashData(Utils.digestBytesToBytes(Utils.charsToBytes(idString.toCharArray())));
                     
                     

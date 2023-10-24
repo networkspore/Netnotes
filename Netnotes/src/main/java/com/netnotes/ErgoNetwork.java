@@ -279,17 +279,16 @@ public class ErgoNetwork extends Network implements NoteInterface {
             ResizeHelper.addResizeListener(m_stage, 200, 200, rect.getWidth(), rect.getHeight());
 
             closeBtn.setOnAction(e -> {
-                executor.shutdown();
-                m_ergNetData.shutdown();
-                m_stage.close();
-                m_stage = null;
+            
+                m_stage.hide();
 
             });
 
             m_stage.setOnCloseRequest((closing) -> {
-                executor.shutdown();
-                m_ergNetData.shutdown();
-                m_stage = null;
+      
+                closing.consume();
+                m_stage.hide();
+         
             });
 
             maximizeBtn.setOnAction(maxEvent -> {

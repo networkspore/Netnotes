@@ -415,4 +415,6 @@ public class ErgoWallet extends Network implements NoteInterface {
 
         return iconButton;
     }
+
+    
 }

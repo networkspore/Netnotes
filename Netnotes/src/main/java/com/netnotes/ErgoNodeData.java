@@ -22,7 +22,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
-
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -39,7 +39,7 @@ import javafx.util.Duration;
 
 public class ErgoNodeData {
 
-    File logFile = new File("ergoNodeData-log.txt");
+    File logFile = new File("netnotes-log.txt");
 
     public final static String PUBLIC = "PUBLIC";
     public final static String PRIVATE = "PRIVATE";
@@ -495,5 +495,12 @@ public class ErgoNodeData {
         }
 
     }
+
+
+    public MenuItem getMenuItem(){
+        NamedNodeUrl nodeUrl = namedNodeUrlProperty.get();
+        return new MenuItem(nodeUrl.getName());
+    }
+
 
 }

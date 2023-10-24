@@ -456,15 +456,16 @@ public class App extends Application {
                                             verifyAppKey(() -> {
 
                                                 
-                                                if(!networksFile.isFile()){
-                                                    m_networksData.showManageNetworkStage();
-                                                }
-                                                
+                                               
                                                 appStage.show();
                                                 appStage.requestFocus();
                                                 Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
                                                 appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
                                                 appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
+                                                 if(!networksFile.isFile()){
+                                                    m_networksData.showManageNetworkStage();
+                                                }
+
                                             });
 
                                         }
