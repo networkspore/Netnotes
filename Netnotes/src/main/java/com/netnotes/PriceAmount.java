@@ -3,6 +3,8 @@ package com.netnotes;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
+import com.utils.Utils;
+
 import javafx.beans.property.SimpleStringProperty;
 
 public class PriceAmount {
@@ -56,7 +58,7 @@ public class PriceAmount {
         DecimalFormat df = new DecimalFormat("0");
         df.setMaximumFractionDigits(precision);
        
-        return df.format(getDoubleAmount()) + " " + m_currency;
+        return m_currency.getSymbol() + " " + df.format(getDoubleAmount());
     }
 
 }

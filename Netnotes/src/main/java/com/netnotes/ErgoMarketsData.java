@@ -74,7 +74,7 @@ public class ErgoMarketsData {
     private String m_updateType = TICKER;
     private String m_value = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
-    private QuoteListener m_quoteListener;
+   
 
     private ScheduledExecutorService m_polledExecutor = null;
 
@@ -155,13 +155,7 @@ public class ErgoMarketsData {
         return m_marketId;
     }
 
-    public void setQuoteListener(QuoteListener quoteListener) {
-        m_quoteListener = quoteListener;
-    }
 
-    public QuoteListener getQuoteListener() {
-        return m_quoteListener;
-    }
 
     public void setMarketid(String marketId) {
         m_marketId = marketId;

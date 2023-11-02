@@ -74,7 +74,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     private TimeUnit m_cycleTimeUnit = TimeUnit.SECONDS;
 
     private String m_quoteTransactionCurrency = "USD";
-    private SimpleObjectProperty<PriceQuote> m_lastQuote = new SimpleObjectProperty<PriceQuote>(null);
+
     private ErgoWallets m_ergoWallet;
 
     // private ErgoWallet m_ergoWallet;
@@ -504,13 +504,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             updateMarketsBtn.run();
         };
 
-        addressesData.selectedMarketData().addListener((obs, oldval, newval)->{
-            setMarketsId(newval == null ? null : newval.getId());
-            if(oldval != null){
-                oldval.shutdown();
-            }
-            updateMarketsBtn.run();
-        });
+        
        
 
         Tooltip tokensTip = new Tooltip("Ergo Tokens");
@@ -626,7 +620,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         ScrollPane scrollPane = new ScrollPane(layoutBox);
         scrollPane.setId("bodyBox");
-        TextField totalField = new TextField(Utils.formatCryptoString(0, m_quoteTransactionCurrency, false));
+        TextField totalField = new TextField();
         totalField.setId("priceField");
         totalField.setEditable(false);
         HBox.setHgrow(totalField, Priority.ALWAYS);
@@ -670,7 +664,6 @@ public class ErgoWalletData extends Network implements NoteInterface {
         getAvailableExplorerMenu.run();
         getAvailableNodeMenu.run();
         getAvailableMarketsMenu.run();
-
         updateTokensMenu.run();
 
         sendButton.setOnAction((actionEvent) -> {
@@ -693,13 +686,14 @@ public class ErgoWalletData extends Network implements NoteInterface {
         });
         openWalletScene.focusOwnerProperty().addListener((e) -> {
             if (openWalletScene.focusOwnerProperty().get() instanceof AddressData) {
+
                 AddressData addressData = (AddressData) openWalletScene.focusOwnerProperty().get();
 
                 addressesData.selectedAddressDataProperty().set(addressData);
-                if (getNodeInterface() != null) {
-                    sendButton.setId("menuBtn");
-                    sendButton.setDisable(false);
-                }
+
+                sendButton.setId("menuBtn");
+                sendButton.setDisable(false);
+                
             } else {
                 if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
                     Button focusedButton = (Button) openWalletScene.focusOwnerProperty().get();
@@ -725,26 +719,60 @@ public class ErgoWalletData extends Network implements NoteInterface {
             }
         });
 
-        ChangeListener<Number> totalListener = (obs, oldValue, newValue) -> {
+        Runnable calculateTotal = () ->{
+            ErgoMarketsData ergoMarketData = addressesData.selectedMarketData().get();
+            ErgoAmount totalErgoAmount = addressesData.totalErgoAmountProperty().get();
+            
+            String totalString = totalErgoAmount == null ? "-" : totalErgoAmount.toString();
 
-            double updatedValue = newValue.doubleValue();
-
-            String formatedAmount = Utils.formatCryptoString(updatedValue, m_quoteTransactionCurrency, true);
-            PriceQuote quote = m_lastQuote.get();
-            Platform.runLater(() -> totalField.setText("Σ(" + (quote == null ? Utils.formatCryptoString(0, m_quoteTransactionCurrency, false) : Utils.formatCryptoString(quote.getAmount(), m_quoteTransactionCurrency, true)) + ") " + formatedAmount));
+            PriceQuote priceQuote = ergoMarketData == null ? null : ergoMarketData.priceQuoteProperty().get(); 
+            
+            if(priceQuote != null && totalErgoAmount != null){
+                double totalPrice = priceQuote.getAmount() * totalErgoAmount.getDoubleAmount();
+                Platform.runLater(() ->totalField.setText(totalString + " (" + Utils.formatCryptoString(totalPrice, m_quoteTransactionCurrency, true) + ")"));
+            }else{
+                Platform.runLater(() ->totalField.setText(totalString + " (" + Utils.currencySymbol(m_quoteTransactionCurrency)+ "-.--)"));
+           
+            }
 
             Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
         };
 
-        addressesData.getTotalDoubleProperty().addListener(totalListener);
-
-        addressesData.selectedMarketData().addListener((obs, oldVal, newVal) -> {
+        addressesData.totalErgoAmountProperty().addListener((obs, oldval, newval)-> {
             
+            try {
+                Files.writeString(new File("totalErgoAmount.txt").toPath(), "\n" + (newval != null ? newval.getLongAmount() : "null"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+             
+            }
+            calculateTotal.run();
         });
+        
+        ChangeListener<PriceQuote> quoteListener = (obs, oldVal, newVal) -> calculateTotal.run();
+
+
+        addressesData.selectedMarketData().addListener((obs, oldval, newval)->{
+            setMarketsId(newval == null ? null : newval.getId());
+            if(oldval != null){
+                oldval.priceQuoteProperty().removeListener(quoteListener);
+                oldval.shutdown();
+            }
+            updateMarketsBtn.run();
+            if(newval != null)
+            {
+                newval.priceQuoteProperty().addListener(quoteListener);
+            }
+        });
+
+        if(addressesData.selectedMarketData().get() != null){
+            addressesData.selectedMarketData().get().priceQuoteProperty().addListener(quoteListener);
+        }
+
+        calculateTotal.run();
 
         walletStage.setOnCloseRequest(event -> {
 
-            addressesData.getTotalDoubleProperty().removeListener(totalListener);
+           
             addressesData.shutdown();
             m_isOpen = false;
         });
@@ -752,7 +780,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         openWalletScene.getStylesheets().add("/css/startWindow.css");
         closeBtn.setOnAction(closeEvent -> {
             m_isOpen = false;
-            addressesData.getTotalDoubleProperty().removeListener(totalListener);
+         
             addressesData.shutdown();
             walletStage.close();
 

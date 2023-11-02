@@ -437,6 +437,10 @@ public class AddressData extends Network {
         return m_address.getNetworkType();
     }
 
+    public SimpleObjectProperty<ErgoAmount> ergoAmountProperty(){
+        return m_ergoAmountProperty;
+    }
+
     public long getConfirmedNanoErgs() {
         ErgoAmount ergoAmount = m_ergoAmountProperty.get();
         return ergoAmount == null ? 0 : ergoAmount.getLongAmount();

@@ -34,6 +34,7 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 
 import javafx.concurrent.WorkerStateEvent;
@@ -76,8 +77,8 @@ public class AddressesData {
     private Stage m_walletStage;
 
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
-    private SimpleDoubleProperty m_totalQuote = new SimpleDoubleProperty(0);
 
+    private SimpleObjectProperty<ErgoAmount> m_totalErgoAmount = new SimpleObjectProperty<>(null);
 
     private ScheduledFuture<?> m_lastExecution = null;
     private SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
@@ -92,6 +93,7 @@ public class AddressesData {
     private SimpleObjectProperty<ErgoExplorerData> m_selectedExplorerData = new SimpleObjectProperty<ErgoExplorerData>(null);
     private SimpleBooleanProperty m_isErgoTokens = new SimpleBooleanProperty();
 
+    private Stage m_promptStage = null;
 
     public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType, Stage walletStage) {
      
@@ -105,8 +107,8 @@ public class AddressesData {
         ErgoMarkets ergoMarkets = (ErgoMarkets) ergNetData.getNetwork(ErgoMarkets.NETWORK_ID);
         ErgoNodes ergoNodes = (ErgoNodes) ergNetData.getNetwork(ErgoNodes.NETWORK_ID);
         ErgoExplorers ergoExplorer = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
+        ErgoTokens ergoTokens = (ErgoTokens) ergNetData.getNetwork(ErgoTokens.NETWORK_ID);
         
-
         if(ergoMarkets != null){
             String marketId = walletData.getMarketsId();
             ErgoMarketsData mData = ergoMarkets.getErgoMarketsList().getMarketsData( marketId);
@@ -123,8 +125,7 @@ public class AddressesData {
             m_selectedExplorerData.set(explorerData);
         }
         
-        m_isErgoTokens.set(walletData.isErgoTokens());
-
+        m_isErgoTokens.set(ergoTokens == null ? false : walletData.isErgoTokens());
 
         m_wallet.myAddresses.forEach((index, name) -> {
 
@@ -132,29 +133,18 @@ public class AddressesData {
 
                 Address address = wallet.publicAddress(m_networkType, index);
                 AddressData addressData = new AddressData(name, index, address, m_networkType, this);
+                addAddressData(addressData);
 
-                m_addressDataList.add(addressData);
-          
-                addressData.addCmdListener((obs, oldVal, newVal) -> {
-                    if (newVal != null && newVal.get("subject") != null) {
-                        String subject = newVal.get("subject").getAsString();
-                        switch (subject) {
-                            case "SEND":
-
-                                m_selectedAddressData.set(addressData);
-                                m_walletStage.setScene(getSendScene(m_walletStage.getScene(), m_walletStage));
-                                m_walletStage.show();
-                                closeAll();
-                                break;
-                        }
-                    }
-                });
             } catch (Failure e) {
-
+                try {
+                    Files.writeString(logFile.toPath(), "\nAddressesData - address failure: " + e.toString(),StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+      
+                }
             }
 
         });
-
+        calculateCurrentTotal();
         m_addressBox = new VBox();
 
         
@@ -216,10 +206,8 @@ public class AddressesData {
         return m_selectedAddressData;
     }
 
-    public SimpleDoubleProperty getTotalDoubleProperty() {
-        return m_totalQuote;
-    }
-    private Stage m_promptStage = null;
+
+    
     public void addAddress() {
         TextField textField = new TextField();
         Button closeBtn = new Button();
@@ -242,30 +230,52 @@ public class AddressesData {
                     if (!addressName.equals("")) {
                         int nextAddressIndex = m_wallet.nextAddressIndex();
                         m_wallet.myAddresses.put(nextAddressIndex, addressName);
-                        AddressData addressData = null;
+                        
                         try {
 
                             Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
-                            addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
-
+                            AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
+                            addAddressData(addressData);
+                             updateAddressBox();
                         } catch (Failure e1) {
 
                             Alert a = new Alert(AlertType.ERROR, e1.toString(), ButtonType.OK);
                             a.showAndWait();
                         }
-                        if (addressData != null) {
-                            m_addressDataList.add(addressData);
-                            addressData.getLastUpdated().addListener((a, b, c) -> {
-
-                                m_totalQuote.set(calculateCurrentTotal());
-                            });
-                            updateAddressBox();
-                        }
+                  
                     }
                     closeBtn.fire();
                 }
             });
         }
+
+    }
+
+    private void addAddressData(AddressData addressData){
+        m_addressDataList.add(addressData);
+        addressData.ergoAmountProperty().addListener((obs, oldval, newval) ->{
+            long oldNanoErgs = oldval == null ? 0 : oldval.getLongAmount();
+            
+            long newNanoErgs = newval == null ? 0 : newval.getLongAmount();
+
+            if(oldNanoErgs != newNanoErgs){
+                calculateCurrentTotal();
+            }
+        });
+        addressData.addCmdListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal.get("subject") != null) {
+                String subject = newVal.get("subject").getAsString();
+                switch (subject) {
+                    case "SEND":
+
+                        m_selectedAddressData.set(addressData);
+                        m_walletStage.setScene(getSendScene(m_walletStage.getScene(), m_walletStage));
+                        m_walletStage.show();
+                        closeAll();
+                        break;
+                }
+            }
+        });
 
     }
 
@@ -365,15 +375,21 @@ public class AddressesData {
     }
 
     
-    public double calculateCurrentTotal() {
-        double total = 0;
+    public void calculateCurrentTotal() {
+        SimpleLongProperty totalNanoErgs = new SimpleLongProperty();
         for (int i = 0; i < m_addressDataList.size(); i++) {
             AddressData addressData = m_addressDataList.get(i);
-            total += addressData.getTotalAmountPrice();
-
+            ErgoAmount ergoAmount = addressData.ergoAmountProperty().get();
+            
+            totalNanoErgs.set( totalNanoErgs.get() + (ergoAmount == null ? 0 : ergoAmount.getLongAmount()));
+            
         }
 
-        return total;
+        m_totalErgoAmount.set(new ErgoAmount(totalNanoErgs.get()));
+    }
+
+    public SimpleObjectProperty<ErgoAmount> totalErgoAmountProperty(){
+        return m_totalErgoAmount;
     }
 
     public Scene getSendScene(Scene parentScene, Stage parentStage) {

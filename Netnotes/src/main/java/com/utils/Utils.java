@@ -397,6 +397,23 @@ public class Utils {
         }
         return new PriceAmount(0, priceCurrency);
     }
+    
+    public static String currencySymbol(String currency){
+         switch (currency) {
+            case "ERG":
+                return "Σ";
+            case "USD":
+                return "$";
+            case "USDT":
+                return "$";
+            case "EUR":
+                return "€‎";
+             
+            case "BTC":
+                return "฿";
+        }
+        return currency;
+    }
 
     public static String formatCryptoString(double price, String target, boolean valid) {
         String formatedDecimals = String.format("%.2f", price);
@@ -407,16 +424,16 @@ public class Utils {
                 priceTotal = (valid ? String.format("%.3f", price) : "-.--") + " ERG";
                 break;
             case "USD":
-                priceTotal = "$ " + priceTotal;
+                priceTotal = "$" + priceTotal;
                 break;
             case "USDT":
                 priceTotal = priceTotal + " USDT";
                 break;
             case "EUR":
-                priceTotal = "€‎ " + priceTotal;
+                priceTotal = "€‎" + priceTotal;
                 break;
             case "BTC":
-                priceTotal = (valid ? String.format("%.8f", price) : "-.--") + " BTC";
+                priceTotal ="฿" + (valid ? String.format("%.8f", price) : "-.--");
                 break;
         }
 
