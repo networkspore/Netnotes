@@ -32,13 +32,14 @@ public class PriceAmount {
     }
 
     public void setDoubleAmount(double amount) {
-        double precision = 10 ^ m_currency.getFractionalPrecision();
+        double precision = Math.pow(10, m_currency.getFractionalPrecision());
         m_amount = (long) (precision * amount);
     }
 
     public double getDoubleAmount() {
-        double precision = 10 ^ m_currency.getFractionalPrecision();
-        return ((double) m_amount) / precision;
+        double precision = Math.pow(10, m_currency.getFractionalPrecision());
+        
+        return (double) m_amount * ((long) 1 / precision);
     }
 
     public PriceCurrency getCurrency() {
@@ -54,7 +55,7 @@ public class PriceAmount {
         int precision = m_currency.getFractionalPrecision();
         DecimalFormat df = new DecimalFormat("0");
         df.setMaximumFractionDigits(precision);
-
+       
         return df.format(getDoubleAmount()) + " " + m_currency;
     }
 

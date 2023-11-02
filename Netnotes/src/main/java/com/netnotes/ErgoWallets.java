@@ -42,7 +42,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 
-public class ErgoWallet extends Network implements NoteInterface {
+public class ErgoWallets extends Network implements NoteInterface {
 
     public final static String DESCRIPTION = "Ergo Wallet allows you to create and manage wallets on the Ergo Blockchain.";
     public final static String SUMMARY = "Access can be controlled with the Ergo Wallet, in order to keep the wallet isolated, or access can be given to the Ergo Network in order to make transactions, or the Ergo Explorer to get your ERG ballance and to the KuCoin Exchange to get your ERG value real time.";
@@ -67,7 +67,7 @@ public class ErgoWallet extends Network implements NoteInterface {
     private ErgoNetworkData m_ergNetData;
     private ErgoNetwork m_ergoNetwork;
 
-    public ErgoWallet(ErgoNetworkData ergNetData, ErgoNetwork ergoNetwork) {
+    public ErgoWallets(ErgoNetworkData ergNetData, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         m_ergoNetwork = ergoNetwork;
         setupWallet();
@@ -76,7 +76,7 @@ public class ErgoWallet extends Network implements NoteInterface {
         m_ergNetData = ergNetData;
     }
 
-    public ErgoWallet(ErgoNetworkData ergNetData, JsonObject jsonObject, ErgoNetwork ergoNetwork) {
+    public ErgoWallets(ErgoNetworkData ergNetData, JsonObject jsonObject, ErgoNetwork ergoNetwork) {
 
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         m_ergoNetwork = ergoNetwork;
@@ -168,7 +168,7 @@ public class ErgoWallet extends Network implements NoteInterface {
     public void showWalletsStage() {
         if (m_walletsStage == null) {
 
-            WalletsDataList walletsDataList = new WalletsDataList(getStageWidth() - 30, getStageIconStyle(), m_dataFile, m_walletsDir, this);
+            ErgoWalletDataList walletsDataList = new ErgoWalletDataList(getStageWidth() - 30, getStageIconStyle(), m_dataFile, m_walletsDir, this);
 
             String title = "Wallets" + " - " + getName();
 
@@ -201,7 +201,7 @@ public class ErgoWallet extends Network implements NoteInterface {
             gridTypeToolTip.setShowDelay(new Duration(50));
             gridTypeToolTip.setHideDelay(new Duration(200));
 
-            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 25);
+            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 15);
             toggleGridTypeButton.setTooltip(gridTypeToolTip);
             toggleGridTypeButton.setPadding(new Insets(0, 0, 0, 0));
 
@@ -368,7 +368,7 @@ public class ErgoWallet extends Network implements NoteInterface {
 
     public void setupWallet() {
 
-        m_appDir = m_appDir == null ? new File(m_ergoNetwork.getErgoNetworkDir().getAbsolutePath() + "/" + NAME) : m_appDir;
+        m_appDir = m_appDir == null ? new File(m_ergoNetwork.getAppDir().getAbsolutePath() + "/" + NAME) : m_appDir;
 
         m_walletsDir = m_walletsDir == null ? new File(m_appDir.getAbsolutePath() + "/wallets") : m_walletsDir;
         m_dataFile = new File(m_appDir.getAbsolutePath() + "/ergoWallets.dat");

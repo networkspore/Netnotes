@@ -360,7 +360,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             refreshButton.setId("menuBtn");
             EventHandler<ActionEvent> refreshAction = e -> {
                 refreshButton.setDisable(true);
-                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-active-30.png"), 30));
+                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/stop-30.png"), 30));
                 kucoinData.updateTickers();
             };
             refreshButton.setOnAction(refreshAction);

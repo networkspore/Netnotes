@@ -1,11 +1,16 @@
 package com.netnotes;
 
 import java.io.File;
-
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.SecretKey;
 
@@ -27,6 +32,7 @@ import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 
@@ -62,38 +68,63 @@ import javafx.stage.Stage;
 
 public class AddressesData {
 
-    private File logFile;
+    private File logFile = new File("netnotes-log.txt");
     private NetworkType m_networkType;
     private VBox m_addressBox;
     private Wallet m_wallet;
-    private WalletData m_walletData;
+    private ErgoWalletData m_walletData;
     private Stage m_walletStage;
 
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
     private SimpleDoubleProperty m_totalQuote = new SimpleDoubleProperty(0);
 
+
+    private ScheduledFuture<?> m_lastExecution = null;
+    private SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
+
     private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
-    private BufferedMenuButton m_marketOptionsBtn;
-    private BufferedMenuButton m_nodeOptionsButton;
-    private ErgoMarketsList m_ergoMarketsList = null;
 
     private ScheduledExecutorService m_balanceExecutor = null;
 
-    private SimpleObjectProperty<MarketsData> m_selectedMarketData = new SimpleObjectProperty<MarketsData>(null);
-    private SimpleObjectProperty<ExplorerData> m_selectedExplorerData = new SimpleObjectProperty<ExplorerData>(null);
+    private SimpleObjectProperty<ErgoMarketsData> m_selectedMarketData = new SimpleObjectProperty<ErgoMarketsData>(null);
     private SimpleObjectProperty<ErgoNodeData> m_selectedNodeData = new SimpleObjectProperty<ErgoNodeData>(null);
+    private SimpleObjectProperty<ErgoExplorerData> m_selectedExplorerData = new SimpleObjectProperty<ErgoExplorerData>(null);
+    private SimpleBooleanProperty m_isErgoTokens = new SimpleBooleanProperty();
 
-    public AddressesData(String id, Wallet wallet, WalletData walletData, ExplorerData explorerData, NetworkType networkType, Stage walletStage) {
-        logFile = new File("addressesData-" + walletData.getNetworkId() + ".txt");
+
+    public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType, Stage walletStage) {
+     
         m_wallet = wallet;
         m_walletData = walletData;
         m_networkType = networkType;
         m_walletStage = walletStage;
 
-        updateExplorerData(explorerData);
-        setupNodes();
-        setupMarkets();
+        ErgoNetworkData ergNetData = walletData.getErgoWallets().getErgoNetworkData();
+
+        ErgoMarkets ergoMarkets = (ErgoMarkets) ergNetData.getNetwork(ErgoMarkets.NETWORK_ID);
+        ErgoNodes ergoNodes = (ErgoNodes) ergNetData.getNetwork(ErgoNodes.NETWORK_ID);
+        ErgoExplorers ergoExplorer = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
+        
+
+        if(ergoMarkets != null){
+            String marketId = walletData.getMarketsId();
+            ErgoMarketsData mData = ergoMarkets.getErgoMarketsList().getMarketsData( marketId);
+    
+            m_selectedMarketData.set(mData);
+        }
+        if(ergoNodes != null){
+            m_selectedNodeData.set(ergoNodes.getErgoNodesList().getErgoNodeData(walletData.getNodesId()));
+        }
+        if(ergoExplorer != null){
+            String explorerId = walletData.getExplorerId();
+            ErgoExplorerData explorerData = ergoExplorer.getErgoExplorersList().getErgoExplorerData(explorerId);
+      
+            m_selectedExplorerData.set(explorerData);
+        }
+        
+        m_isErgoTokens.set(walletData.isErgoTokens());
+
 
         m_wallet.myAddresses.forEach((index, name) -> {
 
@@ -103,11 +134,7 @@ public class AddressesData {
                 AddressData addressData = new AddressData(name, index, address, m_networkType, this);
 
                 m_addressDataList.add(addressData);
-                addressData.addUpdateListener((a, b, c) -> {
-                    double total = calculateCurrentTotal();
-
-                    m_totalQuote.set(total);
-                });
+          
                 addressData.addCmdListener((obs, oldVal, newVal) -> {
                     if (newVal != null && newVal.get("subject") != null) {
                         String subject = newVal.get("subject").getAsString();
@@ -130,53 +157,53 @@ public class AddressesData {
 
         m_addressBox = new VBox();
 
-        //"▼" m_marketOptionsBtn.setFont(Font.font("Arial", 12));
-        m_marketOptionsBtn.setGraphic(IconButton.getIconView(new Image("/assets/caret-down-15.png"), 10));
+        
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                    public Thread newThread(Runnable r) {
+                        Thread t = Executors.defaultThreadFactory().newThread(r);
+                        t.setDaemon(true);
+                        return t;
+                    }
+            });
+
+        Runnable doUpdate = ()->{
+            Platform.runLater(()->updateTimeCycle());
+        };
+        m_lastExecution = executor.schedule(doUpdate, walletData.getCyclePeriod(), walletData.getCycleTimeUnit());
+    
+       
         updateAddressBox();
     }
 
-    public WalletData getWalletData() {
+    public ErgoWalletData getWalletData() {
         return m_walletData;
     }
 
-    public SimpleObjectProperty<ExplorerData> selectedExplorerDataProperty() {
-        return m_selectedExplorerData;
+    public void updateTimeCycle(){
+        m_timeCycle.set(LocalDateTime.now());
     }
 
-    public SimpleObjectProperty<ErgoNodeData> selectedNodeDataProperty() {
+    public SimpleObjectProperty<LocalDateTime> timeCycleProperty(){
+        return m_timeCycle;
+    }
+
+    public SimpleObjectProperty<ErgoNodeData> selectedNodeData() {
         return m_selectedNodeData;
     }
 
-    public SimpleObjectProperty<MarketsData> selectedMarketData() {
+    public SimpleObjectProperty<ErgoMarketsData> selectedMarketData() {
         return m_selectedMarketData;
     }
 
-    private void setupNodes() {
-        m_nodeOptionsButton = new BufferedMenuButton();
-        m_nodeOptionsButton.setGraphic(IconButton.getIconView(new Image("/assets/caret-down-15.png"), 10));
+    public SimpleObjectProperty<ErgoExplorerData> selectedExplorerData(){
+        return m_selectedExplorerData;
     }
 
-    private void setupMarkets() {
-        m_marketOptionsBtn = new BufferedMenuButton();
-        updateMarketsList();
-        String selectedMarketsDataId = m_walletData.getSelectedMarketId();
-        if (selectedMarketsDataId != null && m_ergoMarketsList != null) {
-            MarketsData selectedMarketsData = m_ergoMarketsList.getMarketsData(selectedMarketsDataId);
-            if (selectedMarketsData != null) {
-                m_selectedMarketData.set(selectedMarketsData);
-                selectedMarketsData.start();
-            }
-        }
+    public SimpleBooleanProperty isErgoTokensProperty(){
+        return m_isErgoTokens;
     }
 
-    public void updateExplorerData(ExplorerData explorerData) {
-        m_selectedExplorerData.set(explorerData);
-        if (explorerData == null) {
-            stopBalanceUpdates();
-        } else {
-            startBalanceUpdates();
-        }
-    }
+
 
     public void closeAll() {
         for (int i = 0; i < m_addressDataList.size(); i++) {
@@ -267,31 +294,31 @@ public class AddressesData {
         }
     }
 
+    public final static long UPDATE_PERIOD = 7;
+
     public void startBalanceUpdates() {
-        ExplorerData explorerData = m_selectedExplorerData.get();
-        if (explorerData != null) {
-            try {
-                if (m_balanceExecutor != null) {
-                    stopBalanceUpdates();
-                }
-
-                m_balanceExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
-                    public Thread newThread(Runnable r) {
-                        Thread t = Executors.defaultThreadFactory().newThread(r);
-                        t.setDaemon(true);
-                        return t;
-                    }
-                });
-
-                m_balanceExecutor.scheduleAtFixedRate(() -> Platform.runLater(() -> updateBalance()), 0, explorerData.getPeriod(), explorerData.getTimeUnit());
-            } catch (Exception e) {
-                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                a.show();
+       
+        try {
+            if (m_balanceExecutor != null) {
+                stopBalanceUpdates();
             }
-        } else {
-            m_balanceExecutor.shutdown();
-        }
 
+            m_balanceExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                public Thread newThread(Runnable r) {
+                    Thread t = Executors.defaultThreadFactory().newThread(r);
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+
+            m_balanceExecutor.scheduleAtFixedRate(() -> {
+                Platform.runLater(() -> updateBalance());
+            }, 0, UPDATE_PERIOD, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
+            a.show();
+        }
+   
     }
 
     public void stopBalanceUpdates() {
@@ -305,36 +332,12 @@ public class AddressesData {
         stopBalanceUpdates();
     }
 
-    public void updateMarketsList() {
-        NoteInterface noteInterface = m_walletData.getMarketInterface();
+   
 
-        if (noteInterface != null && noteInterface instanceof ErgoMarkets) {
-            ErgoMarkets ergoMarkets = (ErgoMarkets) noteInterface;
-            SecretKey secretKey = m_walletData.getNetworksData().getAppData().appKeyProperty().get();
-            if (m_ergoMarketsList != null) {
-                m_ergoMarketsList.shutdown();
-            }
-            m_ergoMarketsList = new ErgoMarketsList(secretKey, ergoMarkets);
-            updateMarketOptions();
-        } else {
-            if (m_ergoMarketsList != null) {
-                m_ergoMarketsList.shutdown();
-                m_ergoMarketsList = null;
-            }
-            updateMarketOptions();
-        }
-    }
 
-    public BufferedMenuButton getMarketOptionsButton() {
-        return m_marketOptionsBtn;
-    }
 
-    public MenuButton getNodeOptionsButton() {
-        return m_nodeOptionsButton;
-    }
-
-    public boolean updateSelectedMarket(MarketsData marketsData) {
-        MarketsData previousSelectedMarketsData = m_selectedMarketData.get();
+    public boolean updateSelectedMarket(ErgoMarketsData marketsData) {
+        ErgoMarketsData previousSelectedMarketsData = m_selectedMarketData.get();
 
         if (marketsData == null && previousSelectedMarketsData == null) {
             return false;
@@ -361,44 +364,7 @@ public class AddressesData {
         // return false;
     }
 
-    private void updateMarketOptions() {
-        m_marketOptionsBtn.getItems().clear();
-        if (m_ergoMarketsList != null) {
-            ArrayList<MarketsData> dataList = m_ergoMarketsList.getMarketsDataList();
-            int size = dataList.size();
-
-            if (size > 0) {
-                String selectedId = m_walletData.getSelectedMarketId();
-                for (int i = 0; i < size; i++) {
-
-                    MarketsData marketsData = dataList.get(i);
-
-                    String id = marketsData.getId();
-                    String type = marketsData.getUpdateType();
-                    String value = marketsData.getUpdateValue();
-                    String marketId = marketsData.getMarketId();
-
-                    MenuItem menuItem = new MenuItem((selectedId != null && selectedId.equals(id) ? "\u25CF " : "") + (type.equals(MarketsData.REALTIME) ? "Real-time: " : "") + value + (type.equals(MarketsData.POLLED) ? "s" : ""));
-                    menuItem.setId("rowBtn");
-                    menuItem.setGraphic(IconButton.getIconView(new InstallableIcon(m_walletData.getNetworksData(), marketId, true).getIcon(), 30));
-                    menuItem.setOnAction(e -> {
-                        if (updateSelectedMarket(marketsData)) {
-                            updateMarketOptions();
-                        }
-                    });
-
-                    m_marketOptionsBtn.getItems().add(menuItem);
-
-                }
-            }
-        } else {
-            MenuItem menuItem = new MenuItem("   (not installed)");
-            m_marketOptionsBtn.getItems().add(menuItem);
-
-        }
-
-    }
-
+    
     public double calculateCurrentTotal() {
         double total = 0;
         for (int i = 0; i < m_addressDataList.size(); i++) {
@@ -433,7 +399,7 @@ public class AddressesData {
 
         Button maximizeBtn = new Button();
 
-        HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), stageName, maximizeBtn, closeBtn, parentStage);
+        HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), stageName, maximizeBtn, closeBtn, parentStage);
 
         Tooltip backTip = new Tooltip("Back");
         backTip.setShowDelay(new javafx.util.Duration(100));
@@ -449,23 +415,23 @@ public class AddressesData {
             // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
         });
 
-        Tooltip nodeTip = new Tooltip(selectedNodeDataProperty().get() == null ? "Node unavailable" : selectedNodeDataProperty().get().getName());
+        Tooltip nodeTip = new Tooltip(selectedNodeData().get() == null ? "Node unavailable" : selectedNodeData().get().getName());
         nodeTip.setShowDelay(new javafx.util.Duration(100));
         nodeTip.setFont(App.txtFont);
 
         MenuButton nodeMenuBtn = new MenuButton();
-        nodeMenuBtn.setGraphic(selectedNodeDataProperty().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), 30) : IconButton.getIconView(selectedNodeDataProperty().get().getIcon(), 30));
+        nodeMenuBtn.setGraphic(selectedNodeData().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), 30) : IconButton.getIconView(selectedNodeData().get().getIcon(), 30));
         nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
         nodeMenuBtn.setTooltip(nodeTip);
 
-        NoteInterface explorerInterface = m_selectedExplorerData.get() != null ? m_selectedExplorerData.get().getExplorerInterface() : null;
+        
 
-        Tooltip explorerTip = new Tooltip(explorerInterface == null ? "Explorer unavailable" : explorerInterface.getName());
+        Tooltip explorerTip = new Tooltip("");
         explorerTip.setShowDelay(new javafx.util.Duration(100));
         explorerTip.setFont(App.txtFont);
 
         MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setGraphic(explorerInterface == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), 30));
+        explorerBtn.setGraphic(m_walletData.getExplorerId() != null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 15) : IconButton.getIconView(new Image("/assets/ergo-explorer-30.png"), 15));
         explorerBtn.setPadding(new Insets(2, 0, 0, 0));
         explorerBtn.setTooltip(explorerTip);
 
@@ -479,9 +445,9 @@ public class AddressesData {
 
         Runnable setMarketTipText = () -> {
             //
-            MarketsData marketsData = selectedMarketData().get();
+            ErgoMarketsData marketsData = selectedMarketData().get();
             if (marketsData != null) {
-                marketsTip.setText(MarketsData.getFriendlyUpdateTypeName(marketsData.getUpdateType()) + ": " + marketsData.getUpdateValue());
+                marketsTip.setText(ErgoMarketsData.getFriendlyUpdateTypeName(marketsData.getUpdateType()) + ": " + marketsData.getUpdateValue());
                 marketsBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), 30));
             } else {
                 marketsTip.setText("Markets unavailable");

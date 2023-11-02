@@ -61,7 +61,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-        m_appDir = new File(ergoNetwork.getErgoNetworkDir() + "/" + NAME);
+        m_appDir = new File(ergoNetwork.getAppDir() + "/" + NAME);
         m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
 
         setStageWidth(750);
@@ -82,7 +82,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
     public ErgoNodes(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-        m_appDir = new File(ergoNetwork.getErgoNetworkDir() + "/" + NAME);
+        m_appDir = new File(ergoNetwork.getAppDir() + "/" + NAME);
         m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
         
         openJson(jsonObject);

@@ -47,6 +47,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -402,14 +404,19 @@ public class NetworksData implements InstallerInterface {
     public void showManageNetworkStage() {
 
         if (m_addNetworkStage == null) {
-            updateInstallables();
+            
             m_installedVBox = new VBox();
             m_installedVBox.prefWidth(m_leftColumnWidth);
+            m_installedVBox.setId("bodyBox");
+            VBox.setVgrow(m_installedVBox, Priority.ALWAYS);
+
             m_notInstalledVBox = new VBox();
+            m_notInstalledVBox.setId("bodyRight");
             VBox.setVgrow(m_notInstalledVBox, Priority.ALWAYS);
             HBox.setHgrow(m_notInstalledVBox, Priority.ALWAYS);
+            updateInstallables();
 
-            String topTitle = "NetNotes: Select networks";
+            String topTitle = "Manage - Netnotes: Networks";
             m_addNetworkStage = new Stage();
             m_addNetworkStage.setTitle(topTitle);
             m_addNetworkStage.getIcons().add(App.logo);
@@ -423,19 +430,27 @@ public class NetworksData implements InstallerInterface {
 
             HBox titleBox = App.createTopBar(App.icon, topTitle, closeBtn, m_addNetworkStage);
 
-            Region menuSpacer = new Region();
-            HBox.setHgrow(menuSpacer, Priority.ALWAYS);
+       
+            Text headingText = new Text("Manage");
+            headingText.setFont(App.txtFont);
+            headingText.setFill(Color.WHITE);
 
-            BufferedButton checkBtn = new BufferedButton("/assets/checkmark-25.png", 15);
+            HBox headingBox = new HBox(headingText);
+            headingBox.prefHeight(35);
+            headingBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(headingBox, Priority.ALWAYS);
+            headingBox.setPadding(new Insets(10, 10, 10, 10));
+            headingBox.setId("headingBox");
 
-            HBox menuBar = new HBox(menuSpacer, checkBtn);
-            HBox.setHgrow(menuBar, Priority.ALWAYS);
-            menuBar.setAlignment(Pos.CENTER_LEFT);
-            menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 0));
+            HBox headingPaddingBox = new HBox(headingBox);
 
-            VBox headerBox = new VBox(menuBar);
-            headerBox.setId("bodyBox");
+            headingPaddingBox.setPadding(new Insets(5, 0, 2, 0));
+
+            VBox headerBox = new VBox(headingPaddingBox);
+
+            headerBox.setPadding(new Insets(0, 5, 0, 5));
+
+
 
             Button installBtn = new Button("Install");
             installBtn.setFont(App.txtFont);
@@ -454,11 +469,12 @@ public class NetworksData implements InstallerInterface {
 
             Region vSpacerOne = new Region();
             VBox.setVgrow(vSpacerOne, Priority.ALWAYS);
-            HBox.setHgrow(m_installedVBox, Priority.ALWAYS);
+          
 
-            VBox installedVBox = new VBox(m_installedVBox, vSpacerOne);
+           /* VBox installedVBox = new VBox(m_installedVBox, vSpacerOne);
             installedVBox.setId("bodyBox");
             VBox.setVgrow(installedVBox, Priority.ALWAYS);
+            HBox.setHgrow(installedVBox,Priority.ALWAYS);*/
 
             Region leftSpacer = new Region();
             HBox.setHgrow(leftSpacer, Priority.ALWAYS);
@@ -470,41 +486,73 @@ public class NetworksData implements InstallerInterface {
             installAllSpacer.setMinWidth(5);
 
             HBox addBox = new HBox(leftSpacer, installBtn, installAllSpacer, installAllBtn);
-            addBox.setPadding(new Insets(15));
+            addBox.setPadding(new Insets(15,2, 15,15));
             HBox.setHgrow(m_notInstalledVBox, Priority.ALWAYS);
+        
+         
+            
 
-            VBox notInstalledVBox = new VBox(m_notInstalledVBox, topSpacer);
-           
-
-            VBox.setVgrow(notInstalledVBox, Priority.ALWAYS);
-            HBox.setHgrow(notInstalledVBox, Priority.ALWAYS);
-
-            VBox.setVgrow(m_installedVBox, Priority.ALWAYS);
 
             HBox rmvBtnBox = new HBox(removeBtn, removeAllBtn);
-    
+           
 
-            VBox leftSide = new VBox(installedVBox, rmvBtnBox);
-            leftSide.setPadding(new Insets(5));
+            VBox leftSide = new VBox(m_installedVBox, rmvBtnBox);
+            leftSide.setPadding(new Insets(5,5,5,5));
             leftSide.prefWidth(m_leftColumnWidth);
             VBox.setVgrow(leftSide, Priority.ALWAYS);
 
 
-           VBox rightSide = new VBox(notInstalledVBox, addBox);
+           VBox rightSide = new VBox(m_notInstalledVBox, addBox);
             HBox.setHgrow(rightSide, Priority.ALWAYS);
+           // rightSide.setId("bodyRight");
+            rightSide.setPadding(new Insets(5,5,0,5));
+
+          /*   VBox rightSidePaddingBox = new VBox(rightSide);
+            rightSidePaddingBox.setPadding(new Insets(0, 2, 0, 5));
+            HBox.setHgrow(rightSidePaddingBox, Priority.ALWAYS);*/
 
             HBox columnsHBox = new HBox(leftSide, rightSide);
             VBox.setVgrow(columnsHBox, Priority.ALWAYS);
             columnsHBox.setId("bodyBox");
             columnsHBox.setPadding(new Insets(10, 10, 10, 10));
 
-            VBox bodyBox = new VBox(headerBox, columnsHBox);
+            //rightSidePaddingBox.prefHeightProperty().bind(columnsHBox.heightProperty().subtract(addBox.heightProperty()).subtract(10));
+
+            VBox bodyBox = new VBox(columnsHBox);
             bodyBox.setPadding(new Insets(0,2,2,2));
             VBox.setVgrow(bodyBox, Priority.ALWAYS);
-            
-            VBox layoutVBox = new VBox(titleBox, bodyBox);
 
-            Scene addNetworkScene = new Scene(layoutVBox, 700, 400);
+            Region menuSpacer = new Region();
+            HBox.setHgrow(menuSpacer, Priority.ALWAYS);
+
+             Button okBtn = new Button("Ok");
+            okBtn.setPadding(new Insets(5,25, 5, 25));
+
+            HBox footerBar = new HBox(menuSpacer, okBtn);
+            footerBar.setAlignment(Pos.CENTER_LEFT);
+            footerBar.setPadding(new Insets(1, 0, 1, 0));
+            HBox.setHgrow(footerBar, Priority.ALWAYS);
+
+            VBox footerBox = new VBox(footerBar);
+            footerBox.setPadding(new Insets(15));
+
+            VBox fullBodyBox = new VBox(columnsHBox, footerBox);
+            fullBodyBox.setPadding(new Insets(5));
+            fullBodyBox.setId("bodyBox");
+            HBox.setHgrow(fullBodyBox, Priority.ALWAYS);
+            VBox.setVgrow(fullBodyBox,Priority.ALWAYS);
+
+            VBox paddingBodyBox = new VBox(fullBodyBox);
+            paddingBodyBox.setPadding(new Insets(0, 2,2,2));
+            HBox.setHgrow(paddingBodyBox, Priority.ALWAYS);
+            VBox.setVgrow(paddingBodyBox,Priority.ALWAYS);
+
+            Region spacer = new Region();
+            spacer.setMinHeight(2);
+            
+            VBox layoutVBox = new VBox(titleBox, headerBox, paddingBodyBox, spacer);
+
+            Scene addNetworkScene = new Scene(layoutVBox, 600, 500);
             addNetworkScene.getStylesheets().add("/css/startWindow.css");
             m_addNetworkStage.setScene(addNetworkScene);
 
@@ -527,7 +575,7 @@ public class NetworksData implements InstallerInterface {
 
             });
 
-            checkBtn.setOnAction(e -> {
+            okBtn.setOnAction(e -> {
                 closeBtn.fire();
             });
 
@@ -612,8 +660,10 @@ public class NetworksData implements InstallerInterface {
             for (InstallableIcon installable : m_installables) {
 
                 if (installable.getInstalled()) {
-                    installable.setPrefWidth(m_leftColumnWidth);
+              
+                    installable.prefWidthProperty().bind(m_installedVBox.widthProperty());
                     m_installedVBox.getChildren().add(installable);
+
 
                 } else {
 

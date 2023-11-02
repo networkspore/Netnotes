@@ -272,7 +272,7 @@ public class Setup extends Application {
 
         VBox layoutVBox = new VBox(newTopBar, bodyVBox);
 
-        Scene statusScene = new Scene(layoutVBox, 700, 215);
+        Scene statusScene = new Scene(layoutVBox, 400, 215);
         statusScene.getStylesheets().add("/css/startWindow.css");
 
         statusStage.setScene(statusScene);
@@ -1108,6 +1108,7 @@ public class Setup extends Application {
             }
 
         });
+        appStage.setX(appStage.getX() - (appStage.getWidth()-400)/2);
 
         appStage.show();
     }

@@ -63,21 +63,21 @@ public class ErgoNodeData {
     private Font m_font = Font.font("OCR A Extended", FontWeight.BOLD, 13);
     private Font m_smallFont = Font.font("OCR A Extended", FontWeight.NORMAL, 10);
 
-    private Color m_secondaryColor = new Color(.4, .4, .4, .9); //base
-    private Color m_primaryColor = new Color(.7, .7, .7, .9); //quote
+    private Color m_secondaryColor = new Color(.4, .4, .4, .9);
+    private Color m_primaryColor = new Color(.7, .7, .7, .9); 
 
-    private String m_startImgUrl = "/assets/play-30.png";
+    private String m_startImgUrl = "/assets/refresh-white-30.png";
     private String m_stopImgUrl = "/assets/stop-30.png";
 
     public final SimpleBooleanProperty isSetupProperty = new SimpleBooleanProperty(false);
-    public final SimpleStringProperty statusProperty = new SimpleStringProperty(MarketsData.STOPPED);
+    public final SimpleStringProperty statusProperty = new SimpleStringProperty(ErgoMarketsData.STOPPED);
     public final SimpleStringProperty statusString = new SimpleStringProperty("");
     public final SimpleObjectProperty<LocalDateTime> shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
     public final SimpleStringProperty cmdProperty = new SimpleStringProperty("");
     public final SimpleStringProperty cmdStatusUpdated = new SimpleStringProperty(String.format("%29s", Utils.formatDateTimeString(LocalDateTime.now())));
     public final SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
 
-    private ChangeListener<LocalDateTime> updateListener = null;
+    private ChangeListener<LocalDateTime> m_updateListener = null;
 
     //  public SimpleStringProperty nodeApiAddress;
     private ErgoNodesList m_ergoNodesList;
@@ -222,6 +222,7 @@ public class ErgoNodeData {
         botTimeText.setFont(m_smallFont);
         botTimeText.setFill(m_secondaryColor);
         botTimeText.textProperty().bind(cmdStatusUpdated);
+        
         TextField centerField = new TextField(centerString);
         centerField.setFont(m_largeFont);
         centerField.setId("formField");
@@ -246,14 +247,14 @@ public class ErgoNodeData {
 
         VBox.setVgrow(centerRightBox, Priority.ALWAYS);
 
-        Tooltip statusBtnTip = new Tooltip(statusProperty.get().equals(MarketsData.STOPPED) ? "Ping" : "Stop");
+        Tooltip statusBtnTip = new Tooltip(statusProperty.get().equals(ErgoMarketsData.STOPPED) ? "Ping" : "Stop");
         statusBtnTip.setShowDelay(new Duration(100));
-        BufferedButton statusBtn = new BufferedButton(statusProperty.get().equals(MarketsData.STOPPED) ? m_startImgUrl : m_stopImgUrl, 15);
+        BufferedButton statusBtn = new BufferedButton(statusProperty.get().equals(ErgoMarketsData.STOPPED) ? m_startImgUrl : m_stopImgUrl, 15);
         statusBtn.setId("statusBtn");
         statusBtn.setPadding(new Insets(0, 10, 0, 10));
         statusBtn.setTooltip(statusBtnTip);
         statusBtn.setOnAction(action -> {
-            if (statusProperty.get().equals(MarketsData.STOPPED)) {
+            if (statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
                 start();
             } else {
                 shutdownNow.set(LocalDateTime.now());
@@ -262,7 +263,7 @@ public class ErgoNodeData {
 
         statusProperty.addListener((obs, oldVal, newVal) -> {
             switch (statusProperty.get()) {
-                case MarketsData.STOPPED:
+                case ErgoMarketsData.STOPPED:
 
                     statusBtnTip.setText("Ping");
                     statusBtn.getBufferedImageView().setDefaultImage(new Image(m_startImgUrl), 15);
@@ -373,10 +374,10 @@ public class ErgoNodeData {
         NamedNodeUrl namedNodeUrl = namedNodeUrlProperty.get();
         if (namedNodeUrl != null && namedNodeUrl.getIP() != null) {
             Runnable r = () -> {
-                Platform.runLater(() -> statusProperty.set(MarketsData.STARTED));
+                Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STARTED));
                 statusString.set("Pinging...");
                 pingIP(namedNodeUrl.getIP());
-                Platform.runLater(() -> statusProperty.set(MarketsData.STOPPED));
+                Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STOPPED));
             };
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -386,18 +387,18 @@ public class ErgoNodeData {
     }
 
     public void addUpdateListener(ChangeListener<LocalDateTime> changeListener) {
-        updateListener = changeListener;
-        if (updateListener != null) {
-            lastUpdated.addListener(updateListener);
+        m_updateListener = changeListener;
+        if (m_updateListener != null) {
+            lastUpdated.addListener(m_updateListener);
 
         }
         // lastUpdated.addListener();
     }
 
     public void removeUpdateListener() {
-        if (updateListener != null) {
-            lastUpdated.removeListener(updateListener);
-            updateListener = null;
+        if (m_updateListener != null) {
+            lastUpdated.removeListener(m_updateListener);
+            m_updateListener = null;
         }
     }
 
@@ -497,10 +498,7 @@ public class ErgoNodeData {
     }
 
 
-    public MenuItem getMenuItem(){
-        NamedNodeUrl nodeUrl = namedNodeUrlProperty.get();
-        return new MenuItem(nodeUrl.getName());
-    }
+  
 
 
 }

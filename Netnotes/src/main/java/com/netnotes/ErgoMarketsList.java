@@ -30,6 +30,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -42,9 +43,9 @@ import javafx.stage.StageStyle;
 
 public class ErgoMarketsList {
 
-    private File logFile = new File("Netnotes-log.txt");
+    private File logFile = new File("netnotes-log.txt");
     private String m_id = FriendlyId.createFriendlyId();
-    private ArrayList<MarketsData> m_dataList = new ArrayList<>();
+    private ArrayList<ErgoMarketsData> m_dataList = new ArrayList<>();
     private ErgoMarkets m_ergoMarkets;
     private SimpleObjectProperty<LocalDateTime> m_doGridUpdate = new SimpleObjectProperty<LocalDateTime>(null);
 
@@ -54,16 +55,21 @@ public class ErgoMarketsList {
     private double m_stageWidth = 600;
     private double m_stageHeight = 500;
 
-    public ErgoMarketsList(SecretKey secretKey, ErgoMarkets ergoMarkets) {
+     public ErgoMarketsList(SecretKey secretKey, ErgoMarkets ergoMarkets) {
         m_ergoMarkets = ergoMarkets;
-
-        readFile(secretKey, m_ergoMarkets.getDataFile());
+        readFile(secretKey);
     }
 
-    public MarketsData getMarketsData(String id) {
+    public ErgoMarketsList(ErgoMarkets ergoMarkets) {
+        m_ergoMarkets = ergoMarkets;
+        SecretKey secretKey = m_ergoMarkets.getNetworksData().getAppData().appKeyProperty().get();
+        readFile(secretKey);
+    }
+
+    public ErgoMarketsData getMarketsData(String id) {
         if (id != null) {
             for (int i = 0; i < m_dataList.size(); i++) {
-                MarketsData marketsData = m_dataList.get(i);
+                ErgoMarketsData marketsData = m_dataList.get(i);
 
                 if (marketsData.getId().equals(id)) {
                     return marketsData;
@@ -82,7 +88,7 @@ public class ErgoMarketsList {
             int numCells = m_dataList.size();
 
             for (int i = 0; i < numCells; i++) {
-                MarketsData marketsData = m_dataList.get(i);
+                ErgoMarketsData marketsData = m_dataList.get(i);
                 HBox rowItem = marketsData.getRowItem();
                 rowItem.prefWidthProperty().bind(width.subtract(scrollWidth));
                 gridBox.getChildren().add(rowItem);
@@ -97,14 +103,15 @@ public class ErgoMarketsList {
         return gridBox;
     }
 
-    private void readFile(SecretKey secretKey, File file) {
-        JsonObject json = null;
+    private void readFile(SecretKey secretKey) {
 
+        
         File dataFile = m_ergoMarkets.getDataFile();
+
         if (dataFile != null && dataFile.isFile()) {
             try {
-                json = Utils.readJsonFile(secretKey, dataFile.toPath());
-                openJson(json);
+     
+                openJson(Utils.readJsonFile(secretKey, dataFile.toPath()));
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
                     | IOException e) {
@@ -114,7 +121,7 @@ public class ErgoMarketsList {
         }
     }
 
-    public ArrayList<MarketsData> getMarketsDataList() {
+    public ArrayList<ErgoMarketsData> getMarketsDataList() {
         return m_dataList;
     }
 
@@ -139,12 +146,13 @@ public class ErgoMarketsList {
         m_defaultId.set(defaultId);
 
         if (marketsElement != null && marketsElement.isJsonArray()) {
-            com.google.gson.JsonArray marketsArray = marketsElement.getAsJsonArray();
+            
+            JsonArray marketsArray = marketsElement.getAsJsonArray();
 
             for (int i = 0; i < marketsArray.size(); i++) {
                 JsonElement marketsDataItem = marketsArray.get(i);
 
-                m_dataList.add(new MarketsData(this, marketsDataItem.getAsJsonObject()));
+                m_dataList.add(new ErgoMarketsData(this, marketsDataItem.getAsJsonObject()));
             }
         }
 
@@ -160,7 +168,7 @@ public class ErgoMarketsList {
 
     }
 
-    public void add(MarketsData data) {
+    public void add(ErgoMarketsData data) {
         m_dataList.add(data);
     }
 
@@ -197,13 +205,28 @@ public class ErgoMarketsList {
             HBox headingPaddingBox = new HBox(headingBox);
             headingPaddingBox.setPadding(new Insets(5, 2, 2, 2));
 
+            Text nameText = new Text(String.format("%-15s", "Name"));
+            nameText.setFill(App.txtColor);
+            nameText.setFont(App.txtFont);
+
+            TextField nameField = new TextField("Market #" + friendlyId);
+            nameField.setFont(App.txtFont);
+            nameField.setId("formField");
+            HBox.setHgrow(nameField, Priority.ALWAYS);
+
+            
+            HBox nameBox = new HBox(nameText, nameField);
+            nameBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(nameBox, Priority.ALWAYS);
+
+
             Text marketText = new Text(String.format("%-15s", "Market"));
             marketText.setFill(App.txtColor);
             marketText.setFont(App.txtFont);
 
             SimpleStringProperty selectedMarketId = new SimpleStringProperty(KucoinExchange.NETWORK_ID);
-            SimpleStringProperty selectedMarketType = new SimpleStringProperty(MarketsData.REALTIME);
-            SimpleStringProperty selectedMarketValue = new SimpleStringProperty(MarketsData.TICKER);
+            SimpleStringProperty selectedMarketType = new SimpleStringProperty(ErgoMarketsData.REALTIME);
+            SimpleStringProperty selectedMarketValue = new SimpleStringProperty(ErgoMarketsData.TICKER);
 
             MenuButton marketsBtn = new MenuButton(KucoinExchange.NAME);
             marketsBtn.setFont(App.txtFont);
@@ -233,28 +256,28 @@ public class ErgoMarketsList {
             MenuItem updatesRealTimeItem = new MenuItem("Real-time: Ticker");
             updatesRealTimeItem.setOnAction(e -> {
                 typeBtn.setText("Real-time");
-                selectedMarketType.set(MarketsData.REALTIME);
-                selectedMarketValue.set(MarketsData.TICKER);
+                selectedMarketType.set(ErgoMarketsData.REALTIME);
+                selectedMarketValue.set(ErgoMarketsData.TICKER);
             });
 
             MenuItem updates5secItem = new MenuItem("5s");
             updates5secItem.setOnAction(e -> {
                 typeBtn.setText(updates5secItem.getText());
-                selectedMarketType.set(MarketsData.POLLED);
+                selectedMarketType.set(ErgoMarketsData.POLLED);
                 selectedMarketValue.set("5");
             });
 
             MenuItem updates15secItem = new MenuItem("15s");
             updates15secItem.setOnAction(e -> {
                 typeBtn.setText(updates15secItem.getText());
-                selectedMarketType.set(MarketsData.POLLED);
+                selectedMarketType.set(ErgoMarketsData.POLLED);
                 selectedMarketValue.set("15");
             });
 
             MenuItem updates30secItem = new MenuItem("30s");
             updates30secItem.setOnAction(e -> {
                 typeBtn.setText(updates30secItem.getText());
-                selectedMarketType.set(MarketsData.POLLED);
+                selectedMarketType.set(ErgoMarketsData.POLLED);
                 selectedMarketValue.set("30");
             });
 
@@ -275,7 +298,7 @@ public class ErgoMarketsList {
                 m_stage = null;
             });
 
-            VBox layoutBox = new VBox(titleBox, headingPaddingBox, marketBox, updatesBox);
+            VBox layoutBox = new VBox(titleBox, headingPaddingBox,nameBox, marketBox, updatesBox);
             Scene addScene = new Scene(layoutBox, m_stageWidth, m_stageHeight);
 
             m_stage.setScene(addScene);
@@ -289,7 +312,7 @@ public class ErgoMarketsList {
     public JsonArray getMarketsJsonArray() {
         JsonArray jsonArray = new JsonArray();
 
-        for (MarketsData mData : m_dataList) {
+        for (ErgoMarketsData mData : m_dataList) {
 
             JsonObject jsonObj = mData.getJsonObject();
             jsonArray.add(jsonObj);
@@ -306,7 +329,7 @@ public class ErgoMarketsList {
     }
 
     public void shutdown() {
-        for (MarketsData mData : m_dataList) {
+        for (ErgoMarketsData mData : m_dataList) {
             mData.shutdown();
         }
     }
@@ -340,4 +363,48 @@ public class ErgoMarketsList {
             }
         }
     }
+
+      public void getMenu(MenuButton menuBtn, SimpleObjectProperty<ErgoMarketsData> selectedMarketsData){
+
+        Runnable updateMenu = () -> {
+            ErgoMarketsData selectedMarketData = selectedMarketsData.get();
+
+            menuBtn.getItems().clear();
+            MenuItem noneMenuItem = new MenuItem("(disabled)");
+            if(selectedMarketData == null){
+                noneMenuItem.setId("selectedMenuItem");
+            }
+            noneMenuItem.setOnAction(e->{
+                selectedMarketsData.set(null);
+            });
+            menuBtn.getItems().add(noneMenuItem);
+     
+
+            int numCells = m_dataList.size();
+            
+            for (int i = 0; i < numCells; i++) {
+            
+                ErgoMarketsData marketsData = m_dataList.get(i);
+                MenuItem menuItem = new MenuItem(marketsData.getName() + (selectedMarketData != null && selectedMarketData.getId().equals(marketsData.getId()) ? " (selected)" : ""));
+                if(selectedMarketData != null && selectedMarketData.getId().equals(marketsData.getId())){
+                    menuItem.setId("selectedMenuItem");
+                }
+                menuItem.setOnAction(e->{
+                    selectedMarketsData.set(marketsData);
+                });
+
+                menuBtn.getItems().add(menuItem);
+            }
+
+
+        };
+
+        updateMenu.run();
+        selectedMarketsData.addListener((obs,oldval, newval)->updateMenu.run());
+
+        m_doGridUpdate.addListener((obs, oldval, newval) -> updateMenu.run());
+ 
+    }
+
+
 }

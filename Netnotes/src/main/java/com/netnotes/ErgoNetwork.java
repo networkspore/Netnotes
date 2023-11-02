@@ -44,7 +44,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public final static String NETWORK_ID = "ERGO_NETWORK";
     public final static PriceCurrency NATIVE_CURRENCY = new ErgoCurrency();
 
-    private File m_ergoNetworkDirectory = null;
+    private File m_appDir = null;
 
     private final static long EXECUTION_TIME = 500;
 
@@ -62,14 +62,14 @@ public class ErgoNetwork extends Network implements NoteInterface {
         setStageHeight(DEFAULT_STAGE_HEIGHT);
         setStagePrevHeight(DEFAULT_STAGE_HEIGHT);
         setStagePrevWidth(SMALL_STAGE_WIDTH);
-        m_ergoNetworkDirectory = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
+        m_appDir = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
         m_ergNetData = new ErgoNetworkData(getStageIconStyle(), getStageWidth(), this);
         getLastUpdated().set(LocalDateTime.now());
     }
 
     public ErgoNetwork(JsonObject json, NetworksData networksData) {
         super(getAppIcon(), NAME, NETWORK_ID, networksData);
-        m_ergoNetworkDirectory = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
+        m_appDir = new File(getNetworksData().getAppData().getAppDir().getAbsolutePath() + "/" + "Ergo Network");
 
         JsonElement networkTypeElement = json.get("networkType");
         JsonElement stageElement = json.get("stage");
@@ -113,8 +113,8 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
     }
 
-    public File getErgoNetworkDir(){
-        return m_ergoNetworkDirectory;
+    public File getAppDir(){
+        return m_appDir;
     }
 
     public static Image getAppIcon() {
@@ -176,15 +176,15 @@ public class ErgoNetwork extends Network implements NoteInterface {
             gridTypeToolTip.setShowDelay(new Duration(50));
             gridTypeToolTip.setHideDelay(new Duration(200));
 
-            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 25);
+            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 15);
             toggleGridTypeButton.setTooltip(gridTypeToolTip);
-            toggleGridTypeButton.setPadding(new Insets(0, 0, 0, 0));
+    
 
             HBox menuBar = new HBox(menuButton, menuSpacer, toggleGridTypeButton);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 5));
+            menuBar.setPadding(new Insets(1, 5, 1, 5));
 
             HBox menuBarPadding = new HBox(menuBar);
             menuBarPadding.setPadding(SMALL_INSETS);

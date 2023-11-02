@@ -33,11 +33,11 @@ public class HashData {
         openJson(json);
     }
 
-    public HashData(String hashId, String name, String hashString) {
+    public HashData(String hashId, String name, String hashHex) {
 
         m_id = hashId;
         m_name = name;
-        setHash(hashString);
+        setHashHex(hashHex);
 
     }
 
@@ -84,9 +84,7 @@ public class HashData {
         return m_hashBytes;
     }
 
-    public void setHash(String hashString) {
-        m_hashBytes = hashString.getBytes();
-    }
+
 
     public void setHashHex(String hashHexString) {
         

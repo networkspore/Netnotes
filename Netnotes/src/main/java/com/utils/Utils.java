@@ -139,6 +139,7 @@ public class Utils {
     public static byte[] digestFile(File file) throws  IOException {
 
         return digestFileBlake2b(file,32);
+        
     }
 
     public static byte[] digestFileBlake2b(File file, int digestLength) throws IOException {

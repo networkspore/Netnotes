@@ -347,8 +347,22 @@ public class ErgoNodesList {
 
         Runnable updateMenu = () -> {
             menuBtn.getItems().clear();
+            ErgoNodeData newSelectedNodedata = selectedNode.get();
 
-            MenuItem localNodeMenuItem = m_ergoLocalNode.getMenuItem();
+            MenuItem noneMenuItem = new MenuItem("(disabled)");
+            if(selectedNode.get() == null){
+                noneMenuItem.setId("selectedMenuItem");
+            }
+            noneMenuItem.setOnAction(e->{
+                selectedNode.set(null);
+            });
+            menuBtn.getItems().add(noneMenuItem);
+
+            MenuItem localNodeMenuItem = new MenuItem( m_ergoLocalNode.getName());
+            if(m_ergoLocalNode != null && newSelectedNodedata != null && m_ergoLocalNode.getId().equals(newSelectedNodedata.getId())){
+                localNodeMenuItem.setId("selectedMenuItem");
+                localNodeMenuItem.setText(localNodeMenuItem.getText() + " (selected)");
+            }
             localNodeMenuItem.setOnAction(e->{
                 selectedNode.set(m_ergoLocalNode);
             });
@@ -359,8 +373,11 @@ public class ErgoNodesList {
             for (int i = 0; i < numCells; i++) {
                 
                 ErgoNodeData nodeData = m_dataList.get(i);
-                MenuItem menuItem = nodeData.getMenuItem();
-                
+                 MenuItem menuItem = new MenuItem(nodeData.getName());
+                if(newSelectedNodedata != null && newSelectedNodedata.getId().equals(nodeData.getId())){
+                    menuItem.setId("selectedMenuItem");
+                    menuItem.setText(menuItem.getText() + " (selected)");
+                }
                 menuItem.setOnAction(e->{
                     selectedNode.set(nodeData);
                 });
@@ -368,11 +385,13 @@ public class ErgoNodesList {
                 menuBtn.getItems().add(menuItem);
             }
 
-            selectedNode.set(m_ergoLocalNode);
+
 
         };
 
         updateMenu.run();
+
+        selectedNode.addListener((obs,oldval, newval) -> updateMenu.run());
 
         m_doGridUpdate.addListener((obs, oldval, newval) -> updateMenu.run());
 

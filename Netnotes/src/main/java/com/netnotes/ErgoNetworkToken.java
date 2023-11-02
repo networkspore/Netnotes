@@ -219,7 +219,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
                 if (explorerInterface != null) {
                     if (explorerInterface != null) {
 
-                        JsonObject note = ErgoExplorer.getTokenInfoObject(getTokenId(), m_networkType);
+                        JsonObject note = ErgoExplorers.getTokenInfoObject(getTokenId(), m_networkType);
 
                         explorerInterface.sendNote(note, succeededEvent -> {
                             WorkerStateEvent workerEvent = succeededEvent;
@@ -265,7 +265,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         if (m_ergoTokenStage == null) {
 
             m_ergoTokenStage = new Stage();
-            m_ergoTokenStage.getIcons().add(ErgoWallet.getSmallAppIcon());
+            m_ergoTokenStage.getIcons().add(ErgoWallets.getSmallAppIcon());
             m_ergoTokenStage.initStyle(StageStyle.UNDECORATED);
             m_ergoTokenStage.setTitle(getParentInterface().getName() + " - " + getName());
             m_ergoTokenStage.titleProperty().bind(Bindings.concat(getParentInterface().getName(), " - ", textProperty()));
@@ -529,5 +529,6 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
     public String toString() {
         return getName();
     }
+
 
 }

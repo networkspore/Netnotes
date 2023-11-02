@@ -1,9 +1,7 @@
 package com.netnotes;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,17 +13,16 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
 
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleLongProperty;
+
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
+
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Alert.AlertType;
+
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -36,7 +33,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
-public class MarketsData {
+public class ErgoMarketsData {
 
     private File logFile;
 
@@ -55,10 +52,11 @@ public class MarketsData {
     private ErgoMarketsList m_marketsList;
 
     private Font m_priceFont = Font.font("OCR A Extended", FontWeight.BOLD, 30);
-    private Font m_baseCurrencyFont = Font.font("OCR A Extended", FontWeight.BOLD, 13);
-    private Font m_quoteCurrencyFont = Font.font("OCR A Extended", FontWeight.BOLD, 13);
+    private Font m_font = Font.font("OCR A Extended", FontWeight.BOLD, 13);
 
-    private Color m_priceColor = Color.WHITE;
+    private Font m_smallFont =Font.font("OCR A Extended", FontWeight.NORMAL, 10);
+
+
     private Color m_baseCurrencyColor = new Color(.4, .4, .4, .9);
     private Color m_quoteCurrencyColor = new Color(.7, .7, .7, .9);
 
@@ -69,6 +67,7 @@ public class MarketsData {
     private String m_stopImgUrl = "/assets/stop-30.png";
 
     private final String m_id;
+    private String m_name;
     private String m_baseSymbol = "ERG";
     private String m_quoteSymbol = "USDT";
     private String m_marketId = KucoinExchange.NETWORK_ID;
@@ -83,7 +82,7 @@ public class MarketsData {
     private SimpleStringProperty m_statusProperty = new SimpleStringProperty(STOPPED);
     private MessageInterface m_msgListener;
 
-    public MarketsData(ErgoMarketsList marketsList, JsonObject json) {
+    public ErgoMarketsData(ErgoMarketsList marketsList, JsonObject json) {
         m_marketsList = marketsList;
         if (json != null) {
 
@@ -92,11 +91,13 @@ public class MarketsData {
             JsonElement valueElement = json.get("value");
             JsonElement marketIdElement = json.get("marketId");
             JsonElement symbolElement = json.get("symbol");
+            JsonElement nameElement = json.get("name");
 
             m_id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
             m_marketId = marketIdElement == null ? null : marketIdElement.getAsString();
             m_updateType = typeElement == null ? null : typeElement.getAsString();
             m_value = valueElement == null ? null : valueElement.getAsString();
+            m_name = nameElement == null ? "market #" + m_id : nameElement.getAsString();
 
             JsonObject symbolObject = symbolElement != null && symbolElement.isJsonObject() ? symbolElement.getAsJsonObject() : null;
 
@@ -116,8 +117,9 @@ public class MarketsData {
         logFile = new File("netnotes-log.txt");
     }
 
-    public MarketsData(String id, String marketId, String baseSymbol, String quoteSymbol, String updateType, String updateValue, ErgoMarketsList marketsList) {
+    public ErgoMarketsData(String id, String name, String marketId, String baseSymbol, String quoteSymbol, String updateType, String updateValue, ErgoMarketsList marketsList) {
         m_id = id;
+        m_name = name;
         m_baseSymbol = baseSymbol;
         m_quoteSymbol = quoteSymbol;
         m_marketId = marketId;
@@ -125,6 +127,13 @@ public class MarketsData {
         m_value = updateValue;
         m_marketsList = marketsList;
         logFile = new File("netnotes-log.txt");
+    }
+
+    public String getName(){
+        return m_name;
+    }
+    public void setName(String name){
+        m_name = name;
     }
 
     public static String getFriendlyUpdateTypeName(String type) {
@@ -187,21 +196,16 @@ public class MarketsData {
         json.addProperty("type", m_updateType);
         json.addProperty("value", m_value);
         json.addProperty("marketId", m_marketId);
+        json.addProperty("name", m_name);
         json.add("symbol", getSymbolJson());
         return json;
     }
 
-    public Font getQuoteCurrencyFont() {
-        return m_quoteCurrencyFont;
-    }
-
-    public Font getBaseCurrencyFont() {
-        return m_baseCurrencyFont;
-    }
+    
     private NoteInterface m_marketInterface = null;
 
     public void start() {
-        if (m_marketId != null) {
+        if (m_marketId != null &&  !m_statusProperty.get().equals(STARTED)) {
             m_marketInterface = m_marketsList.getErgoMarkets().getNetworksData().getNoteInterface(m_marketId);
             if (m_marketInterface != null) {
 
@@ -334,7 +338,7 @@ public class MarketsData {
                 JsonObject dataObject = dataElement.getAsJsonObject();
 
                 JsonElement priceElement = dataObject.get("price");
-                JsonElement timeElement = dataObject.get("time");
+               // JsonElement timeElement = dataObject.get("time");
 
                 priceQuoteProperty().set(new PriceQuote(priceElement.getAsString(), m_baseSymbol, m_quoteSymbol, System.currentTimeMillis()));
             }
@@ -377,7 +381,7 @@ public class MarketsData {
     public SimpleObjectProperty<PriceQuote> priceQuoteProperty() {
         return m_priceQuoteProperty;
     }
-
+    
     public HBox getRowItem() {
         String defaultId = m_marketsList.defaultIdProperty().get();
 
@@ -393,11 +397,20 @@ public class MarketsData {
         String quoteCurrencyString = m_priceQuoteProperty.get() == null ? m_quoteSymbol : m_priceQuoteProperty.get().getQuoteCurrency();
 
         Text topValueText = new Text(valueString);
-        topValueText.setFont(m_baseCurrencyFont);
+        topValueText.setFont(m_font);
         topValueText.setFill(m_baseCurrencyColor);
 
+        Text topInfoStringText = new Text(getName());
+        topInfoStringText.setFont(m_font);
+        topInfoStringText.setFill(m_baseCurrencyColor);
+
+        Text topRightText = new Text("");
+        topRightText.setFont(m_font);
+        topRightText.setFill(m_baseCurrencyColor);
+
+
         Text botTimeText = new Text();
-        botTimeText.setFont(Font.font("OCR A Extended", FontWeight.NORMAL, 10));
+        botTimeText.setFont(m_smallFont);
         botTimeText.setFill(m_baseCurrencyColor);
 
         TextField amountField = new TextField(amountString);
@@ -408,11 +421,11 @@ public class MarketsData {
         amountField.setPadding(new Insets(0, 10, 0, 0));
 
         Text baseCurrencyText = new Text(baseCurrencyString);
-        baseCurrencyText.setFont(getBaseCurrencyFont());
+        baseCurrencyText.setFont(m_font);
         baseCurrencyText.setFill(m_baseCurrencyColor);
 
         Text quoteCurrencyText = new Text(quoteCurrencyString);
-        quoteCurrencyText.setFont(getQuoteCurrencyFont());
+        quoteCurrencyText.setFont(m_font);
         quoteCurrencyText.setFill(m_quoteCurrencyColor);
 
         VBox currencyBox = new VBox(baseCurrencyText, quoteCurrencyText);
@@ -483,7 +496,10 @@ public class MarketsData {
         topSpacer.setId("bodyBox");
         bottomSpacer.setId("bodyBox");
 
-        HBox topBox = new HBox(topValueText);
+        Region topMiddleRegion = new Region();
+        HBox.setHgrow(topMiddleRegion, Priority.ALWAYS);
+
+        HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
         topBox.setId("darkBox");
 
         HBox bottomBox = new HBox(botTimeText);
@@ -512,4 +528,6 @@ public class MarketsData {
             m_polledExecutor = null;
         }
     }
+
+  
 }

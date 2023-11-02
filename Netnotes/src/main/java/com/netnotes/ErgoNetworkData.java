@@ -53,6 +53,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -62,14 +64,14 @@ public class ErgoNetworkData implements InstallerInterface {
 
     public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
         ErgoTokens.NETWORK_ID,
-        ErgoExplorer.NETWORK_ID,
+        ErgoExplorers.NETWORK_ID,
         ErgoNodes.NETWORK_ID,
-        ErgoWallet.NETWORK_ID,
+        ErgoWallets.NETWORK_ID,
         ErgoMarkets.NETWORK_ID
     };
 
     private Stage m_manageStage = null;
-    private double m_stageWidth = 700;
+    private double m_stageWidth = 750;
     private double m_stageHeight = 500;
    // private ArrayList<NoteInterface> m_networkList = new ArrayList<>();
     private ObservableList<NoteInterface> m_networkList = FXCollections.observableArrayList();
@@ -96,7 +98,7 @@ public class ErgoNetworkData implements InstallerInterface {
         m_iconStyle = new SimpleStringProperty(iconStyle);
         m_gridWidth = new SimpleDoubleProperty(gridWidth);
 
-        File appDir = ergoNetwork.getErgoNetworkDir();
+        File appDir = ergoNetwork.getAppDir();
 
         if (!appDir.isDirectory()) {
             try {
@@ -192,14 +194,14 @@ public class ErgoNetworkData implements InstallerInterface {
                     String networkId = networkIdElement.getAsString();
                     NoteInterface network = null;
                     switch (networkId) {
-                        case ErgoWallet.NETWORK_ID:
-                            network = new ErgoWallet(this, jsonObject, m_ergoNetwork);
+                        case ErgoWallets.NETWORK_ID:
+                            network = new ErgoWallets(this, jsonObject, m_ergoNetwork);
                             break;
                         case ErgoTokens.NETWORK_ID:
-                            network = new ErgoTokens(jsonObject, m_ergoNetwork);
+                            network = new ErgoTokens(this, jsonObject, m_ergoNetwork);
                             break;
-                        case ErgoExplorer.NETWORK_ID:
-                            network = new ErgoExplorer(jsonObject, m_ergoNetwork);
+                        case ErgoExplorers.NETWORK_ID:
+                            network = new ErgoExplorers(jsonObject, m_ergoNetwork);
                             break;
                         case ErgoNodes.NETWORK_ID:
 
@@ -301,7 +303,7 @@ public class ErgoNetworkData implements InstallerInterface {
             double stageHeight = m_stageHeight;
 
             m_manageStage = new Stage();
-            m_manageStage.setTitle("Ergo Network - Manage");
+            m_manageStage.setTitle("Manage - Ergo Network");
             m_manageStage.getIcons().add(ErgoNetwork.getSmallAppIcon());
             m_manageStage.setResizable(false);
             m_manageStage.initStyle(StageStyle.UNDECORATED);
@@ -311,19 +313,32 @@ public class ErgoNetworkData implements InstallerInterface {
 
             HBox titleBar = App.createTopBar(ErgoNetwork.getSmallAppIcon(), maximizeBtn, closeBtn, m_manageStage);
 
+
+            Text headingText = new Text("Manage");
+            headingText.setFont(App.txtFont);
+            headingText.setFill(Color.WHITE);
+
+            HBox headingBox = new HBox(headingText);
+            headingBox.prefHeight(35);
+            headingBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(headingBox, Priority.ALWAYS);
+            headingBox.setPadding(new Insets(10, 10, 10, 10));
+            headingBox.setId("headingBox");
+
+            HBox headingPaddingBox = new HBox(headingBox);
+
+            headingPaddingBox.setPadding(new Insets(5, 0, 2, 0));
+
+            VBox headerBox = new VBox(headingPaddingBox);
+
+            headerBox.setPadding(new Insets(0, 5, 0, 5));
+
             Region menuSpacer = new Region();
             HBox.setHgrow(menuSpacer, Priority.ALWAYS);
 
-            BufferedButton checkBtn = new BufferedButton("/assets/checkmark-25.png", 15);
+           
 
-            HBox menuBar = new HBox(menuSpacer, checkBtn);
-            HBox.setHgrow(menuBar, Priority.ALWAYS);
-            menuBar.setAlignment(Pos.CENTER_LEFT);
-            menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 0));
-
-            VBox headerBox = new VBox(menuBar);
-            headerBox.setId("bodyBox");
+        
 
             Button installBtn = new Button("Install");
             installBtn.setFont(App.txtFont);
@@ -342,12 +357,15 @@ public class ErgoNetworkData implements InstallerInterface {
 
             Region vSpacerOne = new Region();
             VBox.setVgrow(vSpacerOne, Priority.ALWAYS);
-            HBox.setHgrow(m_installedVBox, Priority.ALWAYS);
-
-            VBox installedPaddedVBox = new VBox(m_installedVBox, vSpacerOne);
+   
+          //  m_installedVBox.setId("bodyBox");
+          /*  VBox installedPaddedVBox = new VBox(m_installedVBox, vSpacerOne);
 
             installedPaddedVBox.setId("bodyBox");
-            VBox.setVgrow(installedPaddedVBox, Priority.ALWAYS);
+            VBox.setVgrow(installedPaddedVBox, Priority.ALWAYS);*/
+            m_installedVBox.setId("bodyBox");
+            m_installedVBox.setMaxWidth(m_leftColumnWidth);
+            VBox.setVgrow(m_installedVBox, Priority.ALWAYS);
 
             Region leftSpacer = new Region();
             HBox.setHgrow(leftSpacer, Priority.ALWAYS);
@@ -359,30 +377,66 @@ public class ErgoNetworkData implements InstallerInterface {
             installAllSpacer.setMinWidth(5);
 
             HBox addBox = new HBox(leftSpacer, installBtn, installAllSpacer, installAllBtn);
-            addBox.setPadding(new Insets(15));
+            addBox.setPadding(new Insets(15,2, 15,15));
+            
             HBox.setHgrow(m_notInstalledVBox, Priority.ALWAYS);
+            m_notInstalledVBox.setId("bodyRight");
+         
 
-            VBox.setVgrow(m_notInstalledVBox, Priority.ALWAYS);
-            HBox.setHgrow(m_notInstalledVBox, Priority.ALWAYS);
-
-            VBox.setVgrow(m_installedVBox, Priority.ALWAYS);
+            
 
             HBox rmvBox = new HBox(removeBtn, removeAllBtn);
 
-            VBox leftSide = new VBox(installedPaddedVBox, rmvBox);
+            VBox leftSide = new VBox(m_installedVBox, rmvBox);
             leftSide.setPadding(new Insets(5));
-            leftSide.prefWidth(m_leftColumnWidth);
+            leftSide.setMaxWidth(m_leftColumnWidth + 20);
+            
+  
             VBox.setVgrow(leftSide, Priority.ALWAYS);
 
             VBox rightSide = new VBox(m_notInstalledVBox, addBox);
+            rightSide.setPadding(new Insets(5,5,0,5));
             HBox.setHgrow(rightSide, Priority.ALWAYS);
+          //  rightSide.setId("bodyRight");
+
+            /*VBox rightSidePaddingBox = new VBox(rightSide);
+            rightSidePaddingBox.setPadding(new Insets(0, 2, 0, 5));
+            HBox.setHgrow(rightSidePaddingBox,Priority.ALWAYS);*/
 
             HBox columnsHBox = new HBox(leftSide, rightSide);
             VBox.setVgrow(columnsHBox, Priority.ALWAYS);
             columnsHBox.setId("bodyBox");
             columnsHBox.setPadding(new Insets(10, 10, 10, 10));
 
-            VBox layoutBox = new VBox(titleBar, headerBox, columnsHBox);
+            VBox.setVgrow(m_notInstalledVBox, Priority.ALWAYS);
+
+            Button okBtn = new Button("Ok");
+            okBtn.setPadding(new Insets(5,25, 5, 25));
+
+            HBox footerBar = new HBox(menuSpacer, okBtn);
+            footerBar.setAlignment(Pos.CENTER_LEFT);
+            footerBar.setPadding(new Insets(1, 0, 1, 0));
+            HBox.setHgrow(footerBar, Priority.ALWAYS);
+
+            VBox footerBox = new VBox(footerBar);
+            footerBox.setPadding(new Insets(15));
+
+            VBox bodyBox = new VBox(columnsHBox, footerBox);
+            bodyBox.setPadding(new Insets(5));
+            bodyBox.setId("bodyBox");
+            HBox.setHgrow(bodyBox, Priority.ALWAYS);
+            VBox.setVgrow(bodyBox,Priority.ALWAYS);
+
+            VBox paddingBodyBox = new VBox(bodyBox);
+            paddingBodyBox.setPadding(new Insets(0, 2,2,2));
+            HBox.setHgrow(paddingBodyBox, Priority.ALWAYS);
+            VBox.setVgrow(paddingBodyBox,Priority.ALWAYS);
+
+            
+            Region spacer = new Region();
+            spacer.setMinHeight(2);
+
+            VBox layoutBox = new VBox(titleBar,headerBox, paddingBodyBox, spacer);
 
             layoutBox.setPadding(new Insets(0, 2, 2, 2));
             Scene scene = new Scene(layoutBox, stageWidth, stageHeight);
@@ -414,7 +468,7 @@ public class ErgoNetworkData implements InstallerInterface {
 
             });
 
-            checkBtn.setOnAction(e -> {
+            okBtn.setOnAction(e -> {
                 closeBtn.fire();
             });
 
@@ -544,13 +598,13 @@ public class ErgoNetworkData implements InstallerInterface {
         switch (networkId) {
 
             case ErgoTokens.NETWORK_ID:
-                noteInterface = new ErgoTokens(m_ergoNetwork);
+                noteInterface = new ErgoTokens(this, m_ergoNetwork);
                 break;
-            case ErgoWallet.NETWORK_ID:
-                noteInterface = new ErgoWallet(this, m_ergoNetwork);
+            case ErgoWallets.NETWORK_ID:
+                noteInterface = new ErgoWallets(this, m_ergoNetwork);
                 break;
-            case ErgoExplorer.NETWORK_ID:
-                noteInterface = new ErgoExplorer(m_ergoNetwork);
+            case ErgoExplorers.NETWORK_ID:
+                noteInterface = new ErgoExplorers(m_ergoNetwork);
                 break;
             case ErgoNodes.NETWORK_ID:
                 noteInterface = new ErgoNodes(m_ergoNetwork);

@@ -153,7 +153,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     });
 
     public ErgoNodeLocalData(String id, ErgoNodesList ergoNodesList) {
-        super(ergoNodesList, LOCAL_NODE, new NamedNodeUrl(id, DEFAULT_NODE_NAME, "127.0.0.1", ErgoNodes.MAINNET_PORT, "", NetworkType.MAINNET));
+        super(ergoNodesList, LOCAL_NODE, new NamedNodeUrl(id, "not installed", "127.0.0.1", ErgoNodes.MAINNET_PORT, "", NetworkType.MAINNET));
 
         setListeners();
 
@@ -172,14 +172,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         getErgoNodesList().getErgoNodes().getNetworksData().shutdownNowProperty().addListener((obs, oldVal, newVal) -> stop());
         // syncedProperty.bind(Bindings.equal(nodeBlockHeightProperty, networkBlockHeightProperty).and(networkBlockHeightProperty.isNotEqualTo(-1L).and(statusProperty.isNotEqualTo(MarketsData.STOPPED))));
         statusProperty.addListener((obs, oldval, newVal) -> {
-            if (newVal != null && newVal.equals(MarketsData.STOPPED)) {
+            if (newVal != null && newVal.equals(ErgoMarketsData.STOPPED)) {
                 Platform.runLater(() -> cmdProperty.set(""));
             }
         });
         Runnable syncUpdate = () -> {
             long nodeBlockHeight = nodeBlockHeightProperty.get();
             long networkBlockHeight = networkBlockHeightProperty.get();
-            boolean running = statusProperty.get() != null && !statusProperty.get().equals(MarketsData.STOPPED);
+            boolean running = statusProperty.get() != null && !statusProperty.get().equals(ErgoMarketsData.STOPPED);
 
             if (nodeBlockHeight != -1 && networkBlockHeight != -1 && nodeBlockHeight == networkBlockHeight && running) {
                 syncedProperty.set(true);
@@ -507,7 +507,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
                         if (proc.isAlive()) {
-                            Platform.runLater(() -> statusProperty.set(MarketsData.STARTED));
+                            Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STARTED));
                             if (m_scheduledFuture == null || (m_scheduledFuture != null && m_scheduledFuture.isDone())) {
                                 m_scheduledFuture = scheduledExecutor.scheduleAtFixedRate(m_readNodeInput, 0, INPUT_CYCLE_PERIOD, TimeUnit.MILLISECONDS);
                             }
@@ -572,12 +572,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             Runnable runError = () -> {
                 Platform.runLater(() -> {
                     isSetupProperty.set(false);
-                    statusProperty.set(MarketsData.STOPPED);
+                    statusProperty.set(ErgoMarketsData.STOPPED);
                     networkBlockHeightProperty.set(-1);
                 });
             };
 
-            Platform.runLater(() -> statusProperty.set(MarketsData.STARTING));
+            Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STARTING));
             File appFile = getAppFile();
 
             File configFile = m_nodeConfigData != null ? m_nodeConfigData.getConfigFile() : null;
@@ -1656,11 +1656,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             m_scheduledFuture.cancel(false);
 
         }
-        if (!statusProperty.get().equals(MarketsData.STOPPED)) {
+        if (!statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
 
             Utils.wmicTerminate(m_appFileName);
 
-            statusProperty.set(MarketsData.STOPPED);
+            statusProperty.set(ErgoMarketsData.STOPPED);
 
         }
 
@@ -1679,7 +1679,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public HBox getRowItem() {
 
         Button powerBtn = new Button();
-        powerBtn.setGraphic(IconButton.getIconView(new Image(syncedProperty.get() ? getPowerOnUrl() : (statusProperty.get().equals(MarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
+        powerBtn.setGraphic(IconButton.getIconView(new Image(syncedProperty.get() ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
         powerBtn.setId("transparentColor");
 
         statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
@@ -1725,12 +1725,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         Tooltip statusBtnTip = new Tooltip("");
         statusBtnTip.setShowDelay(new Duration(100));
         //m_startImgUrl : m_stopImgUrl
-        BufferedButton statusBtn = new BufferedButton(statusProperty.get().equals(MarketsData.STOPPED) ? (getIsSetup() ? getStartImgUrl() : getInstallImgUrl()) : getStopImgUrl(), 15);
+        BufferedButton statusBtn = new BufferedButton(statusProperty.get().equals(ErgoMarketsData.STOPPED) ? (getIsSetup() ? getStartImgUrl() : getInstallImgUrl()) : getStopImgUrl(), 15);
         statusBtn.setId("statusBtn");
         statusBtn.setPadding(new Insets(0, 10, 0, 10));
         statusBtn.setTooltip(statusBtnTip);
         statusBtn.setOnAction(action -> {
-            if (statusProperty.get().equals(MarketsData.STOPPED)) {
+            if (statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
                 if (getIsSetup()) {
                     start();
                 } else {
@@ -1762,11 +1762,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         Runnable checkStatus = () -> {
 
-            String value = statusProperty.get() == null ? MarketsData.STOPPED : statusProperty.get();
+            String value = statusProperty.get() == null ? ErgoMarketsData.STOPPED : statusProperty.get();
 
             topRightText.setText(getAppFile() != null ? m_appFileName : "");
 
-            if (value.equals(MarketsData.STOPPED)) {
+            if (value.equals(ErgoMarketsData.STOPPED)) {
                 String stoppedString = getIsSetup() ? "Start" : "Setup";
                 if (!statusBtnTip.getText().equals(stoppedString)) {
 
@@ -1856,9 +1856,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         });
 
         Runnable updateSynced = () -> {
-            String status = statusProperty.get() == null ? MarketsData.STOPPED : statusProperty.get();
+            String status = statusProperty.get() == null ? ErgoMarketsData.STOPPED : statusProperty.get();
 
-            if (!status.equals(MarketsData.STOPPED)) {
+            if (!status.equals(ErgoMarketsData.STOPPED)) {
 
                 Platform.runLater(() -> {
                     boolean synced = syncedProperty.get();
@@ -1895,7 +1895,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         syncedProperty.addListener((obs, oldVal, newVal) -> {
 
             syncText.setFill(newVal ? getPrimaryColor() : getSecondaryColor());
-            powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(MarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
+            powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
 
         });
         updateSynced.run();
@@ -1922,14 +1922,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         return rowBox;
     }
-    
+
     @Override
-    public MenuItem getMenuItem(){
-        NamedNodeUrl nodeUrl = namedNodeUrlProperty.get();
-        return new MenuItem(nodeUrl.getName());
+    public String getStartImgUrl(){
+        return "/assets/play-30.png";
     }
 
+    @Override
+    public String getStopImgUrl() { 
+        return "/assets/stop-30.png";
+    }
 
+    @Override
+    public String getName(){
+        return "Local Node (" + super.getName() + ")";
+    }
+    
+ 
 
     public void setExecParams(String params){
         m_execParams = params;

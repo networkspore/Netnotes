@@ -6,6 +6,10 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 
 import javax.imageio.ImageIO;
 
@@ -73,32 +77,23 @@ public class AddressData extends Network {
     private ArrayList<TokenData> m_confirmedTokensList = new ArrayList<>();
     private ArrayList<TokenData> m_unconfirmedTokensList = new ArrayList<>();
     private Stage m_addressStage = null;
-    // private WalletData m_walletData;
-    private File logFile;
+    private File logFile = new File("netnotes-log.txt");
     private AddressesData m_addressesData;
 
-    //  private AddressAmountsList m_amountsList;
-    // private AddressAmountsList m_unconfirmedAmountsList;
-    //private double m_price = 0;
-    // private WalletData m_WalletData;
-    public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressDataList) {
-        super(null, name, address.toString(), addressDataList.getWalletData());
-        logFile = new File("AddressData" + name + ".txt");
-        //m_walletData = addressesData.getWalletData();
+    
+    
+    public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressesData) {
+        super(null, name, address.toString(), addressesData.getWalletData());
+        
 
-        // m_amountsList = new AddressAmountsList(this);
-        // m_unconfirmedAmountsList = new AddressAmountsList(this);
-        m_addressesData = addressDataList;
+        m_addressesData = addressesData;
         m_index = index;
         m_address = address;
 
         Tooltip addressTip = new Tooltip(getName());
         addressTip.setShowDelay(new javafx.util.Duration(100));
         addressTip.setFont(App.txtFont);
-        //  HBox.setHgrow(this, Priority.ALWAYS);
 
-        // setPrefWidth(width);
-        // setImageWidth(150);
         setTooltip(addressTip);
         setPadding(new Insets(0, 10, 0, 10));
         setId("rowBtn");
@@ -107,17 +102,21 @@ public class AddressData extends Network {
         setContentDisplay(ContentDisplay.LEFT);
         setAlignment(Pos.CENTER_LEFT);
         setTextAlignment(TextAlignment.LEFT);
-        update();
         updateBalance();
+        update();
+        
+       // getQuote();
 
-        ChangeListener<? super PriceQuote> quoteChangeListener = (obs, oldVal, newVal) -> updateBalance();
+        ChangeListener<? super PriceQuote> quoteChangeListener = (obs, oldVal, newVal) -> update();
 
         m_addressesData.selectedMarketData().addListener((obs, oldval, newVal) -> {
             if (oldval != null) {
                 oldval.priceQuoteProperty().removeListener(quoteChangeListener);
+                oldval.shutdown();
             }
             if (newVal != null) {
                 newVal.priceQuoteProperty().addListener(quoteChangeListener);
+                newVal.start();
             }
         });
 
@@ -125,10 +124,18 @@ public class AddressData extends Network {
             m_addressesData.selectedMarketData().get().priceQuoteProperty().addListener(quoteChangeListener);
         }
 
+        m_addressesData.timeCycleProperty().addListener((obs, oldval, newval)->{
+            updateBalance();
+        });
+        
+    }
+
+    public void setQuote(PriceQuote oldVal, PriceQuote newVal){
+
     }
 
     public String getButtonText() {
-        return "  " + getName() + "\n    " + getAddressString();
+        return "  " + getName() + "\n   " + getAddressString();
     }
 
     /*public boolean donate(){
@@ -198,7 +205,7 @@ public class AddressData extends Network {
 
             m_addressStage = new Stage();
             // 
-            m_addressStage.getIcons().add(ErgoWallet.getAppIcon());
+            m_addressStage.getIcons().add(ErgoWallets.getAppIcon());
             m_addressStage.setResizable(false);
             m_addressStage.initStyle(StageStyle.UNDECORATED);
 
@@ -210,7 +217,7 @@ public class AddressData extends Network {
 
             Button maximizeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(ErgoWallet.getSmallAppIcon(), maximizeBtn, closeBtn, m_addressStage);
+            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), maximizeBtn, closeBtn, m_addressStage);
 
             Tooltip sendTip = new Tooltip("Send");
             sendTip.setShowDelay(new javafx.util.Duration(100));
@@ -228,27 +235,25 @@ public class AddressData extends Network {
                 // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
             });
 
-            Tooltip nodeTip = new Tooltip(m_addressesData.selectedNodeDataProperty().get() == null ? "Node unavailable" : m_addressesData.selectedNodeDataProperty().get().getName());
+            Tooltip nodeTip = new Tooltip("Ergo Nodes");
             nodeTip.setShowDelay(new javafx.util.Duration(100));
             nodeTip.setFont(App.txtFont);
 
             MenuButton nodeMenuBtn = new MenuButton();
-            nodeMenuBtn.setGraphic(m_addressesData.selectedNodeDataProperty().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), 30) : IconButton.getIconView(m_addressesData.selectedNodeDataProperty().get().getIcon(), 30));
             nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
             nodeMenuBtn.setTooltip(nodeTip);
 
-            NoteInterface explorerInterface = m_addressesData.selectedExplorerDataProperty().get() == null ? null : m_addressesData.selectedExplorerDataProperty().get().getExplorerInterface();
+            ErgoExplorerData explorerData = null;
 
-            Tooltip explorerTip = new Tooltip(explorerInterface == null ? "Explorer unavailable" : explorerInterface.getName());
+            Tooltip explorerTip = new Tooltip(explorerData == null ? "Explorer unavailable" : explorerData.getName());
             explorerTip.setShowDelay(new javafx.util.Duration(100));
             explorerTip.setFont(App.txtFont);
 
             MenuButton explorerBtn = new MenuButton();
-            explorerBtn.setGraphic(explorerInterface == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(explorerInterface.getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), 30));
             explorerBtn.setPadding(new Insets(2, 0, 0, 0));
             explorerBtn.setTooltip(explorerTip);
 
-            Tooltip marketsTip = new Tooltip(m_addressesData.selectedMarketData().get() == null ? "Market unavailable" : MarketsData.getFriendlyUpdateTypeName(m_addressesData.selectedMarketData().get().getUpdateType()) + ": " + m_addressesData.selectedMarketData().get().getUpdateValue());
+            Tooltip marketsTip = new Tooltip(m_addressesData.selectedMarketData().get() == null ? "Market unavailable" : ErgoMarketsData.getFriendlyUpdateTypeName(m_addressesData.selectedMarketData().get().getUpdateType()) + ": " + m_addressesData.selectedMarketData().get().getUpdateValue());
             marketsTip.setShowDelay(new javafx.util.Duration(100));
             marketsTip.setFont(App.txtFont);
 
@@ -615,19 +620,21 @@ public class AddressData extends Network {
         Platform.runLater(() -> getLastUpdated().set(LocalDateTime.now()));
     }
 
-    public boolean updateBalance() {
+    
 
-        NoteInterface explorerInterface = m_addressesData.selectedExplorerDataProperty().get() != null ? m_addressesData.selectedExplorerDataProperty().get().getExplorerInterface() : null;
+    public void updateBalance() {
 
-        if (explorerInterface != null) {
-            return explorerInterface.sendNote(
-                    ErgoExplorer.getBalanceNote(m_address.toString(), getNetworkType()),
+       ErgoExplorerData explorerData =  m_addressesData.selectedExplorerData().get();
+   
+        if (explorerData != null) {
+            
+                    explorerData.getBalance(m_address.toString(),
                     success -> {
                         Object sourceObject = success.getSource().getValue();
 
                         if (sourceObject != null) {
                             JsonObject jsonObject = (JsonObject) sourceObject;
-
+                       
                             setBalance(jsonObject);
                             update();
                         } else {
@@ -635,20 +642,18 @@ public class AddressData extends Network {
                         }
                     },
                     failed -> {
-                        try {
-                            Files.writeString(logFile.toPath(), "\nUpdateBalance: failed " + "\n" + failed.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e) {
-
-                        }
-
+                          try {
+                                Files.writeString(logFile.toPath(), "\nAddressData, Explorer failed update: " + failed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e) {
+                                
+                              
+                            }
                         m_quantityValid = false;
                         update();
                     }
             );
-        } else {
-            update();
+      
         }
-        return false;
     }
 
     public void setBalance(JsonObject jsonObject) {

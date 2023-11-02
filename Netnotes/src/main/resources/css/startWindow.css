@@ -445,6 +445,16 @@
 }
 
 
+#selectedMenuItem {
+    -fx-background-color: #333333;
+    -fx-text-fill: white;
+}
+
+#selectedMenuItem .label {
+   
+    -fx-text-fill: white;
+}
+
 #iconBtn {
     -fx-font-size: 14px;
     -fx-font-family: 'OCR A Extended';
@@ -564,7 +574,7 @@
 }
 
 #bodyRight{
-    -fx-background-color: #22222250;
+    -fx-background-color: #44444420;
 }
 
 #menuBarBtn{

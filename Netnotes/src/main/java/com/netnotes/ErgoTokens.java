@@ -77,12 +77,15 @@ public class ErgoTokens extends Network implements NoteInterface {
     private Stage m_tokensStage = null;
 
     private NetworkType m_networkType = NetworkType.MAINNET;
-    private String m_explorerId = ErgoExplorer.NETWORK_ID;
+    private String m_explorerId = ErgoExplorers.NETWORK_ID;
 
-    public ErgoTokens(ErgoNetwork ergoNetwork) {
+    private ErgoNetworkData m_ergNetData;
+
+    public ErgoTokens(ErgoNetworkData ergNetData, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
+        m_ergNetData = ergNetData;
 
-        m_appDir = new File(ergoNetwork.getErgoNetworkDir().getAbsolutePath() + "/" + NAME);
+        m_appDir = new File(ergoNetwork.getAppDir().getAbsolutePath() + "/" + NAME);
 
         if (!m_appDir.isDirectory()) {
 
@@ -111,10 +114,9 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     }
 
-    public ErgoTokens(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
-
+    public ErgoTokens(ErgoNetworkData ergNetData, JsonObject jsonObject, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
-
+        m_ergNetData = ergNetData;
         JsonElement networkTypeElement = jsonObject.get("networkType");
         JsonElement appDirElement = jsonObject.get("appDir");
         JsonElement dataElement = jsonObject.get("dataFile");
@@ -132,7 +134,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             m_appDir = new File(appDirElement.getAsString());
         } else {
 
-            m_appDir = new File(ergoNetwork.getErgoNetworkDir().getAbsolutePath() + "/" + NAME);
+            m_appDir = new File(ergoNetwork.getAppDir().getAbsolutePath() + "/" + NAME);
         }
 
         if (!m_appDir.isDirectory()) {
@@ -180,6 +182,10 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     }
 
+    public ErgoNetworkData getErgoNetworkData(){
+        return m_ergNetData;
+    }
+
     @Override
     public void open() {
 
@@ -187,10 +193,9 @@ public class ErgoTokens extends Network implements NoteInterface {
     }
 
     public NoteInterface getExplorerInterface() {
-        if (m_explorerId != null) {
-            return getNetworksData().getNoteInterface(m_explorerId);
-        }
-        return null;
+       
+        return m_ergNetData.getNetwork( ErgoExplorers.NETWORK_ID);
+      
     }
 
     public void setNetworkType(NetworkType networkType) {
@@ -234,8 +239,8 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             HBox titleBox = App.createTopBar(getIcon(), maxBtn, closeBtn, m_tokensStage);
 
-            MenuButton menuBtn = new MenuButton();
-            menuBtn.setGraphic(IconButton.getIconView(new Image("/assets/menu-outline-30.png"), 30));
+            BufferedMenuButton menuBtn = new BufferedMenuButton("/assets/menu-outline-30.png", 15);
+  
 
             MenuItem importBtn = new MenuItem(" Import JSON...");
             importBtn.setId("menuBtn");
@@ -276,8 +281,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             toggleTip.setShowDelay(new javafx.util.Duration(100));
             toggleTip.setFont(App.txtFont);
 
-            Button toggleNetworkTypeBtn = new Button();
-            toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
+            BufferedButton toggleNetworkTypeBtn = new BufferedButton(m_networkType == NetworkType.MAINNET ? "/assets/toggle-on.png" : "/assets/toggle-off.png", 15);
             toggleNetworkTypeBtn.setId("menuBtn");
             toggleNetworkTypeBtn.setTooltip(toggleTip);
             toggleNetworkTypeBtn.setOnAction(e -> {
@@ -285,7 +289,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 setNetworkType(m_networkType == NetworkType.MAINNET ? NetworkType.TESTNET : NetworkType.MAINNET);
 
                 toggleTip.setText((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
-                toggleNetworkTypeBtn.setGraphic(m_networkType == NetworkType.MAINNET ? IconButton.getIconView(new Image("/assets/toggle-on.png"), 30) : IconButton.getIconView(new Image("/assets/toggle-off.png"), 30));
+                toggleNetworkTypeBtn.setImage(m_networkType == NetworkType.MAINNET ?new Image("/assets/toggle-on.png") : new Image("/assets/toggle-off.png"));
                 m_tokensStage.setTitle(getName() + ": Tokens " + (m_networkType == NetworkType.MAINNET ? "(MAINNET)" : "(TESTNET)"));
 
                 tokensList.setNetworkType(getNetworksData().getAppData().appKeyProperty().get(), m_networkType);
@@ -296,7 +300,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             explorerTip.setFont(App.txtFont);
 
             MenuButton explorerBtn = new MenuButton();
-            explorerBtn.setGraphic(getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30) : IconButton.getIconView(new InstallableIcon(getNetworksData(), getExplorerInterface().getNetworkId(), true).getIcon(), 30));
+            explorerBtn.setGraphic(getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 15) : IconButton.getIconView(new InstallableIcon(getNetworksData(), getExplorerInterface().getNetworkId(), true).getIcon(), 15));
             explorerBtn.setPadding(new Insets(2, 0, 0, 0));
             explorerBtn.setTooltip(explorerTip);
 
@@ -310,18 +314,18 @@ public class ErgoTokens extends Network implements NoteInterface {
                 tokensList.closeAll();
             });
 
-            MenuItem ergoExplorerMenuItem = new MenuItem(ErgoExplorer.NAME);
-            ergoExplorerMenuItem.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), 30));
+            MenuItem ergoExplorerMenuItem = new MenuItem(ErgoExplorers.NAME);
+            ergoExplorerMenuItem.setGraphic(IconButton.getIconView(ErgoExplorers.getSmallAppIcon(), 30));
 
             ergoExplorerMenuItem.setOnAction(e -> {
 
-                m_explorerId = ErgoExplorer.NETWORK_ID;
+                m_explorerId = ErgoExplorers.NETWORK_ID;
                 explorerBtn.setUserData(m_explorerId);
-                explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorer.getSmallAppIcon(), 30));
+                explorerBtn.setGraphic(IconButton.getIconView(ErgoExplorers.getSmallAppIcon(), 30));
 
                 if (getExplorerInterface() == null) {
-                    Alert explorerAlert = new Alert(AlertType.NONE, "Attention:\n\n" + ErgoExplorer.NAME + " enabled for " + ErgoTokens.NAME + ". However " + ErgoExplorer.NAME + " is not installed on NetNotes.\n\n" + ErgoExplorer.NAME + " must be installed to use this feature.", ButtonType.OK);
-                    explorerAlert.setGraphic(IconButton.getIconView(ErgoExplorer.getAppIcon(), 75));
+                    Alert explorerAlert = new Alert(AlertType.NONE, "Attention:\n\n" + ErgoExplorers.NAME + " enabled for " + ErgoTokens.NAME + ". However " + ErgoExplorers.NAME + " is not installed on NetNotes.\n\n" + ErgoExplorers.NAME + " must be installed to use this feature.", ButtonType.OK);
+                    explorerAlert.setGraphic(IconButton.getIconView(ErgoExplorers.getAppIcon(), 75));
                     explorerAlert.initOwner(m_tokensStage);
                     explorerAlert.show();
                 }
@@ -578,7 +582,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                 if (zipStream != null) {
                     // Enumeration<? extends ZipEntry> entries = zipFile.entries();
-
+                    File tokenFile = new File("tokenFile.txt");
                     ZipEntry entry;
                     while ((entry = zipStream.getNextEntry()) != null) {
 
@@ -615,7 +619,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                                 HashData hashData = new HashData(hashbytes);
                         
-
+                                
                                 ErgoNetworkToken token = createToken(fileName, fileString, hashData);
                               
                                 if (token != null) {
@@ -667,6 +671,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     public ErgoNetworkToken createToken(String key, String imageString, HashData hashData) {
         ErgoNetworkToken ergoToken = null;
+       
         NetworkType networkType = NetworkType.MAINNET;
         switch (key) {
             case "aht":

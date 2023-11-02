@@ -62,17 +62,17 @@ public class InstallableIcon extends IconButton {
     public void setNetworkId(String networkId) {
         m_networkId = networkId;
         switch (m_networkId) {
-            case ErgoExplorer.NETWORK_ID:
-                setIcon(m_installed ? ErgoExplorer.getSmallAppIcon() : ErgoExplorer.getAppIcon());
-                setName(ErgoExplorer.NAME);
-                setDescription(ErgoExplorer.DESCRIPTION);
-                setSummary(ErgoExplorer.SUMMARY);
+            case ErgoExplorers.NETWORK_ID:
+                setIcon(m_installed ? ErgoExplorers.getSmallAppIcon() : ErgoExplorers.getAppIcon());
+                setName(ErgoExplorers.NAME);
+                setDescription(ErgoExplorers.DESCRIPTION);
+                setSummary(ErgoExplorers.SUMMARY);
                 break;
-            case ErgoWallet.NETWORK_ID:
-                setIcon(m_installed ? ErgoWallet.getSmallAppIcon() : ErgoWallet.getAppIcon());
-                setName(ErgoWallet.NAME);
-                setDescription(ErgoWallet.DESCRIPTION);
-                setSummary(ErgoWallet.SUMMARY);
+            case ErgoWallets.NETWORK_ID:
+                setIcon(m_installed ? ErgoWallets.getSmallAppIcon() : ErgoWallets.getAppIcon());
+                setName(ErgoWallets.NAME);
+                setDescription(ErgoWallets.DESCRIPTION);
+                setSummary(ErgoWallets.SUMMARY);
                 break;
             case ErgoNetwork.NETWORK_ID:
                 setIcon(m_installed ? ErgoNetwork.getSmallAppIcon() : ErgoNetwork.getAppIcon());
