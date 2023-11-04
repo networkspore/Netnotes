@@ -10,19 +10,15 @@ public class PriceQuote {
     private String m_transactionCurrency;
     private String m_quoteCurrency;
     private long m_timestamp = 0;
-    private double m_amount;
+    private long m_precisionLong;
 
-    public PriceQuote(double amount, String transactionCurrency, String quoteCurrency) {
+    private int m_fractionalPrecision = 0;
 
-        m_timestamp = System.currentTimeMillis();
-        m_amountString = amount + "";
-        m_transactionCurrency = transactionCurrency;
-        m_quoteCurrency = quoteCurrency;
-        m_amount = amount;
-    }
+
 
     public PriceQuote(String amountString, String transactionCurrency, String quoteCurrency) {
-        m_amount = Double.parseDouble(amountString);
+
+        setStringAmount(amountString);
         m_timestamp = System.currentTimeMillis();
         m_amountString = amountString;
         m_transactionCurrency = transactionCurrency;
@@ -31,7 +27,7 @@ public class PriceQuote {
     }
 
     public PriceQuote(String amountString, String transactionCurrency, String quoteCurrency, long timestamp) {
-        m_amount = Double.parseDouble(amountString);
+        setStringAmount(amountString);
         m_timestamp = timestamp;
         m_amountString = amountString;
         m_transactionCurrency = transactionCurrency;
@@ -39,9 +35,31 @@ public class PriceQuote {
 
     }
 
-    public double getAmount() {
-        return m_amount;
+    public void setStringAmount(String amountString) {
+        m_amountString = amountString;
+        int indexOfDecimal = amountString.indexOf(".");
+        m_fractionalPrecision = indexOfDecimal == -1 ? 0 : amountString.substring(indexOfDecimal + 1).length();
+
+        double amountDouble = Double.parseDouble(amountString);
+
+        double precision = Math.pow(10, m_fractionalPrecision);
+        m_precisionLong = (long) (precision * amountDouble);
     }
+
+    public void setDoubleAmount(double amount) {
+        m_amountString = String.format("%." + m_fractionalPrecision + "f", amount);
+        double precision = Math.pow(10, m_fractionalPrecision);
+        m_precisionLong = (long) (precision * amount);
+    }
+
+    public double getDoubleAmount() {
+        return java.lang.Double.parseDouble(m_amountString);
+    }
+
+    public int getFractionalPrecision(){
+        return m_fractionalPrecision;
+    }
+
 
     public String getAmountString() {
         return m_amountString;
@@ -67,7 +85,9 @@ public class PriceQuote {
         JsonObject priceQuoteObject = new JsonObject();
         priceQuoteObject.addProperty("transactionCurrency", m_transactionCurrency);
         priceQuoteObject.addProperty("quoteCurrency", m_quoteCurrency);
-        priceQuoteObject.addProperty("amount", m_amount);
+        priceQuoteObject.addProperty("precisionLong", m_precisionLong);
+        priceQuoteObject.addProperty("fractionalPrecision", m_fractionalPrecision);
+        priceQuoteObject.addProperty("amount", m_amountString);
         priceQuoteObject.addProperty("timeStamp", m_timestamp);
 
         return priceQuoteObject;
@@ -75,6 +95,6 @@ public class PriceQuote {
 
     @Override
     public String toString() {
-        return m_amount + " " + m_quoteCurrency + "-" + m_transactionCurrency;
+        return m_amountString + " " + m_quoteCurrency + "-" + m_transactionCurrency;
     }
 }

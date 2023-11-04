@@ -82,6 +82,8 @@ public class AppData {
 
     private Stage m_persistenceStage = null;
 
+   
+
     public AppData()throws Exception {
 
         URL classLocation = Utils.getLocation(getClass());

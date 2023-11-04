@@ -239,7 +239,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             HBox titleBox = App.createTopBar(getIcon(), maxBtn, closeBtn, m_tokensStage);
 
-            BufferedMenuButton menuBtn = new BufferedMenuButton("/assets/menu-outline-30.png", 15);
+            BufferedMenuButton menuBtn = new BufferedMenuButton("/assets/menu-outline-30.png", App.MENU_BAR_IMAGE_WIDTH);
   
 
             MenuItem importBtn = new MenuItem(" Import JSON...");
@@ -281,7 +281,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             toggleTip.setShowDelay(new javafx.util.Duration(100));
             toggleTip.setFont(App.txtFont);
 
-            BufferedButton toggleNetworkTypeBtn = new BufferedButton(m_networkType == NetworkType.MAINNET ? "/assets/toggle-on.png" : "/assets/toggle-off.png", 15);
+            BufferedButton toggleNetworkTypeBtn = new BufferedButton(m_networkType == NetworkType.MAINNET ? "/assets/toggle-on.png" : "/assets/toggle-off.png", App.MENU_BAR_IMAGE_WIDTH);
             toggleNetworkTypeBtn.setId("menuBtn");
             toggleNetworkTypeBtn.setTooltip(toggleTip);
             toggleNetworkTypeBtn.setOnAction(e -> {
@@ -300,7 +300,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             explorerTip.setFont(App.txtFont);
 
             MenuButton explorerBtn = new MenuButton();
-            explorerBtn.setGraphic(getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 15) : IconButton.getIconView(new InstallableIcon(getNetworksData(), getExplorerInterface().getNetworkId(), true).getIcon(), 15));
+            explorerBtn.setGraphic(getExplorerInterface() == null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(new InstallableIcon(getNetworksData(), getExplorerInterface().getNetworkId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
             explorerBtn.setPadding(new Insets(2, 0, 0, 0));
             explorerBtn.setTooltip(explorerTip);
 
@@ -347,6 +347,11 @@ public class ErgoTokens extends Network implements NoteInterface {
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
+
+            HBox menuBarPadding = new HBox(menuBar);
+            menuBarPadding.setId("darkBox");
+            HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
+            menuBarPadding.setPadding(new Insets(0,0,4,0));
 
             ImageView addImage = new ImageView(App.addImg);
             addImage.setFitHeight(10);
@@ -421,7 +426,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             menuBox.setPadding(new Insets(5, 5, 5, 5));
             menuBox.setPrefHeight(buttonHeight);
 
-            layoutVBox.getChildren().addAll(menuBar, scrollPane, menuBox);
+            layoutVBox.getChildren().addAll(menuBarPadding, scrollPane, menuBox);
 
             Scene tokensScene = new Scene(layoutVBox, tokensStageWidth, tokensStageHeight);
 
@@ -582,7 +587,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                 if (zipStream != null) {
                     // Enumeration<? extends ZipEntry> entries = zipFile.entries();
-                    File tokenFile = new File("tokenFile.txt");
+                  
                     ZipEntry entry;
                     while ((entry = zipStream.getNextEntry()) != null) {
 

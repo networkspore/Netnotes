@@ -25,6 +25,7 @@ public class PriceAmount {
         m_currency = currency;
     }
 
+
     public void setLongAmount(long amount) {
         m_amount = amount;
     }
@@ -54,11 +55,7 @@ public class PriceAmount {
 
     @Override
     public String toString() {
-        int precision = m_currency.getFractionalPrecision();
-        DecimalFormat df = new DecimalFormat("0");
-        df.setMaximumFractionDigits(precision);
-       
-        return m_currency.getSymbol() + " " + df.format(getDoubleAmount());
+        return Utils.formatCryptoString(this, m_currency.getPriceValid());
     }
 
 }

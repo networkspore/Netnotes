@@ -356,11 +356,11 @@ public class KucoinExchange extends Network implements NoteInterface {
             refreshTip.setFont(App.txtFont);
 
             Button refreshButton = new Button();
-            refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), 30));
+            refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
             refreshButton.setId("menuBtn");
             EventHandler<ActionEvent> refreshAction = e -> {
                 refreshButton.setDisable(true);
-                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/stop-30.png"), 30));
+                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/stop-30.png"), App.MENU_BAR_IMAGE_WIDTH));
                 kucoinData.updateTickers();
             };
             refreshButton.setOnAction(refreshAction);
@@ -480,7 +480,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             kucoinData.getLastUpdated().addListener((obs, oldVal, newVal) -> {
                 refreshButton.setDisable(false);
-                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), 30));
+                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
                 String dateString = Utils.formatDateTimeString(newVal);
 
                 lastUpdatedField.setText(dateString);

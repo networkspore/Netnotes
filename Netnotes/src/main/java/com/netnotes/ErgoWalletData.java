@@ -73,7 +73,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     private long m_cyclePeriod = 7;
     private TimeUnit m_cycleTimeUnit = TimeUnit.SECONDS;
 
-    private String m_quoteTransactionCurrency = "USD";
+   // private String m_quoteTransactionCurrency = "USD";
 
     private ErgoWallets m_ergoWallet;
 
@@ -205,12 +205,6 @@ public class ErgoWalletData extends Network implements NoteInterface {
             double sceneWidth = 600;
             double sceneHeight = 320;
 
-            try {
-                Files.writeString(logFile.toPath(), "\nConfirming wallet password.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
-
-            }
-
             Stage walletStage = new Stage();
             walletStage.getIcons().add(ErgoWallets.getSmallAppIcon());
             walletStage.initStyle(StageStyle.UNDECORATED);
@@ -317,16 +311,9 @@ public class ErgoWalletData extends Network implements NoteInterface {
         AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType, walletStage);
            
 
-
-        try {
-            Files.writeString(logFile.toPath(), "\nshowing wallet stage", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
-
         String title = getName() + " - (" + m_networkType.toString() + ")";
 
-        double imageWidth = 20;
+        double imageWidth = App.MENU_BAR_IMAGE_WIDTH;
         double alertImageWidth = 75;
 
         //  PriceChart priceChart = null;
@@ -342,7 +329,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         sendTip.setFont(App.txtFont);
 
         Button sendButton = new Button();
-        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
+        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), imageWidth));
         sendButton.setId("menuBtn");
         sendButton.setTooltip(sendTip);
 
@@ -354,7 +341,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         addTip.setFont(App.txtFont);
 
         Button addButton = new Button();
-        addButton.setGraphic(IconButton.getIconView(new Image("/assets/git-branch-outline-white-30.png"), 30));
+        addButton.setGraphic(IconButton.getIconView(new Image("/assets/git-branch-outline-white-30.png"), imageWidth));
         addButton.setId("menuBtn");
         addButton.setTooltip(addTip);
 
@@ -626,8 +613,8 @@ public class ErgoWalletData extends Network implements NoteInterface {
         HBox.setHgrow(totalField, Priority.ALWAYS);
         HBox summaryBox = new HBox(totalField);
         HBox.setHgrow(summaryBox, Priority.ALWAYS);
-        summaryBox.setPadding(new Insets(5, 0, 0, 5));
-
+        summaryBox.setPadding(new Insets(10, 0, 0, 5));
+        summaryBox.setAlignment(Pos.CENTER_LEFT);
         HBox scrollBox = new HBox(scrollPane);
         HBox.setHgrow(scrollBox, Priority.ALWAYS);
         scrollBox.setPadding(new Insets(5, 5, 0, 5));
@@ -726,27 +713,22 @@ public class ErgoWalletData extends Network implements NoteInterface {
             String totalString = totalErgoAmount == null ? "-" : totalErgoAmount.toString();
 
             PriceQuote priceQuote = ergoMarketData == null ? null : ergoMarketData.priceQuoteProperty().get(); 
-            
+
+  
             if(priceQuote != null && totalErgoAmount != null){
-                double totalPrice = priceQuote.getAmount() * totalErgoAmount.getDoubleAmount();
-                Platform.runLater(() ->totalField.setText(totalString + " (" + Utils.formatCryptoString(totalPrice, m_quoteTransactionCurrency, true) + ")"));
+                double totalPrice = priceQuote.getDoubleAmount() * totalErgoAmount.getDoubleAmount();
+     
+                Platform.runLater(() ->totalField.setText(totalString + " (" + Utils.formatCryptoString(totalPrice, priceQuote.getQuoteCurrency(),priceQuote.getFractionalPrecision(), true) + ")"));
             }else{
-                Platform.runLater(() ->totalField.setText(totalString + " (" + Utils.currencySymbol(m_quoteTransactionCurrency)+ "-.--)"));
+                Platform.runLater(() ->totalField.setText(totalString + " ("+(priceQuote != null ? Utils.formatCryptoString(priceQuote.getDoubleAmount(), priceQuote.getQuoteCurrency(), false) : "-.--")+")"));
            
             }
 
             Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
         };
 
-        addressesData.totalErgoAmountProperty().addListener((obs, oldval, newval)-> {
-            
-            try {
-                Files.writeString(new File("totalErgoAmount.txt").toPath(), "\n" + (newval != null ? newval.getLongAmount() : "null"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-             
-            }
-            calculateTotal.run();
-        });
+        addressesData.totalErgoAmountProperty().addListener((obs, oldval, newval)->calculateTotal.run());
+    
         
         ChangeListener<PriceQuote> quoteListener = (obs, oldVal, newVal) -> calculateTotal.run();
 

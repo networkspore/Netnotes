@@ -233,7 +233,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
         
 
-            BufferedButton addBtn = new BufferedButton("/assets/add-outline-white-40.png", 20);
+            BufferedButton addBtn = new BufferedButton("/assets/add-outline-white-40.png", App.MENU_BAR_IMAGE_WIDTH);
             addBtn.setOnAction((e) -> m_ergoNodesList.showAddNodeStage());
     
             
@@ -243,12 +243,12 @@ public class ErgoNodes extends Network implements NoteInterface {
             HBox.setHgrow(menuBar, Priority.ALWAYS);
        
             HBox menuBarPadding = new HBox(menuBar);
-            menuBarPadding.setPadding(new Insets(0, 2, 5, 2));
-            menuBarPadding.setId("bodyBox");
+            menuBarPadding.setId("darkBox");
             HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
+            menuBarPadding.setPadding(new Insets(0,0,4,0));
 
             VBox bodyBox = new VBox(menuBarPadding, scrollPane);
-            bodyBox.setPadding(new Insets(0,2,2,2));
+            bodyBox.setPadding(new Insets(0,3,2,3));
             VBox layoutBox = new VBox(titleBox, bodyBox);
   
             Runnable updateMenuBar = () -> Platform.runLater(() -> {

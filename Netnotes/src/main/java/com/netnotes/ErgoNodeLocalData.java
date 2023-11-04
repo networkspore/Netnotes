@@ -2285,7 +2285,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         Tooltip navTooltip = new Tooltip("Open in File Explorer");
         
-        BufferedButton navBtn = new BufferedButton("/assets/navigate-outline-white-30.png", 15);
+        BufferedButton navBtn = new BufferedButton("/assets/navigate-outline-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
         navBtn.setText("Location");
         navBtn.setGraphicTextGap(15);
         navBtn.setId("titleBtn");
@@ -2335,7 +2335,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         SimpleBooleanProperty showConfigFile = new SimpleBooleanProperty(false);
 
 
-        BufferedButton configFileHeadingBtn = new BufferedButton(m_downArrowUrlString, 15);
+        BufferedButton configFileHeadingBtn = new BufferedButton(m_downArrowUrlString, App.MENU_BAR_IMAGE_WIDTH);
         configFileHeadingBtn.setText("File");
         configFileHeadingBtn.setId("titleBtn");
         configFileHeadingBtn.setGraphicTextGap(15);
@@ -2624,7 +2624,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         SimpleBooleanProperty showAppFile = new SimpleBooleanProperty(false);
 
-        BufferedButton appFileHeadingBtn = new BufferedButton(m_downArrowUrlString, 15);
+        BufferedButton appFileHeadingBtn = new BufferedButton(m_downArrowUrlString, App.MENU_BAR_IMAGE_WIDTH);
         appFileHeadingBtn.setText("File");
         appFileHeadingBtn.setId("titleBtn");
         appFileHeadingBtn.setPadding(new Insets(0, 0, 0, 0));

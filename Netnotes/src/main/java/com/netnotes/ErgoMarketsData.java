@@ -1,7 +1,9 @@
 package com.netnotes;
 
 import java.io.File;
-
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,7 +37,7 @@ import javafx.scene.text.Text;
 
 public class ErgoMarketsData {
 
-    private File logFile;
+    private File logFile = new File("netnotes-log.txt");;
 
     public final static String SCHEDULED = "Scheduled";
     public final static String POLLING = "Polling";
@@ -114,7 +116,7 @@ public class ErgoMarketsData {
             m_id = FriendlyId.createFriendlyId();
         }
 
-        logFile = new File("netnotes-log.txt");
+
     }
 
     public ErgoMarketsData(String id, String name, String marketId, String baseSymbol, String quoteSymbol, String updateType, String updateValue, ErgoMarketsList marketsList) {
@@ -126,7 +128,7 @@ public class ErgoMarketsData {
         m_updateType = updateType;
         m_value = updateValue;
         m_marketsList = marketsList;
-        logFile = new File("netnotes-log.txt");
+
     }
 
     public String getName(){
@@ -333,8 +335,13 @@ public class ErgoMarketsData {
 
                 JsonElement priceElement = dataObject.get("price");
                // JsonElement timeElement = dataObject.get("time");
+               String priceString = priceElement != null && priceElement.isJsonPrimitive() ? priceElement.getAsString() : null;
 
-                priceQuoteProperty().set(new PriceQuote(priceElement.getAsString(), m_baseSymbol, m_quoteSymbol, System.currentTimeMillis()));
+
+
+                if(priceString!=null){
+                    priceQuoteProperty().set(new PriceQuote(priceString, m_baseSymbol, m_quoteSymbol, System.currentTimeMillis()));
+                }
             }
         }
     }

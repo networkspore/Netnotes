@@ -422,7 +422,7 @@ public class AddressesData {
         backTip.setFont(App.txtFont);
 
         Button backButton = new Button();
-        backButton.setGraphic(IconButton.getIconView(new Image("/assets/return-back-up-30.png"), 30));
+        backButton.setGraphic(IconButton.getIconView(new Image("/assets/return-back-up-30.png"), App.MENU_BAR_IMAGE_WIDTH));
         backButton.setId("menuBtn");
         backButton.setTooltip(backTip);
         backButton.setOnAction(e -> {
@@ -436,7 +436,7 @@ public class AddressesData {
         nodeTip.setFont(App.txtFont);
 
         MenuButton nodeMenuBtn = new MenuButton();
-        nodeMenuBtn.setGraphic(selectedNodeData().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), 30) : IconButton.getIconView(selectedNodeData().get().getIcon(), 30));
+        nodeMenuBtn.setGraphic(selectedNodeData().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(selectedNodeData().get().getIcon(), App.MENU_BAR_IMAGE_WIDTH));
         nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
         nodeMenuBtn.setTooltip(nodeTip);
 
@@ -447,7 +447,7 @@ public class AddressesData {
         explorerTip.setFont(App.txtFont);
 
         MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setGraphic(m_walletData.getExplorerId() != null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 15) : IconButton.getIconView(new Image("/assets/ergo-explorer-30.png"), 15));
+        explorerBtn.setGraphic(m_walletData.getExplorerId() != null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(new Image("/assets/ergo-explorer-30.png"), App.MENU_BAR_IMAGE_WIDTH));
         explorerBtn.setPadding(new Insets(2, 0, 0, 0));
         explorerBtn.setTooltip(explorerTip);
 
@@ -464,10 +464,10 @@ public class AddressesData {
             ErgoMarketsData marketsData = selectedMarketData().get();
             if (marketsData != null) {
                 marketsTip.setText(ErgoMarketsData.getFriendlyUpdateTypeName(marketsData.getUpdateType()) + ": " + marketsData.getUpdateValue());
-                marketsBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), 30));
+                marketsBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
             } else {
                 marketsTip.setText("Markets unavailable");
-                marketsBtn.setGraphic(IconButton.getIconView(new Image("/assets/exchange-30.png"), 30));
+                marketsBtn.setGraphic(IconButton.getIconView(new Image("/assets/exchange-30.png"), App.MENU_BAR_IMAGE_WIDTH));
             }
         };
 
@@ -496,7 +496,7 @@ public class AddressesData {
         amountCaret.setFont(App.txtFont);
         amountCaret.setFill(Color.WHITE);
 
-        Button addTxBtn = new Button("Add", IconButton.getIconView(new Image("/assets/add-outline-white-40.png"), 18));
+        Button addTxBtn = new Button("Add", IconButton.getIconView(new Image("/assets/add-outline-white-40.png"), App.MENU_BAR_IMAGE_WIDTH));
         addTxBtn.setId("menuBtnDisabled");
         addTxBtn.setFont(App.txtFont);
         addTxBtn.setContentDisplay(ContentDisplay.LEFT);

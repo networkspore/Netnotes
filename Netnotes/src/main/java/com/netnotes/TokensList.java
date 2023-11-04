@@ -365,7 +365,7 @@ public class TokensList extends Network {
                     noFile.setHeaderText("Load Error");
                     noFile.initOwner(callingStage);
                     noFile.setTitle("Import JSON - Load Error");
-                    noFile.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), 30));
+                    noFile.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), App.MENU_BAR_IMAGE_WIDTH));
                     noFile.show();
                 }
                 if (fileJson != null) {
@@ -461,7 +461,7 @@ public class TokensList extends Network {
                 tAlert.setHeaderText("Content Type Mismatch");
                 tAlert.initOwner(callingStage);
                 tAlert.setTitle("Import JSON - Content Type Mismatch");
-                tAlert.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), 30));
+                tAlert.setGraphic(IconButton.getIconView(new Image("/assets/load-30.png"), App.MENU_BAR_IMAGE_WIDTH));
                 tAlert.show();
 
             }
@@ -573,7 +573,7 @@ public class TokensList extends Network {
         backTip.setFont(App.txtFont);
 
         Button backButton = new Button();
-        backButton.setGraphic(IconButton.getIconView(new Image("/assets/return-back-up-30.png"), 30));
+        backButton.setGraphic(IconButton.getIconView(new Image("/assets/return-back-up-30.png"), App.MENU_BAR_IMAGE_WIDTH));
         backButton.setId("menuBtn");
         backButton.setTooltip(backTip);
         backButton.setOnAction(e -> {
@@ -1069,18 +1069,18 @@ public class TokensList extends Network {
                     Platform.runLater(() -> {
 
                         explorerTip.setText("Explorer: Disabled");
-                        explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30));
+                        explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
                     });
                 } else {
                     Platform.runLater(() -> {
 
                         explorerTip.setText(explorerInterface.getName() + ": Enabled");
-                        explorerBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getParentInterface().getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), 30));
+                        explorerBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getParentInterface().getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
                     });
                 }
 
             } else {
-                Platform.runLater(() -> explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30)));
+                Platform.runLater(() -> explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH)));
             }
         }, onFailed -> {
         });

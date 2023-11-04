@@ -73,7 +73,9 @@
     -fx-cursor: pointer;
 }
 
-
+#appMenuBox{
+    -fx-background-color:#181818;
+}
 
 #urlField:focused:hover {
     -fx-text-fill: #000000;

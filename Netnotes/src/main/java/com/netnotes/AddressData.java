@@ -226,7 +226,7 @@ public class AddressData extends Network {
             m_addressStage.setTitle(getName() + " - " + getAddressMinimal(16) + " - (" + getNetworkType().toString() + ")");
 
             Button sendButton = new Button();
-            sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
+            sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
             sendButton.setId("menuBtn");
             sendButton.setTooltip(sendTip);
             sendButton.setOnAction(e -> {
@@ -258,7 +258,7 @@ public class AddressData extends Network {
             marketsTip.setFont(App.txtFont);
 
             MenuButton marketsBtn = new MenuButton();
-            marketsBtn.setGraphic(m_addressesData.selectedMarketData().get() == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), 30) : IconButton.getIconView(new InstallableIcon(m_addressesData.getWalletData().getNetworksData(), m_addressesData.selectedMarketData().get().getMarketId(), true).getIcon(), 30));
+            marketsBtn.setGraphic(m_addressesData.selectedMarketData().get() == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(new InstallableIcon(m_addressesData.getWalletData().getNetworksData(), m_addressesData.selectedMarketData().get().getMarketId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
             explorerBtn.setPadding(new Insets(2, 0, 0, 0));
             explorerBtn.setTooltip(explorerTip);
 
@@ -468,7 +468,7 @@ public class AddressData extends Network {
 
     public double getPrice() {
 
-        return getValid() ? m_addressesData.selectedMarketData().get().priceQuoteProperty().get().getAmount() : 0.0;
+        return getValid() ? m_addressesData.selectedMarketData().get().priceQuoteProperty().get().getDoubleAmount() : 0.0;
     }
 
     public double getTotalAmountPrice() {
@@ -603,11 +603,11 @@ public class AddressData extends Network {
         }*/
         g2d.dispose();
 
-        try {
+       /* try {
             ImageIO.write(img, "png", new File("outputImage.png"));
         } catch (IOException e) {
 
-        }
+        }*/
 
         setImageBuffer(SwingFXUtils.toFXImage(img, null));
 

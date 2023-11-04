@@ -201,19 +201,21 @@ public class ErgoWallets extends Network implements NoteInterface {
             gridTypeToolTip.setShowDelay(new Duration(50));
             gridTypeToolTip.setHideDelay(new Duration(200));
 
-            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 15);
+            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", App.MENU_BAR_IMAGE_WIDTH);
             toggleGridTypeButton.setTooltip(gridTypeToolTip);
-            toggleGridTypeButton.setPadding(new Insets(0, 0, 0, 0));
+     
 
             HBox menuBar = new HBox(menuSpacer, toggleGridTypeButton);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 5));
+            menuBar.setPadding(new Insets(1, 5, 1, 5));
 
-            HBox menuBarPadding = new HBox(menuBar);
-            menuBarPadding.setPadding(new Insets(0, 2, 5, 2));
-            menuBarPadding.setId("bodyBox");
+           HBox menuBarPadding = new HBox(menuBar);
+            menuBarPadding.setId("darkBox");
+            HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
+            menuBarPadding.setPadding(new Insets(0,0,4,0));
+            
             VBox headerBox = new VBox(menuBarPadding);
 
             Region growRegion = new Region();

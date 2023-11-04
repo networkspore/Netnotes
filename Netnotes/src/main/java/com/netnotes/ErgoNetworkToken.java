@@ -337,7 +337,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             editTip.setFont(App.txtFont);
 
             Button editButton = new Button();
-            editButton.setGraphic(IconButton.getIconView(new Image("/assets/options-outline-white-30.png"), 30));
+            editButton.setGraphic(IconButton.getIconView(new Image("/assets/options-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
             editButton.setId("menuBtn");
             editButton.setTooltip(editTip);
             editButton.setOnAction(e -> {
@@ -426,18 +426,18 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
                         Platform.runLater(() -> {
 
                             explorerTip.setText("Explorer: Disabled");
-                            explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30));
+                            explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
                         });
                     } else {
                         Platform.runLater(() -> {
 
                             explorerTip.setText(explorerInterface.getName() + ": Enabled");
-                            explorerBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), 30));
+                            explorerBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
                         });
                     }
 
                 } else {
-                    Platform.runLater(() -> explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), 30)));
+                    Platform.runLater(() -> explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH)));
                 }
             }, onFailed -> {
             });

@@ -249,7 +249,7 @@ public class KucoinMarketItem {
 
             HBox titleBox = App.createTopBar(KucoinExchange.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
 
-            BufferedMenuButton menuButton = new BufferedMenuButton();
+            BufferedMenuButton menuButton = new BufferedMenuButton("/assets/menu-outline-30.png", App.MENU_BAR_IMAGE_WIDTH);
 
             HBox menuBar = new HBox(menuButton);
             HBox.setHgrow(menuBar, Priority.ALWAYS);

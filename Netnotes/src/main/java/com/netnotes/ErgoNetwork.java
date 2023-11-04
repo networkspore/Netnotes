@@ -162,7 +162,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
             manageTip.setShowDelay(new Duration(50));
             manageTip.setHideDelay(new Duration(200));
 
-            BufferedButton menuButton = new BufferedButton("/assets/filter.png", 15);
+            BufferedButton menuButton = new BufferedButton("/assets/filter.png", App.MENU_BAR_IMAGE_WIDTH);
             menuButton.setTooltip(manageTip);
             menuButton.setPadding(new Insets(5, 5, 5, 5));
             menuButton.setOnAction(e -> {
@@ -170,13 +170,13 @@ public class ErgoNetwork extends Network implements NoteInterface {
             });
 
             Region menuSpacer = new Region();
-            HBox.setHgrow(menuSpacer, Priority.ALWAYS);
+            HBox.setHgrow(menuSpacer, Priority.SOMETIMES);
 
             Tooltip gridTypeToolTip = new Tooltip("Toggle: List view");
             gridTypeToolTip.setShowDelay(new Duration(50));
-            gridTypeToolTip.setHideDelay(new Duration(200));
+       
 
-            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 15);
+            BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", App.MENU_BAR_IMAGE_WIDTH);
             toggleGridTypeButton.setTooltip(gridTypeToolTip);
     
 
@@ -186,19 +186,21 @@ public class ErgoNetwork extends Network implements NoteInterface {
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 5, 1, 5));
 
-            HBox menuBarPadding = new HBox(menuBar);
-            menuBarPadding.setPadding(SMALL_INSETS);
-            menuBarPadding.setId("bodyBox");
-            VBox headerBox = new VBox(titleBar, menuBarPadding);
+                  HBox menuBarPadding = new HBox(menuBar);
+        menuBarPadding.setId("darkBox");
+        HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
+        menuBarPadding.setPadding(new Insets(0,2,4,2));
+
+              VBox headerBox = new VBox(titleBar, menuBarPadding);
 
             VBox gridBox = m_ergNetData.getGridBox();
             gridBox.setPadding(SMALL_INSETS);
 
             ScrollPane scrollPane = new ScrollPane(gridBox);
-
+            scrollPane.setId("bodyBox");
             VBox bodyBox = new VBox(scrollPane);
-            bodyBox.setId("bodyBox");
-            bodyBox.setPadding(SMALL_INSETS);
+      
+            bodyBox.setPadding(new Insets(0,2,0,2));
 
             VBox layoutBox = new VBox(headerBox, bodyBox);
             layoutBox.setPadding(new Insets(0, 2, 5, 2));

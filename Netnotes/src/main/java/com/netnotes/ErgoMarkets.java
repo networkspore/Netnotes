@@ -135,10 +135,12 @@ public class ErgoMarkets extends Network implements NoteInterface {
             ScrollPane scrollPane = new ScrollPane();
             scrollPane.setId("bodyBox");
 
-            HBox menuBarPadding = new HBox(menuBar);
-            menuBarPadding.setPadding(new Insets(0, 2, 5, 2));
-            menuBarPadding.setId("bodyBox");
+             HBox menuBarPadding = new HBox(menuBar);
+            menuBarPadding.setId("darkBox");
+            HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
+            menuBarPadding.setPadding(new Insets(0,2,4,2));
 
+            
             Button addButton = new Button("Add");
             addButton.setId("menuBarBtn");
             addButton.setPadding(new Insets(2, 6, 2, 6));

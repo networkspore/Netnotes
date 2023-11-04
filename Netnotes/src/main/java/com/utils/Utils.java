@@ -25,6 +25,7 @@ import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.text.DecimalFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -415,9 +416,37 @@ public class Utils {
         return currency;
     }
 
+    public static String formatCryptoString(double price, String target, int precision, boolean valid) {
+        String formatedDecimals = String.format("%."+precision+"f", price);
+        String priceTotal = valid ? formatedDecimals : "-";
+    
+        switch (target) {
+            case "ERG":
+                priceTotal = priceTotal + " ERG";
+                break;
+            case "USD":
+                priceTotal = "$" + priceTotal;
+                break;
+            case "USDT":
+                priceTotal = priceTotal + " USDT";
+                break;
+            case "EUR":
+                priceTotal = "€‎" + priceTotal;
+                break;
+            case "BTC":
+                priceTotal ="฿" + priceTotal;
+                break;
+        }
+
+        return priceTotal;
+    }
+
+
     public static String formatCryptoString(double price, String target, boolean valid) {
         String formatedDecimals = String.format("%.2f", price);
         String priceTotal = valid ? formatedDecimals : "-.--";
+
+        
 
         switch (target) {
             case "ERG":
@@ -435,6 +464,36 @@ public class Utils {
             case "BTC":
                 priceTotal ="฿" + (valid ? String.format("%.8f", price) : "-.--");
                 break;
+        }
+
+        return priceTotal;
+    }
+
+    public static String formatCryptoString(PriceAmount priceAmount, boolean valid) {
+         int precision = priceAmount.getCurrency().getFractionalPrecision();
+        DecimalFormat df = new DecimalFormat("0");
+        df.setMaximumFractionDigits(precision);
+
+        String formatedDecimals = df.format(priceAmount.getDoubleAmount());
+        String priceTotal = valid ? formatedDecimals : "-.--";
+
+        
+
+        switch (priceAmount.getCurrency().getSymbol()) {
+            case "ERG":
+                priceTotal = "Σ"+ priceTotal;
+                break;
+            case "USD":
+                priceTotal = "$" + priceTotal;
+                break;
+            case "EUR":
+                priceTotal = "€‎" + priceTotal;
+                break;
+            case "BTC":
+                priceTotal ="฿" + priceTotal;
+                break;
+            default:
+                priceTotal = priceTotal + " " + priceAmount.getCurrency().getSymbol();
         }
 
         return priceTotal;

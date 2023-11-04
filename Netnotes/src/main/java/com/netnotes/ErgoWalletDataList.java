@@ -702,7 +702,7 @@ public class ErgoWalletDataList {
 
         //Region spacer = new Region();
         //HBox.setHgrow(spacer, Priority.ALWAYS);
-        BufferedButton backBtn = new BufferedButton("/assets/return-back-up-30.png", 15);
+        BufferedButton backBtn = new BufferedButton("/assets/return-back-up-30.png", App.MENU_BAR_IMAGE_WIDTH);
 
         HBox menuBar = new HBox(backBtn);
         HBox.setHgrow(menuBar, Priority.ALWAYS);

@@ -78,6 +78,8 @@ public class App extends Application {
     public static final String CMD_SHOW_APPSTAGE = "SHOW_APPSTAGE";
     public static final long NOTE_EXECUTION_TIME = 100;
     public static final String notesFileName = "notes.dat";
+
+    public final static double MENU_BAR_IMAGE_WIDTH = 20;
    
   //  private static final String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
 
@@ -747,6 +749,7 @@ public class App extends Application {
         HBox titleBox = createTopBar(icon, maximizeBtn, closeBtn, appStage);
 
         VBox menuBox = createMenu(settingsBtn, networksBtn);
+        menuBox.setId("appMenuBox");
         networksBtn.setId("activeMenuBtn");
         VBox.setVgrow(menuBox, Priority.ALWAYS);
 
@@ -875,15 +878,15 @@ public class App extends Application {
     
 
     private void showNetworks(Scene appScene, VBox header, VBox bodyVBox) {
-  
-
+        bodyVBox.setPadding(new Insets(0,2,2,0));
+        bodyVBox.setId("darkBox");
         bodyVBox.getChildren().clear();
 
         Tooltip addTip = new Tooltip("Networks");
         addTip.setShowDelay(new javafx.util.Duration(100));
         addTip.setFont(App.txtFont);
 
-        BufferedButton manageButton = new BufferedButton("assets/filter.png", 15);
+        BufferedButton manageButton = new BufferedButton("assets/filter.png", App.MENU_BAR_IMAGE_WIDTH);
         manageButton.setTooltip(addTip);
         manageButton.setOnAction(e -> m_networksData.showManageNetworkStage());
 
@@ -894,7 +897,7 @@ public class App extends Application {
         gridTypeToolTip.setShowDelay(new javafx.util.Duration(50));
         gridTypeToolTip.setHideDelay(new javafx.util.Duration(200));
 
-        BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", 15);
+        BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", App.MENU_BAR_IMAGE_WIDTH);
         toggleGridTypeButton.setTooltip(gridTypeToolTip);
   
 
@@ -904,17 +907,28 @@ public class App extends Application {
         menuBar.setId("menuBar");
         menuBar.setPadding(new Insets(1, 5, 1, 5));
 
+        HBox menuBarPadding = new HBox(menuBar);
+        menuBarPadding.setId("darkBox");
+        HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
+        menuBarPadding.setPadding(new Insets(0,0,4,2));
+
         header.getChildren().clear();
-        header.getChildren().add(menuBar);
+        header.getChildren().add(menuBarPadding);
 
         VBox gridBox = m_networksData.getNetworksBox();
 
+
         ScrollPane scrollPane = new ScrollPane(gridBox);
-        scrollPane.setPadding(new Insets(5, 0, 5, 0));
+        scrollPane.setId("bodyBox");
+        scrollPane.setPadding(new Insets(5));
         scrollPane.prefViewportWidthProperty().bind(appScene.widthProperty().subtract(90));
         scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty().subtract(menuBar.heightProperty().get()).subtract(50));
 
-        bodyVBox.getChildren().addAll(scrollPane);
+        VBox scrollPanePadding = new VBox(scrollPane);
+        VBox.setVgrow(scrollPanePadding,Priority.ALWAYS);
+        HBox.setHgrow(scrollPanePadding, Priority.ALWAYS);
+        scrollPanePadding.setPadding(new Insets(0,0,0,3));
+        bodyVBox.getChildren().addAll(scrollPanePadding);
 
         toggleGridTypeButton.setOnAction(e -> {
 
