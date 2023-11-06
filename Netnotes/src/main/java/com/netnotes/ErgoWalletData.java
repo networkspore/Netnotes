@@ -20,7 +20,8 @@ import com.satergo.Wallet;
 import com.utils.Utils;
 
 import javafx.application.Platform;
-
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 
 import javafx.beans.value.ChangeListener;
@@ -307,7 +308,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     
     private Scene getWalletScene(Wallet wallet, Stage walletStage) {
         
-
+       
         AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType, walletStage);
            
 
@@ -321,8 +322,13 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         Button closeBtn = new Button();
         Button maximizeBtn = new Button();
+        Button shrinkBtn = new Button();
 
-        HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), title, maximizeBtn, closeBtn, walletStage);
+        SimpleBooleanProperty isShrunk = new SimpleBooleanProperty(false);
+
+        HBox titleBox = App.createShrinkTopBar(ErgoWallets.getSmallAppIcon(), title, maximizeBtn, shrinkBtn, closeBtn, walletStage, isShrunk);
+
+     
 
         Tooltip sendTip = new Tooltip("Select address");
         sendTip.setShowDelay(new javafx.util.Duration(100));
@@ -597,7 +603,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         menuBar.setPadding(new Insets(1, 0, 1, 5));
 
         HBox paddingBox = new HBox(menuBar);
-        paddingBox.setPadding(new Insets(2, 5, 2, 5));
+        paddingBox.setPadding(new Insets(2, 5, 1, 5));
 
         VBox menuVBox = new VBox(paddingBox);
 
@@ -611,7 +617,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         updatedTxt.setFont(smallerFont);
 
         TextField lastUpdatedField = new TextField();
-        lastUpdatedField.setPrefWidth(175);
+        lastUpdatedField.setPrefWidth(190);
   
         lastUpdatedField.setId("smallPrimaryColor");
 
@@ -640,6 +646,28 @@ public class ErgoWalletData extends Network implements NoteInterface {
         Scene openWalletScene = new Scene(bodyVBox, getStageWidth(), getStageHeight());
 
         layoutBox.prefWidthProperty().bind(openWalletScene.widthProperty().subtract(30));
+
+        SimpleDoubleProperty normalHeight = new SimpleDoubleProperty(MIN_HEIGHT);
+
+        isShrunk.addListener((obs, oldval, newval)->{
+            Rectangle rect = getNetworksData().getMaximumWindowBounds();
+            if(newval){
+                normalHeight.set(walletStage.getHeight());
+                double smallHeight = titleBox.heightProperty().get() + summaryBox.heightProperty().get() + updateBox.heightProperty().get();
+                bodyVBox.getChildren().removeAll(menuVBox, scrollBox);
+                walletStage.setHeight(smallHeight);
+                walletStage.setAlwaysOnTop(true);
+                ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, smallHeight, rect.getWidth(), smallHeight);
+            }else{
+
+                walletStage.setAlwaysOnTop(false);
+                ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
+                walletStage.setHeight(normalHeight.get());
+
+                bodyVBox.getChildren().clear();
+                bodyVBox.getChildren().addAll(titleBox, menuVBox, scrollBox, summaryBox, updateBox);
+            }
+        });
 
         addButton.setOnAction(e -> {
             addressesData.addAddress();
@@ -681,8 +709,8 @@ public class ErgoWalletData extends Network implements NoteInterface {
                     Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
                     if (sendScene != null) {
                         walletStage.setScene(sendScene);
-                        Rectangle rect = getNetworksData().getMaximumWindowBounds();
-                        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
+                        Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
+                        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
                     }
                 }
             }
@@ -769,6 +797,18 @@ public class ErgoWalletData extends Network implements NoteInterface {
             addressesData.shutdown();
             walletStage.close();
 
+        });
+
+        maximizeBtn.setOnAction(e->{
+            boolean maximized = walletStage.isMaximized();
+            setStageMaximized(!maximized);
+
+            if (!maximized) {
+                setStagePrevWidth(walletStage.getWidth());
+                setStagePrevHeight(walletStage.getHeight());
+            }
+
+            walletStage.setMaximized(!maximized);
         });
 
         m_ergoWallet.shutdownNowProperty().addListener((obs, oldVal, newVal) -> {
