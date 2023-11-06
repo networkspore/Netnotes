@@ -366,6 +366,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             refreshButton.setOnAction(refreshAction);
 
             TextField searchField = new TextField();
+            searchField.setPromptText("Search");
             searchField.setId("urlField");
             searchField.setPrefWidth(200);
             searchField.setPadding(new Insets(2, 10, 3, 10));

@@ -240,6 +240,7 @@ public class ErgoNodes extends Network implements NoteInterface {
             HBox menuBar = new HBox(addBtn);
             menuBar.setId("menuBar");
             menuBar.setAlignment(Pos.CENTER_LEFT);
+            menuBar.setPadding(new Insets(1,5,1,5));
             HBox.setHgrow(menuBar, Priority.ALWAYS);
        
             HBox menuBarPadding = new HBox(menuBar);

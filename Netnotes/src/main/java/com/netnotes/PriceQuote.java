@@ -95,6 +95,6 @@ public class PriceQuote {
 
     @Override
     public String toString() {
-        return m_amountString + " " + m_quoteCurrency + "-" + m_transactionCurrency;
+        return m_amountString + " " + m_transactionCurrency + "/" + m_quoteCurrency;
     }
 }

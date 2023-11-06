@@ -39,10 +39,10 @@
 }
 
 #urlField {
-    -fx-background-color:#FFFFFFDF;
-    -fx-text-fill: #222222;
+   
+    -fx-text-fill: #777777;
     -fx-background-radius: 10px;
-
+    -fx-background-color:black;
     -fx-opacity: .9;
     -fx-font-size: 11px;
     -fx-font-family: 'OCR A Extended';
@@ -50,8 +50,15 @@
 
 }
 
-#urlField:focused {
-    -fx-text-fill: #000000;
+#urlField:hover {
+    -fx-text-fill: #FFFFFF;
+
+
+}
+
+
+#urlField:focused, #urlField:focused:hover {
+    -fx-text-fill: #FFFFFF;
     -fx-opacity: 1;
 
 }
@@ -77,10 +84,6 @@
     -fx-background-color:#181818;
 }
 
-#urlField:focused:hover {
-    -fx-text-fill: #000000;
-    -fx-opacity: 1;
-}
 
 #addressBtn{
     -fx-opacity: .9;
@@ -381,7 +384,7 @@
 }
 
 #menuBtn {
-   
+    -fx-padding: 2;
     -fx-background-color: transparent;
     -fx-opacity: .6;
 }

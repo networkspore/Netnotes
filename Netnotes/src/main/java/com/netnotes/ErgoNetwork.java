@@ -179,6 +179,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
             BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", App.MENU_BAR_IMAGE_WIDTH);
             toggleGridTypeButton.setTooltip(gridTypeToolTip);
     
+       
 
             HBox menuBar = new HBox(menuButton, menuSpacer, toggleGridTypeButton);
             HBox.setHgrow(menuBar, Priority.ALWAYS);

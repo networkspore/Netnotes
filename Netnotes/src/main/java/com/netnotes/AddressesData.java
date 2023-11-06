@@ -93,6 +93,8 @@ public class AddressesData {
     private SimpleObjectProperty<ErgoExplorerData> m_selectedExplorerData = new SimpleObjectProperty<ErgoExplorerData>(null);
     private SimpleBooleanProperty m_isErgoTokens = new SimpleBooleanProperty();
 
+    private SimpleObjectProperty<PriceQuote> m_currentQuote = new SimpleObjectProperty<>(null);
+
     private Stage m_promptStage = null;
 
     public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType, Stage walletStage) {
@@ -104,17 +106,11 @@ public class AddressesData {
 
         ErgoNetworkData ergNetData = walletData.getErgoWallets().getErgoNetworkData();
 
-        ErgoMarkets ergoMarkets = (ErgoMarkets) ergNetData.getNetwork(ErgoMarkets.NETWORK_ID);
+
         ErgoNodes ergoNodes = (ErgoNodes) ergNetData.getNetwork(ErgoNodes.NETWORK_ID);
         ErgoExplorers ergoExplorer = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
         ErgoTokens ergoTokens = (ErgoTokens) ergNetData.getNetwork(ErgoTokens.NETWORK_ID);
-        
-        if(ergoMarkets != null){
-            String marketId = walletData.getMarketsId();
-            ErgoMarketsData mData = ergoMarkets.getErgoMarketsList().getMarketsData( marketId);
-    
-            m_selectedMarketData.set(mData);
-        }
+  
         if(ergoNodes != null){
             m_selectedNodeData.set(ergoNodes.getErgoNodesList().getErgoNodeData(walletData.getNodesId()));
         }
@@ -163,6 +159,10 @@ public class AddressesData {
     
        
         updateAddressBox();
+    }
+
+    public SimpleObjectProperty<PriceQuote> currentPriceQuoteProperty(){
+        return m_currentQuote;
     }
 
     public ErgoWalletData getWalletData() {
@@ -353,6 +353,7 @@ public class AddressesData {
             return false;
         }
 
+
         m_selectedMarketData.set(marketsData);
 
         if (previousSelectedMarketsData != null) {
@@ -361,11 +362,13 @@ public class AddressesData {
                     return false;
                 }
             }
+            m_currentQuote.unbind();
             previousSelectedMarketsData.shutdown();
 
         }
 
         if (marketsData != null) {
+            m_currentQuote.bind(marketsData.priceQuoteProperty());
             marketsData.start();
         }
 

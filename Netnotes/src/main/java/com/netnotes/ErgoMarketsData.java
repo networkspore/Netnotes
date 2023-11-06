@@ -326,6 +326,7 @@ public class ErgoMarketsData {
     }
 
     private void onTickerMsg(JsonObject json) {
+      
         if (json != null) {
 
             JsonElement dataElement = json.get("data");

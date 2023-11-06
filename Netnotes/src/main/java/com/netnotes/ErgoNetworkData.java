@@ -38,6 +38,7 @@ import com.netnotes.IconButton.IconStyle;
 import com.satergo.extra.AESEncryption;
 import com.utils.Utils;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 
 import javafx.beans.property.SimpleStringProperty;
@@ -531,6 +532,8 @@ public class ErgoNetworkData implements InstallerInterface {
             ResizeHelper.addResizeListener(m_manageStage, 400, 200, maxRect.getWidth(), maxRect.getHeight());
 
             updateAvailableLists(installables);
+
+            Platform.runLater(()->m_manageStage.requestFocus());
         } else {
             m_manageStage.show();
         }

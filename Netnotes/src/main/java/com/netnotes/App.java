@@ -913,6 +913,8 @@ public class App extends Application {
         menuBarPadding.setPadding(new Insets(0,0,4,2));
 
         header.getChildren().clear();
+        header.setPadding(new Insets(0,1,0,1));
+        header.setId("darkBox");
         header.getChildren().add(menuBarPadding);
 
         VBox gridBox = m_networksData.getNetworksBox();

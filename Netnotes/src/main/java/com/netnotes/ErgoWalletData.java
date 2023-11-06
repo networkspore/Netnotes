@@ -203,7 +203,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         if (!m_isOpen) {
             m_isOpen = true;
             double sceneWidth = 600;
-            double sceneHeight = 320;
+            double sceneHeight = 305;
 
             Stage walletStage = new Stage();
             walletStage.getIcons().add(ErgoWallets.getSmallAppIcon());
@@ -456,17 +456,32 @@ public class ErgoWalletData extends Network implements NoteInterface {
         BufferedMenuButton marketsBtn = new BufferedMenuButton("/assets/ergoChart-30.png", imageWidth);
         marketsBtn.setPadding(new Insets(2, 0, 0, 0));
         marketsBtn.setTooltip(marketsTip);
+        
+        SimpleObjectProperty<ErgoMarketsData> ergoMarketsData = new SimpleObjectProperty<>(null);
+        
+        if(m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID) != null){
+            String marketId = getMarketsId();
+            ErgoMarkets ergoMarkets = (ErgoMarkets) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
+            if(ergoMarkets != null){
+                ErgoMarketsData mData = ergoMarkets.getErgoMarketsList().getMarketsData( marketId);
+                if(mData != null){
+                    addressesData.updateSelectedMarket(mData);
+                    ergoMarketsData.set(mData);
+                }
+            }
+        }
 
+      
   
          Runnable updateMarketsBtn = () ->{
-            ErgoMarketsData marketsData = addressesData.selectedMarketData().get();
+            ErgoMarketsData marketsData = ergoMarketsData.get();
             ErgoMarkets ergoMarkets = (ErgoMarkets) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
       
           
             if(marketsData != null && ergoMarkets != null){
                 
                 marketsTip.setText(marketsData.getName());
-                marketsData.start();
+                addressesData.updateSelectedMarket(marketsData);
             }else{
                
                 if(ergoMarkets == null){
@@ -478,12 +493,14 @@ public class ErgoWalletData extends Network implements NoteInterface {
           
         };
 
+          ergoMarketsData.addListener((obs,oldval,newVal) -> updateMarketsBtn.run());
+
         Runnable getAvailableMarketsMenu = ()->{
             ErgoMarkets ergoMarkets = (ErgoMarkets) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
             if(ergoMarkets != null){
                  marketsBtn.setId("menuBtn");
                 
-                ergoMarkets.getErgoMarketsList().getMenu(marketsBtn, addressesData.selectedMarketData());
+                ergoMarkets.getErgoMarketsList().getMenu(marketsBtn, ergoMarketsData);
             }else{
                 marketsBtn.getItems().clear();
                 marketsBtn.setId("menuBtnDisabled");
@@ -594,12 +611,12 @@ public class ErgoWalletData extends Network implements NoteInterface {
         updatedTxt.setFont(smallerFont);
 
         TextField lastUpdatedField = new TextField();
-        lastUpdatedField.setPrefWidth(160);
-        lastUpdatedField.setFont(smallerFont);
-        lastUpdatedField.setId("formField");
+        lastUpdatedField.setPrefWidth(175);
+  
+        lastUpdatedField.setId("smallPrimaryColor");
 
         HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
-        updateBox.setPadding(new Insets(2));
+        updateBox.setPadding(new Insets(0,2,2,0));
         updateBox.setAlignment(Pos.CENTER_RIGHT);
 
         Region spacerRegion = new Region();
@@ -707,49 +724,35 @@ public class ErgoWalletData extends Network implements NoteInterface {
         });
 
         Runnable calculateTotal = () ->{
-            ErgoMarketsData ergoMarketData = addressesData.selectedMarketData().get();
+         
+        
             ErgoAmount totalErgoAmount = addressesData.totalErgoAmountProperty().get();
             
-            String totalString = totalErgoAmount == null ? "-" : totalErgoAmount.toString();
+            String totalString = totalErgoAmount == null ? "Σ-" : totalErgoAmount.toString();
 
-            PriceQuote priceQuote = ergoMarketData == null ? null : ergoMarketData.priceQuoteProperty().get(); 
+            PriceQuote priceQuote = addressesData.currentPriceQuoteProperty().get(); 
+    
+            double ergoAmountDouble = (totalErgoAmount != null ? totalErgoAmount.getDoubleAmount() : 0);
 
-  
-            if(priceQuote != null && totalErgoAmount != null){
-                double totalPrice = priceQuote.getDoubleAmount() * totalErgoAmount.getDoubleAmount();
-     
-                Platform.runLater(() ->totalField.setText(totalString + " (" + Utils.formatCryptoString(totalPrice, priceQuote.getQuoteCurrency(),priceQuote.getFractionalPrecision(), true) + ")"));
-            }else{
-                Platform.runLater(() ->totalField.setText(totalString + " ("+(priceQuote != null ? Utils.formatCryptoString(priceQuote.getDoubleAmount(), priceQuote.getQuoteCurrency(), false) : "-.--")+")"));
-           
-            }
+            double totalPrice = priceQuote != null ? priceQuote.getDoubleAmount() * ergoAmountDouble : 0;
+        
+            String quoteString = (priceQuote != null ? ": " + Utils.formatCryptoString( totalPrice , priceQuote.getQuoteCurrency(),priceQuote.getFractionalPrecision(),  totalErgoAmount != null) +" (" + priceQuote.toString() + ")" : "" );
+
+            String text = totalString  + quoteString;
+
+            Platform.runLater(() ->totalField.setText(text));
+        
 
             Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
         };
 
+
+
         addressesData.totalErgoAmountProperty().addListener((obs, oldval, newval)->calculateTotal.run());
-    
+        addressesData.currentPriceQuoteProperty().addListener((obs, oldVal, newVal) -> calculateTotal.run());
+
         
-        ChangeListener<PriceQuote> quoteListener = (obs, oldVal, newVal) -> calculateTotal.run();
-
-
-        addressesData.selectedMarketData().addListener((obs, oldval, newval)->{
-            setMarketsId(newval == null ? null : newval.getId());
-            if(oldval != null){
-                oldval.priceQuoteProperty().removeListener(quoteListener);
-                oldval.shutdown();
-            }
-            updateMarketsBtn.run();
-            if(newval != null)
-            {
-                newval.priceQuoteProperty().addListener(quoteListener);
-            }
-        });
-
-        if(addressesData.selectedMarketData().get() != null){
-            addressesData.selectedMarketData().get().priceQuoteProperty().addListener(quoteListener);
-        }
-
+        
         calculateTotal.run();
 
         walletStage.setOnCloseRequest(event -> {
