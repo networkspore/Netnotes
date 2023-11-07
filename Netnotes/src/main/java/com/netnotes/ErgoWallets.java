@@ -263,9 +263,9 @@ public class ErgoWallets extends Network implements NoteInterface {
             VBox walletsBox = walletsDataList.getButtonGrid();
 
             walletsBox.prefWidthProperty().bind(walletsScene.widthProperty().subtract(25));
-
+            
             scrollPane.setContent(walletsBox);
-            scrollPane.setPadding(new Insets(0, 5, 5, 5));
+            scrollPane.setPadding(new Insets(5, 5, 5, 5));
 
             addButton.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));
             removeButton.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));

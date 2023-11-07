@@ -6,12 +6,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
-
-import javax.imageio.ImageIO;
 
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
@@ -34,15 +28,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.MenuButton;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
@@ -52,6 +42,7 @@ import javafx.stage.StageStyle;
 
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -202,12 +193,14 @@ public class AddressData extends Network {
 
     private void showAddressStage() {
         if (m_addressStage == null) {
-
+            String titleString = getName() + " - " + m_address.toString() + " - (" + getNetworkType().toString() + ")";
             m_addressStage = new Stage();
-            // 
             m_addressStage.getIcons().add(ErgoWallets.getAppIcon());
             m_addressStage.setResizable(false);
             m_addressStage.initStyle(StageStyle.UNDECORATED);
+            m_addressStage.setTitle(titleString);
+
+            double shrunkHeight = 106;
 
             Button closeBtn = new Button();
 
@@ -217,147 +210,69 @@ public class AddressData extends Network {
 
             Button maximizeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), maximizeBtn, closeBtn, m_addressStage);
+            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), titleString, closeBtn, m_addressStage);
+ 
 
-            Tooltip sendTip = new Tooltip("Send");
-            sendTip.setShowDelay(new javafx.util.Duration(100));
-            sendTip.setFont(App.txtFont);
+            TextField totalField = new TextField();
+            totalField.setId("priceField");
+            totalField.setEditable(false);
+            HBox.setHgrow(totalField, Priority.ALWAYS);
+            
+            
+            HBox summaryBox = new HBox(totalField);
+            HBox.setHgrow(summaryBox, Priority.ALWAYS);
+            summaryBox.setPadding(new Insets(0, 0, 0, 0));
+            summaryBox.setAlignment(Pos.CENTER_LEFT);
 
-            m_addressStage.setTitle(getName() + " - " + getAddressMinimal(16) + " - (" + getNetworkType().toString() + ")");
-
-            Button sendButton = new Button();
-            sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
-            sendButton.setId("menuBtn");
-            sendButton.setTooltip(sendTip);
-            sendButton.setOnAction(e -> {
-
-                cmdProperty().set(Utils.getCmdObject("SEND"));
-                // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
-            });
-
-            Tooltip nodeTip = new Tooltip("Ergo Nodes");
-            nodeTip.setShowDelay(new javafx.util.Duration(100));
-            nodeTip.setFont(App.txtFont);
-
-            MenuButton nodeMenuBtn = new MenuButton();
-            nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
-            nodeMenuBtn.setTooltip(nodeTip);
-
-            ErgoExplorerData explorerData = null;
-
-            Tooltip explorerTip = new Tooltip(explorerData == null ? "Explorer unavailable" : explorerData.getName());
-            explorerTip.setShowDelay(new javafx.util.Duration(100));
-            explorerTip.setFont(App.txtFont);
-
-            MenuButton explorerBtn = new MenuButton();
-            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
-            explorerBtn.setTooltip(explorerTip);
-
-            Tooltip marketsTip = new Tooltip(m_addressesData.selectedMarketData().get() == null ? "Market unavailable" : ErgoMarketsData.getFriendlyUpdateTypeName(m_addressesData.selectedMarketData().get().getUpdateType()) + ": " + m_addressesData.selectedMarketData().get().getUpdateValue());
-            marketsTip.setShowDelay(new javafx.util.Duration(100));
-            marketsTip.setFont(App.txtFont);
-
-            MenuButton marketsBtn = new MenuButton();
-            marketsBtn.setGraphic(m_addressesData.selectedMarketData().get() == null ? IconButton.getIconView(new Image("/assets/exchange-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(new InstallableIcon(m_addressesData.getWalletData().getNetworksData(), m_addressesData.selectedMarketData().get().getMarketId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
-            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
-            explorerBtn.setTooltip(explorerTip);
-
-            HBox rightSideMenu = new HBox(nodeMenuBtn, explorerBtn, marketsBtn);
-            rightSideMenu.setId("rightSideMenuBar");
-            rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
-
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-
-            HBox menuBar = new HBox(sendButton, spacer, rightSideMenu);
-            HBox.setHgrow(menuBar, Priority.ALWAYS);
-            menuBar.setAlignment(Pos.CENTER_LEFT);
-            menuBar.setId("menuBar");
-            menuBar.setPadding(new Insets(1, 0, 1, 5));
-
-            HBox paddingBox = new HBox(menuBar);
-            paddingBox.setPadding(new Insets(2, 5, 2, 5));
-
-            //////////////////////////////////////////////////////////********************************** *///////////////////////////////////
-            TextField addressField = new TextField(getAddressString());
-            addressField.setId("formField");
-            addressField.setFont(App.txtFont);
-            addressField.setEditable(false);
-            HBox.setHgrow(addressField, Priority.ALWAYS);
-            addressField.setPadding(new Insets(0, 0, 0, 0));
-
-            TextField nameField = new TextField(getName());
-            nameField.setId("textField");
-            nameField.setFont(App.txtFont);
-            nameField.setEditable(false);
-            nameField.setPadding(new Insets(5, 10, 5, 0));
-            nameField.setPrefWidth(105);
-
-            HBox nameBox = new HBox(nameField);
-            nameBox.setPrefHeight(40);
-            nameBox.setAlignment(Pos.TOP_RIGHT);
-            HBox.setHgrow(nameBox, Priority.ALWAYS);
-
-            ImageView imgView = new ImageView();
-            imgView.setFitHeight(40);
-            imgView.setPreserveRatio(true);
-            imgView.setImage(m_imgBuffer.get());
-            imgView.imageProperty().bind(m_imgBuffer);
-
-            HBox headingBox = new HBox(imgView, addressField, nameBox);
-            headingBox.setMinHeight(40);
-            headingBox.setAlignment(Pos.CENTER_LEFT);
-            HBox.setHgrow(headingBox, Priority.ALWAYS);
-            headingBox.setPadding(new Insets(10, 15, 10, 15));
-            headingBox.setId("headingBox");
-
-            VBox bodyVBox = new VBox();// m_amountsList.getGridBox();
-            bodyVBox.setPadding(new Insets(0, 20, 20, 20));
-            HBox.setHgrow(bodyVBox, Priority.ALWAYS);
-            bodyVBox.setId("bodyBox");
-
-            ScrollPane scrollPane = new ScrollPane(bodyVBox);
-
-            Font smallerFont = Font.font("OCR A Extended", 10);
-
-            Text lastUpdatedTxt = new Text("Updated ");
-            lastUpdatedTxt.setFill(App.formFieldColor);
-            lastUpdatedTxt.setFont(smallerFont);
+            
+            Text updatedTxt = new Text("Updated:");
+            updatedTxt.setFill(App.altColor);
+            updatedTxt.setFont(Font.font("OCR A Extended", 10));
 
             TextField lastUpdatedField = new TextField();
-            lastUpdatedField.setEditable(false);
-            lastUpdatedField.setId("formField");
-            lastUpdatedField.setFont(smallerFont);
-            lastUpdatedField.setPrefWidth(60);
+            lastUpdatedField.setPrefWidth(190);
 
-            HBox lastUpdatedBox = new HBox(lastUpdatedTxt, lastUpdatedField);
-            lastUpdatedBox.setAlignment(Pos.CENTER_RIGHT);
-            HBox.setHgrow(lastUpdatedBox, Priority.ALWAYS);
+            lastUpdatedField.setId("smallPrimaryColor");
 
-            VBox footerVBox = new VBox(lastUpdatedBox);
-            HBox.setHgrow(footerVBox, Priority.ALWAYS);
+            HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
+            updateBox.setPadding(new Insets(2,2,2,0));
+            updateBox.setAlignment(Pos.CENTER_RIGHT);
 
-            VBox bodyPaddingBox = new VBox(nameBox, scrollPane, footerVBox);
-            HBox.setHgrow(bodyPaddingBox, Priority.ALWAYS);
-            bodyPaddingBox.setPadding(new Insets(5, 5, 5, 5));
 
-            VBox layoutVBox = new VBox(titleBox, paddingBox, bodyPaddingBox);
-            VBox.setVgrow(layoutVBox, Priority.ALWAYS);
-
-            Scene addressScene = new Scene(layoutVBox, 650, 500);
+            VBox layoutVBox = new VBox(titleBox, summaryBox, updateBox);
+            
+            Scene addressScene = new Scene(layoutVBox, 700, shrunkHeight);
 
             addressScene.getStylesheets().add("/css/startWindow.css");
 
             m_addressStage.setScene(addressScene);
             m_addressStage.show();
+            m_addressStage.setAlwaysOnTop(true);
+            Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
-            scrollPane.prefViewportWidthProperty().bind(addressScene.widthProperty());
-            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(nameBox.heightProperty()).subtract(footerVBox.heightProperty()).subtract(10));
+            ResizeHelper.addResizeListener(m_addressStage, ErgoWalletData.MIN_WIDTH, shrunkHeight, rect.getWidth(), shrunkHeight);
 
-            //ergQuantityField.textProperty().bind(m_formattedQuantity);
-            //  lastUpdatedField.textProperty().bind(Bindings.concat(getLastUpdated().asString("%1$TH:%1$TM:%1$TS")));
-            //  priceField.textProperty().bind(m_formattedPrice);
-            //  balanceField.textProperty().bind(m_formattedTotal);
+            Runnable updateTotal = ()->{
+                ErgoAmount ergoAmount = m_ergoAmountProperty.get();
+                PriceQuote priceQuote = m_addressesData.currentPriceQuoteProperty().get(); 
+
+                String totalString = ergoAmount == null ? "Σ-" : ergoAmount.toString();
+
+                double ergoAmountDouble = (ergoAmount != null ? ergoAmount.getDoubleAmount() : 0);
+                double totalPrice = priceQuote != null ? priceQuote.getDoubleAmount() * ergoAmountDouble : 0;
+                String quoteString = (priceQuote != null ? ": " + Utils.formatCryptoString( totalPrice , priceQuote.getQuoteCurrency(),priceQuote.getFractionalPrecision(),  ergoAmount != null) +" (" + priceQuote.toString() + ")" : "" );
+
+                String text = totalString  + quoteString;
+
+                Platform.runLater(() -> totalField.setText(text));
+                Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
+            };
+
+            updateTotal.run();
+
+            m_addressesData.currentPriceQuoteProperty().addListener((obs, oldval, newval)->updateTotal.run());
+            m_ergoAmountProperty.addListener((obs, oldval, newval)->updateTotal.run());
+
             closeBtn.setOnAction(closeEvent -> {
                 removeShutdownListener();
 
@@ -367,29 +282,15 @@ public class AddressData extends Network {
 
             m_addressStage.setOnCloseRequest((closeRequest) -> {
 
-                removeShutdownListener();
-                m_addressStage = null;
+                closeBtn.fire();
             });
-            //  
-
-            /* 
-            addressData.getPriceChart().lastUpdated.addListener(updated -> {
-                PriceChart priceChart = addressData.getPriceChart();
-                if (priceChart.getValid()) {
-
-                    chartButton.setText(priceChart.getSymbol() + " - " + priceChart.getTimespan() + " (" + priceChart.getTimeStampString() + ")");
-                    if (chartView.getUserData() == null) {
-                        chartView.setImage(SwingFXUtils.toFXImage(Utils.greyScaleImage(addressData.getPriceChart().zoomLatest(48)), null));
-                    } else {
-                        chartView.setImage(SwingFXUtils.toFXImage(addressData.getPriceChart().zoomLatest(48), null));
-                    }
-                } else {
-                    chartButton.setText("Price unavailable");
-                    chartView.setImage(null);
-                }
-            });*/
+         
         } else {
-            m_addressStage.show();
+            if(m_addressStage.isIconified()){
+                m_addressStage.setIconified(false);
+                m_addressStage.show();
+                m_addressStage.setAlwaysOnTop(true);
+            }
         }
     }
 

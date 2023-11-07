@@ -8,6 +8,7 @@ public class BufferedButton extends Button {
     public final static String ON_MOUSE_PRESSED_EFFECT_ID = "onMousePressed";
 
     private BufferedImageView m_imgBufView;
+    private boolean m_isPressedEffects = true;
 
     public BufferedButton() {
         this("/assets/menu-outline-30.png");
@@ -35,9 +36,23 @@ public class BufferedButton extends Button {
 
     }
 
+
+
+
     public BufferedButton(String name, String urlString) {
         super(name);
         m_imgBufView = new BufferedImageView(new Image(urlString), 30);
+        setGraphic(m_imgBufView);
+
+        setId("menuBtn");
+        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(ON_MOUSE_PRESSED_EFFECT_ID, .6));
+        setOnMouseReleased((pressedEvent) -> m_imgBufView.removeEffect(ON_MOUSE_PRESSED_EFFECT_ID));
+
+    }
+
+    public BufferedButton(String name, String urlString, double imageWidth) {
+        super(name);
+        m_imgBufView = new BufferedImageView(new Image(urlString), imageWidth);
         setGraphic(m_imgBufView);
 
         setId("menuBtn");
@@ -54,5 +69,22 @@ public class BufferedButton extends Button {
 
         m_imgBufView.setDefaultImage(image);
 
+    }
+
+
+    public void disablePressedEffects(){
+        setOnMousePressed(null);
+        setOnMouseReleased(null);
+        m_isPressedEffects = false;
+    }
+
+    public void enablePressedEffects(){
+        setOnMousePressed((pressedEvent) -> m_imgBufView.applyInvertEffect(ON_MOUSE_PRESSED_EFFECT_ID, .6));
+        setOnMouseReleased((pressedEvent) -> m_imgBufView.removeEffect(ON_MOUSE_PRESSED_EFFECT_ID));
+        m_isPressedEffects = true;
+    }
+
+    public boolean isPressedEffects(){
+        return m_isPressedEffects;
     }
 }

@@ -367,6 +367,7 @@
 }
 
 #menuBtnDisabled {
+    -fx-padding: 2 4 2 4;
     -fx-background-color: transparent;
     -fx-opacity: .3;
 }
@@ -384,7 +385,7 @@
 }
 
 #menuBtn {
-    -fx-padding: 2;
+    -fx-padding: 2 4 2 4;
     -fx-background-color: transparent;
     -fx-opacity: .6;
 }

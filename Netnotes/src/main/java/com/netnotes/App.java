@@ -112,7 +112,7 @@ public class App extends Application {
     public static Image arrowRightImg = new Image("/assets/arrow-forward-outline-white-20.png");
     public static Image ergoWallet = new Image("/assets/ergo-wallet.png");
     public static Image atImage = new Image("/assets/at-white-240.png");
-    public static Image branchImg = new Image("/assets/git-branch-outline-white-240.png");
+   
     public static Image ergoExplorerImg = new Image("/assets/ergo-explorer.png");
     public static Image kucoinImg = new Image("/assets/kucoin-100.png");
 
@@ -494,7 +494,224 @@ public class App extends Application {
        
     }
 
+    public static HBox createShrinkTopBar(Image iconImage, String titleString, Button maximizeBtn,  Button shrinkBtn, Button closeBtn, Stage theStage, SimpleBooleanProperty isShrunk, AppData appData) {
+      
+
+        ImageView barIconView = new ImageView(iconImage);
+        barIconView.setFitWidth(25);
+        barIconView.setPreserveRatio(true);
+
+        // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
+        Region spacer = new Region();
+
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label newTitleLbl = new Label(titleString);
+        newTitleLbl.setFont(App.titleFont);
+        newTitleLbl.setTextFill(App.txtColor);
+        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
+
+
+
+        shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20) : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
+        shrinkBtn.setPadding(new Insets(0, 0, 0, 0));
+        shrinkBtn.setId("toolBtn");
+        shrinkBtn.setOnAction(e->{
+           
+
+            if(isShrunk.get()){
+                final Scene originalScene = theStage.getScene();
+                final double originalHeight = originalScene.getHeight();
+                Rectangle rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+                final double passSceneWidth = 600;
+                final double passSceneHeight = 305;
+                ResizeHelper.addResizeListener(theStage,passSceneWidth,passSceneHeight, passSceneWidth,passSceneHeight);
+                theStage.setAlwaysOnTop(false);
+                theStage.setHeight(passSceneHeight);
+                verifyAppKey(theStage, appData, (onSucceeded)->{
+   
+                    theStage.setScene(originalScene);
+                    isShrunk.set(false);
+                    
+                }, ()->{
+                    theStage.setAlwaysOnTop(true);
+                    theStage.setScene(originalScene);
+                    theStage.setHeight(originalHeight);
+                    ResizeHelper.addResizeListener(theStage,400 , originalHeight, rect.getWidth(), originalHeight);
+                });
+            }else{
+                 isShrunk.set(true);
+            }
+           
+        });
+
+        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        ImageView closeImage = App.highlightedImageView(App.closeImg);
+        closeImage.setFitHeight(20);
+        closeImage.setFitWidth(20);
+        closeImage.setPreserveRatio(true);
+
+        closeBtn.setGraphic(closeImage);
+        closeBtn.setPadding(new Insets(0, 5, 0, 3));
+        closeBtn.setId("closeBtn");
+
+        ImageView minimizeImage = App.highlightedImageView(App.minimizeImg);
+        minimizeImage.setFitHeight(20);
+        minimizeImage.setFitWidth(20);
+        minimizeImage.setPreserveRatio(true);
+
+        Button minimizeBtn = new Button();
+        minimizeBtn.setId("toolBtn");
+        minimizeBtn.setGraphic(minimizeImage);
+        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
+        minimizeBtn.setOnAction(minEvent -> {
+            theStage.setIconified(true);
+        });
+
+        maximizeBtn.setId("toolBtn");
+        maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
+        maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
+
+        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, maximizeBtn, shrinkBtn, closeBtn);
+        newTopBar.setAlignment(Pos.CENTER_LEFT);
+        newTopBar.setPadding(new Insets(7, 8, 10, 10));
+        newTopBar.setId("topBar");
+
+        isShrunk.addListener((obs, oldVal, newVal)->{
+            shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20) : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
+            if(newVal){
+                if(newTopBar.getChildren().contains(maximizeBtn)){
+                    newTopBar.getChildren().remove(maximizeBtn);
+                }
+            }else{
+                if(!newTopBar.getChildren().contains(maximizeBtn)){
+                    newTopBar.getChildren().add(4, maximizeBtn);
+                }
+            }
+        });
+
+        Delta dragDelta = new Delta();
+
+        newTopBar.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                // record a delta distance for the drag and drop operation.
+                dragDelta.x = theStage.getX() - mouseEvent.getScreenX();
+                dragDelta.y = theStage.getY() - mouseEvent.getScreenY();
+            }
+        });
+        newTopBar.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent mouseEvent) {
+                theStage.setX(mouseEvent.getScreenX() + dragDelta.x);
+                theStage.setY(mouseEvent.getScreenY() + dragDelta.y);
+            }
+        });
+
+        return newTopBar;
+    }
     
+    public static void verifyAppKey(Runnable runnable, byte[] appkey) {
+
+        String title = "Netnotes - Enter Password";
+
+        Stage passwordStage = new Stage();
+        passwordStage.getIcons().add(App.logo);
+        passwordStage.setResizable(false);
+        passwordStage.initStyle(StageStyle.UNDECORATED);
+        passwordStage.setTitle(title);
+
+        Button closeBtn = new Button();
+
+        HBox titleBox = App.createTopBar(App.icon, title, closeBtn, passwordStage);
+
+        Button imageButton = App.createImageButton(App.logo, "Netnotes");
+
+        HBox imageBox = new HBox(imageButton);
+        imageBox.setAlignment(Pos.CENTER);
+
+        Text passwordTxt = new Text("> Enter password:");
+        passwordTxt.setFill(App.txtColor);
+        passwordTxt.setFont(App.txtFont);
+
+        PasswordField passwordField = new PasswordField();
+        passwordField.setFont(App.txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+        passwordBox.setPadding(new Insets(20, 0, 0, 0));
+
+        Button clickRegion = new Button();
+        clickRegion.setPrefWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(500);
+
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
+
+        });
+
+        VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
+
+        VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
+        VBox.setVgrow(layoutVBox, Priority.ALWAYS);
+
+        Scene passwordScene = new Scene(layoutVBox, 600, 320);
+
+        passwordScene.getStylesheets().add("/css/startWindow.css");
+        passwordStage.setScene(passwordScene);
+
+        Stage statusStage = App.getStatusStage("Netnotes - Verifying...", "Verifying..");
+
+        passwordField.setOnKeyPressed(e -> {
+
+            KeyCode keyCode = e.getCode();
+
+            if (keyCode == KeyCode.ENTER) {
+
+                if (passwordField.getText().length() < 6) {
+                    passwordField.setText("");
+                } else {
+
+                    statusStage.show();
+
+                    FxTimer.runLater(Duration.ofMillis(100), () -> {
+
+                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), appkey);
+                        Platform.runLater(() -> passwordField.setText(""));
+                        statusStage.close();
+                        if (result.verified) {
+                            passwordStage.close();
+
+                            runnable.run();
+
+                        }
+
+                    });
+                }
+            }
+        });
+
+        closeBtn.setOnAction(e -> {
+            passwordStage.close();
+
+        });
+
+        passwordScene.focusOwnerProperty().addListener((obs, oldval, newVal) -> {
+            if (newVal != null && !(newVal instanceof PasswordField)) {
+                Platform.runLater(() -> passwordField.requestFocus());
+            }
+        });
+             passwordStage.show();
+            passwordStage.toFront();
+        Platform.runLater(() ->{
+       
+        
+            passwordField.requestFocus();}
+        );
+    }
 
     public void verifyAppKey(Runnable runnable) {
 
@@ -625,7 +842,7 @@ public class App extends Application {
     }
 
     
-    public void verifyAppKey(Stage passwordStage, AppData appData, EventHandler<WorkerStateEvent> onSucceeded, Runnable onAbort) {
+    public static void verifyAppKey(Stage passwordStage, AppData appData, EventHandler<WorkerStateEvent> onSucceeded, Runnable onAbort) {
        
         String title = "Enter Password - Netnotes";
 
@@ -722,7 +939,7 @@ public class App extends Application {
 
         closeBtn.setOnAction(e -> {
             
-            passwordStage.close();
+            
             onAbort.run();
         });
 
@@ -733,7 +950,7 @@ public class App extends Application {
   
 
         passwordStage.show();
-        passwordStage.requestFocus();
+        Platform.runLater(() ->passwordField.requestFocus());
 
     }
 
@@ -1098,7 +1315,9 @@ public class App extends Application {
                         err.show();
                     }
                 }
-            },()->{});
+            },()->{
+                passwordStage.close();
+            });
             
                 
        
@@ -1541,96 +1760,7 @@ public class App extends Application {
         return newTopBar;
     }
 
-    public static HBox createShrinkTopBar(Image iconImage, String titleString, Button maximizeBtn,  Button shrinkBtn, Button closeBtn, Stage theStage, SimpleBooleanProperty isShrunk) {
-
-        ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
-        barIconView.setPreserveRatio(true);
-
-        // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
-        Region spacer = new Region();
-
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Label newTitleLbl = new Label(titleString);
-        newTitleLbl.setFont(titleFont);
-        newTitleLbl.setTextFill(txtColor);
-        newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
-
-
-
-        shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20) : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
-        shrinkBtn.setPadding(new Insets(0, 0, 0, 0));
-        shrinkBtn.setId("toolBtn");
-        shrinkBtn.setOnAction(e->{
-            isShrunk.set(!isShrunk.get());
-        });
-
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
-        ImageView closeImage = highlightedImageView(closeImg);
-        closeImage.setFitHeight(20);
-        closeImage.setFitWidth(20);
-        closeImage.setPreserveRatio(true);
-
-        closeBtn.setGraphic(closeImage);
-        closeBtn.setPadding(new Insets(0, 5, 0, 3));
-        closeBtn.setId("closeBtn");
-
-        ImageView minimizeImage = highlightedImageView(minimizeImg);
-        minimizeImage.setFitHeight(20);
-        minimizeImage.setFitWidth(20);
-        minimizeImage.setPreserveRatio(true);
-
-        Button minimizeBtn = new Button();
-        minimizeBtn.setId("toolBtn");
-        minimizeBtn.setGraphic(minimizeImage);
-        minimizeBtn.setPadding(new Insets(0, 2, 1, 2));
-        minimizeBtn.setOnAction(minEvent -> {
-            theStage.setIconified(true);
-        });
-
-        maximizeBtn.setId("toolBtn");
-        maximizeBtn.setGraphic(IconButton.getIconView(new Image("/assets/maximize-white-30.png"), 20));
-        maximizeBtn.setPadding(new Insets(0, 3, 0, 3));
-
-        HBox newTopBar = new HBox(barIconView, newTitleLbl, spacer, minimizeBtn, maximizeBtn, shrinkBtn, closeBtn);
-        newTopBar.setAlignment(Pos.CENTER_LEFT);
-        newTopBar.setPadding(new Insets(7, 8, 10, 10));
-        newTopBar.setId("topBar");
-
-        isShrunk.addListener((obs, oldVal, newVal)->{
-            shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20) : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
-            if(newVal){
-                if(newTopBar.getChildren().contains(maximizeBtn)){
-                    newTopBar.getChildren().remove(maximizeBtn);
-                }
-            }else{
-                if(!newTopBar.getChildren().contains(maximizeBtn)){
-                    newTopBar.getChildren().add(4, maximizeBtn);
-                }
-            }
-        });
-
-        Delta dragDelta = new Delta();
-
-        newTopBar.setOnMousePressed(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent mouseEvent) {
-                // record a delta distance for the drag and drop operation.
-                dragDelta.x = theStage.getX() - mouseEvent.getScreenX();
-                dragDelta.y = theStage.getY() - mouseEvent.getScreenY();
-            }
-        });
-        newTopBar.setOnMouseDragged(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent mouseEvent) {
-                theStage.setX(mouseEvent.getScreenX() + dragDelta.x);
-                theStage.setY(mouseEvent.getScreenY() + dragDelta.y);
-            }
-        });
-
-        return newTopBar;
-    }
+    
 
     public static HBox createTopBar(Image iconImage, String titleString, Button maximizeBtn, Button closeBtn, Stage theStage) {
 

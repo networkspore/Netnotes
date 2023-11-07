@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -36,7 +37,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
-
+import javafx.collections.ListChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -66,6 +67,7 @@ import javafx.scene.paint.Color;
 
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 public class AddressesData {
 
@@ -209,11 +211,18 @@ public class AddressesData {
 
     
     public void addAddress() {
-        TextField textField = new TextField();
-        Button closeBtn = new Button();
+        
         if(m_promptStage == null){
+      
             m_promptStage = new Stage();
-            App.showGetTextInput("Address name", "Address name", App.branchImg, textField, closeBtn, m_promptStage);
+            m_promptStage.initStyle(StageStyle.UNDECORATED);
+            m_promptStage.getIcons().add(new Image("/assets/git-branch-outline-white-30.png"));
+            m_promptStage.setTitle("Address Name - "+m_walletData.getName() + " - Ergo Wallets");
+
+            TextField textField = new TextField();
+            Button closeBtn = new Button();
+
+            App.showGetTextInput("Address name", "Address name", new Image("/assets/git-branch-outline-white-240.png"), textField, closeBtn, m_promptStage);
             closeBtn.setOnAction(e->{
                 m_promptStage.close();
                 m_promptStage = null;
@@ -247,6 +256,13 @@ public class AddressesData {
                     closeBtn.fire();
                 }
             });
+        }else{
+            if(m_promptStage.isIconified()){
+                m_promptStage.setIconified(false);
+            }else{
+                m_promptStage.show();
+                Platform.runLater(()->m_promptStage.requestFocus());
+            }
         }
 
     }
@@ -396,14 +412,591 @@ public class AddressesData {
     }
 
     public Scene getSendScene(Scene parentScene, Stage parentStage) {
-        NoteInterface networkInterface = m_walletData.getNodeInterface();
-        if (networkInterface == null) {
+            
+
+        if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null ||  selectedNodeData().get() == null) {
             return null;
         }
 
         String oldStageName = parentStage.getTitle();
 
-        String stageName = "Ergo Wallet - Send - " + networkInterface.getName() + " - (" + m_networkType + ")";
+        String stageName = "Send - " + m_walletData.getName() + " - (" + m_networkType + ")";
+
+        parentStage.setTitle(stageName);
+
+        VBox layoutBox = new VBox();
+        Scene sendScene = new Scene(layoutBox, 800, 600);
+        sendScene.getStylesheets().add("/css/startWindow.css");
+
+        Button closeBtn = new Button();
+        closeBtn.setOnAction(closeEvent -> {
+            parentStage.close();
+        });
+
+        Button maximizeBtn = new Button();
+
+        HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), stageName, maximizeBtn, closeBtn, parentStage);
+
+        Tooltip backTip = new Tooltip("Back");
+        backTip.setShowDelay(new javafx.util.Duration(100));
+        backTip.setFont(App.txtFont);
+
+        BufferedButton backButton = new BufferedButton("/assets/return-back-up-30.png",App.MENU_BAR_IMAGE_WIDTH) ;
+        backButton.setId("menuBtn");
+        backButton.setTooltip(backTip);
+        backButton.setOnAction(e -> {
+            parentStage.setScene(parentScene);
+            parentStage.setTitle(oldStageName);
+            // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
+        });
+
+        double imageWidth = App.MENU_BAR_IMAGE_WIDTH;
+
+        
+        Tooltip nodesTip = new Tooltip("Select node");
+        nodesTip.setShowDelay(new javafx.util.Duration(50));
+        nodesTip.setFont(App.txtFont);
+
+
+        BufferedMenuButton nodesBtn = new BufferedMenuButton("/assets/ergoNodes-30.png", imageWidth);
+        nodesBtn.setPadding(new Insets(2, 0, 0, 0));
+        nodesBtn.setTooltip(nodesTip);
+        
+
+
+        Runnable updateNodeBtn = () ->{
+            ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+            ErgoNodeData nodeData = selectedNodeData().get();
+        
+            if(nodeData != null && ergoNodes != null){
+
+               nodesTip.setText(nodeData.getName());
+            
+            }else{
+                
+                if(ergoNodes == null){
+                    nodesTip.setText("(install 'Ergo Nodes')");
+                }else{
+                    nodesTip.setText("Select node...");
+                }
+            }
+          
+            
+        };
+        
+        Runnable getAvailableNodeMenu = () ->{
+            ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+            if(ergoNodes != null){
+                ergoNodes.getErgoNodesList().getMenu(nodesBtn, selectedNodeData());
+                nodesBtn.setId("menuBtn");
+            }else{
+                nodesBtn.getItems().clear();
+                nodesBtn.setId("menuBtnDisabled");
+               
+            }
+            updateNodeBtn.run();
+        };
+
+        selectedNodeData().addListener((obs, oldval, newval)->{
+                updateNodeBtn.run();
+    
+            m_walletData.setNodesId(newval == null ? null : newval.getId());
+           
+        });
+
+        
+        Tooltip explorerTip = new Tooltip("Select explorer");
+        explorerTip.setShowDelay(new javafx.util.Duration(50));
+        explorerTip.setFont(App.txtFont);
+
+
+
+        BufferedMenuButton explorerBtn = new BufferedMenuButton("/assets/ergo-explorer-30.png", imageWidth);
+        explorerBtn.setPadding(new Insets(2, 0, 0, 2));
+        explorerBtn.setTooltip(explorerTip);
+
+        Runnable updateExplorerBtn = () ->{
+            ErgoExplorers ergoExplorers = (ErgoExplorers) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
+
+            ErgoExplorerData explorerData = selectedExplorerData().get();
+           
+           
+            if(explorerData != null && ergoExplorers != null){
+            
+                explorerTip.setText("Ergo Explorer: " + explorerData.getName());
+                
+
+            }else{
+                 
+                if(ergoExplorers == null){
+                    explorerTip.setText("(install 'Ergo Explorer')");
+                }else{
+                    explorerTip.setText("Select Explorer...");
+                }
+            }
+            
+        };
+        Runnable getAvailableExplorerMenu = () ->{
+        
+            ErgoExplorers ergoExplorers = (ErgoExplorers) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
+            if(ergoExplorers != null){
+                explorerBtn.setId("menuBtn");
+                ergoExplorers.getErgoExplorersList().getMenu(explorerBtn, selectedExplorerData());
+            }else{
+                 explorerBtn.getItems().clear();
+                 explorerBtn.setId("menuBtnDisabled");
+               
+            }
+            updateExplorerBtn.run();
+        };    
+
+        selectedExplorerData().addListener((obs, oldval, newval)->{
+            m_walletData.setExplorer(newval == null ? null : newval.getId());
+            updateExplorerBtn.run();
+        });
+
+        Tooltip marketsTip = new Tooltip("Select market");
+        marketsTip.setShowDelay(new javafx.util.Duration(50));
+        marketsTip.setFont(App.txtFont);
+
+        BufferedMenuButton marketsBtn = new BufferedMenuButton("/assets/ergoChart-30.png", imageWidth);
+        marketsBtn.setPadding(new Insets(2, 0, 0, 0));
+        marketsBtn.setTooltip(marketsTip);
+        
+        SimpleObjectProperty<ErgoMarketsData> ergoMarketsData = new SimpleObjectProperty<>(null);
+        
+        if(m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID) != null){
+            String marketId = selectedMarketData().get() != null ? selectedMarketData().get().getMarketId() : null;
+            ErgoMarkets ergoMarkets = (ErgoMarkets) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
+            if(ergoMarkets != null){
+                ErgoMarketsData mData = ergoMarkets.getErgoMarketsList().getMarketsData( marketId);
+                if(mData != null){
+                    updateSelectedMarket(mData);
+                    ergoMarketsData.set(mData);
+                }
+            }
+        }
+
+      
+  
+         Runnable updateMarketsBtn = () ->{
+            ErgoMarketsData marketsData = ergoMarketsData.get();
+            ErgoMarkets ergoMarkets = (ErgoMarkets) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
+      
+          
+            if(marketsData != null && ergoMarkets != null){
+                
+                marketsTip.setText("Ergo Markets: " + marketsData.getName());
+                updateSelectedMarket(marketsData);
+            }else{
+               
+                if(ergoMarkets == null){
+                    marketsTip.setText("(install 'Ergo Markets')");
+                }else{
+                    marketsTip.setText("Select market...");
+                }
+            }
+          
+        };
+
+        ergoMarketsData.addListener((obs,oldval,newVal) -> {
+            m_walletData.setMarketsId(newVal != null ? newVal.getMarketId() : null);
+            updateMarketsBtn.run();
+        });
+
+        Runnable getAvailableMarketsMenu = ()->{
+            ErgoMarkets ergoMarkets = (ErgoMarkets) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
+            if(ergoMarkets != null){
+                 marketsBtn.setId("menuBtn");
+                
+                ergoMarkets.getErgoMarketsList().getMenu(marketsBtn, ergoMarketsData);
+            }else{
+                marketsBtn.getItems().clear();
+                marketsBtn.setId("menuBtnDisabled");
+            }
+            updateMarketsBtn.run();
+        };
+
+        
+       
+
+        Tooltip tokensTip = new Tooltip("Ergo Tokens");
+        tokensTip.setShowDelay(new javafx.util.Duration(50));
+        tokensTip.setFont(App.txtFont);
+
+
+        BufferedMenuButton tokensBtn = new BufferedMenuButton("/assets/diamond-30.png", imageWidth);
+        tokensBtn.setPadding(new Insets(2, 0, 0, 0));
+        tokensBtn.setTooltip(tokensTip);
+
+        
+
+        Runnable updateTokensMenu = ()->{
+            tokensBtn.getItems().clear();
+            ErgoTokens ergoTokens = (ErgoTokens) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID);  
+            boolean isEnabled = isErgoTokensProperty().get();
+
+            if(ergoTokens != null){
+                tokensBtn.setId("menuBtn");
+                MenuItem tokensEnabledItem = new MenuItem("Enabled" + (isEnabled ? " (selected)" : ""));
+                tokensEnabledItem.setOnAction(e->{
+                    isErgoTokensProperty().set(true);
+                });
+                
+
+                MenuItem tokensDisabledItem = new MenuItem("Disabled" + (isEnabled ? "" : " (selected)"));
+                tokensDisabledItem.setOnAction(e->{
+                    isErgoTokensProperty().set(false);
+                });
+
+                if(isEnabled){
+                    tokensTip.setText("Ergo Tokens: Enabled");
+                    tokensEnabledItem.setId("selectedMenuItem");
+                }else{
+                    tokensTip.setText("Ergo Tokens: Disabled");
+                    tokensDisabledItem.setId("selectedMenuItem");
+                }
+                tokensBtn.getItems().addAll(tokensEnabledItem, tokensDisabledItem);
+            }else{
+                tokensBtn.setId("menuBtnDisabled");
+                MenuItem tokensInstallItem = new MenuItem("(install 'Ergo Tokens')");
+                tokensInstallItem.setOnAction(e->{
+                    m_walletData.getErgoWallets().getErgoNetworkData().showwManageStage();
+                });
+                tokensTip.setText("(install 'Ergo Tokens')");
+            }
+           
+        };
+   
+        isErgoTokensProperty().addListener((obs,oldval,newval)->{
+            m_walletData.setIsErgoTokens(newval);
+            updateTokensMenu.run();
+        });
+
+        
+        m_walletData.getErgoWallets().getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
+            getAvailableNodeMenu.run();
+            getAvailableExplorerMenu.run();
+            getAvailableMarketsMenu.run();
+            updateTokensMenu.run();
+        });
+
+        getAvailableExplorerMenu.run();
+        getAvailableNodeMenu.run();
+        getAvailableMarketsMenu.run();
+        updateTokensMenu.run();
+
+        Region seperator1 = new Region();
+        seperator1.setMinWidth(1);
+        seperator1.setId("vSeperatorGradient");
+        VBox.setVgrow(seperator1, Priority.ALWAYS);
+
+        Region seperator2 = new Region();
+        seperator2.setMinWidth(1);
+        seperator2.setId("vSeperatorGradient");
+        VBox.setVgrow(seperator2, Priority.ALWAYS);
+
+        Region seperator3 = new Region();
+        seperator3.setMinWidth(1);
+        seperator3.setId("vSeperatorGradient");
+        VBox.setVgrow(seperator3, Priority.ALWAYS);
+
+        HBox rightSideMenu = new HBox(nodesBtn, seperator1, explorerBtn, seperator2, marketsBtn, seperator3, tokensBtn);
+        rightSideMenu.setId("rightSideMenuBar");
+        rightSideMenu.setPadding(new Insets(0, 0, 0, 0));
+        rightSideMenu.setAlignment(Pos.CENTER_RIGHT);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox menuBar = new HBox(backButton, spacer, rightSideMenu);
+        HBox.setHgrow(menuBar, Priority.ALWAYS);
+        menuBar.setAlignment(Pos.CENTER_LEFT);
+        menuBar.setId("menuBar");
+        menuBar.setPadding(new Insets(1, 0, 1, 5));
+
+        Text headingText = new Text("Send");
+        headingText.setFont(App.txtFont);
+        headingText.setFill(Color.WHITE);
+
+        Text amountCaret = new Text("Amount ");
+        amountCaret.setFont(App.txtFont);
+        amountCaret.setFill(Color.WHITE);
+
+        
+        BufferedMenuButton sendButton = new BufferedMenuButton("Send", "/assets/notificationIcon.png", 40);
+
+     //   AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
+
+        HBox headingBox = new HBox(headingText);
+        headingBox.prefHeight(40);
+        headingBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(headingBox, Priority.ALWAYS);
+        headingBox.setPadding(new Insets(10, 15, 10, 15));
+        headingBox.setId("headingBox");
+
+        ImageView fromNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+
+        Text fromCaret = new Text("From   ");
+        fromCaret.setFont(App.txtFont);
+        fromCaret.setFill(Color.WHITE);
+
+        MenuButton fromAddressBtn = new MenuButton("");
+        fromAddressBtn.setId("rowBtn");
+        fromAddressBtn.textProperty().bind(Bindings.concat(selectedAddressDataProperty().asString()));
+        fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
+        fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
+
+        for (AddressData addressItem : m_addressDataList) {
+
+            MenuItem addressMenuItem = new MenuItem(addressItem.getAddressString());
+            addressMenuItem.textProperty().bind(addressItem.textProperty());
+            Image addressImage = addressItem.getImageProperty().get();
+            addressMenuItem.setGraphic(IconButton.getIconView(addressImage, addressImage.getWidth()));
+
+            addressItem.getImageProperty().addListener((obs, oldVal, newVal) -> {
+                addressMenuItem.setGraphic(IconButton.getIconView(newVal, newVal.getWidth()));
+            });
+
+            fromAddressBtn.getItems().add(addressMenuItem);
+
+            addressMenuItem.setOnAction(actionEvent -> {
+                if (!(addressItem.getAddressString().equals(m_selectedAddressData.get().getAddressString()))) {
+                    m_selectedAddressData.set(addressItem);
+                }
+            });
+        }
+
+        // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
+        Image fromImg = selectedAddressDataProperty().get().getImageProperty().get();
+        fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
+
+        selectedAddressDataProperty().get().getImageProperty().addListener(e -> {
+            Image img = selectedAddressDataProperty().get().getImageProperty().get();
+            fromAddressBtn.setGraphic(IconButton.getIconView(img, img.getWidth()));
+        });
+
+        HBox toAddressBox = new HBox();
+        toAddressBox.setPadding(new Insets(3, 15, 5, 0));
+        toAddressBox.setAlignment(Pos.CENTER_LEFT);
+        Text toCaret = new Text("To     ");
+        toCaret.setFont(App.txtFont);
+        toCaret.setFill(Color.WHITE);
+
+        Button toEnterButton = new Button("[ ENTER ]");
+        toEnterButton.setFont(App.txtFont);
+        toEnterButton.setId("toolBtn");
+
+        AddressButton toAddressBtn = new AddressButton("", m_networkType);
+        toAddressBtn.setId("rowBtn");
+
+        toAddressBtn.setContentDisplay(ContentDisplay.LEFT);
+        toAddressBtn.setAlignment(Pos.CENTER_LEFT);
+
+        toAddressBtn.setPadding(new Insets(0, 10, 0, 10));
+
+  
+        TextField toTextField = new TextField();
+
+        toTextField.setMaxHeight(40);
+        toTextField.setId("formField");
+        toTextField.setPadding(new Insets(3, 10, 0, 0));
+        HBox.setHgrow(toTextField, Priority.ALWAYS);
+
+        toAddressBtn.setOnAction(e -> {
+
+            toAddressBox.getChildren().remove(toAddressBtn);
+            toAddressBox.getChildren().add(toTextField);
+
+            Platform.runLater(() -> toTextField.requestFocus());
+
+        });
+
+        ImageView toNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+
+        toAddressBox.getChildren().addAll(toNotificationIcon, toCaret, toAddressBtn);
+
+        toTextField.textProperty().addListener((obs, old, newVal) -> {
+            String text = newVal.trim();
+            if (text.length() > 5) {
+                if (!toAddressBox.getChildren().contains(toEnterButton)) {
+                    toAddressBox.getChildren().add(toEnterButton);
+                }
+
+                toAddressBtn.setAddressByString(text, onVerified -> {
+
+                    Object object = onVerified.getSource().getValue();
+
+                    if (object != null && (Boolean) object) {
+
+                        toAddressBox.getChildren().remove(toTextField);
+                        if (toAddressBox.getChildren().contains(toEnterButton)) {
+                            toAddressBox.getChildren().remove(toEnterButton);
+                        }
+                        toAddressBox.getChildren().add(toAddressBtn);
+                    }
+                });
+            }
+
+        });
+
+        toTextField.setOnKeyPressed((keyEvent) -> {
+            KeyCode keyCode = keyEvent.getCode();
+            if (keyCode == KeyCode.ENTER) {
+                String text = toTextField.getText();
+
+                toAddressBox.getChildren().remove(toTextField);
+
+                if (toAddressBox.getChildren().contains(toEnterButton)) {
+                    toAddressBox.getChildren().remove(toEnterButton);
+                }
+                toAddressBox.getChildren().add(toAddressBtn);
+            }
+        });
+
+        toTextField.focusedProperty().addListener((obs, old, newPropertyValue) -> {
+
+            if (newPropertyValue) {
+
+            } else {
+
+                toAddressBox.getChildren().remove(toTextField);
+                if (toAddressBox.getChildren().contains(toEnterButton)) {
+                    toAddressBox.getChildren().remove(toEnterButton);
+                }
+                toAddressBox.getChildren().add(toAddressBtn);
+
+                /* NoteInterface explorerInterface = m_walletData.getExplorerInterface();
+
+                    if (explorerInterface != null) {
+
+                    } */
+            }
+        });
+
+        HBox fromAddressBox = new HBox(fromNotificationIcon, fromCaret, fromAddressBtn);
+        fromAddressBox.setPadding(new Insets(7, 15, 2, 0));
+        HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
+        fromAddressBox.setAlignment(Pos.CENTER_LEFT);
+
+        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
+        sendButton.setFont(App.txtFont);
+        sendButton.setId("menuBtnDisabled");
+        sendButton.setDisable(true);
+        sendButton.setUserData("sendButton");
+        sendButton.setContentDisplay(ContentDisplay.LEFT);
+        sendButton.setPadding(new Insets(3, 15, 3, 15));
+        sendButton.setOnAction(e -> {
+            // sendErg(0, null, null, 0, null, null, null);
+        });
+
+        Region sendBoxSpacer = new Region();
+        HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
+
+        HBox sendBox = new HBox(sendBoxSpacer, sendButton);
+        HBox.setHgrow(sendBox, Priority.ALWAYS);
+        sendBox.setPadding(new Insets(5, 10, 10, 0));
+       
+
+        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox);
+        bodyBox.setId("bodyBox");
+        // bodyBox.setPadding(new Insets(5));
+
+        VBox bodyLayoutBox = new VBox(bodyBox);
+        bodyLayoutBox.setPadding(new Insets(7, 5, 5, 5));
+
+        VBox footerBox = new VBox(sendBox);
+        HBox.setHgrow(footerBox, Priority.ALWAYS);
+
+        HBox paddingBox = new HBox(menuBar);
+        HBox.setHgrow(paddingBox, Priority.ALWAYS);
+        paddingBox.setPadding(new Insets(0, 5, 0, 5));
+
+        layoutBox.getChildren().addAll(titleBox, paddingBox, bodyLayoutBox, footerBox);
+
+        fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
+        toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
+
+
+        return sendScene;
+    }
+
+    private String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
+        return ergoClient.execute(ctx -> {
+            String quoted = ctx.sendTransaction(signedTx);
+            return quoted.substring(1, quoted.length() - 1);
+        });
+    }
+
+    public JsonObject getErgoClientObject(String nodeId) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("subject", "GET_CLIENT");
+        jsonObject.addProperty("networkType", m_networkType.toString());
+        jsonObject.addProperty("nodeId", nodeId);
+        return jsonObject;
+    }
+
+    private boolean sendErg(long nanoErg, String receipientAddress, Address senderAddress, long fee, String nodeId, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+        if (receipientAddress != null && senderAddress != null && nodeId != null && fee >= Parameters.MinFee) {
+            NoteInterface nodeInterface = m_walletData.getNodeInterface();
+            if (nodeInterface != null) {
+                return nodeInterface.sendNote(getErgoClientObject(nodeId), (successEvent) -> {
+                    WorkerStateEvent workerEvent = successEvent;
+                    Object sourceObject = workerEvent.getSource().getValue();
+                    if (sourceObject != null) {
+                        ErgoClient ergoClient = (ErgoClient) sourceObject;
+                        String txId = null;
+
+                        JsonObject txInfoJson = new JsonObject();
+                        txInfoJson.addProperty("fee", fee);
+                        txInfoJson.addProperty("nanoErg", nanoErg);
+                        txInfoJson.addProperty("receipientAddress", receipientAddress);
+                        txInfoJson.addProperty("returnAddress", senderAddress.toString());
+                        txInfoJson.addProperty("nodeId", nodeId);
+                        try {
+
+                            UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(ergoClient,
+                                    m_wallet.addressStream(m_networkType).toList(),
+                                    Address.create(receipientAddress), nanoErg, fee, senderAddress);
+
+                            txId = transact(ergoClient, ergoClient.execute(ctx -> {
+                                try {
+                                    return m_wallet.key().sign(ctx, unsignedTx, m_wallet.myAddresses.keySet());
+                                } catch (WalletKey.Failure ex) {
+
+                                    txInfoJson.addProperty("unauthorized", ex.toString());
+                                    return null;
+                                }
+                            }));
+
+                            // if (txId != null) Utils.textDialogWithCopy(Main.lang("transactionId"), txId);
+                        } catch (InputBoxesSelectionException ibsEx) {
+                            txInfoJson.addProperty("insufficientFunds", ibsEx.toString());
+                        }
+                        if (txId != null) {
+                            txInfoJson.addProperty("txId", txId);
+                        }
+
+                        Utils.returnObject(txInfoJson, onSuccess, null);
+                    }
+                }, onFailed);
+            }
+        }
+        return false;
+    }
+
+    public Scene getSendMultipleScene(Scene parentScene, Stage parentStage) {
+            
+        ErgoNodes ergoNodes = (ErgoNodes)  m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+        ErgoNodeData nodeData = selectedNodeData().get();
+
+        if (ergoNodes == null || nodeData == null) {
+            return null;
+        }
+
+        String oldStageName = parentStage.getTitle();
+
+        String stageName = "Send - " + m_walletData.getName() + " - (" + m_networkType + ")";
 
         parentStage.setTitle(stageName);
 
@@ -439,7 +1032,6 @@ public class AddressesData {
         nodeTip.setFont(App.txtFont);
 
         MenuButton nodeMenuBtn = new MenuButton();
-        nodeMenuBtn.setGraphic(selectedNodeData().get() == null ? IconButton.getIconView(new Image("/assets/node-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(selectedNodeData().get().getIcon(), App.MENU_BAR_IMAGE_WIDTH));
         nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
         nodeMenuBtn.setTooltip(nodeTip);
 
@@ -450,7 +1042,6 @@ public class AddressesData {
         explorerTip.setFont(App.txtFont);
 
         MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setGraphic(m_walletData.getExplorerId() != null ? IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH) : IconButton.getIconView(new Image("/assets/ergo-explorer-30.png"), App.MENU_BAR_IMAGE_WIDTH));
         explorerBtn.setPadding(new Insets(2, 0, 0, 0));
         explorerBtn.setTooltip(explorerTip);
 
@@ -467,10 +1058,8 @@ public class AddressesData {
             ErgoMarketsData marketsData = selectedMarketData().get();
             if (marketsData != null) {
                 marketsTip.setText(ErgoMarketsData.getFriendlyUpdateTypeName(marketsData.getUpdateType()) + ": " + marketsData.getUpdateValue());
-                marketsBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getWalletData().getNetworksData(), selectedMarketData().get().getMarketId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
             } else {
                 marketsTip.setText("Markets unavailable");
-                marketsBtn.setGraphic(IconButton.getIconView(new Image("/assets/exchange-30.png"), App.MENU_BAR_IMAGE_WIDTH));
             }
         };
 
@@ -505,11 +1094,10 @@ public class AddressesData {
         addTxBtn.setContentDisplay(ContentDisplay.LEFT);
         addTxBtn.setDisable(true);
         addTxBtn.setPadding(new Insets(3, 10, 3, 10));
+        
+        BufferedButton sendButton = new BufferedButton("Send", "/assets/notificationIcon.png", 40);
 
-        Button sendButton = new Button("Send");
-        ImageView amountNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
-
-        AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
+     //   AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
 
         HBox headingBox = new HBox(headingText);
         headingBox.prefHeight(40);
@@ -665,7 +1253,7 @@ public class AddressesData {
 
         /*    Region amountRegion = new Region();
         amountRegion.setPrefWidth(10);*/
-        amountBoxes.setPadding(new Insets(2, 15, 5, 0));
+       // amountBoxes.setPadding(new Insets(2, 15, 5, 0));
 
         // amountBox.currentAmountProperty();
         sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
@@ -701,7 +1289,7 @@ public class AddressesData {
         addBox.setAlignment(Pos.CENTER_LEFT);
         addBox.setPadding(new Insets(0, 20, 0, 0));
 
-        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox, amountBoxes, addBox, scrollPaddingBox);
+        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox,  addBox, scrollPaddingBox);
         bodyBox.setId("bodyBox");
         // bodyBox.setPadding(new Insets(5));
 
@@ -719,74 +1307,9 @@ public class AddressesData {
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
         toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(amountBoxes.heightProperty()).subtract(footerBox.heightProperty()));
+        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(footerBox.heightProperty()));
         scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty());
 
         return sendScene;
     }
-
-    private String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
-        return ergoClient.execute(ctx -> {
-            String quoted = ctx.sendTransaction(signedTx);
-            return quoted.substring(1, quoted.length() - 1);
-        });
-    }
-
-    public JsonObject getErgoClientObject(String nodeId) {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("subject", "GET_CLIENT");
-        jsonObject.addProperty("networkType", m_networkType.toString());
-        jsonObject.addProperty("nodeId", nodeId);
-        return jsonObject;
-    }
-
-    private boolean sendErg(long nanoErg, String receipientAddress, Address senderAddress, long fee, String nodeId, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
-        if (receipientAddress != null && senderAddress != null && nodeId != null && fee >= Parameters.MinFee) {
-            NoteInterface nodeInterface = m_walletData.getNodeInterface();
-            if (nodeInterface != null) {
-                return nodeInterface.sendNote(getErgoClientObject(nodeId), (successEvent) -> {
-                    WorkerStateEvent workerEvent = successEvent;
-                    Object sourceObject = workerEvent.getSource().getValue();
-                    if (sourceObject != null) {
-                        ErgoClient ergoClient = (ErgoClient) sourceObject;
-                        String txId = null;
-
-                        JsonObject txInfoJson = new JsonObject();
-                        txInfoJson.addProperty("fee", fee);
-                        txInfoJson.addProperty("nanoErg", nanoErg);
-                        txInfoJson.addProperty("receipientAddress", receipientAddress);
-                        txInfoJson.addProperty("returnAddress", senderAddress.toString());
-                        txInfoJson.addProperty("nodeId", nodeId);
-                        try {
-
-                            UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(ergoClient,
-                                    m_wallet.addressStream(m_networkType).toList(),
-                                    Address.create(receipientAddress), nanoErg, fee, senderAddress);
-
-                            txId = transact(ergoClient, ergoClient.execute(ctx -> {
-                                try {
-                                    return m_wallet.key().sign(ctx, unsignedTx, m_wallet.myAddresses.keySet());
-                                } catch (WalletKey.Failure ex) {
-
-                                    txInfoJson.addProperty("unauthorized", ex.toString());
-                                    return null;
-                                }
-                            }));
-
-                            // if (txId != null) Utils.textDialogWithCopy(Main.lang("transactionId"), txId);
-                        } catch (InputBoxesSelectionException ibsEx) {
-                            txInfoJson.addProperty("insufficientFunds", ibsEx.toString());
-                        }
-                        if (txId != null) {
-                            txInfoJson.addProperty("txId", txId);
-                        }
-
-                        Utils.returnObject(txInfoJson, onSuccess, null);
-                    }
-                }, onFailed);
-            }
-        }
-        return false;
-    }
-
 }

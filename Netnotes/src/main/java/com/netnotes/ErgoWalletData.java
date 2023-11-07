@@ -5,20 +5,24 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 import org.ergoplatform.appkit.NetworkType;
+import org.reactfx.util.FxTimer;
 
 import com.devskiller.friendly_id.FriendlyId;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
+import com.netnotes.App.Delta;
 import com.satergo.Wallet;
 
 import com.utils.Utils;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
@@ -26,14 +30,14 @@ import javafx.beans.property.SimpleObjectProperty;
 
 import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
-
-
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
@@ -41,7 +45,9 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -295,6 +301,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         }
     }
 
+
     public NoteInterface getMarketInterface() {
         if (m_marketsId != null) {
             return m_ergoWallet.getErgoNetworkData().getNetwork(m_marketsId);
@@ -305,6 +312,8 @@ public class ErgoWalletData extends Network implements NoteInterface {
     public ErgoWallets getErgoWallets(){
         return m_ergoWallet;
     }
+
+
     
     private Scene getWalletScene(Wallet wallet, Stage walletStage) {
         
@@ -326,7 +335,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         SimpleBooleanProperty isShrunk = new SimpleBooleanProperty(false);
 
-        HBox titleBox = App.createShrinkTopBar(ErgoWallets.getSmallAppIcon(), title, maximizeBtn, shrinkBtn, closeBtn, walletStage, isShrunk);
+        HBox titleBox = App.createShrinkTopBar(ErgoWallets.getSmallAppIcon(), title, maximizeBtn, shrinkBtn, closeBtn, walletStage, isShrunk, getNetworksData().getAppData());
 
      
 
@@ -334,12 +343,13 @@ public class ErgoWalletData extends Network implements NoteInterface {
         sendTip.setShowDelay(new javafx.util.Duration(100));
         sendTip.setFont(App.txtFont);
 
-        Button sendButton = new Button();
-        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), imageWidth));
-        sendButton.setId("menuBtn");
+        BufferedButton sendButton = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
         sendButton.setTooltip(sendTip);
-
+        sendButton.setId("menuBtnDisabled");
         sendButton.setUserData("sendButton");
+        sendButton.setDisable(true);
+
+
 
         //   addressesData.currentAddressProperty
         Tooltip addTip = new Tooltip("Add address");
@@ -486,7 +496,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
           
             if(marketsData != null && ergoMarkets != null){
                 
-                marketsTip.setText(marketsData.getName());
+                marketsTip.setText("Ergo Markets: " + marketsData.getName());
                 addressesData.updateSelectedMarket(marketsData);
             }else{
                
@@ -499,7 +509,11 @@ public class ErgoWalletData extends Network implements NoteInterface {
           
         };
 
-          ergoMarketsData.addListener((obs,oldval,newVal) -> updateMarketsBtn.run());
+          ergoMarketsData.addListener((obs,oldval,newVal) -> {
+            setMarketsId(newVal == null ? null : newVal.getMarketId());
+            updateMarketsBtn.run();
+            
+        });
 
         Runnable getAvailableMarketsMenu = ()->{
             ErgoMarkets ergoMarkets = (ErgoMarkets) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
@@ -590,7 +604,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         rightSideMenu.getChildren().addAll(nodesMenuBtn, seperator1, explorerBtn, seperator2, marketsBtn, seperator3, tokensMenuBtn);
         rightSideMenu.setId("rightSideMenuBar");
-        rightSideMenu.setPadding(new Insets(0, 0, 0, 10));
+        rightSideMenu.setPadding(new Insets(0, 0, 0, 0));
         rightSideMenu.setAlignment(Pos.CENTER_RIGHT);
 
    
@@ -634,9 +648,10 @@ public class ErgoWalletData extends Network implements NoteInterface {
         totalField.setId("priceField");
         totalField.setEditable(false);
         HBox.setHgrow(totalField, Priority.ALWAYS);
+
         HBox summaryBox = new HBox(totalField);
         HBox.setHgrow(summaryBox, Priority.ALWAYS);
-        summaryBox.setPadding(new Insets(10, 0, 0, 5));
+        summaryBox.setPadding(new Insets(5, 0, 0, 0));
         summaryBox.setAlignment(Pos.CENTER_LEFT);
         HBox scrollBox = new HBox(scrollPane);
         HBox.setHgrow(scrollBox, Priority.ALWAYS);
@@ -652,6 +667,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         isShrunk.addListener((obs, oldval, newval)->{
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
             if(newval){
+                
                 normalHeight.set(walletStage.getHeight());
                 double smallHeight = titleBox.heightProperty().get() + summaryBox.heightProperty().get() + updateBox.heightProperty().get();
                 bodyVBox.getChildren().removeAll(menuVBox, scrollBox);
@@ -699,20 +715,32 @@ public class ErgoWalletData extends Network implements NoteInterface {
         updateTokensMenu.run();
 
         sendButton.setOnAction((actionEvent) -> {
-            if (getNodeInterface() == null) {
-                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall and enable '" + ErgoNodes.NAME + "' to use this feature.", ButtonType.OK);
-                nodeAlert.setGraphic(IconButton.getIconView(ErgoNodes.getAppIcon(), alertImageWidth));
-                nodeAlert.initOwner(walletStage);
-                nodeAlert.show();
-            } else {
-                if (addressesData.selectedAddressDataProperty().get() != null) {
+            ErgoNodes ergoNodes = (ErgoNodes) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+            ErgoNodeData nodeData = addressesData.selectedNodeData().get();
+
+            if (ergoNodes != null && nodeData != null) {
+                 if (addressesData.selectedAddressDataProperty().get() != null) {
+            
                     Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
                     if (sendScene != null) {
                         walletStage.setScene(sendScene);
                         Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
                         ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
+                    }else{
+                        Alert b = new Alert(AlertType.ERROR, "Recieved null scene when send scene was expected.", ButtonType.OK);
+                        b.show();
                     }
+                }else{
+                    Alert a = new Alert(AlertType.ERROR, "Recieved null address when data was expected.", ButtonType.OK);
+                    a.show();
                 }
+                
+            } else {
+                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNodes.NAME + "' to use this feature.", ButtonType.OK);
+                nodeAlert.setGraphic(IconButton.getIconView(ErgoNodes.getAppIcon(), alertImageWidth));
+                nodeAlert.initOwner(walletStage);
+                nodeAlert.setTitle(getName() + " - Ergo Wallets");
+                nodeAlert.show();
             }
 
         });
@@ -727,26 +755,31 @@ public class ErgoWalletData extends Network implements NoteInterface {
                 sendButton.setDisable(false);
                 
             } else {
-                if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
-                    Button focusedButton = (Button) openWalletScene.focusOwnerProperty().get();
+                
 
-                    if (focusedButton.getUserData() != null) {
-                        String buttonData = (String) focusedButton.getUserData();
-                        if (!(buttonData.equals("sendButton"))) {
+                if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
+                    Button focusedBtn = (Button) openWalletScene.focusOwnerProperty().get();
+                    Object userData = focusedBtn.getUserData();
+                    if(userData != null && userData instanceof String){
+                        String userDataString = (String) userData;
+                        if(userDataString.equals("sendButton")){
+
+                        }else{
                             addressesData.selectedAddressDataProperty().set(null);
                             sendButton.setId("menuBtnDisabled");
                             sendButton.setDisable(true);
-
                         }
-                    } else {
+                    }else{
                         addressesData.selectedAddressDataProperty().set(null);
                         sendButton.setId("menuBtnDisabled");
                         sendButton.setDisable(true);
                     }
+           
                 } else {
                     addressesData.selectedAddressDataProperty().set(null);
                     sendButton.setId("menuBtnDisabled");
                     sendButton.setDisable(true);
+                    
                 }
             }
         });
@@ -845,24 +878,24 @@ public class ErgoWalletData extends Network implements NoteInterface {
     }
 
 
-    private void setNodesId(String nodesId) {
+    public void setNodesId(String nodesId) {
         m_nodesId = nodesId;
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setExplorer(String explorerId) {
+    public void setExplorer(String explorerId) {
         m_explorerId = explorerId;
 
        // m_explorerTimePeriod = 15;
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setMarketsId(String marketsId) {
+    public void setMarketsId(String marketsId) {
         m_marketsId = marketsId;
         getLastUpdated().set(LocalDateTime.now());
     }
 
-    private void setIsErgoTokens(boolean value){
+    public void setIsErgoTokens(boolean value){
         m_isErgoTokens = value;
         getLastUpdated().set(LocalDateTime.now());
     }
