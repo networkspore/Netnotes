@@ -42,7 +42,6 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 
 import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;

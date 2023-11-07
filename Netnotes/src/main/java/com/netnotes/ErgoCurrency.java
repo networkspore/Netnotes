@@ -1,6 +1,6 @@
 package com.netnotes;
 
-import javafx.scene.image.Image;
+
 
 public class ErgoCurrency extends PriceCurrency {
 

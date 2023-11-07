@@ -1,9 +1,6 @@
 package com.netnotes;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,7 +19,6 @@ import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
 
 import javafx.scene.image.Image;
@@ -37,7 +33,7 @@ import javafx.scene.text.Text;
 
 public class ErgoMarketsData {
 
-    private File logFile = new File("netnotes-log.txt");;
+  //  private File logFile = new File("netnotes-log.txt");;
 
     public final static String SCHEDULED = "Scheduled";
     public final static String POLLING = "Polling";

@@ -224,7 +224,7 @@ public class ErgoMarketsList {
             marketText.setFill(App.txtColor);
             marketText.setFont(App.txtFont);
 
-            SimpleStringProperty selectedMarketId = new SimpleStringProperty(KucoinExchange.NETWORK_ID);
+          //  SimpleStringProperty selectedMarketId = new SimpleStringProperty(KucoinExchange.NETWORK_ID);
             SimpleStringProperty selectedMarketType = new SimpleStringProperty(ErgoMarketsData.REALTIME);
             SimpleStringProperty selectedMarketValue = new SimpleStringProperty(ErgoMarketsData.TICKER);
 
@@ -285,7 +285,7 @@ public class ErgoMarketsList {
 
             HBox updatesBox = new HBox(typeText, typeBtn);
 
-            SimpleDoubleProperty rowHeight = new SimpleDoubleProperty(40);
+           // SimpleDoubleProperty rowHeight = new SimpleDoubleProperty(40);
 
             closeBtn.setOnAction(closeEvent -> {
                 m_stage.close();

@@ -6,8 +6,6 @@ import java.nio.file.Files;
 
 
 import org.ergoplatform.appkit.NetworkType;
-
-import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonObject;
 
 

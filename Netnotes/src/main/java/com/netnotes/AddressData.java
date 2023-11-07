@@ -208,7 +208,7 @@ public class AddressData extends Network {
                 Platform.runLater(() -> closeBtn.fire());
             });
 
-            Button maximizeBtn = new Button();
+
 
             HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), titleString, closeBtn, m_addressStage);
  

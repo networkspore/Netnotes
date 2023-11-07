@@ -6,7 +6,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.File;
+//import java.io.File;
 
 import java.time.LocalDateTime;
 
@@ -34,7 +34,7 @@ import javafx.scene.layout.Priority;
 
 public class ChartView {
 
-    private File logFile;
+   // private File logFile = new File("netnotes-log.txt");
 
     private NumberClass m_numberClass = new NumberClass();
 
@@ -432,9 +432,9 @@ public class ChartView {
     public BufferedImage getBufferedImage() {
         LocalDateTime now = LocalDateTime.now();
         int greenHighlightRGB = 0x504bbd94;
-        int greenHighlightRGB2 = 0x80028a0f;
+      //  int greenHighlightRGB2 = 0x80028a0f;
         int redRGBhighlight = 0x50e96d71;
-        int redRGBhighlight2 = 0x809a2a2a;
+      //  int redRGBhighlight2 = 0x809a2a2a;
 
         int priceListSize = getPriceListSize();
         int totalCellWidth = getTotalCellWidth();

@@ -1,9 +1,6 @@
 package com.netnotes;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+//import java.io.File;
 import java.time.LocalDateTime;
 
 import org.ergoplatform.appkit.NetworkType;
@@ -23,11 +20,7 @@ import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -44,7 +37,7 @@ public class ErgoExplorerData {
      public final static String TESTNET_STRING = NetworkType.TESTNET.toString();
      public final static String MAINNET_STRING = NetworkType.MAINNET.toString();
      
-     private File logFile = new File("netnotes-log.txt");
+  //   private File logFile = new File("netnotes-log.txt");
 
    
      public final SimpleObjectProperty< ErgoNetworkUrl> ergoNetworkUrlProperty = new SimpleObjectProperty<>();

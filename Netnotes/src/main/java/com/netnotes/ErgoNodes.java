@@ -5,7 +5,7 @@ import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.satergo.WalletKey.Local;
+
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
@@ -30,7 +30,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
+
 import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -41,7 +41,7 @@ import javafx.stage.StageStyle;
 
 public class ErgoNodes extends Network implements NoteInterface {
 
-    private File logFile = new File("netnotes-log.txt");
+  //  private File logFile = new File("netnotes-log.txt");
 
     public final static String NAME = "Ergo Nodes";
     public final static String DESCRIPTION = "Ergo Nodes allows you to configure your access to the Ergo blockchain";
@@ -180,9 +180,9 @@ public class ErgoNodes extends Network implements NoteInterface {
     @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
-        JsonElement subjecElement = note.get("subject");
+       /* JsonElement subjecElement = note.get("subject");
         JsonElement networkTypeElement = note.get("networkType");
-        JsonElement nodeIdElement = note.get("nodeId");
+        JsonElement nodeIdElement = note.get("nodeId"); */
 
         return false;
     }
@@ -214,7 +214,7 @@ public class ErgoNodes extends Network implements NoteInterface {
         if (m_stage == null) {
             String title = getName();
 
-            double buttonHeight = 100;
+           // double buttonHeight = 100;
 
             m_stage = new Stage();
             m_stage.getIcons().add(getIcon());
