@@ -414,7 +414,7 @@ public class AddressesData {
     public Scene getSendScene(Scene parentScene, Stage parentStage) {
             
 
-        if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null ||  selectedNodeData().get() == null) {
+        if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
             return null;
         }
 
@@ -719,14 +719,12 @@ public class AddressesData {
         headingText.setFont(App.txtFont);
         headingText.setFill(Color.WHITE);
 
-        Text amountCaret = new Text("Amount ");
-        amountCaret.setFont(App.txtFont);
-        amountCaret.setFill(Color.WHITE);
+
 
         
         BufferedMenuButton sendButton = new BufferedMenuButton("Send", "/assets/notificationIcon.png", 40);
 
-     //   AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
+     //   AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountText);
 
         HBox headingBox = new HBox(headingText);
         headingBox.prefHeight(40);
@@ -735,15 +733,17 @@ public class AddressesData {
         headingBox.setPadding(new Insets(10, 15, 10, 15));
         headingBox.setId("headingBox");
 
-        ImageView fromNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+        
 
-        Text fromCaret = new Text("From   ");
-        fromCaret.setFont(App.txtFont);
-        fromCaret.setFill(Color.WHITE);
+        Text fromText = new Text("From   ");
+        fromText.setFont(App.txtFont);
+        fromText.setFill(Color.WHITE);
 
-        MenuButton fromAddressBtn = new MenuButton("");
-        fromAddressBtn.setId("rowBtn");
-        fromAddressBtn.textProperty().bind(Bindings.concat(selectedAddressDataProperty().asString()));
+        String nullAddressImageString = "/assets/unknown-unit-75x40.png";
+        Image nullAddressImg = new Image(nullAddressImageString);
+
+        MenuButton fromAddressBtn = new MenuButton();
+        fromAddressBtn.setId("menuButtonLeftPad");
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
@@ -761,27 +761,45 @@ public class AddressesData {
             fromAddressBtn.getItems().add(addressMenuItem);
 
             addressMenuItem.setOnAction(actionEvent -> {
-                if (!(addressItem.getAddressString().equals(m_selectedAddressData.get().getAddressString()))) {
-                    m_selectedAddressData.set(addressItem);
-                }
+                m_selectedAddressData.set(addressItem);
             });
         }
-
+        SimpleObjectProperty<Image> addressImageProperty = new SimpleObjectProperty<>(new Image(nullAddressImageString));
+        
         // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
-        Image fromImg = selectedAddressDataProperty().get().getImageProperty().get();
-        fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
+        Runnable updateAddressBtn = () ->{
+            AddressData addressData = selectedAddressDataProperty().get() ;
+            
 
-        selectedAddressDataProperty().get().getImageProperty().addListener(e -> {
-            Image img = selectedAddressDataProperty().get().getImageProperty().get();
-            fromAddressBtn.setGraphic(IconButton.getIconView(img, img.getWidth()));
+            if(addressData != null){
+                addressImageProperty.bind(addressData.getImageProperty());
+                fromAddressBtn.setText(addressData.getButtonText());
+            }else{
+                addressImageProperty.unbind();
+                addressImageProperty.set(nullAddressImg);
+                fromAddressBtn.setText( "> Select address" + "\n   ");
+            }
+
+          
+        };
+
+       
+
+        selectedAddressDataProperty().addListener((obs, oldval, newval) -> updateAddressBtn.run());
+        addressImageProperty.addListener((obs,oldval,newval)->{
+            ImageView imgView = newval != null ? IconButton.getIconView(newval, newval.getWidth()): IconButton.getIconView(nullAddressImg, nullAddressImg.getWidth());
+            fromAddressBtn.setGraphic(imgView);
         });
 
+  
+        updateAddressBtn.run();
+
         HBox toAddressBox = new HBox();
-        toAddressBox.setPadding(new Insets(3, 15, 5, 0));
+        toAddressBox.setPadding(new Insets(3, 15, 5, 30));
         toAddressBox.setAlignment(Pos.CENTER_LEFT);
-        Text toCaret = new Text("To     ");
-        toCaret.setFont(App.txtFont);
-        toCaret.setFill(Color.WHITE);
+        Text toText = new Text("To     ");
+        toText.setFont(App.txtFont);
+        toText.setFill(Color.WHITE);
 
         Button toEnterButton = new Button("[ ENTER ]");
         toEnterButton.setFont(App.txtFont);
@@ -812,9 +830,11 @@ public class AddressesData {
 
         });
 
-        ImageView toNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
+        Region toMinHeightRegion = new Region();
+        toMinHeightRegion.setMinHeight(40);
 
-        toAddressBox.getChildren().addAll(toNotificationIcon, toCaret, toAddressBtn);
+
+        toAddressBox.getChildren().addAll(toMinHeightRegion, toText, toAddressBtn);
 
         toTextField.textProperty().addListener((obs, old, newVal) -> {
             String text = newVal.trim();
@@ -874,12 +894,24 @@ public class AddressesData {
             }
         });
 
-        HBox fromAddressBox = new HBox(fromNotificationIcon, fromCaret, fromAddressBtn);
-        fromAddressBox.setPadding(new Insets(7, 15, 2, 0));
+
+
+        HBox fromAddressBox = new HBox(fromText, fromAddressBtn);
+        fromAddressBox.setPadding(new Insets(3, 15, 5, 30));
         HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
         fromAddressBox.setAlignment(Pos.CENTER_LEFT);
 
-        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
+     
+
+        Text amountText = new Text("Amount ");
+        amountText.setFont(App.txtFont);
+        amountText.setFill(Color.WHITE);
+
+
+        Region sendBoxSpacer = new Region();
+        HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
+
+        
         sendButton.setFont(App.txtFont);
         sendButton.setId("menuBtnDisabled");
         sendButton.setDisable(true);
@@ -890,8 +922,6 @@ public class AddressesData {
             // sendErg(0, null, null, 0, null, null, null);
         });
 
-        Region sendBoxSpacer = new Region();
-        HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
 
         HBox sendBox = new HBox(sendBoxSpacer, sendButton);
         HBox.setHgrow(sendBox, Priority.ALWAYS);
@@ -914,8 +944,8 @@ public class AddressesData {
 
         layoutBox.getChildren().addAll(titleBox, paddingBox, bodyLayoutBox, footerBox);
 
-        fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
+        fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
+        toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
 
 
         return sendScene;
@@ -985,331 +1015,4 @@ public class AddressesData {
         return false;
     }
 
-    public Scene getSendMultipleScene(Scene parentScene, Stage parentStage) {
-            
-        ErgoNodes ergoNodes = (ErgoNodes)  m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
-        ErgoNodeData nodeData = selectedNodeData().get();
-
-        if (ergoNodes == null || nodeData == null) {
-            return null;
-        }
-
-        String oldStageName = parentStage.getTitle();
-
-        String stageName = "Send - " + m_walletData.getName() + " - (" + m_networkType + ")";
-
-        parentStage.setTitle(stageName);
-
-        VBox layoutBox = new VBox();
-        Scene sendScene = new Scene(layoutBox, 800, 600);
-        sendScene.getStylesheets().add("/css/startWindow.css");
-
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-            parentStage.close();
-        });
-
-        Button maximizeBtn = new Button();
-
-        HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), stageName, maximizeBtn, closeBtn, parentStage);
-
-        Tooltip backTip = new Tooltip("Back");
-        backTip.setShowDelay(new javafx.util.Duration(100));
-        backTip.setFont(App.txtFont);
-
-        Button backButton = new Button();
-        backButton.setGraphic(IconButton.getIconView(new Image("/assets/return-back-up-30.png"), App.MENU_BAR_IMAGE_WIDTH));
-        backButton.setId("menuBtn");
-        backButton.setTooltip(backTip);
-        backButton.setOnAction(e -> {
-            parentStage.setScene(parentScene);
-            parentStage.setTitle(oldStageName);
-            // ResizeHelper.addResizeListener(parentStage, WalletData.MIN_WIDTH, WalletData.MIN_HEIGHT, m_walletData.getMaxWidth(), m_walletData.getMaxHeight());
-        });
-
-        Tooltip nodeTip = new Tooltip(selectedNodeData().get() == null ? "Node unavailable" : selectedNodeData().get().getName());
-        nodeTip.setShowDelay(new javafx.util.Duration(100));
-        nodeTip.setFont(App.txtFont);
-
-        MenuButton nodeMenuBtn = new MenuButton();
-        nodeMenuBtn.setPadding(new Insets(2, 0, 0, 0));
-        nodeMenuBtn.setTooltip(nodeTip);
-
-        
-
-        Tooltip explorerTip = new Tooltip("");
-        explorerTip.setShowDelay(new javafx.util.Duration(100));
-        explorerTip.setFont(App.txtFont);
-
-        MenuButton explorerBtn = new MenuButton();
-        explorerBtn.setPadding(new Insets(2, 0, 0, 0));
-        explorerBtn.setTooltip(explorerTip);
-
-        Tooltip marketsTip = new Tooltip("Markets unavailable");
-        marketsTip.setShowDelay(new javafx.util.Duration(100));
-        marketsTip.setFont(App.txtFont);
-
-        MenuButton marketsBtn = new MenuButton();
-        marketsBtn.setPadding(new Insets(2, 0, 0, 0));
-        marketsBtn.setTooltip(marketsTip);
-
-        Runnable setMarketTipText = () -> {
-            //
-            ErgoMarketsData marketsData = selectedMarketData().get();
-            if (marketsData != null) {
-                marketsTip.setText(ErgoMarketsData.getFriendlyUpdateTypeName(marketsData.getUpdateType()) + ": " + marketsData.getUpdateValue());
-            } else {
-                marketsTip.setText("Markets unavailable");
-            }
-        };
-
-        setMarketTipText.run();
-
-        selectedMarketData().addListener((obs, oldVal, newval) -> setMarketTipText.run());
-
-        HBox rightSideMenu = new HBox(nodeMenuBtn, explorerBtn, marketsBtn);
-        rightSideMenu.setId("rightSideMenuBar");
-        rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox menuBar = new HBox(backButton, spacer, rightSideMenu);
-        HBox.setHgrow(menuBar, Priority.ALWAYS);
-        menuBar.setAlignment(Pos.CENTER_LEFT);
-        menuBar.setId("menuBar");
-        menuBar.setPadding(new Insets(1, 0, 1, 5));
-
-        Text headingText = new Text("Send");
-        headingText.setFont(App.txtFont);
-        headingText.setFill(Color.WHITE);
-
-        Text amountCaret = new Text("Amount ");
-        amountCaret.setFont(App.txtFont);
-        amountCaret.setFill(Color.WHITE);
-
-        Button addTxBtn = new Button("Add", IconButton.getIconView(new Image("/assets/add-outline-white-40.png"), App.MENU_BAR_IMAGE_WIDTH));
-        addTxBtn.setId("menuBtnDisabled");
-        addTxBtn.setFont(App.txtFont);
-        addTxBtn.setContentDisplay(ContentDisplay.LEFT);
-        addTxBtn.setDisable(true);
-        addTxBtn.setPadding(new Insets(3, 10, 3, 10));
-        
-        BufferedButton sendButton = new BufferedButton("Send", "/assets/notificationIcon.png", 40);
-
-     //   AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountCaret);
-
-        HBox headingBox = new HBox(headingText);
-        headingBox.prefHeight(40);
-        headingBox.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(headingBox, Priority.ALWAYS);
-        headingBox.setPadding(new Insets(10, 15, 10, 15));
-        headingBox.setId("headingBox");
-
-        ImageView fromNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
-
-        Text fromCaret = new Text("From   ");
-        fromCaret.setFont(App.txtFont);
-        fromCaret.setFill(Color.WHITE);
-
-        MenuButton fromAddressBtn = new MenuButton("");
-        fromAddressBtn.setId("rowBtn");
-        fromAddressBtn.textProperty().bind(Bindings.concat(selectedAddressDataProperty().asString()));
-        fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
-        fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
-
-        for (AddressData addressItem : m_addressDataList) {
-
-            MenuItem addressMenuItem = new MenuItem(addressItem.getAddressString());
-            addressMenuItem.textProperty().bind(addressItem.textProperty());
-            Image addressImage = addressItem.getImageProperty().get();
-            addressMenuItem.setGraphic(IconButton.getIconView(addressImage, addressImage.getWidth()));
-
-            addressItem.getImageProperty().addListener((obs, oldVal, newVal) -> {
-                addressMenuItem.setGraphic(IconButton.getIconView(newVal, newVal.getWidth()));
-            });
-
-            fromAddressBtn.getItems().add(addressMenuItem);
-
-            addressMenuItem.setOnAction(actionEvent -> {
-                if (!(addressItem.getAddressString().equals(m_selectedAddressData.get().getAddressString()))) {
-                    m_selectedAddressData.set(addressItem);
-                }
-            });
-        }
-
-        // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
-        Image fromImg = selectedAddressDataProperty().get().getImageProperty().get();
-        fromAddressBtn.setGraphic(IconButton.getIconView(fromImg, fromImg.getWidth()));
-
-        selectedAddressDataProperty().get().getImageProperty().addListener(e -> {
-            Image img = selectedAddressDataProperty().get().getImageProperty().get();
-            fromAddressBtn.setGraphic(IconButton.getIconView(img, img.getWidth()));
-        });
-
-        HBox toAddressBox = new HBox();
-        toAddressBox.setPadding(new Insets(3, 15, 5, 0));
-        toAddressBox.setAlignment(Pos.CENTER_LEFT);
-        Text toCaret = new Text("To     ");
-        toCaret.setFont(App.txtFont);
-        toCaret.setFill(Color.WHITE);
-
-        Button toEnterButton = new Button("[ ENTER ]");
-        toEnterButton.setFont(App.txtFont);
-        toEnterButton.setId("toolBtn");
-
-        AddressButton toAddressBtn = new AddressButton("", m_networkType);
-        toAddressBtn.setId("rowBtn");
-
-        toAddressBtn.setContentDisplay(ContentDisplay.LEFT);
-        toAddressBtn.setAlignment(Pos.CENTER_LEFT);
-
-        toAddressBtn.setPadding(new Insets(0, 10, 0, 10));
-
-        ArrayList<PriceTransaction> transactionList = new ArrayList<PriceTransaction>();
-
-        TextField toTextField = new TextField();
-
-        toTextField.setMaxHeight(40);
-        toTextField.setId("formField");
-        toTextField.setPadding(new Insets(3, 10, 0, 0));
-        HBox.setHgrow(toTextField, Priority.ALWAYS);
-
-        toAddressBtn.setOnAction(e -> {
-
-            toAddressBox.getChildren().remove(toAddressBtn);
-            toAddressBox.getChildren().add(toTextField);
-
-            Platform.runLater(() -> toTextField.requestFocus());
-
-        });
-
-        ImageView toNotificationIcon = IconButton.getIconView(new Image("/assets/notificationIcon.png"), 40);
-
-        toAddressBox.getChildren().addAll(toNotificationIcon, toCaret, toAddressBtn);
-
-        toTextField.textProperty().addListener((obs, old, newVal) -> {
-            String text = newVal.trim();
-            if (text.length() > 5) {
-                if (!toAddressBox.getChildren().contains(toEnterButton)) {
-                    toAddressBox.getChildren().add(toEnterButton);
-                }
-
-                toAddressBtn.setAddressByString(text, onVerified -> {
-
-                    Object object = onVerified.getSource().getValue();
-
-                    if (object != null && (Boolean) object) {
-
-                        toAddressBox.getChildren().remove(toTextField);
-                        if (toAddressBox.getChildren().contains(toEnterButton)) {
-                            toAddressBox.getChildren().remove(toEnterButton);
-                        }
-                        toAddressBox.getChildren().add(toAddressBtn);
-                    }
-                });
-            }
-
-        });
-
-        toTextField.setOnKeyPressed((keyEvent) -> {
-            KeyCode keyCode = keyEvent.getCode();
-            if (keyCode == KeyCode.ENTER) {
-                String text = toTextField.getText();
-
-                toAddressBox.getChildren().remove(toTextField);
-
-                if (toAddressBox.getChildren().contains(toEnterButton)) {
-                    toAddressBox.getChildren().remove(toEnterButton);
-                }
-                toAddressBox.getChildren().add(toAddressBtn);
-            }
-        });
-
-        toTextField.focusedProperty().addListener((obs, old, newPropertyValue) -> {
-
-            if (newPropertyValue) {
-
-            } else {
-
-                toAddressBox.getChildren().remove(toTextField);
-                if (toAddressBox.getChildren().contains(toEnterButton)) {
-                    toAddressBox.getChildren().remove(toEnterButton);
-                }
-                toAddressBox.getChildren().add(toAddressBtn);
-
-                /* NoteInterface explorerInterface = m_walletData.getExplorerInterface();
-
-                    if (explorerInterface != null) {
-
-                    } */
-            }
-        });
-
-        HBox fromAddressBox = new HBox(fromNotificationIcon, fromCaret, fromAddressBtn);
-        fromAddressBox.setPadding(new Insets(7, 15, 2, 0));
-        HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
-        fromAddressBox.setAlignment(Pos.CENTER_LEFT);
-
-        /*    Region amountRegion = new Region();
-        amountRegion.setPrefWidth(10);*/
-       // amountBoxes.setPadding(new Insets(2, 15, 5, 0));
-
-        // amountBox.currentAmountProperty();
-        sendButton.setGraphic(IconButton.getIconView(new Image("/assets/arrow-send-white-30.png"), 30));
-        sendButton.setFont(App.txtFont);
-        sendButton.setId("menuBtnDisabled");
-        sendButton.setDisable(true);
-        sendButton.setUserData("sendButton");
-        sendButton.setContentDisplay(ContentDisplay.LEFT);
-        sendButton.setPadding(new Insets(3, 15, 3, 15));
-        sendButton.setOnAction(e -> {
-            // sendErg(0, null, null, 0, null, null, null);
-        });
-
-        Region sendBoxSpacer = new Region();
-        HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
-
-        HBox sendBox = new HBox(sendBoxSpacer, sendButton);
-        HBox.setHgrow(sendBox, Priority.ALWAYS);
-        sendBox.setPadding(new Insets(5, 10, 10, 0));
-
-        VBox scrollBodyBox = new VBox();
-
-        ScrollPane scrollPane = new ScrollPane(scrollBodyBox);
-        scrollPane.setId("bodyBox");
-
-        HBox scrollPaddingBox = new HBox(scrollPane);
-        scrollPaddingBox.setPadding(new Insets(10, 20, 20, 20));
-
-        Region addBoxSpacer = new Region();
-        HBox.setHgrow(addBoxSpacer, Priority.ALWAYS);
-
-        HBox addBox = new HBox(addBoxSpacer, addTxBtn);
-        addBox.setAlignment(Pos.CENTER_LEFT);
-        addBox.setPadding(new Insets(0, 20, 0, 0));
-
-        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox,  addBox, scrollPaddingBox);
-        bodyBox.setId("bodyBox");
-        // bodyBox.setPadding(new Insets(5));
-
-        VBox bodyLayoutBox = new VBox(bodyBox);
-        bodyLayoutBox.setPadding(new Insets(7, 5, 5, 5));
-
-        VBox footerBox = new VBox(sendBox);
-        HBox.setHgrow(footerBox, Priority.ALWAYS);
-
-        HBox paddingBox = new HBox(menuBar);
-        HBox.setHgrow(paddingBox, Priority.ALWAYS);
-        paddingBox.setPadding(new Insets(0, 5, 0, 5));
-
-        layoutBox.getChildren().addAll(titleBox, paddingBox, bodyLayoutBox, footerBox);
-
-        fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromCaret.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        scrollPane.prefViewportHeightProperty().bind(sendScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(footerBox.heightProperty()));
-        scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty());
-
-        return sendScene;
-    }
 }

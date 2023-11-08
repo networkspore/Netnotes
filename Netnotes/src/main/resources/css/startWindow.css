@@ -395,8 +395,25 @@
     -fx-opacity: 1;
 }
 
+#menuButtonLeftPad {
+    -fx-padding: 0;
+    -fx-opacity: .9;
+    -fx-shape: "...";
+    -fx-background-color: transparent;
+    -fx-background-radius: 0 0 0 0;
+    -fx-border-radius: 0 0 0 0;
+}
+
+#menuButtonLeftPad .label {
+    -fx-text-fill: #777777;
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 14px;
+    -fx-padding: 0 0 0 10;
+}
+
+
 .menu-button {
-    
+    -fx-padding: 0;
     -fx-opacity: .6;
     -fx-shape: "...";
     -fx-background-color: transparent;
@@ -408,12 +425,13 @@
 
 .menu-button .label{
     -fx-text-fill: #777777;
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 14px;
+    -fx-padding: 0;
 }
 
 
-.menu-button:hover .label {
-    -fx-text-fill: white;
-}
+
 
 .menu-button>.arrow-button {
     -fx-padding: 0;
@@ -423,15 +441,20 @@
     -fx-padding: 0;
 }
 
-.menu-button:hover {
-    -fx-background-color: #33333360;
+.menu-button:hover  {
+    -fx-text-fill: #FFFFFF;
+
     -fx-opacity: 1;
+    -fx-cursor: pointer;
     
 }
 
-.menu-button:focus {
-    -fx-background-color: #77777750;
+.menu-button .label:hover{
+    -fx-text-fill: #FFFFFF;
+    -fx-background-color: #33333360;
     -fx-opacity: 1;
+    -fx-cursor: pointer;
+
 }
 
 .menu-item .label{

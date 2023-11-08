@@ -172,7 +172,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         }
 
         if (bytes == null) {
-            setIcon(new Image("/assets/unknown-unit.png"));
+            setIcon(new Image("/assets/unknown-unit-75x40.png"));
         }
 
     }

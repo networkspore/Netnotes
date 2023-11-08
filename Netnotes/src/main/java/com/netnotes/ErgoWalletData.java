@@ -345,9 +345,9 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         BufferedButton sendButton = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
         sendButton.setTooltip(sendTip);
-        sendButton.setId("menuBtnDisabled");
+        sendButton.setId("menuBtn");
         sendButton.setUserData("sendButton");
-        sendButton.setDisable(true);
+   
 
 
 
@@ -399,10 +399,13 @@ public class ErgoWalletData extends Network implements NoteInterface {
             if(ergoNodes != null){
                 ergoNodes.getErgoNodesList().getMenu(nodesMenuBtn, addressesData.selectedNodeData());
                 nodesMenuBtn.setId("menuBtn");
+                sendButton.setId("menuBtn");
+                sendButton.setDisable(false);
             }else{
                 nodesMenuBtn.getItems().clear();
                 nodesMenuBtn.setId("menuBtnDisabled");
-               
+                sendButton.setId("menuBtnDisabled");
+                sendButton.setDisable(true);
             }
             updateNodeBtn.run();
         };
@@ -716,27 +719,23 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         sendButton.setOnAction((actionEvent) -> {
             ErgoNodes ergoNodes = (ErgoNodes) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
-            ErgoNodeData nodeData = addressesData.selectedNodeData().get();
 
-            if (ergoNodes != null && nodeData != null) {
-                 if (addressesData.selectedAddressDataProperty().get() != null) {
-            
-                    Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
-                    if (sendScene != null) {
-                        walletStage.setScene(sendScene);
-                        Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
-                        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
-                    }else{
-                        Alert b = new Alert(AlertType.ERROR, "Recieved null scene when send scene was expected.", ButtonType.OK);
-                        b.show();
-                    }
+            if (ergoNodes != null) {
+                
+    
+                Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
+                if (sendScene != null) {
+                    walletStage.setScene(sendScene);
+                    Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
+                    ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
                 }else{
-                    Alert a = new Alert(AlertType.ERROR, "Recieved null address when data was expected.", ButtonType.OK);
-                    a.show();
+                    Alert b = new Alert(AlertType.ERROR, "Recieved null scene when send scene was expected.", ButtonType.OK);
+                    b.show();
                 }
+              
                 
             } else {
-                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNodes.NAME + "' to use this feature.", ButtonType.OK);
+                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNodes.NAME + "' and select a node in order to use this feature.", ButtonType.OK);
                 nodeAlert.setGraphic(IconButton.getIconView(ErgoNodes.getAppIcon(), alertImageWidth));
                 nodeAlert.initOwner(walletStage);
                 nodeAlert.setTitle(getName() + " - Ergo Wallets");
@@ -750,9 +749,6 @@ public class ErgoWalletData extends Network implements NoteInterface {
                 AddressData addressData = (AddressData) openWalletScene.focusOwnerProperty().get();
 
                 addressesData.selectedAddressDataProperty().set(addressData);
-
-                sendButton.setId("menuBtn");
-                sendButton.setDisable(false);
                 
             } else {
                 
@@ -766,20 +762,13 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
                         }else{
                             addressesData.selectedAddressDataProperty().set(null);
-                            sendButton.setId("menuBtnDisabled");
-                            sendButton.setDisable(true);
                         }
                     }else{
                         addressesData.selectedAddressDataProperty().set(null);
-                        sendButton.setId("menuBtnDisabled");
-                        sendButton.setDisable(true);
                     }
            
                 } else {
                     addressesData.selectedAddressDataProperty().set(null);
-                    sendButton.setId("menuBtnDisabled");
-                    sendButton.setDisable(true);
-                    
                 }
             }
         });

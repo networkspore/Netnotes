@@ -69,7 +69,7 @@ public class PriceCurrency {
     }
 
     public static Image getUnknownUnitImage() {
-        return new Image("/assets/unknown-unit.png");
+        return new Image("/assets/unknown-unit-75x40.png");
     }
 
     public String getImageString(){

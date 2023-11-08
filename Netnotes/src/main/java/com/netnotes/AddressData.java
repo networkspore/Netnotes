@@ -398,7 +398,7 @@ public class AddressData extends Network {
     public Image getUnitImage() {
         ErgoAmount ergoAmount = m_ergoAmountProperty.get();
         if (ergoAmount == null) {
-            return new Image("/assets/unknown-unit.png");
+            return new Image("/assets/unknown-unit-75x40.png");
         } else {
             return ergoAmount.getCurrency().getUnitImage();
         }

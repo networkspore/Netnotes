@@ -54,4 +54,10 @@ public class BufferedMenuButton extends MenuButton {
     public BufferedImageView getBufferedImageView() {
         return m_imgBufView;
     }
+
+    public void setImage(Image image) {
+
+        m_imgBufView.setDefaultImage(image);
+
+    }
 }
