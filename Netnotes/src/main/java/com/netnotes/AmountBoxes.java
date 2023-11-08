@@ -12,7 +12,7 @@ public class AmountBoxes extends HBox {
 
     public final static int IMAGE_WIDTH = 40;
 
-    private ArrayList<AmountItem> m_amountsList = new ArrayList<AmountItem>();
+    private ArrayList<AmountBox> m_amountsList = new ArrayList<AmountBox>();
 
     private VBox amountVBox = new VBox();
 
@@ -31,9 +31,9 @@ public class AmountBoxes extends HBox {
     public void updateAmountBoxes() {
         amountVBox.getChildren().clear();
 
-        AmountItem ergoAmountItem = new AmountItem(new ErgoAmount(0));
+      //  AmountBox ergoAmountItem = new AmountBox(new ErgoAmount(0));
 
-        amountVBox.getChildren().add(ergoAmountItem);
+      //  amountVBox.getChildren().add(ergoAmountItem);
 
         ArrayList<TokenData> tokenList = m_addressData.getConfirmedTokenList();
 
@@ -46,7 +46,7 @@ public class AmountBoxes extends HBox {
 
     }
 
-    public ArrayList<AmountItem> AountsList() {
+    public ArrayList<AmountBox> AountsList() {
         return m_amountsList;
     }
 

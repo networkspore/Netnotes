@@ -21,8 +21,9 @@ public class PriceAmount {
     }
 
     public PriceAmount(double amount, PriceCurrency currency) {
-        setDoubleAmount(amount);
+        
         m_currency = currency;
+        setDoubleAmount(amount);
     }
 
 

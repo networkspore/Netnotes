@@ -737,7 +737,7 @@ public class AddressesData {
 
         Text fromText = new Text("From   ");
         fromText.setFont(App.txtFont);
-        fromText.setFill(Color.WHITE);
+        fromText.setFill(App.txtColor);
 
         String nullAddressImageString = "/assets/unknown-unit-75x40.png";
         Image nullAddressImg = new Image(nullAddressImageString);
@@ -799,7 +799,7 @@ public class AddressesData {
         toAddressBox.setAlignment(Pos.CENTER_LEFT);
         Text toText = new Text("To     ");
         toText.setFont(App.txtFont);
-        toText.setFill(Color.WHITE);
+        toText.setFill(App.txtColor);
 
         Button toEnterButton = new Button("[ ENTER ]");
         toEnterButton.setFont(App.txtFont);
@@ -905,8 +905,15 @@ public class AddressesData {
 
         Text amountText = new Text("Amount ");
         amountText.setFont(App.txtFont);
-        amountText.setFill(Color.WHITE);
+        amountText.setFill(App.txtColor);
 
+        AmountBox ergoAmountBox = new AmountBox(new ErgoAmount(0), sendScene);
+        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
+        HBox amountBoxRow = new HBox(amountText, ergoAmountBox);
+        amountBoxRow.setPadding(new Insets(3, 15, 5, 30));
+        amountBoxRow.setAlignment(Pos.CENTER_LEFT);
+        amountBoxRow.setMinHeight(40);
+        HBox.setHgrow(amountBoxRow, Priority.ALWAYS);
 
         Region sendBoxSpacer = new Region();
         HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
@@ -928,7 +935,7 @@ public class AddressesData {
         sendBox.setPadding(new Insets(5, 10, 10, 0));
        
 
-        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox);
+        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox, amountBoxRow);
         bodyBox.setId("bodyBox");
         // bodyBox.setPadding(new Insets(5));
 

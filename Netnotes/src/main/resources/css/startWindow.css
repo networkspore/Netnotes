@@ -144,11 +144,12 @@
 }
 
 #amountBtn {
-    -fx-text-fill: #999999;
+    -fx-text-fill: #777777;
     -fx-font-size: 35px;
     -fx-font-family: 'OCR A Extended';
     -fx-background-color: transparent;
     -fx-opacity: .9;
+    -fx-alignment:center-right;
 }
 
 #amountBtn:hover {
@@ -156,6 +157,7 @@
     -fx-background-color: #33333360;
     -fx-opacity: 1;
 }
+
 
 #blackMenu{
     fx-background-color: linear-gradient(to left, #77777790 5%, #00000000, #77777790 95%);
@@ -221,6 +223,8 @@
     -fx-font-size: 18px;
     -fx-font-family: 'OCR A Extended';
 
+    
+
 }
 
 #amountField:focused {
@@ -262,7 +266,9 @@
 #formField:focused:hover {
     -fx-text-fill: white;
 }
-
+#blackBox {
+    -fx-background-color: black;
+}
 #blackField {
 
     -fx-font-family: 'OCR A Extended';
