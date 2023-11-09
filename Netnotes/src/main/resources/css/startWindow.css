@@ -148,8 +148,8 @@
     -fx-font-size: 35px;
     -fx-font-family: 'OCR A Extended';
     -fx-background-color: transparent;
-    -fx-opacity: .9;
-    -fx-alignment:center-right;
+    -fx-opacity: 1;
+    
 }
 
 #amountBtn:hover {
@@ -306,8 +306,8 @@
 
 #headingBox{
     -fx-background-color:#33333370;
-    -fx-border-color: #000000;
-    -fx-border-width: 0 0 1px 0;
+    -fx-border-color: #111111;
+    -fx-border-width: 0 0 2px 0;
     fx-border-style: solid;
             
 }

@@ -1,57 +1,137 @@
 package com.netnotes;
 
-import java.util.ArrayList;
-
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
 import javafx.scene.Node;
 
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-public class AmountBoxes extends HBox {
+public class AmountBoxes extends VBox {
+
+    public final static String ADD_TO_LAST_ROW = "ADD_TO_LAST_ROW";
+    public final static String ADD_AS_LAST_ROW = "ADD_AS_LAST_ROW";
+    
 
     public final static int IMAGE_WIDTH = 40;
 
-    private ArrayList<AmountBox> m_amountsList = new ArrayList<AmountBox>();
+    ObservableList<AmountBox> m_amountsList = FXCollections.observableArrayList();
 
-    private VBox amountVBox = new VBox();
 
-    private AddressData m_addressData = null;
+    private VBox m_listVBox = new VBox();
+    private final SimpleObjectProperty<Insets> m_paddingInsets =new SimpleObjectProperty<>( new Insets(0,0,10,10));
+    private Node m_lastRowItem = null;
+    private String m_lastRowItemStyle = ADD_AS_LAST_ROW;
+    private boolean m_lastRowItemDisabled = false;
 
-    public AmountBoxes(AddressData addressData, Node... children) {
-        super(children);
-        m_addressData = addressData;
-        HBox.setHgrow(this, Priority.ALWAYS);
+    public AmountBoxes(AmountBox... boxes) {
+        super();
+       //m_addressData = addressData;
+      //  HBox.setHgrow(m_listVBox, Priority.ALWAYS);
+        
+        
+        getChildren().add(m_listVBox);
 
-        updateAmountBoxes();
-
-        getChildren().add(amountVBox);
-    }
-
-    public void updateAmountBoxes() {
-        amountVBox.getChildren().clear();
-
-      //  AmountBox ergoAmountItem = new AmountBox(new ErgoAmount(0));
-
-      //  amountVBox.getChildren().add(ergoAmountItem);
-
-        ArrayList<TokenData> tokenList = m_addressData.getConfirmedTokenList();
-
-        for (TokenData tokenData : tokenList) {
-
-            String tokenId = tokenData.getTokenID();
-            String name = tokenData.getName();
-
+        m_amountsList.addListener((ListChangeListener.Change<? extends AmountBox> c) -> update());
+        m_paddingInsets.addListener((obs, oldval, newval)->update());
+        if(boxes != null){
+            for(int i = 0; i < boxes.length; i++){
+                addAmountBox(boxes[i]);
+            }
         }
 
     }
 
-    public ArrayList<AmountBox> AountsList() {
+    public void setLastRowItem(Node item){
+        m_lastRowItem = item;
+        update();
+    }
+
+    public Node getLastRowItem(){
+        return m_lastRowItem;
+    }
+
+    public void setLastRowItemStyle(String itemStyle){
+        m_lastRowItemStyle = itemStyle;
+        update();
+    }
+
+    public String getLastRowItemStyle(){
+        return m_lastRowItemStyle;
+    }
+
+    public void setLastRowItemDisabled(boolean disabled){
+        m_lastRowItemDisabled = disabled;
+    }
+
+    public boolean getLastRowItemDisabled(){
+        return m_lastRowItemDisabled;
+    }
+
+    public SimpleObjectProperty<Insets> amountBoxPaddingProperty(){
+        return m_paddingInsets;
+    }
+
+    public ObservableList<AmountBox> getAmountBoxList() {
         return m_amountsList;
     }
 
-    public void setAddressData(AddressData addressData) {
-        m_addressData = addressData;
+    public VBox getListVBox(){
+        return m_listVBox;
     }
 
+    public void addAmountBox(AmountBox amountBox){
+        m_amountsList.add(amountBox);
+    }
+
+    public AmountBox getAmountBox(String id){
+        if(id != null){
+            for(int i = 0; i < m_amountsList.size(); i++){
+                AmountBox amountBox = m_amountsList.get(i);
+                if(amountBox.getBoxId().equals(id)){
+                    return amountBox;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public void update(){
+        m_listVBox.getChildren().clear();
+
+        for(int i = 0; i < m_amountsList.size(); i++){
+            AmountBox amountBox = m_amountsList.get(i);
+            AmountBox.setHgrow(amountBox, Priority.ALWAYS);
+            
+            Insets padding = m_paddingInsets.get();
+
+            HBox paddingBox = new HBox(amountBox);
+            HBox.setHgrow(paddingBox, Priority.ALWAYS);
+            paddingBox.setPadding(padding);
+
+            
+            m_listVBox.getChildren().add(paddingBox);
+
+            if(m_lastRowItem != null && !m_lastRowItemDisabled && m_lastRowItemStyle != null){
+                switch(m_lastRowItemStyle){
+                    case ADD_TO_LAST_ROW:
+                        if(i == m_amountsList.size() - 1){
+                            paddingBox.getChildren().add(m_lastRowItem);
+                        }
+                    break;
+                    case ADD_AS_LAST_ROW:
+                        if(i == m_amountsList.size() - 1){
+                            m_listVBox.getChildren().add(m_lastRowItem);
+                        }
+                    break;
+                }
+            }
+
+        }
+    }
 }

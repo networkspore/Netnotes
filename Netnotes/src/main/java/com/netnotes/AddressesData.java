@@ -909,15 +909,20 @@ public class AddressesData {
 
         AmountBox ergoAmountBox = new AmountBox(new ErgoAmount(0), sendScene);
         HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
-        HBox amountBoxRow = new HBox(amountText, ergoAmountBox);
-        amountBoxRow.setPadding(new Insets(3, 15, 5, 30));
-        amountBoxRow.setAlignment(Pos.CENTER_LEFT);
-        amountBoxRow.setMinHeight(40);
-        HBox.setHgrow(amountBoxRow, Priority.ALWAYS);
 
+       VBox amountBoxRow = new VBox(amountText);
+        amountBoxRow.setPadding(new Insets(0, 15, 10, 30));
+        amountBoxRow.setMinHeight(40);
+        amountBoxRow.setAlignment(Pos.BOTTOM_LEFT);
+
+        AmountBoxes amountBoxes = new AmountBoxes(ergoAmountBox);
+        amountBoxes.setId("blackBox");
+        amountBoxes.setPadding(new Insets(10,30,10,0));
+        amountBoxes.setAlignment(Pos.TOP_LEFT);
+       
         Region sendBoxSpacer = new Region();
         HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
-
+      
         
         sendButton.setFont(App.txtFont);
         sendButton.setId("menuBtnDisabled");
@@ -933,28 +938,36 @@ public class AddressesData {
         HBox sendBox = new HBox(sendBoxSpacer, sendButton);
         HBox.setHgrow(sendBox, Priority.ALWAYS);
         sendBox.setPadding(new Insets(5, 10, 10, 0));
+        
+        ScrollPane scrollPane = new ScrollPane(amountBoxes);
+        scrollPane.setPadding(new Insets(10,0,0, 30));
        
-
-        VBox bodyBox = new VBox(headingBox, fromAddressBox, toAddressBox, amountBoxRow);
+        VBox bodyBox = new VBox( fromAddressBox, toAddressBox, amountBoxRow, scrollPane);
         bodyBox.setId("bodyBox");
-        // bodyBox.setPadding(new Insets(5));
+        bodyBox.setPadding(new Insets(15,15,0,0));
 
-        VBox bodyLayoutBox = new VBox(bodyBox);
-        bodyLayoutBox.setPadding(new Insets(7, 5, 5, 5));
+        VBox bodyLayoutBox = new VBox(headingBox, bodyBox);
+        bodyLayoutBox.setPadding(new Insets(0, 4, 4,4));
 
         VBox footerBox = new VBox(sendBox);
         HBox.setHgrow(footerBox, Priority.ALWAYS);
 
         HBox paddingBox = new HBox(menuBar);
         HBox.setHgrow(paddingBox, Priority.ALWAYS);
-        paddingBox.setPadding(new Insets(0, 5, 0, 5));
+        paddingBox.setPadding(new Insets(0, 4, 4, 4));
 
         layoutBox.getChildren().addAll(titleBox, paddingBox, bodyLayoutBox, footerBox);
+        VBox.setVgrow(layoutBox, Priority.ALWAYS);
+        layoutBox.setAlignment(Pos.TOP_LEFT);
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
         toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
 
-
+        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract( amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()));
+        amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(40));
+        
+        amountBoxes.prefWidthProperty().bind(sendScene.widthProperty().subtract(72));
+   
         return sendScene;
     }
 

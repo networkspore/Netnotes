@@ -276,10 +276,10 @@ public class App extends Application {
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
         Scene passwordScene = new Scene(layoutVBox, 600, 300);
-
+    
         passwordScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(passwordScene);
-
+        
         closeBtn.setOnAction(e -> {
             shutdownNow();
         });
@@ -412,7 +412,7 @@ public class App extends Application {
         File networksFile = new File(appData.getAppDir().getAbsolutePath() + "/" + NETWORKS_FILE_NAME);
 
         boolean isNetworksFile = networksFile.isFile();
-  
+      
 
         m_networksData = new NetworksData(appData, m_networkServices, networksFile, isNetworksFile);    
 
@@ -526,7 +526,7 @@ public class App extends Application {
                 final double passSceneWidth = 600;
                 final double passSceneHeight = 305;
                 ResizeHelper.addResizeListener(theStage,passSceneWidth,passSceneHeight, passSceneWidth,passSceneHeight);
-                theStage.setAlwaysOnTop(false);
+      
                 theStage.setHeight(passSceneHeight);
                 verifyAppKey(theStage, appData, (onSucceeded)->{
    
@@ -534,7 +534,7 @@ public class App extends Application {
                     isShrunk.set(false);
                     
                 }, ()->{
-                    theStage.setAlwaysOnTop(true);
+         
                     theStage.setScene(originalScene);
                     theStage.setHeight(originalHeight);
                     ResizeHelper.addResizeListener(theStage,400 , originalHeight, rect.getWidth(), originalHeight);
@@ -674,9 +674,9 @@ public class App extends Application {
                 if (passwordField.getText().length() < 6) {
                     passwordField.setText("");
                 } else {
-
+          
                     statusStage.show();
-
+                    
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
 
                         BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), appkey);
@@ -919,7 +919,7 @@ public class App extends Application {
                             
                             if (result.verified) {
                                 Utils.returnObject((Object)password, onSucceeded, (onFailed)->{});
-                             
+                          
                                 
                             }
                             statusStage.close();
