@@ -158,6 +158,36 @@
     -fx-opacity: 1;
 }
 
+#amountMenuBtn {
+    -fx-padding: 0;
+    -fx-opacity: .3;
+    -fx-shape: "...";
+    -fx-background-color: transparent;
+    -fx-background-radius: 0 0 0 0;
+    -fx-border-radius: 0 0 0 0;
+
+
+}
+
+#amountMenuBtn .label {
+    -fx-text-fill: #777777;
+    -fx-font-size: 20px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-padding: 0;
+}
+
+#amountMenuBtn:hover{
+    -fx-opacity: 1;
+}
+
+#amountMenuBtn .label:hover {
+    -fx-text-fill: #FFFFFF;
+    -fx-background-color: #33333375;
+    -fx-opacity: 1;
+    -fx-cursor: pointer;
+
+}
+
 
 #blackMenu{
     fx-background-color: linear-gradient(to left, #77777790 5%, #00000000, #77777790 95%);
@@ -436,7 +466,13 @@
     -fx-padding: 0;
 }
 
+.menu-button .label:hover {
+    -fx-text-fill: #FFFFFF;
+    -fx-background-color: #33333360;
+    -fx-opacity: 1;
+    -fx-cursor: pointer;
 
+}
 
 
 .menu-button>.arrow-button {
@@ -455,13 +491,6 @@
     
 }
 
-.menu-button .label:hover{
-    -fx-text-fill: #FFFFFF;
-    -fx-background-color: #33333360;
-    -fx-opacity: 1;
-    -fx-cursor: pointer;
-
-}
 
 .menu-item .label{
     -fx-text-fill: #777777;

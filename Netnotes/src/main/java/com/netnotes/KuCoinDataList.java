@@ -19,7 +19,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
-import org.ergoplatform.appkit.NetworkType;
+
 
 import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
@@ -27,7 +27,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
 
-import javafx.application.Platform;
+
 import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;

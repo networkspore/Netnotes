@@ -28,7 +28,7 @@ public class AmountBox extends HBox {
 
     public AmountBox(PriceAmount priceAmount, Scene scene) {
         super();
-        setId("blackBox");
+        setId("darkBox");
         setMinHeight(40);
 
         m_currentAmount.set(priceAmount);

@@ -1,14 +1,11 @@
 package com.netnotes;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+
 
 public class InvertEffect extends Effects {
 
-    private static File logFile = new File("InvertEffect-log.txt");
+   // private static File logFile = new File("InvertEffect-log.txt");
     public static String NAME = "INVERT";
 
     private double m_amount = 1.0;

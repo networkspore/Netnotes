@@ -32,7 +32,6 @@ import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
 
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 
 import javafx.beans.property.SimpleLongProperty;
@@ -68,6 +67,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.util.Duration;
 
 public class AddressesData {
 
@@ -863,7 +863,7 @@ public class AddressesData {
         toTextField.setOnKeyPressed((keyEvent) -> {
             KeyCode keyCode = keyEvent.getCode();
             if (keyCode == KeyCode.ENTER) {
-                String text = toTextField.getText();
+              //  String text = toTextField.getText();
 
                 toAddressBox.getChildren().remove(toTextField);
 
@@ -910,15 +910,28 @@ public class AddressesData {
         AmountBox ergoAmountBox = new AmountBox(new ErgoAmount(0), sendScene);
         HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
 
-       VBox amountBoxRow = new VBox(amountText);
+        VBox amountBoxRow = new VBox(amountText);
         amountBoxRow.setPadding(new Insets(0, 15, 10, 30));
         amountBoxRow.setMinHeight(40);
         amountBoxRow.setAlignment(Pos.BOTTOM_LEFT);
 
+        Tooltip addCryptoBtnTip = new Tooltip("Add Token");
+        addCryptoBtnTip.setShowDelay(new Duration(100));
+
+        MenuButton addCryptoBtn = new MenuButton("[+]");
+        addCryptoBtn.setAlignment(Pos.CENTER);
+        addCryptoBtn.setTooltip(addCryptoBtnTip);
+        addCryptoBtn.setId("amountMenuBtn");
+        addCryptoBtn.setPrefHeight(40);
+        addCryptoBtn.setPadding(new Insets(2,0,2,0));
+
         AmountBoxes amountBoxes = new AmountBoxes(ergoAmountBox);
-        amountBoxes.setId("blackBox");
-        amountBoxes.setPadding(new Insets(10,30,10,0));
+        amountBoxes.setId("darkBox");
+        amountBoxes.setPadding(new Insets(10,10,10,0));
         amountBoxes.setAlignment(Pos.TOP_LEFT);
+        amountBoxes.setLastRowItem(addCryptoBtn, AmountBoxes.ADD_AS_LAST_ROW);
+
+        addCryptoBtn.prefWidthProperty().bind(amountBoxes.widthProperty());
        
         Region sendBoxSpacer = new Region();
         HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);

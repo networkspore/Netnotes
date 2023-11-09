@@ -5,39 +5,32 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 import org.ergoplatform.appkit.NetworkType;
-import org.reactfx.util.FxTimer;
 
 import com.devskiller.friendly_id.FriendlyId;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.netnotes.App.Delta;
 import com.satergo.Wallet;
 
 import com.utils.Utils;
 
-import at.favre.lib.crypto.bcrypt.BCrypt;
-import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
+
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 
-import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
@@ -45,9 +38,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -697,13 +688,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty().subtract(10));
         scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(updateBox.heightProperty()).subtract(summaryBox.heightProperty()).subtract(5));
 
-        addressesData.selectedAddressDataProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null) {
-                sendTip.setText("Select address");
-            } else {
-                sendTip.setText("Send");
-            }
-        });
+
 
         m_ergoWallet.getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
             getAvailableNodeMenu.run();

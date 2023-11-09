@@ -287,7 +287,7 @@ public class App extends Application {
        
 
         passwordField.setOnKeyPressed(e -> {
-            Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying..");
+            Stage statusStage = getStatusStage("Verifying - Netnotes", "Verifying...");
             KeyCode keyCode = e.getCode();
 
             if (keyCode == KeyCode.ENTER) {
@@ -663,7 +663,7 @@ public class App extends Application {
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
-        Stage statusStage = App.getStatusStage("Netnotes - Verifying...", "Verifying..");
+        Stage statusStage = App.getStatusStage("Verifying - Netnotes", "Verifying...");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -765,7 +765,7 @@ public class App extends Application {
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
-        Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying..");
+        Stage statusStage = getStatusStage("Verifying - Netnotes", "Verifying...");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -897,7 +897,7 @@ public class App extends Application {
         passwordStage.setScene(passwordScene);
 
        
-         Stage statusStage = getStatusStage("Netnotes - Verifying...", "Verifying...");
+         Stage statusStage = getStatusStage("Verifying - Netnotes", "Verifying...");
 
         passwordField.setOnKeyPressed(e -> {
 

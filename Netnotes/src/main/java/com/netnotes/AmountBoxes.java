@@ -46,8 +46,9 @@ public class AmountBoxes extends VBox {
 
     }
 
-    public void setLastRowItem(Node item){
+    public void setLastRowItem(Node item, String itemStyle){
         m_lastRowItem = item;
+        m_lastRowItemStyle = itemStyle;
         update();
     }
 
@@ -66,6 +67,7 @@ public class AmountBoxes extends VBox {
 
     public void setLastRowItemDisabled(boolean disabled){
         m_lastRowItemDisabled = disabled;
+        update();
     }
 
     public boolean getLastRowItemDisabled(){
@@ -126,7 +128,12 @@ public class AmountBoxes extends VBox {
                     break;
                     case ADD_AS_LAST_ROW:
                         if(i == m_amountsList.size() - 1){
-                            m_listVBox.getChildren().add(m_lastRowItem);
+                            HBox lastRowPaddingBox = new HBox(m_lastRowItem);
+                            HBox.setHgrow(lastRowPaddingBox, Priority.ALWAYS);
+                            Insets lastRowPadding = m_paddingInsets.get();
+                            
+                            lastRowPaddingBox.setPadding(lastRowPadding);
+                            m_listVBox.getChildren().add(lastRowPaddingBox);
                         }
                     break;
                 }

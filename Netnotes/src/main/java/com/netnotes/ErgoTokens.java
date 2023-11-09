@@ -2,7 +2,6 @@ package com.netnotes;
 
 import java.awt.Rectangle;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,7 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.MessageDigest;
+
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -30,7 +29,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
-import org.bouncycastle.util.encoders.Hex;
+
 import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;

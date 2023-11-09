@@ -56,7 +56,27 @@ public class PriceAmount {
 
     @Override
     public String toString() {
-        return Utils.formatCryptoString(this, m_currency.getPriceValid());
+        
+        int precision = getCurrency().getFractionalPrecision();
+        DecimalFormat df = new DecimalFormat("0");
+        df.setMaximumFractionDigits(precision);
+
+        String formatedDecimals = df.format(getDoubleAmount());
+        String priceTotal = getCurrency().getPriceValid() ? formatedDecimals : "-";
+
+        switch (getCurrency().getSymbol()) {
+      
+            case "USD":
+                priceTotal = "$" + priceTotal;
+                break;
+            case "EUR":
+                priceTotal = "€‎" + priceTotal;
+                break;
+            default:
+                priceTotal = priceTotal + " " + getCurrency().getSymbol();
+        }
+
+        return priceTotal;
     }
 
 }

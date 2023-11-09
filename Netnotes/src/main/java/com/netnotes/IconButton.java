@@ -11,9 +11,6 @@ import java.awt.image.BufferedImage;
 
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
-import javafx.embed.swing.SwingFXUtils;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
