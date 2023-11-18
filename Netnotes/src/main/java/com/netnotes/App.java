@@ -81,6 +81,8 @@ public class App extends Application {
     public static final String notesFileName = "notes.dat";
 
     public final static double MENU_BAR_IMAGE_WIDTH = 20;
+
+    public final static String ASSETS_DIRECTORY = "/assets";
    
   //  private static final String GitHub_USERDL_URL = "https://github.com/networkspore/Netnotes/releases";
 
@@ -95,6 +97,7 @@ public class App extends Application {
     public static Font mainFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     public static Font txtFont = Font.font("OCR A Extended", 15);
     public static Font titleFont = Font.font("OCR A Extended", FontWeight.BOLD, 12);
+    
     public static Color txtColor = Color.web("#cdd4da");
     public static Color altColor = Color.web("#777777");
     public static Color formFieldColor = new Color(.8, .8, .8, .9);

@@ -54,10 +54,6 @@ public class ErgoNodeData {
     private String m_radioOffUrl = "/assets/radio-button-off-30.png";
     private String m_radioOnUrl = "/assets/radio-button-on-30.png";
 
-    private String m_powerOffUrl = "/assets/power-button-off-30.png";
-    private String m_powerOnUrl = "/assets/power-button-on-30.png";
-    private String m_powerInitUrl = "/assets/power-button-init-30.png";
-
     private Font m_largeFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
     private Font m_font = Font.font("OCR A Extended", FontWeight.BOLD, 13);
     private Font m_smallFont = Font.font("OCR A Extended", FontWeight.NORMAL, 10);
@@ -157,17 +153,6 @@ public class ErgoNodeData {
         return m_radioOffUrl;
     }
 
-    public String getPowerOnUrl() {
-        return m_powerOnUrl;
-    }
-
-    public String getPowerOffUrl() {
-        return m_powerOffUrl;
-    }
-
-    public String getPowerInitUrl() {
-        return m_powerInitUrl;
-    }
 
     public String getStopImgUrl() {
         return m_stopImgUrl;
@@ -203,9 +188,24 @@ public class ErgoNodeData {
 
     public HBox getRowItem() {
 
-        Button powerBtn = new Button();
-        powerBtn.setGraphic(IconButton.getIconView(new Image(availableProperty.get() ? getPowerOnUrl() : getPowerOffUrl()), 15));
-        powerBtn.setId("transparentColor");
+       
+         Tooltip defaultIdTip = new Tooltip(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? "Default Node" : "Set default");
+
+        BufferedButton defaultIdBtn = new BufferedButton(m_ergoNodesList.defaultNodeIdProperty().get() != null && m_ergoNodesList.defaultNodeIdProperty().get().equals(getId()) ? m_radioOnUrl : m_radioOffUrl, 15);
+        defaultIdBtn.setTooltip(defaultIdTip);
+        defaultIdBtn.setOnAction(e->{
+            String currentDefaultId = m_ergoNodesList.defaultNodeIdProperty().get();
+            if(currentDefaultId != null && currentDefaultId.equals(getId())){
+                m_ergoNodesList.defaultNodeIdProperty().set(null);
+            }else{
+                m_ergoNodesList.defaultNodeIdProperty().set(getId());
+            }
+        });
+
+        m_ergoNodesList.defaultNodeIdProperty().addListener((obs, oldval, newval)->{
+            defaultIdBtn.setImage(new Image(newval != null && newval.equals(getId()) ? m_radioOnUrl : m_radioOffUrl));
+             defaultIdTip.setText(newval != null && newval.equals(getId()) ? "Default Node" : "Set default");
+        });
 
         String centerString = "";
 
@@ -266,26 +266,26 @@ public class ErgoNodeData {
 
                     statusBtnTip.setText("Ping");
                     statusBtn.getBufferedImageView().setDefaultImage(new Image(m_startImgUrl), 15);
-                    if (!availableProperty.get()) {
-                        powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
+                    /*if (!availableProperty.get()) {
+                        defaultIdBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
                     } else {
-                        powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOnUrl()), 15));
-                    }
+                        defaultIdBtn.setGraphic(IconButton.getIconView(new Image(getPowerOnUrl()), 15));
+                    }*/
 
                     break;
                 default:
                     if (!statusBtnTip.getText().equals("Stop")) {
                         statusBtnTip.setText("Stop");
                         statusBtn.getBufferedImageView().setDefaultImage(new Image(m_stopImgUrl), 15);
-                        if (!availableProperty.get()) {
-                            powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerInitUrl()), 15));
-                        }
+                        /*if (!availableProperty.get()) {
+                            defaultIdBtn.setGraphic(IconButton.getIconView(new Image(getPowerInitUrl()), 15));
+                        }*/
                     }
                     break;
             }
         });
 
-        HBox leftBox = new HBox(powerBtn);
+        HBox leftBox = new HBox(defaultIdBtn);
         HBox rightBox = new HBox(statusBtn);
 
         leftBox.setAlignment(Pos.CENTER_LEFT);

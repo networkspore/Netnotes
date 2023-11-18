@@ -236,6 +236,30 @@ public class Drawing {
 
     }
 
+    public static void setImageAlpha(BufferedImage img, int alpha){
+        int width = img.getWidth();
+        int height = img.getHeight();
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y ++) {
+                int rgba = img.getRGB(x, y);
+
+                int a = (rgba >> 24) & 0xff;
+                int r = (rgba >> 16) & 0xff;
+                int g = (rgba >> 8) & 0xff;
+                int b = rgba & 0xff;
+
+                a = a < alpha ? a : alpha;
+
+                int p = (a << 24) | (r << 16) | (g << 8) | b;
+
+                img.setRGB(x, y, p);
+            }
+
+        }
+    }
+
+
     public static int blendRGBA(int RGB1, int RGB2) {
 
         int aA = (RGB1 >> 24) & 0xff;

@@ -52,7 +52,11 @@ public class BufferedButton extends Button {
 
     public BufferedButton(String name, String urlString, double imageWidth) {
         super(name);
-        m_imgBufView = new BufferedImageView(new Image(urlString), imageWidth);
+        if(urlString != null){
+            m_imgBufView = new BufferedImageView(new Image(urlString), imageWidth);
+        }else{
+            m_imgBufView = new BufferedImageView();
+        }
         setGraphic(m_imgBufView);
 
         setId("menuBtn");

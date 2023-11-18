@@ -1,5 +1,7 @@
 package com.netnotes;
 
+import java.util.ArrayList;
+
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
@@ -40,10 +42,14 @@ public class AmountBoxes extends VBox {
         m_paddingInsets.addListener((obs, oldval, newval)->update());
         if(boxes != null){
             for(int i = 0; i < boxes.length; i++){
-                addAmountBox(boxes[i]);
+                add(boxes[i]);
             }
         }
 
+    }
+
+    public void clear(){
+        m_amountsList.clear();
     }
 
     public void setLastRowItem(Node item, String itemStyle){
@@ -86,15 +92,49 @@ public class AmountBoxes extends VBox {
         return m_listVBox;
     }
 
-    public void addAmountBox(AmountBox amountBox){
-        m_amountsList.add(amountBox);
+    public void add(AmountBox amountBox){
+        if(amountBox != null){
+            AmountBox existingBox = getAmountBox(amountBox.getTokenId());
+            if(existingBox == null){
+                m_amountsList.add(amountBox);
+            }else{ 
+                PriceAmount newPriceAmount = amountBox.priceAmountProperty().get();
+                existingBox.priceAmountProperty().set(newPriceAmount);
+            }
+        }
     }
 
-    public AmountBox getAmountBox(String id){
-        if(id != null){
+    public void removeOld(long timeStamp){
+        ArrayList<String> removeList = new ArrayList<>();
+
+        for(AmountBox amountBox : m_amountsList){
+            if(amountBox.getTimeStamp() < timeStamp){
+                removeList.add(amountBox.getTokenId());        
+            }
+        }
+
+        for(String tokenId : removeList){
+            removeAmountBox(tokenId);
+        }
+    }
+
+    public void removeAmountBox(String tokenId){
+        if(tokenId != null){
             for(int i = 0; i < m_amountsList.size(); i++){
                 AmountBox amountBox = m_amountsList.get(i);
-                if(amountBox.getBoxId().equals(id)){
+                if(amountBox.getTokenId().equals(tokenId)){
+                    m_amountsList.remove(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    public AmountBox getAmountBox(String tokenId){
+        if(tokenId != null){
+            for(int i = 0; i < m_amountsList.size(); i++){
+                AmountBox amountBox = m_amountsList.get(i);
+                if(amountBox.getTokenId().equals(tokenId)){
                     return amountBox;
                 }
             }

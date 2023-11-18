@@ -65,6 +65,8 @@ public class ErgoNodesList {
 
     private File logFile = new File("ergonotes-log.txt");
     private SimpleStringProperty m_selectedId = new SimpleStringProperty(null);
+    private SimpleStringProperty m_defaultId = new SimpleStringProperty(null);
+
     private ArrayList<ErgoNodeData> m_dataList = new ArrayList<>();
     private ErgoNodes m_ergoNodes;
     private ErgoNodeLocalData m_ergoLocalNode = null;
@@ -110,8 +112,10 @@ public class ErgoNodesList {
             }
         } else {
      
-          
-            m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
+            String localNodeId = FriendlyId.createFriendlyId();
+            m_ergoLocalNode = new ErgoNodeLocalData(localNodeId, this);
+            m_defaultId.set(localNodeId);
+
             m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
             add(new ErgoNodeData(this, ErgoNodeData.LIGHT_CLIENT, new NamedNodeUrl()), true);
             save();
@@ -122,7 +126,7 @@ public class ErgoNodesList {
     private void openJson(JsonObject json) {
 
         JsonElement nodesElement = json.get("nodes");
-
+        JsonElement defaultIdElement = json.get("defaultId");
         JsonElement defaultAddTypeElement = json.get("defaultAddType");
         JsonElement addStageElement = json.get("addStage");
 
@@ -189,6 +193,11 @@ public class ErgoNodesList {
                 m_addStageHeight = prevHeight;
 
             }
+        }
+
+        if(defaultIdElement != null && defaultIdElement.isJsonPrimitive()){
+            String defaultId = defaultIdElement.getAsString();
+            m_defaultId.set(defaultId);
         }
 
     }
@@ -274,7 +283,9 @@ public class ErgoNodesList {
         json.add("nodes", getNodesJsonArray());
         json.addProperty("defaultAddType", m_defaultAddType);
         json.add("addStage", getAddStageJson());
-
+        if(m_defaultId.get() != null){
+            json.addProperty("defaultId", m_defaultId.get());
+        }
         json.add("localNode", m_ergoLocalNode.getJsonObject());
 
         return json;
@@ -404,6 +415,10 @@ public class ErgoNodesList {
     public void setselectedId(String id) {
         m_selectedId.set(id);
         save();
+    }
+
+    public SimpleStringProperty defaultNodeIdProperty(){
+        return m_defaultId;
     }
 
     public void shutdown() {

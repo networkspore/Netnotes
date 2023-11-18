@@ -196,12 +196,16 @@ public class ErgoWalletDataList {
 
     public void showAddWalletStage() {
         String friendlyId = FriendlyId.createFriendlyId();
+
+
         
         SimpleObjectProperty<ErgoNodeData> selectedNodeData = new SimpleObjectProperty<>(null);
         SimpleObjectProperty<ErgoExplorerData> selectedExplorerData = new SimpleObjectProperty<ErgoExplorerData>(null);
         SimpleObjectProperty<ErgoMarketsData> selectedMarketsData = new SimpleObjectProperty<>(null);
         SimpleBooleanProperty ergoTokensEnabledProperty = new SimpleBooleanProperty(m_ergoWallet.getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID) != null ? true : false);
         SimpleObjectProperty<NetworkType> selectedNetworkType = new SimpleObjectProperty<>(NetworkType.MAINNET);
+
+      
 
         Image icon = m_ergoWallet.getIcon();
         String name = m_ergoWallet.getName();
@@ -506,6 +510,37 @@ public class ErgoWalletDataList {
         selectedNodeData.addListener((obs, oldval,newval) -> updateNodeBtn.run());
         selectedMarketsData.addListener((obs, oldVal, newVal)-> updateMarketsBtn.run());
         ergoTokensEnabledProperty.addListener((obs,oldval,newVal)->updateTokensBtn.run());
+
+           
+
+        if(m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) != null){
+            ErgoNodes ergoNodes = (ErgoNodes) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+            String defaultId = ergoNodes.getErgoNodesList().defaultNodeIdProperty().get();
+         
+            if(defaultId != null){
+                ErgoNodeData ergoNodeData = ergoNodes.getErgoNodesList().getErgoNodeData(defaultId);
+                selectedNodeData.set(ergoNodeData);
+             
+            }
+        }
+
+        if(m_ergoWallet.getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID) != null){
+            ErgoExplorers ergoExplorers = (ErgoExplorers) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
+            String defaultId = ergoExplorers.getErgoExplorersList().defaultIdProperty().get();
+            if(defaultId != null){
+                ErgoExplorerData ergoExplorerData = ergoExplorers.getErgoExplorersList().getErgoExplorerData(defaultId);
+                selectedExplorerData.set(ergoExplorerData);
+            }
+        }
+
+        if(m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID ) != null){
+            ErgoMarkets ergoMarkets = (ErgoMarkets) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
+            String defaultId = ergoMarkets.getErgoMarketsList().defaultIdProperty().get();
+            if(defaultId != null){
+                ErgoMarketsData ergoMarketsData = ergoMarkets.getErgoMarketsList().getMarketsData(defaultId);
+                selectedMarketsData.set(ergoMarketsData);
+            }
+        }
 
         Rectangle windowBounds = m_ergoWallet.getNetworksData().getMaximumWindowBounds();
 

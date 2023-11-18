@@ -77,18 +77,18 @@ public class AddressesData {
     private Wallet m_wallet;
     private ErgoWalletData m_walletData;
     private Stage m_walletStage;
-
+    
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
 
     private SimpleObjectProperty<ErgoAmount> m_totalErgoAmount = new SimpleObjectProperty<>(null);
 
     private ScheduledFuture<?> m_lastExecution = null;
-    private SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
+    private final SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
 
     private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
 
 
-    private ScheduledExecutorService m_balanceExecutor = null;
+
 
     private SimpleObjectProperty<ErgoMarketsData> m_selectedMarketData = new SimpleObjectProperty<ErgoMarketsData>(null);
     private SimpleObjectProperty<ErgoNodeData> m_selectedNodeData = new SimpleObjectProperty<ErgoNodeData>(null);
@@ -96,8 +96,11 @@ public class AddressesData {
     private SimpleBooleanProperty m_isErgoTokens = new SimpleBooleanProperty();
 
     private SimpleObjectProperty<PriceQuote> m_currentQuote = new SimpleObjectProperty<>(null);
+    private ScheduledExecutorService m_timeExecutor = null;
 
     private Stage m_promptStage = null;
+
+   
 
     public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType, Stage walletStage) {
      
@@ -113,10 +116,10 @@ public class AddressesData {
         ErgoExplorers ergoExplorer = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
         ErgoTokens ergoTokens = (ErgoTokens) ergNetData.getNetwork(ErgoTokens.NETWORK_ID);
   
-        if(ergoNodes != null){
+        if(ergoNodes != null && walletData.getNodesId() != null){
             m_selectedNodeData.set(ergoNodes.getErgoNodesList().getErgoNodeData(walletData.getNodesId()));
         }
-        if(ergoExplorer != null){
+        if(ergoExplorer != null && walletData.getExplorerId() != null){
             String explorerId = walletData.getExplorerId();
             ErgoExplorerData explorerData = ergoExplorer.getErgoExplorersList().getErgoExplorerData(explorerId);
       
@@ -146,21 +149,46 @@ public class AddressesData {
         m_addressBox = new VBox();
 
         
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
-                    public Thread newThread(Runnable r) {
-                        Thread t = Executors.defaultThreadFactory().newThread(r);
-                        t.setDaemon(true);
-                        return t;
-                    }
-            });
-
-        Runnable doUpdate = ()->{
-            Platform.runLater(()->updateTimeCycle());
-        };
-        m_lastExecution = executor.schedule(doUpdate, walletData.getCyclePeriod(), walletData.getCycleTimeUnit());
+    
     
        
         updateAddressBox();
+        setupTimer();
+
+
+   
+
+        
+    }
+
+
+    public void setupTimer(){
+
+        if(m_lastExecution != null){
+            m_lastExecution.cancel(false);
+        }
+
+        if(m_timeExecutor != null){
+            m_timeExecutor.shutdownNow();
+            m_timeExecutor = null;
+        }
+        
+        if(m_walletData.getCyclePeriod() > 0){
+            m_timeExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                public Thread newThread(Runnable r) {
+                    Thread t = Executors.defaultThreadFactory().newThread(r);
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+
+            
+            Runnable doUpdate = ()->{
+                Platform.runLater(()->updateTimeCycle());
+            };
+
+            m_lastExecution = m_timeExecutor.scheduleAtFixedRate(doUpdate, 0, m_walletData.getCyclePeriod(), m_walletData.getCycleTimeUnit());
+        }
     }
 
     public SimpleObjectProperty<PriceQuote> currentPriceQuoteProperty(){
@@ -217,12 +245,12 @@ public class AddressesData {
             m_promptStage = new Stage();
             m_promptStage.initStyle(StageStyle.UNDECORATED);
             m_promptStage.getIcons().add(new Image("/assets/git-branch-outline-white-30.png"));
-            m_promptStage.setTitle("Address Name - "+m_walletData.getName() + " - Ergo Wallets");
+            m_promptStage.setTitle("Add Address - "+m_walletData.getName() + " - Ergo Wallets");
 
             TextField textField = new TextField();
             Button closeBtn = new Button();
 
-            App.showGetTextInput("Address name", "Address name", new Image("/assets/git-branch-outline-white-240.png"), textField, closeBtn, m_promptStage);
+            App.showGetTextInput("Address name", "Add Address", new Image("/assets/git-branch-outline-white-240.png"), textField, closeBtn, m_promptStage);
             closeBtn.setOnAction(e->{
                 m_promptStage.close();
                 m_promptStage = null;
@@ -320,9 +348,9 @@ public class AddressesData {
         }
     }
 
-    public final static long UPDATE_PERIOD = 7;
 
-    public void startBalanceUpdates() {
+
+    /*public void startBalanceUpdates() {
        
         try {
             if (m_balanceExecutor != null) {
@@ -345,17 +373,20 @@ public class AddressesData {
             a.show();
         }
    
-    }
+    }*/
 
-    public void stopBalanceUpdates() {
-        if (m_balanceExecutor != null) {
-            m_balanceExecutor.shutdown();
-            m_balanceExecutor = null;
+    public void stopUpdates() {
+        if (m_timeExecutor != null) {
+            if(m_lastExecution != null){
+                m_lastExecution.cancel(false);
+            }
+            m_timeExecutor.shutdownNow();
+            m_timeExecutor = null;
         }
     }
 
     public void shutdown() {
-        stopBalanceUpdates();
+        stopUpdates();
     }
 
    
@@ -622,13 +653,12 @@ public class AddressesData {
 
         Tooltip tokensTip = new Tooltip("Ergo Tokens");
         tokensTip.setShowDelay(new javafx.util.Duration(50));
-        tokensTip.setFont(App.txtFont);
+        tokensTip.setFont(App.mainFont);
 
 
         BufferedMenuButton tokensBtn = new BufferedMenuButton("/assets/diamond-30.png", imageWidth);
         tokensBtn.setPadding(new Insets(2, 0, 0, 0));
-        tokensBtn.setTooltip(tokensTip);
-
+      
         
 
         Runnable updateTokensMenu = ()->{
@@ -724,7 +754,7 @@ public class AddressesData {
         
         BufferedMenuButton sendButton = new BufferedMenuButton("Send", "/assets/notificationIcon.png", 40);
 
-     //   AmountBoxes amountBoxes = new AmountBoxes(m_selectedAddressData.get(), amountNotificationIcon, amountText);
+
 
         HBox headingBox = new HBox(headingText);
         headingBox.prefHeight(40);
@@ -739,7 +769,7 @@ public class AddressesData {
         fromText.setFont(App.txtFont);
         fromText.setFill(App.txtColor);
 
-        String nullAddressImageString = "/assets/unknown-unit-75x40.png";
+        String nullAddressImageString = "assets/unknown-unit.png";
         Image nullAddressImg = new Image(nullAddressImageString);
 
         MenuButton fromAddressBtn = new MenuButton();
@@ -907,13 +937,15 @@ public class AddressesData {
         amountText.setFont(App.txtFont);
         amountText.setFill(App.txtColor);
 
-        AmountBox ergoAmountBox = new AmountBox(new ErgoAmount(0), sendScene);
-        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
+        
 
         VBox amountBoxRow = new VBox(amountText);
         amountBoxRow.setPadding(new Insets(0, 15, 10, 30));
         amountBoxRow.setMinHeight(40);
         amountBoxRow.setAlignment(Pos.BOTTOM_LEFT);
+
+        AmountBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0), sendScene, true);
+        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
 
         Tooltip addCryptoBtnTip = new Tooltip("Add Token");
         addCryptoBtnTip.setShowDelay(new Duration(100));

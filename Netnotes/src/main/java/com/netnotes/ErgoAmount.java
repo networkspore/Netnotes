@@ -9,4 +9,9 @@ public class ErgoAmount extends PriceAmount {
     public ErgoAmount(long nanoErg) {
         super(nanoErg, new ErgoCurrency());
     }
+
+    public ErgoAmount(long nanoErg, boolean amountValid){
+        super(nanoErg, new ErgoCurrency(), amountValid);
+        
+    }
 }

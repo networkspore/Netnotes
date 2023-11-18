@@ -63,11 +63,11 @@ public class ErgoNetworkData implements InstallerInterface {
     private File logFile;
 
     public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
-        ErgoTokens.NETWORK_ID,
         ErgoExplorers.NETWORK_ID,
+        ErgoTokens.NETWORK_ID,
         ErgoNodes.NETWORK_ID,
-        ErgoWallets.NETWORK_ID,
-        ErgoMarkets.NETWORK_ID
+        ErgoMarkets.NETWORK_ID,
+        ErgoWallets.NETWORK_ID
     };
 
     private Stage m_manageStage = null;

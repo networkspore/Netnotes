@@ -265,7 +265,7 @@ public class AddressButton extends Button {
     }
 
     public Image getUnknownUnitImage() {
-        return new Image("/assets/unknown-unit-75x40.png");
+        return new Image("/assets/unknown-unit.png");
     }
 
     public Image getUnitImage() {

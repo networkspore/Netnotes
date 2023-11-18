@@ -7,15 +7,20 @@
 }
 
 .root * {
-
+   
     -fx-text-fill: #cdd4da;
     -fx-background-color: transparent;
 }
 
 .button {
-
+   
     -fx-text-fill: #777777;
     -fx-background-color: #33333350;
+}
+
+.tooltip {
+    -fx-font-size: 14;
+    -fx-font-family: 'OCR A Extended';
 }
 
 .button:hover {
@@ -36,6 +41,25 @@
     -fx-font-size: 10px;
     -fx-font-family: 'OCR A Extended';
     -fx-text-fill: #666666E6;
+}
+
+#addressField {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-opacity: .7;
+   
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 14px;
+    -fx-padding: 0;
+}
+
+
+#addressField:hover {
+    -fx-opacity: 1;
+}
+
+#addressField:focus {
+    -fx-opacity: 1;
 }
 
 #urlField {
@@ -77,7 +101,7 @@
     -fx-text-fill: #FFFFFF;
 
     -fx-opacity: 1;
-    -fx-cursor: pointer;
+  
 }
 
 #appMenuBox{
@@ -98,14 +122,14 @@
     -fx-font-family: 'OCR A Extended';
     -fx-opacity: .8;
     -fx-background-color: #77777790;
-    
+
 
 }
 
 #rowBtnSelected:hover {
 
     -fx-opacity: 1;
-    -fx-cursor: pointer;
+  
 }
 
 #rowBox {
@@ -133,14 +157,27 @@
     -fx-font-family: 'OCR A Extended';
     -fx-background-color: transparent;
     -fx-opacity: .8;
-    
+
 }
+
+
 
 #rowBtn:hover{
     -fx-text-fill: #FFFFFF;
     -fx-background-color: #33333360;
     -fx-opacity: 1;
-    -fx-cursor: pointer;
+
+}
+
+#tokenBtn{
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-opacity: .9;
+    -fx-padding: 0;
+}
+
+#tokenBtn:hover{
+    -fx-opacity: 1;
 }
 
 #amountBtn {
@@ -165,7 +202,7 @@
     -fx-background-color: transparent;
     -fx-background-radius: 0 0 0 0;
     -fx-border-radius: 0 0 0 0;
-
+  
 
 }
 
@@ -184,7 +221,7 @@
     -fx-text-fill: #FFFFFF;
     -fx-background-color: #33333375;
     -fx-opacity: 1;
-    -fx-cursor: pointer;
+   
 
 }
 
@@ -247,6 +284,7 @@
     -fx-text-alignment: center;
 }
 
+
 #amountField{
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
@@ -289,6 +327,8 @@
 }
 
 
+
+
 #formField:focused{
     -fx-text-fill: white;
 }
@@ -296,6 +336,27 @@
 #formField:focused:hover {
     -fx-text-fill: white;
 }
+
+#formFieldSmall {
+
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 12px;
+    -fx-background-color: transparent;
+    -fx-text-fill: #777777;
+    -fx-prompt-text-fill: #77777780;
+}
+
+
+
+
+#formFieldSmall:focused {
+    -fx-text-fill: white;
+}
+
+#formFieldSmall:focused:hover {
+    -fx-text-fill: white;
+}
+
 #blackBox {
     -fx-background-color: black;
 }
@@ -470,7 +531,7 @@
     -fx-text-fill: #FFFFFF;
     -fx-background-color: #33333360;
     -fx-opacity: 1;
-    -fx-cursor: pointer;
+
 
 }
 
@@ -487,7 +548,7 @@
     -fx-text-fill: #FFFFFF;
 
     -fx-opacity: 1;
-    -fx-cursor: pointer;
+   
     
 }
 
@@ -555,7 +616,7 @@
 #rowField * {
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
-    -fx-cursor: pointer;
+  
 }
 
 #rowField:hover{
@@ -574,7 +635,6 @@
 #rowFieldRed {
     -fx-background-color: transparent;
     -fx-text-fill: #FF000090;
-    -fx-cursor: pointer;
 }
 
 #rowFieldRed:hover {
@@ -592,7 +652,7 @@
 #rowFieldGreen {
     -fx-background-color: transparent;
     -fx-text-fill: #00FF0060;
-    -fx-cursor: pointer;
+ 
 }
 
 #rowFieldGreen:hover {
@@ -622,6 +682,7 @@
     -fx-border-radius: 20 0 0 20;
     -fx-background-radius: 20 0 0 20;
 }
+
 
 #bodyBox {
     -fx-background-color: #33333350;

@@ -3,15 +3,13 @@ package com.netnotes;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
-import com.utils.Utils;
-
-import javafx.beans.property.SimpleStringProperty;
 
 public class PriceAmount {
 
     private long m_amount;
     private PriceCurrency m_currency;
     private LocalDateTime m_created;
+    private boolean m_valid = true;
 
     public PriceAmount(long amount, PriceCurrency currency) {
         m_amount = amount;
@@ -20,12 +18,31 @@ public class PriceAmount {
         m_created = LocalDateTime.now();
     }
 
+
+
     public PriceAmount(double amount, PriceCurrency currency) {
         
         m_currency = currency;
         setDoubleAmount(amount);
+        m_created = LocalDateTime.now();
     }
 
+    public PriceAmount(long amount, PriceCurrency currency, boolean amountValid){
+        m_amount = amount;
+        m_currency = currency;
+        m_valid = amountValid;
+        m_created = LocalDateTime.now();
+    }
+
+
+
+    public boolean getAmountValid(){
+        return m_valid;
+    }
+
+    public void setAmoutValid(boolean valid){
+        m_valid = valid;
+    }
 
     public void setLongAmount(long amount) {
         m_amount = amount;
@@ -36,14 +53,18 @@ public class PriceAmount {
     }
 
     public void setDoubleAmount(double amount) {
-        double precision = Math.pow(10, m_currency.getFractionalPrecision());
-        m_amount = (long) (precision * amount);
+        if(m_currency.getFractionalPrecision() == 0){
+            m_amount = (long) amount;
+        }else{
+            double precision = Math.pow(10, m_currency.getFractionalPrecision());
+            m_amount = (long) (precision * amount);
+        }
     }
 
     public double getDoubleAmount() {
         double precision = Math.pow(10, m_currency.getFractionalPrecision());
         
-        return (double) m_amount * ((long) 1 / precision);
+        return (double) m_amount * (precision != 0 ? ((long) 1 / precision) : 1.0 );
     }
 
     public PriceCurrency getCurrency() {
@@ -62,21 +83,22 @@ public class PriceAmount {
         df.setMaximumFractionDigits(precision);
 
         String formatedDecimals = df.format(getDoubleAmount());
-        String priceTotal = getCurrency().getPriceValid() ? formatedDecimals : "-";
+        String amount = m_valid ? formatedDecimals : "-";
 
         switch (getCurrency().getSymbol()) {
       
             case "USD":
-                priceTotal = "$" + priceTotal;
+                amount = "$" + amount;
                 break;
             case "EUR":
-                priceTotal = "€‎" + priceTotal;
+                amount = "€‎" + amount;
                 break;
             default:
-                priceTotal = priceTotal + " " + getCurrency().getSymbol();
+                amount = amount + " " + getCurrency().getSymbol();
         }
 
-        return priceTotal;
+        return amount;
     }
+
 
 }

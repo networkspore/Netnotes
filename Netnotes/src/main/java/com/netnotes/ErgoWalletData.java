@@ -23,7 +23,6 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
-
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -66,7 +65,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     private String m_nodesId;
     private String m_explorerId;
     private String m_marketsId;
-    private boolean m_isErgoTokens;
+    private boolean m_isErgoTokens = true;
 
     private long m_cyclePeriod = 7;
     private TimeUnit m_cycleTimeUnit = TimeUnit.SECONDS;
@@ -74,6 +73,8 @@ public class ErgoWalletData extends Network implements NoteInterface {
    // private String m_quoteTransactionCurrency = "USD";
 
     private ErgoWallets m_ergoWallet;
+
+
 
     // private ErgoWallet m_ergoWallet;
     public ErgoWalletData(String id, String name, File walletFile, String nodesId, String explorerId, String marketsId, boolean ergoTokensEnabled, NetworkType networkType, ErgoWallets ergoWallet) {
@@ -315,7 +316,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         String title = getName() + " - (" + m_networkType.toString() + ")";
 
         double imageWidth = App.MENU_BAR_IMAGE_WIDTH;
-        double alertImageWidth = 75;
+        //double alertImageWidth = 75;
 
         //  PriceChart priceChart = null;
         walletStage.setTitle(title);
@@ -332,7 +333,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         Tooltip sendTip = new Tooltip("Select address");
         sendTip.setShowDelay(new javafx.util.Duration(100));
-        sendTip.setFont(App.txtFont);
+    
 
         BufferedButton sendButton = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
         sendButton.setTooltip(sendTip);
@@ -390,13 +391,11 @@ public class ErgoWalletData extends Network implements NoteInterface {
             if(ergoNodes != null){
                 ergoNodes.getErgoNodesList().getMenu(nodesMenuBtn, addressesData.selectedNodeData());
                 nodesMenuBtn.setId("menuBtn");
-                sendButton.setId("menuBtn");
-                sendButton.setDisable(false);
+                
             }else{
                 nodesMenuBtn.getItems().clear();
                 nodesMenuBtn.setId("menuBtnDisabled");
-                sendButton.setId("menuBtnDisabled");
-                sendButton.setDisable(true);
+             
             }
             updateNodeBtn.run();
         };
@@ -703,31 +702,18 @@ public class ErgoWalletData extends Network implements NoteInterface {
         updateTokensMenu.run();
 
         sendButton.setOnAction((actionEvent) -> {
-            ErgoNodes ergoNodes = (ErgoNodes) m_ergoWallet.getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
-
-            if (ergoNodes != null) {
-                
-    
-                Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
-                if (sendScene != null) {
-                    walletStage.setScene(sendScene);
-                    Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
-                    ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
-                }else{
-                    Alert b = new Alert(AlertType.ERROR, "Recieved null scene when send scene was expected.", ButtonType.OK);
-                    b.show();
-                }
-              
-                
-            } else {
-                Alert nodeAlert = new Alert(AlertType.NONE, "Attention:\n\nInstall '" + ErgoNodes.NAME + "' and select a node in order to use this feature.", ButtonType.OK);
-                nodeAlert.setGraphic(IconButton.getIconView(ErgoNodes.getAppIcon(), alertImageWidth));
-                nodeAlert.initOwner(walletStage);
-                nodeAlert.setTitle(getName() + " - Ergo Wallets");
-                nodeAlert.show();
+            Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
+            if (sendScene != null) {
+                walletStage.setScene(sendScene);
+                Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
+                ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
+            }else{
+                Alert b = new Alert(AlertType.ERROR, "Could not create scene. Error Code: 47", ButtonType.OK);
+                b.show();
             }
-
         });
+
+
         openWalletScene.focusOwnerProperty().addListener((e) -> {
             if (openWalletScene.focusOwnerProperty().get() instanceof AddressData) {
 

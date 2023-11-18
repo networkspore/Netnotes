@@ -1,6 +1,9 @@
 package com.netnotes;
 
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,18 +14,18 @@ import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.netnotes.IconButton.IconStyle;
 import com.utils.Utils;
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.value.ChangeListener;
+import javafx.collections.ListChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.TextArea;
@@ -35,28 +38,31 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-public class ErgoNetworkToken extends Network implements NoteInterface {
+public class ErgoNetworkToken extends PriceCurrency {
 
-    private File logFile = new File("ErgoNetworkToken-log.txt");
+    private File logFile = new File("netnotes-log.txt");
 
     private HashData m_hashData = null;
 
-    private NetworkType m_networkType = NetworkType.MAINNET;
+
     // private ErgoTokens m_ErgoTokens = null;
     private SimpleBooleanProperty m_explorerVerified = new SimpleBooleanProperty(false);
-    private SimpleObjectProperty<ErgoNetworkTokenData> m_ergoNetworkTokenData = new SimpleObjectProperty<ErgoNetworkTokenData>(null);
+
 
     private SimpleDoubleProperty m_sceneWidth = new SimpleDoubleProperty(450);
     private SimpleDoubleProperty m_sceneHeight = new SimpleDoubleProperty(575);
     private String m_urlString;
-    private String m_imageString;
     private Stage m_ergoTokenStage = null;
-
-    public ErgoNetworkToken(String name, String tokenId, NetworkType networkType, JsonObject jsonObject, NoteInterface noteInterface) {
-        super(null, name, tokenId, noteInterface);
+    private TokensList m_tokensList = null;
+    //String token_id, String name, String symbol, String description, int fractionalPrecision, String networkId, String unitImageString, String networkType, long emissionAmount, long timestamp
+    
+    public ErgoNetworkToken(String name, String tokenId, NetworkType networkType, JsonObject jsonObject, TokensList tokensList) {
+        super(tokenId, name, name, name, 0,  ErgoNetwork.NETWORK_ID, "/assets/unknown-unit.png", networkType.toString(),0, 0);
+        m_tokensList = tokensList;
 
         JsonElement imageStringElement = jsonObject.get("imageString");
         JsonElement urlElement = jsonObject.get("url");
@@ -74,21 +80,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         }
 
         if (hashDataElement != null && hashDataElement.isJsonObject()) {
-            JsonObject json = hashDataElement.getAsJsonObject();
-            JsonElement hashIdElement = json.get("id");
-            JsonElement hashNameElement = json.get("name");
-            JsonElement hashHashElement = json.get("hash");
-
-            if (hashIdElement != null && hashNameElement != null && hashHashElement != null) {
-
-                m_hashData = new HashData(hashIdElement.getAsString(), hashNameElement.getAsString(), hashHashElement.getAsString());
-                try {
-                    Files.writeString(logFile.toPath(), "\nhashData: " + m_hashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }
-
-            }
+            m_hashData = new HashData(hashDataElement.getAsJsonObject());
         }
 
         if (urlElement != null) {
@@ -96,179 +88,119 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         }
 
         if (imageStringElement != null && m_hashData != null) {
-            m_imageString = imageStringElement.getAsString();
-            checkAndloadImage(imageStringElement.getAsString(), m_hashData);
-
-            //  m_imageFile = ;
+            setImageString(imageStringElement.getAsString());
         }
 
-        m_networkType = networkType;
-
-        setIconStyle(IconStyle.ROW);
-        setGraphicTextGap(15);
+        setNetworkType(networkType.toString());
 
         if (tokenDataElement != null && tokenDataElement.isJsonObject()) {
-
-            m_ergoNetworkTokenData.set(new ErgoNetworkTokenData(tokenDataElement.getAsJsonObject()));
-
+            JsonObject sourceJson = tokenDataElement.getAsJsonObject();
+           
+            setTokenData(sourceJson);
         }
-
+        if(getTimeStamp() == 0){
+            updateTokenInfo();
+        }
     }
 
-    public ErgoNetworkToken(String name, String url, String tokenId, String fileString, HashData hashData, NetworkType networkType, NoteInterface noteInterface) {
-        super(null, name, tokenId, noteInterface);
-
+    public ErgoNetworkToken(String name, String url, String tokenId, String fileString, HashData hashData, NetworkType networkType, TokensList tokensList) {
+         super(tokenId, name, name, name, 0,  ErgoNetwork.NETWORK_ID, fileString, networkType.toString(),0, 0);
+        m_tokensList = tokensList;
         m_urlString = url;
         m_hashData = hashData;
-        m_networkType = networkType;
+        setNetworkType(networkType.toString());
 
-        setIconStyle(IconStyle.ROW);
-
-        if (fileString != null && fileString != "") {
-            m_imageString = fileString;
-            File imageFile = new File(m_imageString);
-            if (imageFile.isFile()) {
-                setIcon(new Image(m_imageString));
-            }
-        }
-
-        setGraphicTextGap(15);
+        updateTokenInfo();
     }
 
-    @Override
+
     public void open() {
-        super.open();
-        ErgoNetworkTokenData tokenData = m_ergoNetworkTokenData.get();
-        if (tokenData == null) {
-            updateTokenInfo();
-        } else {
-            if (m_ergoNetworkTokenData.get().timeStamp() == 0) {
-                updateTokenInfo();
-            }
-        }
+        
         showTokenStage();
     }
 
-    private void checkAndloadImage(String imageString, HashData hashData) {
-        File checkFile = new File(imageString);
+    public void setTokenData(JsonObject sourceJson){
 
-        byte[] bytes = null;
-        try {
-            HashData checkFileHashData = new HashData(checkFile);
-            try {
-                Files.writeString(logFile.toPath(), "\nhashString: " +checkFileHashData.getHashStringHex()+ " hashDataString: " + hashData.getHashStringHex(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
+        JsonElement emissionAmountElement = sourceJson.get("emissionAmount");
+        JsonElement nameElement = sourceJson.get("name");
+        JsonElement descriptionElement = sourceJson.get("description");
+        JsonElement decimalsElement = sourceJson.get("decimals");
+ 
 
-            }
-            if (checkFileHashData.getHashStringHex().equals(hashData.getHashStringHex())) {
-                setImageByFile(checkFile);
-            }
-        } catch (Exception e) {
-            try {
-                Files.writeString(logFile.toPath(), "\n" + e, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e2) {
-
-            }
-        }
-
-        if (bytes == null) {
-            setIcon(new Image("/assets/unknown-unit-75x40.png"));
-        }
-
+        long emissionAmount = emissionAmountElement == null ? 0 : emissionAmountElement.getAsLong();
+        String tokenName = nameElement == null ? null : nameElement.getAsString();
+        String description = descriptionElement == null ? null : descriptionElement.getAsString();
+        int decimals = decimalsElement == null ? 0 : decimalsElement.getAsInt();
+        
+        setEmissionAmount(emissionAmount);
+        setSymbol(tokenName);
+        setDescription(description);
+        setDecimals(decimals);
+        setTimeStamp(System.currentTimeMillis());
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    public void setImageByFile(File file) {
-        if (file != null && file.isFile()) {
-            String contentType = null;
-            try {
-                contentType = Files.probeContentType(file.toPath());
-                contentType = contentType.split("/")[0];
+    
 
-            } catch (IOException e) {
-
-            }
-
-            if (contentType != null && contentType.equals("image")) {
-                Image image = new Image(file.getAbsolutePath());
-                Platform.runLater(() -> setIcon(image));
-            }
-
-        }
-    }
-
-    public String getImageString() {
-        return m_imageString;
-    }
 
     public SimpleBooleanProperty explorerVerifiedProperty() {
         return m_explorerVerified;
     }
 
     public NetworkType getNetworkType() {
-        return m_networkType;
+        String networkTypeString = getNetworkTypeString();
+        return networkTypeString != null ? (networkTypeString.equals(NetworkType.MAINNET.toString()) ? NetworkType.MAINNET : NetworkType.TESTNET) : NetworkType.MAINNET;
     }
 
     public void updateTokenInfo() {
+        ErgoExplorerData ergoExplorerData =  m_tokensList.getErgoTokens().explorerDataProperty().get();
+    
+        if(ergoExplorerData != null){
 
-        getParentInterface().sendNote(Utils.getExplorerInterfaceIdObject(), success -> {
-            WorkerStateEvent event = success;
-            Object explorerIdObject = event.getSource().getValue();
-            if (explorerIdObject != null && explorerIdObject instanceof String) {
-                String explorerId = (String) explorerIdObject;
-                NoteInterface explorerInterface = getParentInterface().getNetworksData().getNoteInterface(explorerId);
-                if (explorerInterface != null) {
-                    if (explorerInterface != null) {
+            ergoExplorerData.getTokenInfo(getTokenId(), succeededEvent -> {
+                WorkerStateEvent workerEvent = succeededEvent;
+                Object sourceObject = workerEvent.getSource().getValue();
 
-                        JsonObject note = ErgoExplorers.getTokenInfoObject(getTokenId(), m_networkType);
+                if (sourceObject != null && sourceObject instanceof JsonObject) {
+                    JsonObject sourceJson = (JsonObject) sourceObject;
+         
+                
 
-                        explorerInterface.sendNote(note, succeededEvent -> {
-                            WorkerStateEvent workerEvent = succeededEvent;
-                            Object sourceObject = workerEvent.getSource().getValue();
-
-                            if (sourceObject != null && sourceObject instanceof JsonObject) {
-                                JsonObject sourceJson = (JsonObject) sourceObject;
-                                sourceJson.addProperty("explorerId", explorerId);
-                                sourceJson.addProperty("networkType", m_networkType.toString());
-                                sourceJson.addProperty("timeStamp", Utils.getNowEpochMillis());
-
-                                try {
-                                    Files.writeString(logFile.toPath(), "\nExplorer object: " + getName() + ": " + sourceJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                } catch (IOException e) {
-
-                                }
-
-                                Platform.runLater(() -> m_ergoNetworkTokenData.set(new ErgoNetworkTokenData(sourceJson)));
-                                m_explorerVerified.set(true);
-                                getLastUpdated().set(LocalDateTime.now());
-                            }
-                        }, failedEvent -> {
-                            m_explorerVerified.set(false);
-                            try {
-                                Files.writeString(logFile.toPath(), "\nFailed: " + getName() + ": " + failedEvent.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e) {
-
-                            }
-                        });
-                    }
+                    Platform.runLater(() -> setTokenData(sourceJson));
+                    m_explorerVerified.set(true);
+                    getLastUpdated().set(LocalDateTime.now());
                 }
-            }
-        }, failed -> {
-        });
+            }, failedEvent -> {
+                m_explorerVerified.set(false);
+                try {
+                    Files.writeString(logFile.toPath(), "\nFailed: " + getName() + ": " + failedEvent.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+
+                }
+            });
+    
+        }
+      
 
     }
 
-    public SimpleObjectProperty<ErgoNetworkTokenData> tokenDataProperty() {
-        return m_ergoNetworkTokenData;
+    public void visitUrl(){
+         m_tokensList.getErgoTokens().getNetworksData().getHostServices().showDocument(m_urlString);
     }
+
 
     public void showTokenStage() {
         if (m_ergoTokenStage == null) {
-
+            String title = getName() + " - Ergo Tokens";
+            Image icon = getIcon();
+            
             m_ergoTokenStage = new Stage();
-            m_ergoTokenStage.getIcons().add(ErgoWallets.getSmallAppIcon());
+            m_ergoTokenStage.getIcons().add(icon);
             m_ergoTokenStage.initStyle(StageStyle.UNDECORATED);
-            m_ergoTokenStage.setTitle(getParentInterface().getName() + " - " + getName());
-            m_ergoTokenStage.titleProperty().bind(Bindings.concat(getParentInterface().getName(), " - ", textProperty()));
+            m_ergoTokenStage.setTitle(title);
+            if(getTimeStamp() == 0){
+                updateTokenInfo();
+            }
 
             Text promptText = new Text("");
             TextArea descriptionTextArea = new TextArea();
@@ -276,13 +208,13 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             Label emissionLbl = new Label();
             TextField emissionAmountField = new TextField();
             Button closeBtn = new Button();
-            Button maximizeBtn = new Button();
-            if (m_ergoNetworkTokenData.get() != null) {
+          //  Button maximizeBtn = new Button();
+            if (getTimeStamp() != 0) {
 
-                ErgoNetworkTokenData ergoNetworkTokenData = m_ergoNetworkTokenData.get();
-                promptText.setText(ergoNetworkTokenData.getName());
-                descriptionTextArea.setText(ergoNetworkTokenData.getDescription());
-                long emissionAmount = ergoNetworkTokenData.getEmissionAmount();
+       
+                promptText.setText(getName());
+                descriptionTextArea.setText(getDescription());
+                long emissionAmount = getEmissionAmount();
 
                 if (emissionAmount != 0) {
                     emissionLbl.setText("Total Supply:");
@@ -294,36 +226,63 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
                 emissionLbl.setText("");
                 emissionAmountField.setText("");
             }
+            
+            Button maximizeBtn = new Button();
+            
+            HBox titleBox = App.createTopBar(icon, maximizeBtn, closeBtn, m_ergoTokenStage);
 
-            ChangeListener<ErgoNetworkTokenData> tokenDataListener = (obs, oldVal, newVal) -> {
-                if (newVal != null) {
-                    ErgoNetworkTokenData ergoNetworkTokenData = newVal;
-                    promptText.setText(ergoNetworkTokenData.getName());
-                    descriptionTextArea.setText(ergoNetworkTokenData.getDescription());
-                    long emissionAmount = ergoNetworkTokenData.getEmissionAmount();
-
-                    if (emissionAmount != 0) {
-                        emissionLbl.setText("Total Supply:");
-                        emissionAmountField.setText(emissionAmount + "");
-                    }
-                } else {
-                    promptText.setText("");
-                    descriptionTextArea.setText("No informaiton available.");
-                    emissionLbl.setText("");
-                    emissionAmountField.setText("");
-                }
-            };
-
-            HBox titleBox = App.createTopBar(getIcon(), maximizeBtn, closeBtn, m_ergoTokenStage);
+            maximizeBtn.setOnAction(e->{
+                m_ergoTokenStage.setMaximized(!m_ergoTokenStage.isMaximized());
+            });
 
             Tooltip explorerTip = new Tooltip();
             explorerTip.setShowDelay(new javafx.util.Duration(100));
             explorerTip.setFont(App.txtFont);
 
-            MenuButton explorerBtn = new MenuButton();
-
-            explorerBtn.setPadding(new Insets(2, 0, 0, 0));
+            
+            BufferedMenuButton explorerBtn = new BufferedMenuButton("/assets/ergo-explorer-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            explorerBtn.setPadding(new Insets(2, 0, 0, 2));
             explorerBtn.setTooltip(explorerTip);
+
+            
+
+           
+
+            Runnable updateExplorerBtn = () ->{
+                ErgoExplorers ergoExplorers = (ErgoExplorers) m_tokensList.getErgoTokens().getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
+            
+                ErgoExplorerData explorerData = m_tokensList.getErgoTokens().explorerDataProperty().get();
+            
+            
+                if(explorerData != null && ergoExplorers != null){
+                
+                    explorerTip.setText("Ergo Explorer: " + explorerData.getName());
+                    
+
+                }else{
+                    
+                    if(ergoExplorers == null){
+                        explorerTip.setText("(install 'Ergo Explorer')");
+                    }else{
+                        explorerTip.setText("Select Explorer...");
+                    }
+                }
+                
+            };
+
+            Runnable getAvailableExplorerMenu = () ->{
+            
+                ErgoExplorers ergoExplorers = (ErgoExplorers) m_tokensList.getErgoTokens().getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
+                if(ergoExplorers != null){
+                    explorerBtn.setId("menuBtn");
+                    ergoExplorers.getErgoExplorersList().getMenu(explorerBtn, m_tokensList.getErgoTokens().explorerDataProperty());
+                }else{
+                    explorerBtn.getItems().clear();
+                    explorerBtn.setId("menuBtnDisabled");
+                
+                }
+                updateExplorerBtn.run();
+            };
 
             HBox rightSideMenu = new HBox(explorerBtn);
             rightSideMenu.setId("rightSideMenuBar");
@@ -341,7 +300,9 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             editButton.setId("menuBtn");
             editButton.setTooltip(editTip);
             editButton.setOnAction(e -> {
-                cmdProperty().set(getEditTokenJson());
+              
+                Scene editScene = m_tokensList.getEditTokenScene(this, getNetworkType(), m_ergoTokenStage, closeBtn);
+                m_ergoTokenStage.setScene(editScene);
 
             });
 
@@ -351,7 +312,7 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
 
-            Button imageButton = App.createImageButton(getIcon(), getName());
+            Button imageButton = App.createImageButton(icon, getName());
             imageButton.setGraphicTextGap(25);
 
             HBox imageBox = new HBox(imageButton);
@@ -384,15 +345,31 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             urlLink.setFont(App.txtFont);
             urlLink.setId("addressBtn");
             urlLink.setOnAction(e -> {
-                getNetworksData().getHostServices().showDocument(m_urlString);
+                visitUrl();
             });
 
             HBox urlBox = new HBox(urlLink);
             urlBox.setPadding(new Insets(25, 30, 25, 30));
+  
             urlBox.setAlignment(Pos.CENTER);
             HBox.setHgrow(urlBox, Priority.ALWAYS);
 
-            VBox scrollPaneVBox = new VBox(descriptionTextArea, urlBox);
+            String tokenId = "Token ID: " + getTokenId();
+
+            int tokenIdWidth = Utils.measureString(tokenId, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14));
+
+            TextField tokenIdField = new TextField(tokenId);
+            tokenIdField.setEditable(false);
+            tokenIdField.setId("formFieldSmall");
+            tokenIdField.setPrefWidth(tokenIdWidth +20);
+          
+
+            HBox tokenIdBox = new HBox(tokenIdField);
+            tokenIdBox.setId("bodyBox");
+            tokenIdBox.prefWidthProperty().bind(descriptionTextArea.widthProperty());
+            tokenIdBox.setAlignment(Pos.CENTER);
+
+            VBox scrollPaneVBox = new VBox(descriptionTextArea,tokenIdBox,  urlBox);
             scrollPaneVBox.setPadding(new Insets(0, 40, 0, 40));
             HBox.setHgrow(scrollPaneVBox, Priority.ALWAYS);
 
@@ -411,70 +388,72 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
             VBox bodyVBox = new VBox(menuBar, imageBox, promptBox, scrollPaneVBox);
 
             HBox bodyPaddingBox = new HBox(bodyVBox);
-            bodyPaddingBox.setPadding(SMALL_INSETS);
+            bodyPaddingBox.setPadding(new Insets(5,5,5,5));
 
             VBox layoutVBox = new VBox(titleBox, bodyPaddingBox, footerHBox);
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
-
-            getParentInterface().sendNote(Utils.getExplorerInterfaceIdObject(), success -> {
-                WorkerStateEvent event = success;
-                Object explorerIdObject = event.getSource().getValue();
-                if (explorerIdObject != null && explorerIdObject instanceof String) {
-                    String explorerId = (String) explorerIdObject;
-                    NoteInterface explorerInterface = getParentInterface().getNetworksData().getNoteInterface(explorerId);
-                    if (explorerInterface == null) {
-                        Platform.runLater(() -> {
-
-                            explorerTip.setText("Explorer: Disabled");
-                            explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
-                        });
-                    } else {
-                        Platform.runLater(() -> {
-
-                            explorerTip.setText(explorerInterface.getName() + ": Enabled");
-                            explorerBtn.setGraphic(IconButton.getIconView(new InstallableIcon(getNetworksData(), explorerInterface.getNetworkId(), true).getIcon(), App.MENU_BAR_IMAGE_WIDTH));
-                        });
-                    }
-
-                } else {
-                    Platform.runLater(() -> explorerBtn.setGraphic(IconButton.getIconView(new Image("/assets/search-outline-white-30.png"), App.MENU_BAR_IMAGE_WIDTH)));
-                }
-            }, onFailed -> {
-            });
-
+    
             Scene tokenScene = new Scene(layoutVBox, m_sceneWidth.get(), m_sceneHeight.get());
-
             tokenScene.getStylesheets().add("/css/startWindow.css");
+              
+   
             m_ergoTokenStage.setScene(tokenScene);
-            Rectangle rect = getNetworksData().getMaximumWindowBounds();
+            NetworksData netData = m_tokensList.getErgoTokens().getNetworksData();
+  
 
+            Rectangle rect = netData.getMaximumWindowBounds();
+            
+ 
             ResizeHelper.addResizeListener(m_ergoTokenStage, 300, 600, rect.getWidth(), rect.getHeight());
+
+           
+   
             m_ergoTokenStage.show();
 
+      
             urlLink.maxWidthProperty().bind(tokenScene.widthProperty().multiply(0.75));
 
             descriptionTextArea.prefWidthProperty().bind(m_ergoTokenStage.widthProperty().subtract(40));
             descriptionTextArea.prefHeightProperty().bind(tokenScene.heightProperty().subtract(titleBox.heightProperty()).subtract(imageBox.heightProperty()).subtract(promptBox.heightProperty()).subtract(footerHBox.heightProperty()));
 
-            m_ergoNetworkTokenData.addListener(tokenDataListener);
-
-            addShutdownListener((obs, oldVal, newVal) -> {
-
-                Platform.runLater(() -> closeBtn.fire());
+             m_tokensList.getErgoTokens().getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
+    
+                getAvailableExplorerMenu.run();
+        
             });
 
+            getAvailableExplorerMenu.run();
+
+           getLastUpdated().addListener((obs,oldval, newval)->{
+              
+                    
+                    promptText.setText(getName());
+                    descriptionTextArea.setText(getDescription());
+                    long emissionAmount = getEmissionAmount();
+
+                    if (emissionAmount != 0) {
+                        emissionLbl.setText("Total Supply:");
+                        emissionAmountField.setText(emissionAmount + "");
+                    }
+                
+           });
+    
+
+            /* addShutdownListener((obs, oldVal, newVal) -> {
+
+                Platform.runLater(() -> closeBtn.fire());
+            });*/
+
             m_ergoTokenStage.setOnCloseRequest(e -> {
-                removeShutdownListener();
-                m_ergoNetworkTokenData.removeListener(tokenDataListener);
-                close();
-                m_ergoTokenStage = null;
+               // removeShutdownListener();
+              //  m_priceCurrency.removeListener(tokenDataListener);
+              //  close();
+                
+                closeBtn.fire();
 
             });
 
             closeBtn.setOnAction(event -> {
-                removeShutdownListener();
-                m_ergoNetworkTokenData.removeListener(tokenDataListener);
-                close();
 
                 m_ergoTokenStage.close();
                 m_ergoTokenStage = null;
@@ -488,27 +467,41 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         }
     }
 
+
+    @Override
     public JsonObject getJsonObject() {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("name", getName());
         jsonObject.addProperty("tokenId", getTokenId());
-        jsonObject.addProperty("imageString", m_imageString);
+        jsonObject.addProperty("imageString", getImageString());
         jsonObject.addProperty("url", m_urlString);
         jsonObject.addProperty("sceneWidth", m_sceneWidth.get());
         jsonObject.addProperty("sceneHeight", m_sceneHeight.get());
-        jsonObject.addProperty("networkType", m_networkType.toString());
+        jsonObject.addProperty("networkType", getNetworkTypeString());
+        jsonObject.addProperty("emissionAmount", getEmissionAmount());
+
+        if(getDescription() != null){
+            jsonObject.addProperty("description", getDescription());
+        }
+
+        jsonObject.addProperty("decimals", getDecimals());
+    
+        jsonObject.addProperty("timeStamp", getTimeStamp());
+        if(getNetworkTypeString() != null){
+            jsonObject.addProperty("networkId", getNetworkTypeString());
+        }
+        jsonObject.addProperty("symbol", getSymbol());
+   
+        if(getFontSymbol() != null){
+            jsonObject.addProperty("fontSymbol", getFontSymbol());
+        }
         if (m_hashData != null) {
             jsonObject.add("hashData", m_hashData.getJsonObject());
         }
-        if (m_ergoNetworkTokenData.get() != null) {
-            jsonObject.add("tokenData", m_ergoNetworkTokenData.get().getJsonObject());
-        }
+    
         return jsonObject;
     }
 
-    public String getTokenId() {
-        return getNetworkId();
-    }
 
     public String getUrlString() {
         return m_urlString;
@@ -518,17 +511,82 @@ public class ErgoNetworkToken extends Network implements NoteInterface {
         return m_hashData;
     }
 
-    public JsonObject getEditTokenJson() {
-        JsonObject editObject = new JsonObject();
-        editObject.addProperty("subject", "EDIT");
-        editObject.addProperty("timeStamp", Utils.getNowEpochMillis());
-        return editObject;
-    }
+
 
     @Override
     public String toString() {
         return getName();
     }
 
+    @Override
+    public Image getIcon(){
+        return Utils.checkAndLoadImage(getImageString(), m_hashData);
+    }
 
+    public String getNetworkId(){
+        return getTokenId();
+    }
+
+    public static String getButtonText(String name, java.awt.Font font, double imageWidth){
+        name = name.replace("\n", " ");
+   
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setFont(font);
+        FontMetrics fm = g2d.getFontMetrics();
+        
+        int stringWidth = fm.stringWidth(name);
+  
+        if (stringWidth > imageWidth) {
+            int indexOfSpace = name.indexOf(" ");
+
+            if (indexOfSpace > 0) {
+                String firstWord = name.substring(0, indexOfSpace);
+
+                if (Utils.measureString(firstWord, font) > imageWidth) {
+                    return Utils.truncateText(name,fm, stringWidth);
+                } else {
+
+                    String text = firstWord + "\n";
+                    String secondWord = name.substring(indexOfSpace + 1, name.length());
+
+                    if (fm.stringWidth(secondWord) > imageWidth) {
+                        secondWord = Utils.truncateText(secondWord, fm, imageWidth);
+                    }
+                    text = text + secondWord;
+                    return text;
+                }
+            } else {
+
+                return Utils.truncateText(name, fm, imageWidth);
+            }
+
+        } else {
+            return name;
+        }
+    }
+    public void openButton(){
+        open();
+    }
+    public IconButton getButton(String iconStyle){
+        java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 12);
+        IconButton iconButton = new IconButton(iconStyle.equals(IconStyle.ROW) ? getIcon() : getIcon(), iconStyle.equals(IconStyle.ROW) ? getName() : getButtonText(getName(),font , 75), iconStyle) {
+            @Override
+            public void open() {
+                openButton();
+            }
+        };
+
+        iconButton.setUserData(this);
+
+        if (iconStyle.equals(IconStyle.ROW)) {
+            iconButton.setContentDisplay(ContentDisplay.LEFT);
+            iconButton.setImageWidth(30);
+        } else {
+            iconButton.setContentDisplay(ContentDisplay.TOP);
+            iconButton.setTextAlignment(TextAlignment.CENTER);
+        }
+
+        return iconButton;
+    }
 }

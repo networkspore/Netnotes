@@ -116,15 +116,6 @@ public class ErgoExplorers extends Network implements NoteInterface {
         return jsonObject;
     }
 
-    public static JsonObject getTokenInfoObject(String tokenId, NetworkType networkType) {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("subject", "GET_TOKEN_INFO");
-        jsonObject.addProperty("tokenId", tokenId);
-        jsonObject.addProperty("networkType", networkType.toString());
-
-        return jsonObject;
-    }
-
     public static Image getSmallAppIcon() {
         return new Image("/assets/ergo-explorer-30.png");
     }

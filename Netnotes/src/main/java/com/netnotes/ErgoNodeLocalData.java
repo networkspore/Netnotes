@@ -1678,9 +1678,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     @Override
     public HBox getRowItem() {
 
-        Button powerBtn = new Button();
-        powerBtn.setGraphic(IconButton.getIconView(new Image(syncedProperty.get() ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
-        powerBtn.setId("transparentColor");
+        Tooltip defaultIdTip = new Tooltip(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? "Default Node" : "Set default");
+
+        BufferedButton defaultIdBtn = new BufferedButton(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? getRadioOnUrl() : getRadioOffUrl(), 15);
+        defaultIdBtn.setTooltip(defaultIdTip);
+        defaultIdBtn.setOnAction(e->{
+            String currentDefaultId = getErgoNodesList().defaultNodeIdProperty().get();
+            if(currentDefaultId != null && currentDefaultId.equals(getId())){
+                getErgoNodesList().defaultNodeIdProperty().set(null);
+            }else{
+                getErgoNodesList().defaultNodeIdProperty().set(getId());
+            }
+        });
+
+       getErgoNodesList().defaultNodeIdProperty().addListener((obs, oldval, newval)->{
+            defaultIdBtn.setImage(new Image(newval != null && newval.equals(getId()) ? getRadioOnUrl() : getRadioOffUrl()));
+            defaultIdTip.setText(newval != null && newval.equals(getId()) ? "Default Node" : "Set default");
+        });
 
         statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
 
@@ -1742,7 +1756,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             }
         });
 
-        HBox leftBox = new HBox(powerBtn);
+        HBox leftBox = new HBox(defaultIdBtn);
         HBox rightBox = new HBox(statusBtn);
 
         leftBox.setAlignment(Pos.CENTER_LEFT);
@@ -1774,7 +1788,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     statusBtn.getBufferedImageView().setDefaultImage(new Image(getIsSetup() ? getStartImgUrl() : getInstallImgUrl()), 15);
                     centerField.setAlignment(Pos.CENTER);
                     statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
-                    powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
+                   // powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
 
                 }
             } else {
@@ -1785,9 +1799,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     statusString.set(value);
 
                     centerField.setAlignment(Pos.CENTER_LEFT);
-                    if (!syncedProperty.get()) {
+                    /*if (!syncedProperty.get()) {
                         powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerInitUrl()), 15));
-                    }
+                    }*/
                 }
             }
         };
@@ -1895,7 +1909,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         syncedProperty.addListener((obs, oldVal, newVal) -> {
 
             syncText.setFill(newVal ? getPrimaryColor() : getSecondaryColor());
-            powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
+           // powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
 
         });
         updateSynced.run();

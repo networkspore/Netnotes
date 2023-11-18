@@ -6,24 +6,19 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.text.DecimalFormat;
 
-import org.ergoplatform.appkit.NetworkType;
-
 import com.devskiller.friendly_id.FriendlyId;
 import com.utils.Utils;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.collections.ListChangeListener;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
@@ -33,10 +28,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 
-public class AmountBox extends HBox {
+public class ErgoAmountBox extends HBox {
 
     private long m_quoteTimeout = AddressData.QUOTE_TIMEOUT;
     private final SimpleObjectProperty<PriceAmount> m_currentAmount = new SimpleObjectProperty<PriceAmount>(null);
@@ -49,17 +42,17 @@ public class AmountBox extends HBox {
 
     
 
-  //  private Color m_secondaryColor = new Color(.4, .4, .4, .9);
+ //   private Color m_secondaryColor = new Color(.4, .4, .4, .9);
     private Color m_primaryColor = new Color(.7, .7, .7, .9); 
     private Font m_smallFont = Font.font("OCR A Extended", FontWeight.NORMAL, 10);
 
-    public AmountBox(){
+    public ErgoAmountBox(){
         super();
     }
 
 
 
-    public AmountBox(PriceAmount priceAmount, Scene scene, SimpleBooleanProperty isErgoTokensProperty, ErgoNetworkData ergoNetworkData) {
+    public ErgoAmountBox(PriceAmount priceAmount, Scene scene, ErgoNetworkData ergoNetworkData) {
         super();
         setId("rowBox");
         setMinHeight(45);
@@ -67,7 +60,6 @@ public class AmountBox extends HBox {
 
         m_currentAmount.set(priceAmount);
   
-        
 
        
         
@@ -211,166 +203,55 @@ public class AmountBox extends HBox {
         m_priceQuoteProperty.addListener((obs, oldval, newval)->updateBufferedImage());
         updateBufferedImage();
 
-        Text currencyNameText = new Text(priceAmount.getCurrency().getName() + " (" + priceAmount.getCurrency().getTokenType() + ")" );
+        Text currencyNameText = new Text("test");
         currencyNameText.setFill(m_primaryColor);
         currencyNameText.setFont(m_smallFont);
 
+        TextField currencyIdText = new TextField("test");
+        currencyIdText.setEditable(false);
+        currencyIdText.setId("amountField");
 
-
-        Button currencyUrlBtn = new Button("(No information available)");
-        currencyUrlBtn.setId("amountField");
-
-
-        VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
-       
+        VBox tokenInfoVBox = new VBox(currencyNameText, currencyIdText);
+        tokenInfoVBox.setId("bodyBox");
         HBox.setHgrow(tokenInfoVBox, Priority.ALWAYS);
 
-        currencyUrlBtn.prefWidthProperty().bind(tokenInfoVBox.widthProperty());
+        BufferedButton ergoTokensBtn = new BufferedButton();
 
-        Tooltip ergoTokensBtnTip = new Tooltip("Options");
-        
 
-        BufferedMenuButton ergoTokensBtn = new BufferedMenuButton("/assets/menu-outline-30.png", 30);
-        ergoTokensBtn.setTooltip(ergoTokensBtnTip);
-        ergoTokensBtn.setUserData("null");
-
-        final String installString = "install";
-
-        MenuItem installErgoTokensItem = new MenuItem("install Ergo Tokens");
-        installErgoTokensItem.setOnAction(e->{
-            ergoNetworkData.showwManageStage();
-        });
-
-        final String enableString = "enable";
-
-        MenuItem enableErgoTokens = new MenuItem("Enable Ergo Tokens");
-        enableErgoTokens.setOnAction(e->{
-            isErgoTokensProperty.set(true);
-        });
-
-        final String rememberString = "Remember";
-        final String viewString = "viewToken";
-        MenuItem addItem = new MenuItem("Add to Ergo Tokens");
-        MenuItem viewItem = new MenuItem("View in Ergo Tokens");
-
-        HBox rightSideBox = new HBox(tokenInfoVBox, ergoTokensBtn);
+        HBox rightSideBox = new HBox(tokenInfoVBox);
         VBox.setVgrow(rightSideBox, Priority.ALWAYS);
         HBox.setHgrow(rightSideBox, Priority.ALWAYS);
         rightSideBox.setAlignment(Pos.CENTER_LEFT);
 
         getChildren().addAll(amountBtn, rightSideBox);
 
-        
-
         Runnable updates = () ->{
             
-            boolean isErgoTokens = isErgoTokensProperty.get();
-            ErgoTokens ergoTokens = (ErgoTokens) ergoNetworkData.getNetwork(ErgoTokens.NETWORK_ID) ;
-            Object btnUserData =ergoTokensBtn.getUserData();
-            String tokenOptionsBtnUserData = btnUserData != null && btnUserData instanceof String ?  (String) btnUserData : "null";
-
+           
+            
             PriceAmount currentAmount = m_currentAmount.get();
             if(currentAmount != null){
-
                 String newAmountText = df.format(currentAmount.getDoubleAmount());
                 if(!newAmountText.equals(amountField.getText())){
                     amountField.setText(newAmountText);
                 }
                 PriceCurrency currency = currentAmount.getCurrency();
                 currencyNameText.setText(currency.getName());
-               
-
-                if(ergoTokens != null && isErgoTokens){
-            
-                    if(currency instanceof ErgoNetworkToken){
-                        
-                        if(!tokenOptionsBtnUserData.equals(viewString)){
-                            ergoTokensBtn.setUserData(viewString);
-                            ergoTokensBtn.getItems().clear();
-                            
-                            ErgoNetworkToken ergoNetworkToken = (ErgoNetworkToken) currency;
-                            currencyUrlBtn.setDisable(false);
-                            currencyUrlBtn.setText(ergoNetworkToken.getUrlString());
-                            currencyUrlBtn.setOnAction(e->{
-                                ergoNetworkToken.visitUrl();
-                            });
-                            viewItem.setOnAction(e->{
-                                ergoNetworkToken.open();
-                            });
-                            ergoTokensBtn.getItems().add(viewItem);
-                        }   
-                    }else{
-                        if(!tokenOptionsBtnUserData.equals(rememberString)){
-                            ergoTokensBtn.setUserData(rememberString);
-                            ergoTokensBtn.getItems().clear();
-                            ergoTokensBtn.getItems().add(addItem);
-                            currencyUrlBtn.setText("(No information available)");
-                            currencyUrlBtn.setDisable(true);
-                            currencyUrlBtn.setOnAction(null);
-                            addItem.setOnAction(e->{
-                                NetworkType tokenNetworkType = currency.getNetworkTypeString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
-                                TokensList tokensList = ergoTokens.getTokensList(tokenNetworkType);
-                                //String name, String url, String tokenId, String fileString, HashData hashData, NetworkType networkType, TokensList tokensList
-                                ErgoNetworkToken newToken = new ErgoNetworkToken(currency.getName(), "https://spectrum.fi/", currency.getTokenId(), "", null, tokenNetworkType, tokensList);
-
-                                Stage addEditTokenStage =  new Stage();
-                                addEditTokenStage.getIcons().add(ErgoTokens.getAppIcon());
-                                addEditTokenStage.initStyle(StageStyle.UNDECORATED);
-                                Button stageCloseBtn = new Button();
-
-                                Scene addTokenScene = tokensList.getEditTokenScene(newToken, tokenNetworkType, addEditTokenStage, stageCloseBtn);
-
-                                addEditTokenStage.setScene(addTokenScene);
-                                addEditTokenStage.show();
-                                stageCloseBtn.setOnAction(e1->{
-                                    addEditTokenStage.close();
-                                });
-                            });
-                        }
-                    }
-                }else{
-                    if(!isErgoTokens && ergoTokens != null){
-                        
-                        if(!tokenOptionsBtnUserData.equals(enableString)){
-                            ergoTokensBtn.setUserData(enableString);
-                            ergoTokensBtn.getItems().clear();
-                            ergoTokensBtn.getItems().add(enableErgoTokens);
-                            currencyUrlBtn.setText("(No information available)");
-                            currencyUrlBtn.setDisable(true);
-                            currencyUrlBtn.setOnAction(null);
-                        }
-                    }else{
-                        if(!tokenOptionsBtnUserData.equals(installString)){
-                            ergoTokensBtn.setUserData(installString);
-                            ergoTokensBtn.getItems().clear();
-                            ergoTokensBtn.getItems().add(installErgoTokensItem);
-                            currencyUrlBtn.setText("(No information available)");
-                            currencyUrlBtn.setDisable(true);
-                            currencyUrlBtn.setOnAction(null);
-                        }
-                    }
-                }
+                currencyIdText.setText(currency.getTokenId());
             }else{
-                currencyUrlBtn.setText("");
-                currencyUrlBtn.setDisable(true);
-                currencyUrlBtn.setOnAction(null);
                 amountField.setText("0");
                 currencyNameText.setText("");
-                ergoTokensBtn.getItems().clear();
             }
             
-            
+        
         };
 
         m_currentAmount.addListener((obs,oldval, newval)->{
             updates.run();
             updateBufferedImage();
         });
-        isErgoTokensProperty.addListener((obs,oldval,newval)->updates.run());
-        ergoNetworkData.addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> updates.run());
-        
-        updateBufferedImage();
         updates.run();
+        updateBufferedImage();
     }
 
     public  SimpleObjectProperty<Image> imageBufferProperty(){

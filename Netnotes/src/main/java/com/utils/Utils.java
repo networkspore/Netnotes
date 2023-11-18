@@ -47,6 +47,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
@@ -59,7 +61,7 @@ import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.ProgressIndicator;
-
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 import org.apache.commons.codec.DecoderException;
@@ -79,7 +81,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-
+import com.netnotes.App;
 import com.netnotes.HashData;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
@@ -440,6 +442,30 @@ public class Utils {
 
         return priceTotal;
     }
+    public static String truncateText(String text,FontMetrics metrics, double width) {
+       
+        String truncatedString = text.substring(0, 5) + "..";
+        if (text.length() > 3) {
+            int i = text.length() - 3;
+            truncatedString = text.substring(0, i) + "..";
+
+            while (metrics.stringWidth(truncatedString) > width && i > 1) {
+                i = i - 1;
+                truncatedString = text.substring(0, i) + "..";
+
+            }
+        }
+        return truncatedString;
+    }
+
+    public static int measureString(String str, java.awt.Font font){
+        
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setFont(font);
+        FontMetrics fm = g2d.getFontMetrics();
+        return fm.stringWidth(str);
+    }
 
     public static String formatCryptoString(PriceAmount priceAmount, boolean valid) {
          int precision = priceAmount.getCurrency().getFractionalPrecision();
@@ -642,6 +668,61 @@ public class Utils {
 
         return img;
     }
+
+    
+    public static Image checkAndLoadImage(String imageString, HashData hashData) {
+        if(imageString != null ){
+            
+            if(imageString.startsWith(App.ASSETS_DIRECTORY + "/")){
+                return new Image(imageString);
+            }
+            File checkFile = new File(imageString);
+
+            try {
+                HashData checkFileHashData = new HashData(checkFile);
+                /*try {
+                    Files.writeString(logFile.toPath(), "\nhashString: " +checkFileHashData.getHashStringHex()+ " hashDataString: " + hashData.getHashStringHex(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+
+                }*/
+                if (checkFileHashData.getHashStringHex().equals(hashData.getHashStringHex())) {
+                    return getImageByFile(checkFile);
+                }
+            } catch (Exception e) {
+                try {
+                    Files.writeString(new File("netnotes-log.txt").toPath(), "\n" + e, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e2) {
+
+                }
+            }
+        }
+
+  
+        return new Image("/assets/unknown-unit.png");
+        
+
+    }
+
+    public static Image getImageByFile(File file) {
+        if (file != null && file.isFile()) {
+            String contentType = null;
+            try {
+                contentType = Files.probeContentType(file.toPath());
+                contentType = contentType.split("/")[0];
+
+            } catch (IOException e) {
+
+            }
+
+            if (contentType != null && contentType.equals("image")) {
+                return  new Image(file.getAbsolutePath());
+                
+            }
+
+        }
+         return null;
+    }
+
 
     public static TimeUnit stringToTimeUnit(String str) {
         switch (str.toLowerCase()) {
