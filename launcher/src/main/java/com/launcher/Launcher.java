@@ -94,7 +94,7 @@ public class Launcher {
         JsonObject json = new JsonObject();
         json.addProperty("updates", updates);
         json.addProperty("javaVersion", javaVersion);
-        json.addProperty("appFile", appFile.getAbsolutePath());
+        json.addProperty("appFile", appFile.getCanonicalPath());
 
         byte[] jsonStringBytes = json.toString().getBytes();
 

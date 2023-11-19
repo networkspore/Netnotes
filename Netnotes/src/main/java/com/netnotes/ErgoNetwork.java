@@ -42,7 +42,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
     public final static String DESCRIPTION = "Ergo Network is the gateway to the ergo universe of apps, including the node, explorer, wallet and token manager on the Ergo Network";
     public final static String SUMMARY = "";
     public final static String NETWORK_ID = "ERGO_NETWORK";
-    public final static PriceCurrency NATIVE_CURRENCY = new ErgoCurrency();
+
 
     private File m_appDir = null;
 

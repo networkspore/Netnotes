@@ -5,6 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.text.DecimalFormat;
+import java.time.LocalDateTime;
 
 import org.ergoplatform.appkit.NetworkType;
 
@@ -33,6 +34,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -43,7 +45,7 @@ public class AmountBox extends HBox {
     private String m_id = FriendlyId.createFriendlyId();
     private final SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
     private final SimpleObjectProperty<PriceQuote> m_priceQuoteProperty = new SimpleObjectProperty<>(null);
-    private final SimpleObjectProperty<ErgoNetworkData> m_ergoNetworkData = new SimpleObjectProperty<>(null);
+
     private int m_minImgWidth = 250;
     private long m_timestamp = 0;
 
@@ -55,6 +57,7 @@ public class AmountBox extends HBox {
 
     public AmountBox(){
         super();
+        
     }
 
 
@@ -218,7 +221,7 @@ public class AmountBox extends HBox {
 
 
         Button currencyUrlBtn = new Button("(No information available)");
-        currencyUrlBtn.setId("amountField");
+        currencyUrlBtn.setId("urlBtn");
 
 
         VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
@@ -233,6 +236,7 @@ public class AmountBox extends HBox {
         BufferedMenuButton ergoTokensBtn = new BufferedMenuButton("/assets/menu-outline-30.png", 30);
         ergoTokensBtn.setTooltip(ergoTokensBtnTip);
         ergoTokensBtn.setUserData("null");
+        ergoTokensBtn.setTextAlignment(TextAlignment.LEFT);
 
         final String installString = "install";
 
@@ -308,16 +312,22 @@ public class AmountBox extends HBox {
                             currencyUrlBtn.setDisable(true);
                             currencyUrlBtn.setOnAction(null);
                             addItem.setOnAction(e->{
-                                NetworkType tokenNetworkType = currency.getNetworkTypeString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
-                                TokensList tokensList = ergoTokens.getTokensList(tokenNetworkType);
-                                //String name, String url, String tokenId, String fileString, HashData hashData, NetworkType networkType, TokensList tokensList
+                                  
+                               NetworkType tokenNetworkType = currency.getNetworkTypeString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
+                               TokensList tokensList = ergoTokens.getTokensList(tokenNetworkType);
+                               //  Alert a = new Alert(AlertType.NONE, "ok", ButtonType.OK);
+                             //   a.show();
+
+                                 //String name, String url, String tokenId, String fileString, HashData hashData, NetworkType networkType, TokensList tokensList
                                 ErgoNetworkToken newToken = new ErgoNetworkToken(currency.getName(), "https://spectrum.fi/", currency.getTokenId(), "", null, tokenNetworkType, tokensList);
 
                                 Stage addEditTokenStage =  new Stage();
                                 addEditTokenStage.getIcons().add(ErgoTokens.getAppIcon());
                                 addEditTokenStage.initStyle(StageStyle.UNDECORATED);
+                                
                                 Button stageCloseBtn = new Button();
 
+                             
                                 Scene addTokenScene = tokensList.getEditTokenScene(newToken, tokenNetworkType, addEditTokenStage, stageCloseBtn);
 
                                 addEditTokenStage.setScene(addTokenScene);
@@ -568,4 +578,6 @@ public class AmountBox extends HBox {
         m_imgBuffer.set(SwingFXUtils.toFXImage(img, null));
         
     }
+
+
 }

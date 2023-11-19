@@ -283,8 +283,8 @@ public class Setup extends Application {
     public void startApp(Stage appStage) throws IOException{
         
 
-            m_notesDir = new File(m_appDir.getAbsolutePath() + "/notes");
-            m_outDir = new File(m_appDir.getAbsolutePath() + "/out");
+            m_notesDir = new File(m_appDir.getCanonicalPath() + "/notes");
+            m_outDir = new File(m_appDir.getCanonicalPath() + "/out");
 
             if(!m_notesDir.isDirectory()){
                 Files.createDirectory(m_notesDir.toPath());
@@ -293,9 +293,9 @@ public class Setup extends Application {
                 Files.createDirectory(m_outDir.toPath());
             }
           
-            m_writeFile = new File(m_notesDir.getAbsolutePath() + "/" + Launcher.NOTES_ID + "#" + Launcher.CMD_SHOW_APPSTAGE + ".in");
+            m_writeFile = new File(m_notesDir.getCanonicalPath() + "/" + Launcher.NOTES_ID + "#" + Launcher.CMD_SHOW_APPSTAGE + ".in");
 
-            m_watchFile = new File(m_outDir.getAbsolutePath() + "/" + Launcher.NOTES_ID + ".out");
+            m_watchFile = new File(m_outDir.getCanonicalPath() + "/" + Launcher.NOTES_ID + ".out");
 
       
 
@@ -965,7 +965,7 @@ public class Setup extends Application {
                             if(!autoRunBox.getChildren().contains(autoRunFileBtn)){
                                 autoRunBox.getChildren().add(1, autoRunFileBtn);
                             }
-                            autoRunFileBtn.setText(keyFile.getAbsolutePath());
+                            autoRunFileBtn.setText(keyFile.getCanonicalPath());
                             autoRunBtn.setText("Enabled");
                             
                         }
@@ -992,7 +992,7 @@ public class Setup extends Application {
                     if(!autoRunBox.getChildren().contains(autoRunFileBtn)){
                         autoRunBox.getChildren().add(1, autoRunFileBtn);
                     }
-                    autoRunFileBtn.setText(keyFile.getAbsolutePath());
+                    autoRunFileBtn.setText(keyFile.getCanonicalPath());
                     autoRunBtn.setText("Enabled");
                     
                 }
@@ -1238,7 +1238,7 @@ public class Setup extends Application {
 
     private void createSettings(String password,Stage appStage) throws Exception {
 
-        File settingsFile = new File( m_appDir.getAbsolutePath() + "\\" + SETTINGS_FILE_NAME);
+        File settingsFile = new File( m_appDir.getCanonicalPath() + "\\" + SETTINGS_FILE_NAME);
 
         String hash = getBcryptHashString(password);
 
@@ -1248,7 +1248,7 @@ public class Setup extends Application {
         jsonObj.addProperty("updates", m_updates);
         jsonObj.addProperty("autoUpdate", m_autoUpdate);
         if(m_autoRunFile != null && m_autoRun){
-            jsonObj.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());
+            jsonObj.addProperty("autoRunFile", m_autoRunFile.getCanonicalPath());
           
         }
         String jsonString = jsonObj.toString();
@@ -1729,7 +1729,7 @@ public class Setup extends Application {
 
         String hexJson = Hex.encodeHexString(obj.toString().getBytes());
 
-        String[] cmdString = new String[]{"cmd", "/c", "javaw", "-jar", m_appFile.getAbsolutePath(), hexJson};
+        String[] cmdString = new String[]{"cmd", "/c", "javaw", "-jar", m_appFile.getCanonicalPath(), hexJson};
 
         Runtime.getRuntime().exec(cmdString);
         

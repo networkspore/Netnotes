@@ -27,14 +27,13 @@ public class PriceCurrency {
     public final SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>(null); 
 
     public PriceCurrency(String token_id, String name, String symbol, String description, int fractionalPrecision, String networkId, String unitImageString, String networkType, long emissionAmount, long timestamp) {
-        this(token_id, name, symbol,  fractionalPrecision, networkId, unitImageString, "","");
+        this(token_id, name, symbol,  fractionalPrecision, networkId,networkType, unitImageString, "","");
         m_timestamp = timestamp;
-        m_networkType = networkType;
         m_description = description;
         m_emissionAmount = emissionAmount;
     }
 
-    public PriceCurrency(String token_id, String name, String symbol, int fractionalPrecision, String networkId, String unitImageString, String tokenType, String fontSymbol) {
+    public PriceCurrency(String token_id, String name, String symbol, int fractionalPrecision, String networkId, String networkType, String unitImageString, String tokenType, String fontSymbol) {
         m_tokenId = token_id;
         m_name = name;
         m_symbol = symbol;
@@ -43,6 +42,7 @@ public class PriceCurrency {
         m_fractionalPrecision = fractionalPrecision;
         m_fontSymbol = fontSymbol;
         m_tokenType = tokenType;
+        m_networkType = networkType;
     }
 
 

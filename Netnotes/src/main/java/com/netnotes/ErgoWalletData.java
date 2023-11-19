@@ -194,27 +194,25 @@ public class ErgoWalletData extends Network implements NoteInterface {
         openWallet();
 
     }
-
-
-    private boolean m_isOpen = false;
+    private Stage m_walletStage = null;
 
     public void openWallet() {
-        if (!m_isOpen) {
-            m_isOpen = true;
+        if (m_walletStage == null) {
+       
             double sceneWidth = 600;
             double sceneHeight = 305;
 
-            Stage walletStage = new Stage();
-            walletStage.getIcons().add(ErgoWallets.getSmallAppIcon());
-            walletStage.initStyle(StageStyle.UNDECORATED);
-            walletStage.setTitle("Wallet file: Enter password");
+            m_walletStage = new Stage();
+            m_walletStage.getIcons().add(ErgoWallets.getSmallAppIcon());
+            m_walletStage.initStyle(StageStyle.UNDECORATED);
+            m_walletStage.setTitle("Wallet file: Enter password");
 
             Button closeBtn = new Button();
 
-            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), getName() + " - Enter password", closeBtn, walletStage);
+            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), getName() + " - Enter password", closeBtn, m_walletStage);
             closeBtn.setOnAction(event -> {
-                walletStage.close();
-                m_isOpen = false;
+                m_walletStage.close();
+                m_walletStage = null;
             });
 
             Button imageButton = App.createImageButton(ErgoWallets.getAppIcon(), "Wallet");
@@ -255,7 +253,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             Scene passwordScene = new Scene(layoutVBox, sceneWidth, sceneHeight);
 
             passwordScene.getStylesheets().add("/css/startWindow.css");
-            walletStage.setScene(passwordScene);
+            m_walletStage.setScene(passwordScene);
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
             passwordField.setOnKeyPressed(e -> {
@@ -269,8 +267,8 @@ public class ErgoWalletData extends Network implements NoteInterface {
                         Wallet wallet = Wallet.load(m_walletFile.toPath(), passwordField.getText());
                         passwordField.setText("");
 
-                        walletStage.setScene(getWalletScene(wallet, walletStage));
-                        ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
+                        m_walletStage.setScene(getWalletScene(wallet, m_walletStage));
+                        ResizeHelper.addResizeListener(m_walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
 
                     } catch (Exception e1) {
 
@@ -285,11 +283,17 @@ public class ErgoWalletData extends Network implements NoteInterface {
                 }
             });
 
-            ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
-            walletStage.show();
-            walletStage.setOnCloseRequest(e -> {
-                m_isOpen = false;
+            ResizeHelper.addResizeListener(m_walletStage, MIN_WIDTH, MIN_HEIGHT, rect.getWidth(), rect.getHeight());
+            m_walletStage.show();
+            m_walletStage.setOnCloseRequest(e -> {
+                closeBtn.fire();
             });
+        }else{
+            if(m_walletStage.isIconified()){
+                m_walletStage.setIconified(false);
+                m_walletStage.show();
+                Platform.runLater(()->m_walletStage.requestFocus());
+            }
         }
     }
 
@@ -702,11 +706,16 @@ public class ErgoWalletData extends Network implements NoteInterface {
         updateTokensMenu.run();
 
         sendButton.setOnAction((actionEvent) -> {
-            Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage);
+            Button closeStageBtn = new Button();
+            Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage, closeStageBtn);
             if (sendScene != null) {
                 walletStage.setScene(sendScene);
                 Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
                 ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
+                closeStageBtn.setOnAction(e->{
+                    m_walletStage.close();
+                    m_walletStage = null;
+                });
             }else{
                 Alert b = new Alert(AlertType.ERROR, "Could not create scene. Error Code: 47", ButtonType.OK);
                 b.show();
@@ -776,20 +785,18 @@ public class ErgoWalletData extends Network implements NoteInterface {
         
         calculateTotal.run();
 
-        walletStage.setOnCloseRequest(event -> {
-
-           
-            addressesData.shutdown();
-            m_isOpen = false;
-        });
+    
 
         openWalletScene.getStylesheets().add("/css/startWindow.css");
         closeBtn.setOnAction(closeEvent -> {
-            m_isOpen = false;
+           
          
             addressesData.shutdown();
             walletStage.close();
-
+            m_walletStage = null;
+        });
+        walletStage.setOnCloseRequest(event -> {
+            closeBtn.fire();    
         });
 
         maximizeBtn.setOnAction(e->{

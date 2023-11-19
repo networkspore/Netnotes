@@ -715,7 +715,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 zipStream = new ZipInputStream(is);
                 final Blake2b digest = Blake2b.Digest.newInstance(32);
             
-                String tokensPathString = tokensDir.getAbsolutePath() + "\\";
+                String tokensPathString = tokensDir.getCanonicalPath() + "\\";
 
                 if (zipStream != null) {
                     // Enumeration<? extends ZipEntry> entries = zipFile.entries();

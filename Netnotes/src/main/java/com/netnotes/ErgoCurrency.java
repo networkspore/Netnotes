@@ -1,6 +1,6 @@
 package com.netnotes;
 
-
+import org.ergoplatform.appkit.NetworkType;
 
 public class ErgoCurrency extends PriceCurrency {
 
@@ -13,8 +13,8 @@ public class ErgoCurrency extends PriceCurrency {
     public final static String FONT_SYMBOL  = "Σ";
     public final static String TOKEN_TYPE = "LAYER_0";
     
-    public ErgoCurrency() { 
-        super(TOKEN_ID, NAME, SYMBOL, FRACTIONAL_PRECISION, NETWORK_ID, IMAGE_STRING, TOKEN_TYPE, FONT_SYMBOL);
+    public ErgoCurrency(NetworkType networkType) { 
+        super(TOKEN_ID, NAME, SYMBOL, FRACTIONAL_PRECISION, NETWORK_ID,networkType.toString(), IMAGE_STRING, TOKEN_TYPE, FONT_SYMBOL);
         
     }
 

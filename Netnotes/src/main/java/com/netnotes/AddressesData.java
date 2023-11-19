@@ -306,20 +306,7 @@ public class AddressesData {
                 calculateCurrentTotal();
             }
         });
-        addressData.addCmdListener((obs, oldVal, newVal) -> {
-            if (newVal != null && newVal.get("subject") != null) {
-                String subject = newVal.get("subject").getAsString();
-                switch (subject) {
-                    case "SEND":
-
-                        m_selectedAddressData.set(addressData);
-                        m_walletStage.setScene(getSendScene(m_walletStage.getScene(), m_walletStage));
-                        m_walletStage.show();
-                        closeAll();
-                        break;
-                }
-            }
-        });
+  
 
     }
 
@@ -435,14 +422,14 @@ public class AddressesData {
             
         }
 
-        m_totalErgoAmount.set(new ErgoAmount(totalNanoErgs.get()));
+        m_totalErgoAmount.set(new ErgoAmount(totalNanoErgs.get(), m_networkType));
     }
 
     public SimpleObjectProperty<ErgoAmount> totalErgoAmountProperty(){
         return m_totalErgoAmount;
     }
 
-    public Scene getSendScene(Scene parentScene, Stage parentStage) {
+    public Scene getSendScene(Scene parentScene, Stage parentStage, Button closeBtn) {
             
 
         if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
@@ -459,11 +446,7 @@ public class AddressesData {
         Scene sendScene = new Scene(layoutBox, 800, 600);
         sendScene.getStylesheets().add("/css/startWindow.css");
 
-        Button closeBtn = new Button();
-        closeBtn.setOnAction(closeEvent -> {
-            parentStage.close();
-        });
-
+    
         Button maximizeBtn = new Button();
 
         HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), stageName, maximizeBtn, closeBtn, parentStage);
@@ -769,11 +752,11 @@ public class AddressesData {
         fromText.setFont(App.txtFont);
         fromText.setFill(App.txtColor);
 
-        String nullAddressImageString = "assets/unknown-unit.png";
+        String nullAddressImageString = "/assets/selectAdress.png";
         Image nullAddressImg = new Image(nullAddressImageString);
 
         MenuButton fromAddressBtn = new MenuButton();
-        fromAddressBtn.setId("menuButtonLeftPad");
+
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
@@ -807,7 +790,7 @@ public class AddressesData {
             }else{
                 addressImageProperty.unbind();
                 addressImageProperty.set(nullAddressImg);
-                fromAddressBtn.setText( "> Select address" + "\n   ");
+                
             }
 
           
@@ -824,110 +807,26 @@ public class AddressesData {
   
         updateAddressBtn.run();
 
-        HBox toAddressBox = new HBox();
-        toAddressBox.setPadding(new Insets(3, 15, 5, 30));
-        toAddressBox.setAlignment(Pos.CENTER_LEFT);
         Text toText = new Text("To     ");
         toText.setFont(App.txtFont);
         toText.setFill(App.txtColor);
 
-        Button toEnterButton = new Button("[ ENTER ]");
-        toEnterButton.setFont(App.txtFont);
-        toEnterButton.setId("toolBtn");
 
-        AddressButton toAddressBtn = new AddressButton("", m_networkType);
-        toAddressBtn.setId("rowBtn");
+        AddressBox toAddressEnterBox = new AddressBox(new AddressInformation(""), sendScene, m_networkType );
+        toAddressEnterBox.setId("rowBox");
+        toAddressEnterBox.setMinHeight(40);
+        HBox.setHgrow(toAddressEnterBox, Priority.ALWAYS);
 
-        toAddressBtn.setContentDisplay(ContentDisplay.LEFT);
-        toAddressBtn.setAlignment(Pos.CENTER_LEFT);
-
-        toAddressBtn.setPadding(new Insets(0, 10, 0, 10));
-
-  
-        TextField toTextField = new TextField();
-
-        toTextField.setMaxHeight(40);
-        toTextField.setId("formField");
-        toTextField.setPadding(new Insets(3, 10, 0, 0));
-        HBox.setHgrow(toTextField, Priority.ALWAYS);
-
-        toAddressBtn.setOnAction(e -> {
-
-            toAddressBox.getChildren().remove(toAddressBtn);
-            toAddressBox.getChildren().add(toTextField);
-
-            Platform.runLater(() -> toTextField.requestFocus());
-
-        });
-
-        Region toMinHeightRegion = new Region();
-        toMinHeightRegion.setMinHeight(40);
-
-
-        toAddressBox.getChildren().addAll(toMinHeightRegion, toText, toAddressBtn);
-
-        toTextField.textProperty().addListener((obs, old, newVal) -> {
-            String text = newVal.trim();
-            if (text.length() > 5) {
-                if (!toAddressBox.getChildren().contains(toEnterButton)) {
-                    toAddressBox.getChildren().add(toEnterButton);
-                }
-
-                toAddressBtn.setAddressByString(text, onVerified -> {
-
-                    Object object = onVerified.getSource().getValue();
-
-                    if (object != null && (Boolean) object) {
-
-                        toAddressBox.getChildren().remove(toTextField);
-                        if (toAddressBox.getChildren().contains(toEnterButton)) {
-                            toAddressBox.getChildren().remove(toEnterButton);
-                        }
-                        toAddressBox.getChildren().add(toAddressBtn);
-                    }
-                });
-            }
-
-        });
-
-        toTextField.setOnKeyPressed((keyEvent) -> {
-            KeyCode keyCode = keyEvent.getCode();
-            if (keyCode == KeyCode.ENTER) {
-              //  String text = toTextField.getText();
-
-                toAddressBox.getChildren().remove(toTextField);
-
-                if (toAddressBox.getChildren().contains(toEnterButton)) {
-                    toAddressBox.getChildren().remove(toEnterButton);
-                }
-                toAddressBox.getChildren().add(toAddressBtn);
-            }
-        });
-
-        toTextField.focusedProperty().addListener((obs, old, newPropertyValue) -> {
-
-            if (newPropertyValue) {
-
-            } else {
-
-                toAddressBox.getChildren().remove(toTextField);
-                if (toAddressBox.getChildren().contains(toEnterButton)) {
-                    toAddressBox.getChildren().remove(toEnterButton);
-                }
-                toAddressBox.getChildren().add(toAddressBtn);
-
-                /* NoteInterface explorerInterface = m_walletData.getExplorerInterface();
-
-                    if (explorerInterface != null) {
-
-                    } */
-            }
-        });
+        HBox toAddressBox = new HBox(toText, toAddressEnterBox);
+        toAddressBox.setPadding(new Insets(3, 15, 5, 30));
+        toAddressBox.setAlignment(Pos.CENTER_LEFT);
+     
 
 
 
         HBox fromAddressBox = new HBox(fromText, fromAddressBtn);
         fromAddressBox.setPadding(new Insets(3, 15, 5, 30));
+   
         HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
         fromAddressBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -944,7 +843,7 @@ public class AddressesData {
         amountBoxRow.setMinHeight(40);
         amountBoxRow.setAlignment(Pos.BOTTOM_LEFT);
 
-        AmountBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0), sendScene, true);
+        AmountBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0, m_networkType), sendScene, true);
         HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
 
         Tooltip addCryptoBtnTip = new Tooltip("Add Token");
@@ -958,11 +857,11 @@ public class AddressesData {
         addCryptoBtn.setPadding(new Insets(2,0,2,0));
 
         AmountBoxes amountBoxes = new AmountBoxes(ergoAmountBox);
-        amountBoxes.setId("darkBox");
+        
         amountBoxes.setPadding(new Insets(10,10,10,0));
         amountBoxes.setAlignment(Pos.TOP_LEFT);
         amountBoxes.setLastRowItem(addCryptoBtn, AmountBoxes.ADD_AS_LAST_ROW);
-
+        amountBoxes.setId("bodyBox");
         addCryptoBtn.prefWidthProperty().bind(amountBoxes.widthProperty());
        
         Region sendBoxSpacer = new Region();
@@ -982,14 +881,18 @@ public class AddressesData {
 
         HBox sendBox = new HBox(sendBoxSpacer, sendButton);
         HBox.setHgrow(sendBox, Priority.ALWAYS);
-        sendBox.setPadding(new Insets(5, 10, 10, 0));
+        sendBox.setPadding(new Insets(5, 20, 10, 0));
         
         ScrollPane scrollPane = new ScrollPane(amountBoxes);
-        scrollPane.setPadding(new Insets(10,0,0, 30));
-       
-        VBox bodyBox = new VBox( fromAddressBox, toAddressBox, amountBoxRow, scrollPane);
+        scrollPane.setPadding(new Insets(10,0,0, 20));
+
+        VBox scrollPaddingBox = new VBox(scrollPane);
+        HBox.setHgrow(scrollPaddingBox,Priority.ALWAYS);
+        scrollPaddingBox.setPadding(new Insets(0,5,0,5));
+        VBox bodyBox = new VBox( fromAddressBox, toAddressBox, amountBoxRow, scrollPaddingBox);
+
         bodyBox.setId("bodyBox");
-        bodyBox.setPadding(new Insets(15,15,0,0));
+        bodyBox.setPadding(new Insets(15,0,0,0));
 
         VBox bodyLayoutBox = new VBox(headingBox, bodyBox);
         bodyLayoutBox.setPadding(new Insets(0, 4, 4,4));
@@ -1006,12 +909,11 @@ public class AddressesData {
         layoutBox.setAlignment(Pos.TOP_LEFT);
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        toAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-
-        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract( amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()));
+     
+        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract( amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()).subtract(15));
         amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(40));
-        
-        amountBoxes.prefWidthProperty().bind(sendScene.widthProperty().subtract(72));
+        scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty().subtract(60));
+        amountBoxes.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
    
         return sendScene;
     }

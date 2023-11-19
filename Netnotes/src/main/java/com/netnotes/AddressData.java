@@ -19,6 +19,7 @@ import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
@@ -67,7 +68,7 @@ public class AddressData extends Network {
     private int m_index;
     private Address m_address;
 
-    private final SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty = new SimpleObjectProperty<ErgoAmount>(new ErgoAmount(0, false));
+    private final SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty ;
     private final ArrayList<PriceAmount> m_confirmedTokensList = new ArrayList<>();
 
 
@@ -85,7 +86,7 @@ public class AddressData extends Network {
     
     public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressesData) {
         super(null, name, address.toString(), addressesData.getWalletData());
-        
+        m_ergoAmountProperty = new SimpleObjectProperty<ErgoAmount>(new ErgoAmount(0, networktype));
 
         m_addressesData = addressesData;
         m_index = index;
@@ -94,6 +95,7 @@ public class AddressData extends Network {
         Tooltip addressTip = new Tooltip(getName());
         addressTip.setShowDelay(new javafx.util.Duration(100));
         addressTip.setFont(App.txtFont);
+
 
         setTooltip(addressTip);
         setPadding(new Insets(0, 10, 0, 10));
@@ -185,8 +187,7 @@ public class AddressData extends Network {
             m_addressStage.initStyle(StageStyle.UNDECORATED);
             m_addressStage.setTitle(titleString);
 
-            double shrunkHeight = 106;
-
+    
             Button closeBtn = new Button();
 
             addShutdownListener((obs, oldVal, newVal) -> {
@@ -379,61 +380,7 @@ public class AddressData extends Network {
         
             
 
-            Runnable updateTokensMenu = ()->{
-                tokensBtn.getItems().clear();
-                ErgoTokens ergoTokens = (ErgoTokens) m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID);  
-                boolean isEnabled = m_addressesData.isErgoTokensProperty().get();
-
-                if(ergoTokens != null){
-                    tokensBtn.setId("menuBtn");
-                    MenuItem tokensEnabledItem = new MenuItem("Enabled" + (isEnabled ? " (selected)" : ""));
-                    tokensEnabledItem.setOnAction(e->{
-                        m_addressesData.isErgoTokensProperty().set(true);
-                    });
-                    
-
-                    MenuItem tokensDisabledItem = new MenuItem("Disabled" + (isEnabled ? "" : " (selected)"));
-                    tokensDisabledItem.setOnAction(e->{
-                        m_addressesData.isErgoTokensProperty().set(false);
-                    });
-
-                    if(isEnabled){
-                        tokensTip.setText("Ergo Tokens: Enabled");
-                        tokensEnabledItem.setId("selectedMenuItem");
-                    }else{
-                        tokensTip.setText("Ergo Tokens: Disabled");
-                        tokensDisabledItem.setId("selectedMenuItem");
-                    }
-                    tokensBtn.getItems().addAll(tokensEnabledItem, tokensDisabledItem);
-                }else{
-                    tokensBtn.setId("menuBtnDisabled");
-                    MenuItem tokensInstallItem = new MenuItem("(install 'Ergo Tokens')");
-                    tokensInstallItem.setOnAction(e->{
-                        m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().showwManageStage();
-                    });
-                    tokensTip.setText("(install 'Ergo Tokens')");
-                }
-            
-            };
-    
-            m_addressesData.isErgoTokensProperty().addListener((obs,oldval,newval)->{
-                m_addressesData.getWalletData().setIsErgoTokens(newval);
-                updateTokensMenu.run();
-            });
-
-            
-            m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
-                getAvailableNodeMenu.run();
-                getAvailableExplorerMenu.run();
-                getAvailableMarketsMenu.run();
-                updateTokensMenu.run();
-            });
-
-            getAvailableExplorerMenu.run();
-            getAvailableNodeMenu.run();
-            getAvailableMarketsMenu.run();
-            updateTokensMenu.run();
-
+           
             Region seperator1 = new Region();
             seperator1.setMinWidth(1);
             seperator1.setId("vSeperatorGradient");
@@ -518,7 +465,8 @@ public class AddressData extends Network {
             amountBoxes.setPadding(new Insets(10,10,10,0));
             amountBoxes.setAlignment(Pos.TOP_LEFT);
             amountBoxes.prefWidthProperty().bind(addressScene.widthProperty().subtract(43));
-
+       
+            
             TextField lastUpdatedField = new TextField();
 
             Runnable updateAmountBoxes = ()->{
@@ -599,13 +547,21 @@ public class AddressData extends Network {
             ResizeHelper.addResizeListener(m_addressStage, 200, 250, rect.getWidth(), rect.getHeight());
 
             sendButton.setOnAction((actionEvent) -> {
-                Scene sendScene = m_addressesData.getSendScene(addressScene, m_addressStage);
+                Button closeStageBtn = new Button();
+                Scene sendScene = m_addressesData.getSendScene(addressScene, m_addressStage, closeStageBtn);
                 if (sendScene != null) {
-                
+                     
                     m_addressStage.setScene(sendScene);
                     Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
                     ResizeHelper.addResizeListener(m_addressStage, ErgoWalletData.MIN_WIDTH, ErgoWalletData.MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
-                
+                    closeStageBtn.setOnAction(e->{
+                        m_addressStage.close();
+                        m_addressStage = null;
+                    });
+
+                    m_addressStage.setOnCloseRequest(e->{
+                        closeStageBtn.fire();
+                    });
                 }else{
                     Alert b = new Alert(AlertType.ERROR, "Unable open 'Send' window. Please try again.", ButtonType.OK);
                     b.show();
@@ -613,26 +569,76 @@ public class AddressData extends Network {
             });
 
 
-           /* Runnable updateTotal = ()->{
-                ErgoAmount ergoAmount = m_ergoAmountProperty.get();
-                PriceQuote priceQuote = m_addressesData.currentPriceQuoteProperty().get(); 
-
-                String totalString = ergoAmount == null ? "Σ-" : ergoAmount.toString();
-
-                double ergoAmountDouble = (ergoAmount != null ? ergoAmount.getDoubleAmount() : 0);
-                double totalPrice = priceQuote != null ? priceQuote.getDoubleAmount() * ergoAmountDouble : 0;
-                String quoteString = (priceQuote != null ? ": " + Utils.formatCryptoString( totalPrice , priceQuote.getQuoteCurrency(),priceQuote.getFractionalPrecision(),  ergoAmount != null) +" (" + priceQuote.toString() + ")" : "" );
-
-                String text = totalString  + quoteString;
-
-            
-                Platform.runLater(() -> lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now())));
+             ChangeListener<LocalDateTime> changeListener = (obs, oldval, newval)->{
+                amountBoxes.clear();
+                updateBalance();
             };
 
-            updateTotal.run();*/
+            SimpleBooleanProperty isListeningToTokenList = new SimpleBooleanProperty(false);
 
-           // m_addressesData.currentPriceQuoteProperty().addListener((obs, oldval, newval)->updateTotal.run());
-          //  m_ergoAmountProperty.addListener((obs, oldval, newval)->updateTotal.run());
+             Runnable updateTokensMenu = ()->{
+                tokensBtn.getItems().clear();
+                ErgoTokens ergoTokens = (ErgoTokens) m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID);  
+                boolean isEnabled = m_addressesData.isErgoTokensProperty().get();
+
+                if(ergoTokens != null){
+                    tokensBtn.setId("menuBtn");
+                    MenuItem tokensEnabledItem = new MenuItem("Enabled" + (isEnabled ? " (selected)" : ""));
+                    tokensEnabledItem.setOnAction(e->{
+                        m_addressesData.isErgoTokensProperty().set(true);
+                    });
+                    
+
+                    MenuItem tokensDisabledItem = new MenuItem("Disabled" + (isEnabled ? "" : " (selected)"));
+                    tokensDisabledItem.setOnAction(e->{
+                        m_addressesData.isErgoTokensProperty().set(false);
+                    });
+
+                    if(isEnabled){
+                        tokensTip.setText("Ergo Tokens: Enabled");
+                        tokensEnabledItem.setId("selectedMenuItem");
+                        if(!isListeningToTokenList.get()){
+                            ergoTokens.getTokensList(getNetworkType()).getLastUpdated().addListener(changeListener);
+                            isListeningToTokenList.set(true);
+                        }
+                    }else{
+                        tokensTip.setText("Ergo Tokens: Disabled");
+                        tokensDisabledItem.setId("selectedMenuItem");
+                        if(isListeningToTokenList.get()){
+                            ergoTokens.getTokensList(getNetworkType()).getLastUpdated().removeListener(changeListener);
+                            isListeningToTokenList.set(false);
+                        }
+                    }
+                    tokensBtn.getItems().addAll(tokensEnabledItem, tokensDisabledItem);
+                }else{
+                    tokensBtn.setId("menuBtnDisabled");
+                    MenuItem tokensInstallItem = new MenuItem("(install 'Ergo Tokens')");
+                    tokensInstallItem.setOnAction(e->{
+                        m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().showwManageStage();
+                    });
+                    tokensTip.setText("(install 'Ergo Tokens')");
+                }
+            
+            };
+    
+            m_addressesData.isErgoTokensProperty().addListener((obs,oldval,newval)->{
+                m_addressesData.getWalletData().setIsErgoTokens(newval);
+                updateTokensMenu.run();
+            });
+
+            
+            m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
+                getAvailableNodeMenu.run();
+                getAvailableExplorerMenu.run();
+                getAvailableMarketsMenu.run();
+                updateTokensMenu.run();
+            });
+
+            getAvailableExplorerMenu.run();
+            getAvailableNodeMenu.run();
+            getAvailableMarketsMenu.run();
+            updateTokensMenu.run();
+
 
             closeBtn.setOnAction(closeEvent -> {
                 removeShutdownListener();
@@ -1005,9 +1011,8 @@ public class AddressData extends Network {
                             networkToken.setTokenType(tokenType);
                         }
 
-                        PriceAmount tokenAmount = networkToken != null ? new PriceAmount(amount, networkToken) : new PriceAmount(amount, new PriceCurrency(tokenId, name, name, decimals, ErgoNetwork.NETWORK_ID, "/assets/unknown-unit.png",tokenType, ""));    
-                        
-                        
+                        PriceAmount tokenAmount = networkToken != null ? new PriceAmount(amount, networkToken) : new PriceAmount(amount, new PriceCurrency(tokenId, name, name, decimals, ErgoNetwork.NETWORK_ID,m_address.getNetworkType().toString(), "/assets/unknown-unit.png",tokenType, ""));    
+                   
                         m_confirmedTokensList.add(tokenAmount);
                    
                     }
@@ -1020,7 +1025,7 @@ public class AddressData extends Network {
                 }
            
                  if (nanoErgElement != null && nanoErgElement.isJsonPrimitive()) {
-                    ErgoAmount ergoAmount = new ErgoAmount(nanoErgElement.getAsLong());
+                    ErgoAmount ergoAmount = new ErgoAmount(nanoErgElement.getAsLong(), getNetworkType());
                     m_ergoAmountProperty.set(ergoAmount);
                 }
             } 

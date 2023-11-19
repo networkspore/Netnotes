@@ -126,7 +126,7 @@ public class ErgoNodes extends Network implements NoteInterface {
             if (directoriesObject != null) {
                 JsonElement appDirElement = directoriesObject.get("app");
 
-                m_appDir = appDirElement == null ? new File(ErgoNetwork.ERGO_NETWORK_DIR.getAbsolutePath() + "/" + NAME) : new File(appDirElement.getAsString());
+                m_appDir = appDirElement == null ? new File(ErgoNetwork.ERGO_NETWORK_DIR.getCanonicalPath() + "/" + NAME) : new File(appDirElement.getAsString());
 
             }
         } */

@@ -122,7 +122,7 @@
     -fx-font-family: 'OCR A Extended';
     -fx-opacity: .8;
     -fx-background-color: #77777790;
-
+ 
 
 }
 
@@ -134,12 +134,12 @@
 
 #rowBox {
     -fx-background-color: transparent;
-    -fx-opacity: .8;
+    -fx-opacity: .7;
 }
 
 #rowBox:hover {
     -fx-opacity: 1;
-    -fx-background-color: #33333360;
+  
 }
 
 #unSelected {
@@ -157,7 +157,7 @@
     -fx-font-family: 'OCR A Extended';
     -fx-background-color: transparent;
     -fx-opacity: .8;
-
+    
 }
 
 
@@ -179,6 +179,8 @@
 #tokenBtn:hover{
     -fx-opacity: 1;
 }
+
+
 
 #amountBtn {
     -fx-text-fill: #777777;
@@ -285,10 +287,11 @@
 }
 
 
+
 #amountField{
     -fx-background-color: transparent;
     -fx-text-fill: #777777;
-    -fx-font-size: 18px;
+    -fx-font-size: 14px;
     -fx-font-family: 'OCR A Extended';
 
     
@@ -511,7 +514,7 @@
 
 .menu-button {
     -fx-padding: 0;
-    -fx-opacity: .6;
+    -fx-opacity: .7;
     -fx-shape: "...";
     -fx-background-color: transparent;
     -fx-background-radius: 0 0 0 0;
@@ -727,8 +730,18 @@
     -fx-text-fill: #777777;
 }
 
-
-
+#urlBtn{
+    -fx-cursor: hand;
+    -fx-text-fill: #777777;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-background-color: transparent;
+    
+}
+#urlBtn:hover{
+    -fx-text-fill: white;
+    -fx-underline: true;
+}
 
 #urlMenuItem{
     

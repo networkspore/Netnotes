@@ -86,7 +86,7 @@ public class IconButton extends Button {
         if (iconStyle.equals(IconStyle.ROW)) {
             m_iconStyle = iconStyle;
             m_name = name;
-            setPadding(SMALL_INSETS);
+        
             setContentDisplay(ContentDisplay.LEFT);
             setAlignment(Pos.CENTER_LEFT);
             setText(m_name);

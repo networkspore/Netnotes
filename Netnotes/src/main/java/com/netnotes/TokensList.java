@@ -33,8 +33,10 @@ import com.satergo.extra.AESEncryption;
 import com.utils.Utils;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
@@ -490,6 +492,7 @@ public class TokensList extends Network {
     private void openJson(JsonObject json, NetworkType networkType) {
         m_networkTokenList.clear();
 
+        
    
         JsonElement networkTypeElement = json.get("networkType");
 
@@ -565,9 +568,7 @@ public class TokensList extends Network {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Tooltip backTip = new Tooltip("Back");
-        backTip.setShowDelay(new javafx.util.Duration(100));
-        backTip.setFont(App.txtFont);
+
 
  
         HBox menuBar = new HBox( spacer, rightSideMenu);
@@ -638,7 +639,7 @@ public class TokensList extends Network {
         if (token != null) {
             File imgFile = new File(token.getImageString());
             if (imgFile != null && imgFile.isFile()) {
-                //String imgString = imgFile.getAbsolutePath();
+                //String imgString = imgFile.getCanonicalPath();
                 Image img = null;
                 try {
                     BufferedImage imgBuf = ImageIO.read(imgFile);
@@ -947,6 +948,7 @@ public class TokensList extends Network {
 
 
         VBox bodyVBox = new VBox( imageBox, promptBox, scrollPaneVBox);
+        bodyVBox.setId("bodyBox");
         HBox.setHgrow(bodyVBox,Priority.ALWAYS);
         Button okButton = new Button("Ok");
         okButton.setFont(App.txtFont);
@@ -967,14 +969,27 @@ public class TokensList extends Network {
                     tokenAlert.setGraphic(IconButton.getIconView(getParentInterface().getButton().getIcon(), 75));
                     tokenAlert.show();
                 } else {
-                    String selectedFileString = imageFileBtn.getText();
+                    SimpleStringProperty selectedFileString = new SimpleStringProperty(imageFileBtn.getText());
 
-                    if(!selectedFileString.equals("Select an image")){
-                        File imgFile = new File(selectedFileString);
-                        if(imgFile.isFile()){
+                    if(!selectedFileString.get().equals("Select an image")){
+                        File imgFile = new File(selectedFileString.get());
+                        if(Utils.getImageByFile(imgFile) != null){
                             try {
                                 HashData hashData = new HashData(imgFile);
-                                ErgoNetworkToken newToken = new ErgoNetworkToken(nameField.getText(), urlLinkField.getText(), tokenIdField.getText(), imageFileBtn.getText(), hashData, networkType, this);
+                                String ergoTokensDir =  m_ergoTokens.getAppDir().getCanonicalPath();
+                                String imgPath = imgFile.getCanonicalPath();
+
+                                if(!imgPath.startsWith(ergoTokensDir)){
+                                    File tokenDir = new File(ergoTokensDir + "/tokens/" + Utils.removeInvalidChars(nameField.getText()) );
+                                    if(!tokenDir.exists()){
+                                        Files.createDirectory(tokenDir.toPath());
+                                    }
+                                    File newTokenImgFile = new File(tokenDir.getCanonicalPath() + "/" + imgFile.getName());
+                                    Files.copy(imgFile.toPath(), newTokenImgFile.toPath());
+                                    selectedFileString.set(newTokenImgFile.getCanonicalPath());
+                                }
+
+                                ErgoNetworkToken newToken = new ErgoNetworkToken(nameField.getText(), urlLinkField.getText(), tokenIdField.getText(), selectedFileString.get(), hashData, networkType, this);
                                 ErgoNetworkToken oldToken = getErgoToken(newToken.getTokenId());
 
                                 if (oldToken != null) {
@@ -1106,9 +1121,16 @@ public class TokensList extends Network {
 
                 }
                 if (mimeTypeString != null && mimeTypeString.equals("image")) {
-                    String fileString = chosenFile.getAbsolutePath();
-                    imageFileBtn.setText(fileString);
-                    imageBtn.setGraphic(IconButton.getIconView(new Image(fileString), 135));
+              
+                    try {
+                        String fileString = chosenFile.getCanonicalPath();
+                        imageFileBtn.setText(fileString);
+                        imageBtn.setGraphic(IconButton.getIconView(new Image(fileString), 135));
+                    } catch (IOException e1) {
+                        Alert a = new Alert(AlertType.ERROR, e1.toString(), ButtonType.OK);
+                        a.show();
+                    }
+                   
                 }
             }
 

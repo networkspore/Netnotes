@@ -66,7 +66,7 @@ import javafx.stage.Stage;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
-
+import org.ergoplatform.appkit.NetworkType;
 
 import java.io.FilenameFilter;
 import at.favre.lib.crypto.bcrypt.BCrypt;
@@ -464,6 +464,7 @@ public class Utils {
         Graphics2D g2d = img.createGraphics();
         g2d.setFont(font);
         FontMetrics fm = g2d.getFontMetrics();
+        g2d.dispose();
         return fm.stringWidth(str);
     }
 
@@ -709,18 +710,20 @@ public class Utils {
             try {
                 contentType = Files.probeContentType(file.toPath());
                 contentType = contentType.split("/")[0];
-
-            } catch (IOException e) {
-
+                if (contentType != null && contentType.equals("image")) {
+                    return  new Image(file.getAbsolutePath());
+                    
+                }
+              } catch (IOException e) {
+                return null;
             }
-
-            if (contentType != null && contentType.equals("image")) {
-                return  new Image(file.getAbsolutePath());
-                
-            }
-
         }
          return null;
+    }
+
+    public static String removeInvalidChars(String str)
+    {
+        return str.replaceAll("[^a-zA-Z0-9\\.\\-]", "");
     }
 
 
@@ -851,6 +854,8 @@ public class Utils {
 
         return secureRandom.nextInt(min, max);
     }
+
+ 
 
     public static void saveJson(SecretKey appKey, JsonObject listJson, File dataFile) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException {
 

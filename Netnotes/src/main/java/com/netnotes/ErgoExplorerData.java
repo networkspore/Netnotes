@@ -295,7 +295,7 @@ public class ErgoExplorerData {
 
                                         if(minerRewardElement != null && minerRewardElement.isJsonPrimitive()){
                                              long minerReward = minerRewardElement.getAsLong();
-                                             ErgoAmount ergoAmount = new ErgoAmount(minerReward);
+                                             ErgoAmount ergoAmount = new ErgoAmount(minerReward, ergoNetworkUrlProperty.get().getNetworkType());
 
                                              displayText += (displayText.equals("") ? "" : " - ") + "Reward: " + ergoAmount;
                                         }
