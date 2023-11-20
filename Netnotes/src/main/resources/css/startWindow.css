@@ -134,12 +134,24 @@
 
 #rowBox {
     -fx-background-color: transparent;
-    -fx-opacity: .7;
+  
+    -fx-opacity: .8;
 }
 
 #rowBox:hover {
     -fx-opacity: 1;
   
+}
+
+#darkRowBox {
+    -fx-background-color: #111111;
+
+    -fx-opacity: .9;
+}
+
+#darkRowBox:hover {
+    -fx-opacity: 1;
+
 }
 
 #unSelected {
@@ -469,7 +481,7 @@
 #menuBtnDisabled {
     -fx-padding: 2 4 2 4;
     -fx-background-color: transparent;
-    -fx-opacity: .3;
+    -fx-opacity: .6;
 }
 
 #statusBtn {
@@ -480,6 +492,7 @@
 #statusBtn:hover {
     -fx-opacity: 1;
 }
+
 #darkBox{
     -fx-background-color: #111111;
 }

@@ -56,7 +56,7 @@ public class ErgoAmountBox extends HBox {
 
     public ErgoAmountBox(PriceAmount priceAmount, Scene scene, ErgoNetworkData ergoNetworkData) {
         super();
-        setId("rowBox");
+        setId("darkRowBox");
         setMinHeight(45);
         setMaxHeight(45);
 
@@ -107,8 +107,10 @@ public class ErgoAmountBox extends HBox {
         amountField.setEditable(false);
         amountField.setPadding(new Insets(3, 10, 3, 10));
         amountField.setUserData(textFieldId);
-        amountField.prefWidthProperty().bind(amountBtn.widthProperty().subtract(imgPaddingBox.widthProperty()));
-        amountField.textProperty().addListener((obs, oldval, newval)->{
+        amountField.setMinWidth(200);
+        HBox.setHgrow(amountField, Priority.ALWAYS);
+       // amountField.prefWidthProperty().bind(amountBtn.widthProperty().subtract(imgPaddingBox.widthProperty()));
+       /* amountField.textProperty().addListener((obs, oldval, newval)->{
            
             String number = newval.replaceAll("[^0-9.]", "");
             int index = number.indexOf(".");
@@ -118,7 +120,7 @@ public class ErgoAmountBox extends HBox {
             rightSide = rightSide.length() > 9 ? rightSide.substring(0, 9) : rightSide;
         
             amountField.setText(leftSide +  rightSide);
-        });
+        });*/
       
 
         Button enterButton = new Button("[ ENTER ]");
@@ -221,7 +223,7 @@ public class ErgoAmountBox extends HBox {
         });
 
         VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
-
+        tokenInfoVBox.setAlignment(Pos.CENTER);
         HBox.setHgrow(tokenInfoVBox, Priority.ALWAYS);
 
         currencyUrlBtn.prefWidthProperty().bind(tokenInfoVBox.widthProperty());

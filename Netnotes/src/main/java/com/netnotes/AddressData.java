@@ -458,10 +458,10 @@ public class AddressData extends Network {
 
             HBox amountBoxPadding = new HBox(ergoAmountBox);
             amountBoxPadding.setPadding(new Insets(10,10,0,10));
-            amountBoxPadding.setId("darkBox");
+            amountBoxPadding.setId("bodyBox");
 
             AmountBoxes amountBoxes = new AmountBoxes();
-            amountBoxes.setId("darkBox");
+            amountBoxes.setId("bodyBox");
             amountBoxes.setPadding(new Insets(10,10,10,0));
             amountBoxes.setAlignment(Pos.TOP_LEFT);
             amountBoxes.prefWidthProperty().bind(addressScene.widthProperty().subtract(43));
@@ -553,7 +553,7 @@ public class AddressData extends Network {
                      
                     m_addressStage.setScene(sendScene);
                     Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
-                    ResizeHelper.addResizeListener(m_addressStage, ErgoWalletData.MIN_WIDTH, ErgoWalletData.MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
+                    ResizeHelper.addResizeListener(m_addressStage, ErgoWalletData.MIN_WIDTH, 500, currentRect.getWidth(), currentRect.getHeight());
                     closeStageBtn.setOnAction(e->{
                         m_addressStage.close();
                         m_addressStage = null;
@@ -570,7 +570,7 @@ public class AddressData extends Network {
 
 
              ChangeListener<LocalDateTime> changeListener = (obs, oldval, newval)->{
-                amountBoxes.clear();
+             //   amountBoxes.clear();
                 updateBalance();
             };
 

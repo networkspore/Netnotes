@@ -711,7 +711,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             if (sendScene != null) {
                 walletStage.setScene(sendScene);
                 Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
-                ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, MIN_HEIGHT, currentRect.getWidth(), currentRect.getHeight());
+                ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, 500, currentRect.getWidth(), currentRect.getHeight());
                 closeStageBtn.setOnAction(e->{
                     m_walletStage.close();
                     m_walletStage = null;

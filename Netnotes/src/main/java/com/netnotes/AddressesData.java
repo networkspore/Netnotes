@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -431,10 +431,29 @@ public class AddressesData {
 
     public Scene getSendScene(Scene parentScene, Stage parentStage, Button closeBtn) {
             
-
-        if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
-            return null;
-        }
+        Runnable requiredErgoNodes = () ->{
+            if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
+                Alert a = new Alert(AlertType.NONE, "Ergo Nodes must be installed in order to send from this wallet. \n\nWould you like to install Ergo Nodes?\n\n", ButtonType.YES, ButtonType.NO);
+                a.setTitle("Required: Ergo Nodes");
+                a.setHeaderText("Required: Ergo Nodes");
+                a.initOwner(parentStage);
+                Optional<ButtonType> result = a.showAndWait();
+                if(result != null && result.isPresent() && result.get() == ButtonType.YES){
+                    m_walletData.getErgoWallets().getErgoNetworkData().installNetwork(ErgoNodes.NETWORK_ID);
+                    if(selectedNodeData().get() == null){
+                        ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
+                        if(ergoNodes != null && ergoNodes.getErgoNodesList().defaultNodeIdProperty() != null){
+                            ErgoNodeData ergoNodeData = ergoNodes.getErgoNodesList().getErgoNodeData(ergoNodes.getErgoNodesList().defaultNodeIdProperty().get());
+                            if(ergoNodeData != null){
+                                selectedNodeData().set(ergoNodeData);
+                            }
+                        }
+                    }
+                }
+            
+            }
+        };
+        requiredErgoNodes.run();
 
         String oldStageName = parentStage.getTitle();
 
@@ -735,7 +754,7 @@ public class AddressesData {
 
 
         
-        BufferedMenuButton sendButton = new BufferedMenuButton("Send", "/assets/notificationIcon.png", 40);
+        BufferedButton sendButton = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 25);
 
 
 
@@ -843,7 +862,8 @@ public class AddressesData {
         amountBoxRow.setMinHeight(40);
         amountBoxRow.setAlignment(Pos.BOTTOM_LEFT);
 
-        AmountBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0, m_networkType), sendScene, true);
+        AmountSendBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0, m_networkType), sendScene, true);
+        ergoAmountBox.priceQuoteProperty().bind(m_currentQuote);
         HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
 
         Tooltip addCryptoBtnTip = new Tooltip("Add Token");
@@ -856,12 +876,13 @@ public class AddressesData {
         addCryptoBtn.setPrefHeight(40);
         addCryptoBtn.setPadding(new Insets(2,0,2,0));
 
-        AmountBoxes amountBoxes = new AmountBoxes(ergoAmountBox);
-        
+        AmountBoxes amountBoxes = new AmountBoxes();
         amountBoxes.setPadding(new Insets(10,10,10,0));
+
         amountBoxes.setAlignment(Pos.TOP_LEFT);
         amountBoxes.setLastRowItem(addCryptoBtn, AmountBoxes.ADD_AS_LAST_ROW);
         amountBoxes.setId("bodyBox");
+
         addCryptoBtn.prefWidthProperty().bind(amountBoxes.widthProperty());
        
         Region sendBoxSpacer = new Region();
@@ -875,30 +896,44 @@ public class AddressesData {
         sendButton.setContentDisplay(ContentDisplay.LEFT);
         sendButton.setPadding(new Insets(3, 15, 3, 15));
         sendButton.setOnAction(e -> {
-            // sendErg(0, null, null, 0, null, null, null);
+            requiredErgoNodes.run();
+
         });
 
 
-        HBox sendBox = new HBox(sendBoxSpacer, sendButton);
+        HBox sendBox = new HBox(sendButton);
+        sendBox.setPrefHeight(70);
         HBox.setHgrow(sendBox, Priority.ALWAYS);
-        sendBox.setPadding(new Insets(5, 20, 10, 0));
+
+        sendBox.setAlignment(Pos.CENTER_RIGHT);
         
-        ScrollPane scrollPane = new ScrollPane(amountBoxes);
+        HBox ergoAmountPaddingBox = new HBox(ergoAmountBox);
+        ergoAmountPaddingBox.setId("bodyBox");
+        ergoAmountPaddingBox.setPadding(new Insets(10,10,0,10));
+
+        VBox scrollPaneContentVBox = new VBox(ergoAmountPaddingBox, amountBoxes);
+
+        
+
+        ScrollPane scrollPane = new ScrollPane(scrollPaneContentVBox);
         scrollPane.setPadding(new Insets(10,0,0, 20));
 
         VBox scrollPaddingBox = new VBox(scrollPane);
         HBox.setHgrow(scrollPaddingBox,Priority.ALWAYS);
         scrollPaddingBox.setPadding(new Insets(0,5,0,5));
         VBox bodyBox = new VBox( fromAddressBox, toAddressBox, amountBoxRow, scrollPaddingBox);
-
+        VBox.setVgrow(bodyBox,Priority.ALWAYS);
         bodyBox.setId("bodyBox");
         bodyBox.setPadding(new Insets(15,0,0,0));
 
         VBox bodyLayoutBox = new VBox(headingBox, bodyBox);
+        VBox.setVgrow(bodyLayoutBox,Priority.ALWAYS);
         bodyLayoutBox.setPadding(new Insets(0, 4, 4,4));
 
-        VBox footerBox = new VBox(sendBox);
+        HBox footerBox = new HBox(sendBox);
         HBox.setHgrow(footerBox, Priority.ALWAYS);
+        footerBox.setPadding(new Insets(0,30,0,0));
+        footerBox.setAlignment(Pos.CENTER_LEFT);
 
         HBox paddingBox = new HBox(menuBar);
         HBox.setHgrow(paddingBox, Priority.ALWAYS);
@@ -910,11 +945,12 @@ public class AddressesData {
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
      
-        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract( amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()).subtract(15));
-        amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(40));
+        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(20).subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract( amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()).subtract(15));
+        amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(20).subtract(ergoAmountPaddingBox.heightProperty()));
         scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty().subtract(60));
-        amountBoxes.prefWidthProperty().bind(scrollPane.prefViewportWidthProperty());
-   
+        amountBoxes.prefWidthProperty().bind(sendScene.widthProperty().subtract(60));
+        ergoAmountPaddingBox.prefWidthProperty().bind(sendScene.widthProperty().subtract(60));
+
         return sendScene;
     }
 

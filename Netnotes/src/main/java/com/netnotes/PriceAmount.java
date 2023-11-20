@@ -1,24 +1,30 @@
 package com.netnotes;
 
+import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 
 
 public class PriceAmount {
 
-    private long m_amount;
+    private BigDecimal m_amount;
     private PriceCurrency m_currency;
     private LocalDateTime m_created;
     private boolean m_valid = true;
 
     public PriceAmount(long amount, PriceCurrency currency) {
-        m_amount = amount;
         m_currency = currency;
-
+        setLongAmount(amount);
         m_created = LocalDateTime.now();
     }
 
+    public PriceAmount(BigDecimal amount, PriceCurrency currency){
+        m_currency = currency;
+        setBigDecimalAmount(amount);
+        m_created = LocalDateTime.now();
 
+    }
 
     public PriceAmount(double amount, PriceCurrency currency) {
         
@@ -28,12 +34,25 @@ public class PriceAmount {
     }
 
     public PriceAmount(long amount, PriceCurrency currency, boolean amountValid){
-        m_amount = amount;
+        
         m_currency = currency;
+        setLongAmount(amount);
         m_valid = amountValid;
         m_created = LocalDateTime.now();
     }
 
+  public void setBigDecimalAmount(BigDecimal amount) {
+        m_amount = amount;
+    }
+
+    
+    public BigDecimal getBigDecimalAmount(){
+        return m_amount;
+    }
+
+    public double getDoubleAmount() {
+        return m_amount.doubleValue();
+    }
 
 
     public boolean getAmountValid(){
@@ -45,26 +64,26 @@ public class PriceAmount {
     }
 
     public void setLongAmount(long amount) {
-        m_amount = amount;
-    }
+        int decimals = m_currency.getFractionalPrecision();
+        BigDecimal bigAmount = BigDecimal.valueOf(amount);
 
-    public long getLongAmount() {
-        return m_amount;
-    }
-
-    public void setDoubleAmount(double amount) {
-        if(m_currency.getFractionalPrecision() == 0){
-            m_amount = (long) amount;
+        if(decimals != 0){
+            BigDecimal pow = BigDecimal.valueOf(10).pow(decimals);
+            m_amount = bigAmount.divide(pow);
         }else{
-            double precision = Math.pow(10, m_currency.getFractionalPrecision());
-            m_amount = (long) (precision * amount);
+            m_amount = bigAmount;
         }
     }
 
-    public double getDoubleAmount() {
-        double precision = Math.pow(10, m_currency.getFractionalPrecision());
-        
-        return (double) m_amount * (precision != 0 ? ((long) 1 / precision) : 1.0 );
+    public long getLongAmount() {
+        int decimals = m_currency.getFractionalPrecision();
+        BigDecimal pow = BigDecimal.valueOf(10).pow(decimals);
+
+        return m_amount.multiply(pow).longValue();
+    }
+
+    public void setDoubleAmount(double amount) {
+        m_amount = BigDecimal.valueOf(amount);
     }
 
     public PriceCurrency getCurrency() {
@@ -81,8 +100,8 @@ public class PriceAmount {
         int precision = getCurrency().getFractionalPrecision();
         DecimalFormat df = new DecimalFormat("0");
         df.setMaximumFractionDigits(precision);
-
-        String formatedDecimals = df.format(getDoubleAmount());
+        
+        String formatedDecimals = df.format(m_amount);
         String amount = m_valid ? formatedDecimals : "-";
 
         switch (getCurrency().getSymbol()) {

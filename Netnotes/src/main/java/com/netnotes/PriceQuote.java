@@ -1,5 +1,8 @@
 package com.netnotes;
 
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+
 import com.google.gson.JsonObject;
 import com.utils.Utils;
 
@@ -54,6 +57,10 @@ public class PriceQuote {
 
     public double getDoubleAmount() {
         return java.lang.Double.parseDouble(m_amountString);
+    }
+
+    public BigDecimal getBigDecimalAmount(){
+        return new BigDecimal(m_amountString);
     }
 
     public int getFractionalPrecision(){

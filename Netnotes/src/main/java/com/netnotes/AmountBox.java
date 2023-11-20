@@ -4,6 +4,8 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
@@ -64,7 +66,7 @@ public class AmountBox extends HBox {
 
     public AmountBox(PriceAmount priceAmount, Scene scene, SimpleBooleanProperty isErgoTokensProperty, ErgoNetworkData ergoNetworkData) {
         super();
-        setId("rowBox");
+        setId("darkRowBox");
         setMinHeight(45);
         setMaxHeight(45);
 
@@ -116,8 +118,10 @@ public class AmountBox extends HBox {
         amountField.setEditable(false);
         amountField.setPadding(new Insets(3, 10, 3, 10));
         amountField.setUserData(textFieldId);
-        amountField.prefWidthProperty().bind(amountBtn.widthProperty().subtract(imgPaddingBox.widthProperty()));
-        amountField.textProperty().addListener((obs, oldval, newval)->{
+        amountField.setMinWidth(200);
+        HBox.setHgrow(amountField, Priority.ALWAYS);
+        //amountField.prefWidthProperty().bind(amountBtn.widthProperty().subtract(imgPaddingBox.widthProperty()));
+        /*amountField.textProperty().addListener((obs, oldval, newval)->{
            
             String number = newval.replaceAll("[^0-9.]", "");
             int index = number.indexOf(".");
@@ -127,7 +131,7 @@ public class AmountBox extends HBox {
             rightSide = rightSide.length() > 9 ? rightSide.substring(0, 9) : rightSide;
         
             amountField.setText(leftSide +  rightSide);
-        });
+        });*/
       
 
         Button enterButton = new Button("[ ENTER ]");
@@ -225,7 +229,7 @@ public class AmountBox extends HBox {
 
 
         VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
-       
+       tokenInfoVBox.setAlignment(Pos.CENTER);
         HBox.setHgrow(tokenInfoVBox, Priority.ALWAYS);
 
         currencyUrlBtn.prefWidthProperty().bind(tokenInfoVBox.widthProperty());
@@ -438,15 +442,15 @@ public class AmountBox extends HBox {
     public void updateBufferedImage() {
         PriceAmount priceAmount = m_currentAmount.get();
         boolean quantityValid = priceAmount != null && priceAmount.getAmountValid();
-        double priceAmountDouble = priceAmount != null && quantityValid ? priceAmount.getDoubleAmount() : 0;
+        BigDecimal priceAmountDecimal = priceAmount != null && quantityValid ? priceAmount.getBigDecimalAmount() : BigDecimal.valueOf(0);
 
         PriceQuote priceQuote = m_priceQuoteProperty.get();
         boolean priceValid = priceQuote != null && priceQuote.getTimeStamp() != 0 && priceQuote.howOldMillis() < m_quoteTimeout;
-        double priceQuoteDouble = priceValid  && priceQuote != null ? priceQuote.getDoubleAmount() : 0;
+        BigDecimal priceQuoteBigDecimal = priceValid  && priceQuote != null ? priceQuote.getBigDecimalAmount() : BigDecimal.valueOf(0);
         
-        String totalPrice = priceValid && priceQuote != null ? Utils.formatCryptoString( priceQuoteDouble * priceAmountDouble, priceQuote.getQuoteCurrency(), priceQuote.getFractionalPrecision(),  quantityValid && priceValid) : " -.--";
-        int integers = priceAmount != null ? (int) priceAmount.getDoubleAmount() : 0;
-        double decimals = priceAmount != null ? priceAmount.getDoubleAmount() - integers : 0;
+        String totalPrice = priceValid && priceQuote != null ? Utils.formatCryptoString( priceAmountDecimal.multiply(priceQuoteBigDecimal), priceQuote.getQuoteCurrency(), priceQuote.getFractionalPrecision(),  quantityValid && priceValid) : " -.--";
+        BigInteger integers = priceAmount != null ? priceAmount.getBigDecimalAmount().toBigInteger() : BigInteger.ZERO;
+        BigDecimal decimals = priceAmount != null ? priceAmount.getBigDecimalAmount().subtract(new BigDecimal(integers)) : BigDecimal.ZERO;
         int decimalPlaces = priceAmount != null ? priceAmount.getCurrency().getFractionalPrecision() : 0;
         String cryptoName = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "UKNOWN";
         int space = cryptoName.indexOf(" ");
@@ -492,7 +496,7 @@ public class AmountBox extends HBox {
        // int cryptoNameStringWidth = fm.stringWidth(cryptoName);
         int decsWidth = fm.stringWidth(decs);
 
-        int width = decimalsX + stringWidth + decsWidth + (padding * 2);
+        int width = decimalsX + stringWidth + decsWidth + (padding * 2)+40;
         int widthIncrease = width;
         width = width < m_minImgWidth ? m_minImgWidth : width;
 

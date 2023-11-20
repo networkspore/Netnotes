@@ -4,6 +4,10 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
 
 import com.devskiller.friendly_id.FriendlyId;
@@ -73,7 +77,7 @@ public class AmountSendBox extends AmountBox {
             String leftSide = index != -1 ? number.substring(0, index + 1) : number;
             String rightSide = index != -1 ?  number.substring(index + 1) : "";
             rightSide = rightSide.length() > 0 ? rightSide.replaceAll("[^0-9]", "") : "";
-            rightSide = rightSide.length() > 9 ? rightSide.substring(0, 9) : rightSide;
+            rightSide = rightSide.length() > priceAmount.getCurrency().getDecimals() ? rightSide.substring(0, priceAmount.getCurrency().getDecimals()) : rightSide;
         
             amountField.setText(leftSide +  rightSide);
         });
@@ -180,15 +184,11 @@ public class AmountSendBox extends AmountBox {
          amountField.setOnAction(e->{
             enterButton.fire();
         });
+        
+        priceQuoteProperty().addListener((obs, oldval, newval)->updateBufferedImage());
 
-        priceAmountProperty().addListener((obs,oldval, newval)->{
-            updateBufferedImage();
-            String newAmountText = df.format(priceAmount.getDoubleAmount());
-            if(!newAmountText.equals(amountField.getText())){
-                amountField.setText(newAmountText);
-            }
-        });
-        priceAmountProperty().addListener((obs, oldval, newval)->updateBufferedImage());
+        priceAmountProperty().addListener((obs,oldval, newval)-> updateBufferedImage());
+  
         updateBufferedImage();
     }
 

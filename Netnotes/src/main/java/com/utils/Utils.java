@@ -26,6 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -55,6 +56,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.net.URLConnection;
 
 import javafx.concurrent.Task;
@@ -388,6 +390,33 @@ public class Utils {
                 return "฿";
         }
         return currency;
+    }
+
+    public static String formatCryptoString(BigDecimal price, String target, int precision, boolean valid) {
+       String formatedDecimals = String.format("%."+precision+"f", price);
+        String priceTotal = valid ? formatedDecimals : "-";
+    
+      
+     
+        switch (target) {
+            case "ERG":
+                priceTotal = priceTotal + " ERG";
+                break;
+            case "USD":
+                priceTotal = "$" + priceTotal;
+                break;
+            case "USDT":
+                priceTotal = priceTotal + " USDT";
+                break;
+            case "EUR":
+                priceTotal = "€‎" + priceTotal;
+                break;
+            case "BTC":
+                priceTotal ="฿" + priceTotal;
+                break;
+        }
+
+        return priceTotal;
     }
 
     public static String formatCryptoString(double price, String target, int precision, boolean valid) {
