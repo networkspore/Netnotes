@@ -31,6 +31,8 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
 public class AddressBox extends HBox {
 
@@ -308,7 +310,7 @@ public class AddressBox extends HBox {
 
    
     
-        final String promptString =(adr != null && adrNetworkType != null && adrNetworkType == m_networkType && adrType != null) ? "> " + adrType + " - (" + adrNetworkType.toString() + ")" : "> Enter address";
+        final String promptString =(adr != null && adrNetworkType != null && adrNetworkType == m_networkType && adrType != null) ? adrType + " - (" + adrNetworkType.toString() + ")" : "Enter address";
 
 
        
@@ -365,24 +367,27 @@ public class AddressBox extends HBox {
         g2d.setFont(font);
         g2d.setColor(java.awt.Color.WHITE);
         
-        g2d.drawString(promptString, padding, fm.getHeight() + 2);
-
+        // rect.y + ((rect.height - metrics.getHeight()) / 2) + metrics.getAscent();
+        
+        
         if(errortext.length() > 0){
-            g2d.setColor(new java.awt.Color(.8f, .8f, .8f, .9f));
-            g2d.drawString(errortext, padding + promptSize + 10, fm.getHeight() + 2);
+        
+            g2d.drawString(errortext, padding, fm.getHeight() + 2);
+        }else{
+            g2d.drawString(promptString, padding, adrString.length() > 0 ? fm.getHeight() + 2 : ((height - fm.getHeight()) / 2) + fm.getAscent());
         }
         if(adrString.length() > 0){ 
             g2d.setColor(new java.awt.Color(.8f, .8f, .8f, .8f));
             g2d.drawString(adrString, padding + bottomIndent , height - 8);
         }
         g2d.dispose();
-
         
-       /* try {
+        /*
+       try {
             ImageIO.write(img, "png", new File("outputImage.png"));
         } catch (IOException e) {
 
-        }*/
+        } */
 
 
         m_imgBuffer.set(SwingFXUtils.toFXImage(img, null));

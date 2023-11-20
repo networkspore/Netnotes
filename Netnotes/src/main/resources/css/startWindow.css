@@ -135,7 +135,7 @@
 #rowBox {
     -fx-background-color: transparent;
   
-    -fx-opacity: .8;
+    -fx-opacity: .6;
 }
 
 #rowBox:hover {

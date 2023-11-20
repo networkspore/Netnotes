@@ -771,11 +771,11 @@ public class AddressesData {
         fromText.setFont(App.txtFont);
         fromText.setFill(App.txtColor);
 
-        String nullAddressImageString = "/assets/selectAdress.png";
+        String nullAddressImageString = "/assets/enterAddress.png";
         Image nullAddressImg = new Image(nullAddressImageString);
 
         MenuButton fromAddressBtn = new MenuButton();
-
+        fromAddressBtn.setId("rowBox");
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
