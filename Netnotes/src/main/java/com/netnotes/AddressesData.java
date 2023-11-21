@@ -57,7 +57,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 import javafx.scene.input.KeyCode;
-
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -494,23 +494,42 @@ public class AddressesData {
         BufferedMenuButton nodesBtn = new BufferedMenuButton("/assets/ergoNodes-30.png", imageWidth);
         nodesBtn.setPadding(new Insets(2, 0, 0, 0));
         nodesBtn.setTooltip(nodesTip);
-        
 
+        Button statusBoxBtn = new Button();
+        statusBoxBtn.setId("tokenBtn");
+
+
+        
+        HBox nodeStatusBox = new HBox();
+        nodeStatusBox.setPadding(new Insets(0,15,0,15));
+        nodeStatusBox.setAlignment(Pos.CENTER);
+        HBox.setHgrow(nodeStatusBox, Priority.ALWAYS);
+        
 
         Runnable updateNodeBtn = () ->{
             ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
             ErgoNodeData nodeData = selectedNodeData().get();
-        
-            if(nodeData != null && ergoNodes != null){
+            nodeStatusBox.getChildren().clear();
 
-               nodesTip.setText(nodeData.getName());
-            
+            if(nodeData != null && ergoNodes != null){
+                nodesTip.setText(nodeData.getName());
+                nodeStatusBox.getChildren().add(nodeData.getStatusBox());
+                nodeStatusBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+                   ergoNodes.open(); 
+                });
+                nodeStatusBox.setId("tokenBtn");
             }else{
-                
+                nodeStatusBox.setId(null);
+                nodeStatusBox.getChildren().add(statusBoxBtn);
+               
                 if(ergoNodes == null){
-                    nodesTip.setText("(install 'Ergo Nodes')");
+                    String statusBtnText = "Install Ergo Nodes";
+                    nodesTip.setText(statusBtnText);
+                    statusBoxBtn.setText(statusBtnText);
                 }else{
-                    nodesTip.setText("Select node...");
+                    String statusBtnText = "Select node...";
+                    nodesTip.setText(statusBtnText);
+                    statusBoxBtn.setText(statusBtnText);
                 }
             }
           
@@ -754,7 +773,7 @@ public class AddressesData {
 
 
         
-        BufferedButton sendButton = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 25);
+        BufferedButton sendBtn = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 25);
 
 
 
@@ -888,23 +907,69 @@ public class AddressesData {
         Region sendBoxSpacer = new Region();
         HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
       
-        
-        sendButton.setFont(App.txtFont);
-        sendButton.setId("menuBtnDisabled");
-        sendButton.setDisable(true);
-        sendButton.setUserData("sendButton");
-        sendButton.setContentDisplay(ContentDisplay.LEFT);
-        sendButton.setPadding(new Insets(3, 15, 3, 15));
-        sendButton.setOnAction(e -> {
-            requiredErgoNodes.run();
+        Runnable finalCheckAndSend = () ->{
+            Alert a = new Alert(AlertType.NONE, "Final check and send.", ButtonType.OK);
+            a.setTitle("Check");
+            a.setHeaderText("Check");
+            a.initOwner(parentStage);
+            a.show();
+        };
 
+        
+        sendBtn.setFont(App.txtFont);
+        sendBtn.setId("menuBtn");
+        sendBtn.setUserData("sendButton");
+        sendBtn.setContentDisplay(ContentDisplay.LEFT);
+        sendBtn.setPadding(new Insets(3, 15, 3, 15));
+        sendBtn.setOnAction(e -> {
+            requiredErgoNodes.run();
+            if(m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) != null){
+                ErgoNodeData ergoNodeData = selectedNodeData().get();
+                if(ergoNodeData != null){
+                    if(ergoNodeData instanceof ErgoNodeLocalData){
+                        ErgoNodeLocalData localErgoNode = (ErgoNodeLocalData) ergoNodeData;
+                        if(localErgoNode.isSetupProperty.get()){
+
+                        }else{
+                            Alert a = new Alert(AlertType.NONE, "The selected node requires setup. Would you like to set it up now?", ButtonType.YES, ButtonType.NO);
+                            a.setTitle("Setup Required");
+                            a.setHeaderText("Setup Required");
+                            a.initOwner(parentStage);
+                            Optional<ButtonType> result = a.showAndWait();
+                            if(result != null && result.isPresent() && result.get() == ButtonType.YES){
+                                localErgoNode.setup();
+                            }
+                        }
+                    }else{
+                        boolean nodeAvailable = ergoNodeData.availableProperty.get();
+                        if(nodeAvailable){
+                            finalCheckAndSend.run();
+                        }else{
+                            Alert a = new Alert(AlertType.NONE, "The selected node cannot be reached. Please select an alternate node or add a node using Ergo Nodes.", ButtonType.OK);
+                            a.setTitle("Node Unavailable");
+                            a.setHeaderText("Node Unavailable");
+                            a.initOwner(parentStage);
+                            a.showAndWait();
+                            nodesBtn.show();
+                        }
+                    }
+                }else{
+                    Alert a = new Alert(AlertType.NONE, "Please select a node from the drop down menu.", ButtonType.OK);
+                    a.setTitle("Select Node");
+                    a.setHeaderText("Select Node");
+                    a.initOwner(parentStage);
+                    a.showAndWait();
+
+                    nodesBtn.show();
+              
+                }
+            }
         });
 
 
-        HBox sendBox = new HBox(sendButton);
+        HBox sendBox = new HBox(sendBtn);
         sendBox.setPrefHeight(70);
-        HBox.setHgrow(sendBox, Priority.ALWAYS);
-
+        sendBox.setPadding(new Insets(0,0,0,10));
         sendBox.setAlignment(Pos.CENTER_RIGHT);
         
         HBox ergoAmountPaddingBox = new HBox(ergoAmountBox);
@@ -930,9 +995,11 @@ public class AddressesData {
         VBox.setVgrow(bodyLayoutBox,Priority.ALWAYS);
         bodyLayoutBox.setPadding(new Insets(0, 4, 4,4));
 
-        HBox footerBox = new HBox(sendBox);
+
+        HBox footerBox = new HBox(nodeStatusBox, sendBox);
+       
         HBox.setHgrow(footerBox, Priority.ALWAYS);
-        footerBox.setPadding(new Insets(0,30,0,0));
+        footerBox.setPadding(new Insets(10,30,10,15));
         footerBox.setAlignment(Pos.CENTER_LEFT);
 
         HBox paddingBox = new HBox(menuBar);

@@ -568,7 +568,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     @Override
     public void start() {
-        if (isSetupProperty.get()) {
+        String currentStatus =  statusProperty.get();
+        if (isSetupProperty.get() && currentStatus.equals(ErgoMarketsData.STOPPED)) {
             Runnable runError = () -> {
                 Platform.runLater(() -> {
                     isSetupProperty.set(false);
@@ -1676,6 +1677,208 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     }
 
     @Override
+    public HBox getStatusBox() {
+
+    //   statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
+
+        Text topInfoStringText = new Text();
+        topInfoStringText.setFont(getFont());
+        topInfoStringText.setFill(getPrimaryColor());
+        topInfoStringText.textProperty().bind(namedNodeUrlProperty.asString());
+
+        Text topRightText = new Text();
+        topRightText.setFont(getSmallFont());
+        topRightText.setFill(getSecondaryColor());
+
+        Text botTimeText = new Text();
+        botTimeText.setFont(getSmallFont());
+        botTimeText.setFill(getSecondaryColor());
+        botTimeText.textProperty().bind(cmdStatusUpdated);
+
+        TextField centerField = new TextField(getIsSetup() ? "Offline" : "(Not Installed)");
+        centerField.setFont(App.txtFont);
+        centerField.setEditable(false);
+        //centerField.setPadding(new Insets(0, 10, 0, 0));
+        HBox.setHgrow(centerField, Priority.ALWAYS);
+       // centerField.textProperty().bind(statusString);
+
+        Runnable updateCenterFieldString = ()->{
+            String status = statusProperty.get();
+            boolean synced = syncedProperty.get();
+            if(status != null){
+                switch(status){
+                    case ErgoMarketsData.STOPPED:
+                        centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
+                    break;
+                    case ErgoMarketsData.STARTING:
+                         centerField.setText("Starting up...");
+                    break;
+                    case ErgoMarketsData.STARTED:
+                        centerField.setText((synced ? "Ready: " : "Syncing: ") + statusString.get());
+                    break;
+                }
+
+            }else{
+                centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
+            }
+        
+        };
+        statusString.addListener((obs,oldval,newval)->updateCenterFieldString.run());
+        syncedProperty.addListener((obs,oldval,newval)->updateCenterFieldString.run());
+        statusProperty.addListener((obs, oldval, newval)->updateCenterFieldString.run());
+
+
+        Text middleTopRightText = new Text();
+        middleTopRightText.setFont(getFont());
+        middleTopRightText.setFill(getSecondaryColor());
+
+        middleTopRightText.textProperty().bind(cmdProperty);
+
+        Text middleBottomRightText = new Text(getNetworkTypeString());
+        middleBottomRightText.setFont(getFont());
+        middleBottomRightText.setFill(getPrimaryColor());
+
+        VBox centerRightBox = new VBox(middleTopRightText, middleBottomRightText);
+        centerRightBox.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox.setVgrow(centerRightBox, Priority.ALWAYS);
+
+
+      
+
+        Region currencySpacer = new Region();
+        currencySpacer.setMinWidth(10);
+
+        HBox centerBox = new HBox(centerField, centerRightBox);
+        centerBox.setPadding(new Insets(0, 5, 0, 5));
+        centerBox.setAlignment(Pos.CENTER_LEFT);
+       // centerBox.setId("darkBox");
+
+        //centerField.prefWidthProperty().bind(centerBox.widthProperty().subtract(centerRightBox.widthProperty()).subtract(20));
+
+
+        HBox topSpacer = new HBox();
+        HBox bottomSpacer = new HBox();
+
+        topSpacer.setMinHeight(2);
+        bottomSpacer.setMinHeight(2);
+
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
+        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
+      //  topSpacer.setId("bodyBox");
+     //   bottomSpacer.setId("bodyBox");
+
+        Region topMiddleRegion = new Region();
+        HBox.setHgrow(topMiddleRegion, Priority.ALWAYS);
+
+        HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
+       // topBox.setId("darkBox");
+
+        Text ipText = new Text(namedNodeUrlProperty.get().getUrlString());
+        ipText.setFill(getPrimaryColor());
+        ipText.setFont(getSmallFont());
+
+        Text syncText = new Text();
+        syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
+        syncText.setFont(getSmallFont());
+
+        Region lbotRegion = new Region();
+        lbotRegion.setMinWidth(5);
+        HBox.setHgrow(lbotRegion, Priority.ALWAYS);
+
+        Region rbotRegion = new Region();
+        rbotRegion.setMinWidth(5);
+        HBox.setHgrow(rbotRegion, Priority.ALWAYS);
+
+        HBox bottomBox = new HBox(ipText, lbotRegion, syncText, rbotRegion, botTimeText);
+       // bottomBox.setId("darkBox");
+        bottomBox.setAlignment(Pos.CENTER_LEFT);
+
+        //syncText.prefWidthProperty().bind(bottomBox.widthProperty().subtract(ipText.layoutBoundsProperty().get().getWidth()).subtract(botTimeText.layoutBoundsProperty().get().getWidth()));
+        HBox.setHgrow(bottomBox, Priority.ALWAYS);
+
+        VBox bodyBox = new VBox(topSpacer, topBox, centerBox, bottomBox, bottomSpacer);
+        HBox.setHgrow(bodyBox, Priority.ALWAYS);
+
+        HBox contentsBox = new HBox(bodyBox);
+      //  contentsBox.setId("rowBox");
+        HBox.setHgrow(contentsBox, Priority.ALWAYS);
+
+        HBox rowBox = new HBox(contentsBox);
+        rowBox.setPadding(new Insets(0, 0, 5, 0));
+        rowBox.setAlignment(Pos.CENTER_LEFT);
+        rowBox.setId("darkRowBox");
+        HBox.setHgrow(rowBox, Priority.ALWAYS);
+        // rowBox.setId("rowBox");
+
+     
+        namedNodeUrlProperty.addListener((obs, oldval, newVal) -> {
+            ipText.setText(newVal.getUrlString());
+
+        });
+
+        Runnable updateSynced = () -> {
+            String status = statusProperty.get() == null ? ErgoMarketsData.STOPPED : statusProperty.get();
+
+            if (!status.equals(ErgoMarketsData.STOPPED)) {
+
+                Platform.runLater(() -> {
+                    boolean synced = syncedProperty.get();
+                    int peerCount = peerCountProperty.get();
+                    long networkBlockHeight = networkBlockHeightProperty.get();
+                    long nodeBlockHeight = nodeBlockHeightProperty.get();
+
+                    if (!synced) {
+                        //  double p = (networkBlockHeight / nodeBlockHeight);
+                        //if (networkBlockHeight == -1 || nodeBlockHeight == -1) {
+                        //    syncText.setText("Updating sync status...");
+                        //  } else {
+
+                        syncText.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+
+                        //+ " (" + String.format("%.1f", p * 100) + ")");
+                        // }
+                    } else {
+                        syncText.setText("Synchronized: " + nodeBlockHeight + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                    }
+                });
+            } else {
+                Platform.runLater(() -> {
+                    syncText.setText("");
+                });
+            }
+
+        };
+
+
+        nodeBlockHeightProperty.addListener((obs, oldVal, newVal) -> updateSynced.run());
+        networkBlockHeightProperty.addListener((obs, oldval, newVal) -> updateSynced.run());
+        statusProperty.addListener((obs, oldval, newval) -> updateSynced.run());
+        syncedProperty.addListener((obs, oldVal, newVal) -> {
+
+            syncText.setFill(newVal ? getPrimaryColor() : getSecondaryColor());
+           // powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
+
+        });
+        updateSynced.run();
+
+        rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+            Platform.runLater(() -> {
+                getErgoNodesList().selectedIdProperty().set(getId());
+                e.consume();
+            });
+        });
+
+ 
+
+        //double width = bottomBox.layoutBoundsProperty().get().getWidth() - ipText.layoutBoundsProperty().get().getWidth() - botTimeText.layoutBoundsProperty().get().getWidth();
+        // syncField.minWidthProperty().bind(rowBox.widthProperty().subtract(botTimeText.layoutBoundsProperty().get().getWidth()).subtract(200));
+       rowBox.setMouseTransparent(true);
+        start();
+        return rowBox;
+    }
+
+    @Override
     public HBox getRowItem() {
 
         Tooltip defaultIdTip = new Tooltip(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? "Default Node" : "Set default");
@@ -1719,7 +1922,31 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         centerField.setAlignment(Pos.CENTER);
         centerField.setPadding(new Insets(0, 10, 0, 0));
 
-        centerField.textProperty().bind(statusString);
+        Runnable updateCenterFieldString = ()->{
+            String status = statusProperty.get();
+            boolean synced = syncedProperty.get();
+            if(status != null){
+                switch(status){
+                    case ErgoMarketsData.STOPPED:
+                        centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
+                    break;
+                    case ErgoMarketsData.STARTING:
+                         centerField.setText("Starting up...");
+                    break;
+                    case ErgoMarketsData.STARTED:
+                        centerField.setText((synced ? "Ready: " : "Syncing: ") + statusString.get());
+                    break;
+                }
+
+            }else{
+                centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
+            }
+        
+        };
+        statusString.addListener((obs,oldval,newval)->updateCenterFieldString.run());
+        syncedProperty.addListener((obs,oldval,newval)->updateCenterFieldString.run());
+        statusProperty.addListener((obs, oldval, newval)->updateCenterFieldString.run());
+
 
         Text middleTopRightText = new Text();
         middleTopRightText.setFont(getFont());

@@ -186,6 +186,100 @@ public class ErgoNodeData {
 
     }
 
+    public HBox getStatusBox(){
+      
+    
+        String centerString = "";
+
+        Text topInfoStringText = new Text((namedNodeUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
+        topInfoStringText.setFont(m_font);
+        topInfoStringText.setFill(m_primaryColor);
+
+        Text topRightText = new Text(getClientType());
+        topRightText.setFont(m_smallFont);
+        topRightText.setFill(m_secondaryColor);
+
+        Text botTimeText = new Text();
+        botTimeText.setFont(m_smallFont);
+        botTimeText.setFill(m_secondaryColor);
+        botTimeText.textProperty().bind(cmdStatusUpdated);
+        
+        TextField centerField = new TextField(centerString);
+        centerField.setFont(App.txtFont);
+        centerField.setId("handField");
+        centerField.setEditable(false);
+
+        centerField.setPadding(new Insets(0, 10, 0, 0));
+
+        centerField.textProperty().bind(statusString);
+
+        Text middleTopRightText = new Text();
+        middleTopRightText.setFont(m_font);
+        middleTopRightText.setFill(m_secondaryColor);
+
+        middleTopRightText.textProperty().bind(cmdProperty);
+
+        Text middleBottomRightText = new Text(getNetworkTypeString());
+        middleBottomRightText.setFont(m_font);
+        middleBottomRightText.setFill(m_primaryColor);
+
+        VBox centerRightBox = new VBox(middleTopRightText, middleBottomRightText);
+        centerRightBox.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox.setVgrow(centerRightBox, Priority.ALWAYS);
+
+        Region currencySpacer = new Region();
+        currencySpacer.setMinWidth(10);
+
+        HBox centerBox = new HBox(centerField, centerRightBox);
+        centerBox.setPadding(new Insets(0, 5, 0, 5));
+        centerBox.setAlignment(Pos.CENTER_LEFT);
+      //  centerBox.setId("darkBox");
+
+        centerField.prefWidthProperty().bind(centerBox.widthProperty().subtract(centerRightBox.widthProperty()).subtract(20));
+
+        HBox topSpacer = new HBox();
+        HBox bottomSpacer = new HBox();
+
+        topSpacer.setMinHeight(2);
+        bottomSpacer.setMinHeight(2);
+
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
+        HBox.setHgrow(bottomSpacer, Priority.ALWAYS);
+      //  topSpacer.setId("bodyBox");
+      //  bottomSpacer.setId("bodyBox");
+
+        Region topMiddleRegion = new Region();
+        HBox.setHgrow(topMiddleRegion, Priority.ALWAYS);
+
+        HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
+     //   topBox.setId("darkBox");
+
+        Text ipText = new Text(namedNodeUrlProperty.get() != null ? (namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : namedNodeUrlProperty.get().getUrlString()) : "Configure node");
+        ipText.setFill(m_primaryColor);
+        ipText.setFont(m_smallFont);
+
+        Region bottomMiddleRegion = new Region();
+        HBox.setHgrow(bottomMiddleRegion, Priority.ALWAYS);
+
+        HBox bottomBox = new HBox(ipText, bottomMiddleRegion, botTimeText);
+      //  bottomBox.setId("darkBox");
+        bottomBox.setAlignment(Pos.CENTER_LEFT);
+
+        HBox.setHgrow(bottomBox, Priority.ALWAYS);
+
+        VBox bodyBox = new VBox(topSpacer, topBox, centerBox, bottomBox, bottomSpacer);
+        HBox.setHgrow(bodyBox, Priority.ALWAYS);
+
+        HBox contentsBox = new HBox( bodyBox);
+       // contentsBox.setId("rowBox");
+        HBox.setHgrow(contentsBox, Priority.ALWAYS);
+
+        contentsBox.setMouseTransparent(true);
+        start();
+        return contentsBox;
+    }
+
     public HBox getRowItem() {
 
        
@@ -343,7 +437,7 @@ public class ErgoNodeData {
         HBox rowBox = new HBox(contentsBox);
         rowBox.setPadding(new Insets(0, 0, 5, 0));
         rowBox.setAlignment(Pos.CENTER_RIGHT);
-        rowBox.setId("formField");
+        rowBox.setId("darkRowBox");
         HBox.setHgrow(rowBox, Priority.ALWAYS);
 
         rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {

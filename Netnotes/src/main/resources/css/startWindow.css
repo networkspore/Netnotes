@@ -145,7 +145,8 @@
 
 #darkRowBox {
     -fx-background-color: #111111;
-
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
     -fx-opacity: .9;
 }
 
@@ -268,6 +269,20 @@
 #closeBtn:hover {
     -fx-background-color: red;
     -fx-opacity: 1;
+}
+
+#handField * {
+    -fx-text-alignment: left;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-font-family: 'OCR A Extended';
+}
+
+#handFieldCenter * {
+    -fx-text-alignment: center;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-font-family: 'OCR A Extended';
 }
 
 #passField {
