@@ -22,7 +22,7 @@ public class AmountBoxes extends VBox {
 
     public final static int IMAGE_WIDTH = 40;
 
-    ObservableList<AmountBox> m_amountsList = FXCollections.observableArrayList();
+    private ObservableList<AmountBox> m_amountsList = FXCollections.observableArrayList();
 
 
     private VBox m_listVBox = new VBox();
@@ -43,14 +43,19 @@ public class AmountBoxes extends VBox {
 
         m_amountsList.addListener((ListChangeListener.Change<? extends AmountBox> c) -> update());
         m_paddingInsets.addListener((obs, oldval, newval)->update());
-        if(boxes != null){
+        if(boxes != null && boxes.length > 0){
             for(int i = 0; i < boxes.length; i++){
                 add(boxes[i]);
             }
+        }else{
+            update();
         }
 
     }
 
+    public ObservableList<AmountBox> amountsList(){
+        return m_amountsList;
+    } 
 
 
     public void clear(){
@@ -172,19 +177,24 @@ public class AmountBoxes extends VBox {
                             paddingBox.getChildren().add(m_lastRowItem);
                         }
                     break;
+                }
+            }
+
+        }
+        if(m_lastRowItem != null && !m_lastRowItemDisabled && m_lastRowItemStyle != null){
+                switch(m_lastRowItemStyle){
                     case ADD_AS_LAST_ROW:
-                        if(i == m_amountsList.size() - 1){
+                        
                             HBox lastRowPaddingBox = new HBox(m_lastRowItem);
                             HBox.setHgrow(lastRowPaddingBox, Priority.ALWAYS);
                             Insets lastRowPadding = m_paddingInsets.get();
                             
                             lastRowPaddingBox.setPadding(lastRowPadding);
                             m_listVBox.getChildren().add(lastRowPaddingBox);
-                        }
+                        
                     break;
                 }
             }
-
-        }
+       
     }
 }

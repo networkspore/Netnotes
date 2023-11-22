@@ -36,6 +36,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -430,7 +431,13 @@ public class AddressesData {
     }
 
     public Scene getSendScene(Scene parentScene, Stage parentStage, Button closeBtn) {
-            
+        
+        if(selectedAddressDataProperty().get() == null){
+            if(m_addressDataList.size() == 1){
+                selectedAddressDataProperty().set(m_addressDataList.get(0));
+            }
+        }
+
         Runnable requiredErgoNodes = () ->{
             if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
                 Alert a = new Alert(AlertType.NONE, "Ergo Nodes must be installed in order to send from this wallet. \n\nWould you like to install Ergo Nodes?\n\n", ButtonType.YES, ButtonType.NO);
@@ -501,9 +508,11 @@ public class AddressesData {
 
         
         HBox nodeStatusBox = new HBox();
-        nodeStatusBox.setPadding(new Insets(0,15,0,15));
-        nodeStatusBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(nodeStatusBox, Priority.ALWAYS);
+        nodeStatusBox.setId("blackBox");
+        nodeStatusBox.setPadding(new Insets(0,40,0,15));
+   
+        nodeStatusBox.setAlignment(Pos.CENTER_LEFT);
+      
         
 
         Runnable updateNodeBtn = () ->{
@@ -773,7 +782,7 @@ public class AddressesData {
 
 
         
-        BufferedButton sendBtn = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 25);
+        
 
 
 
@@ -790,7 +799,7 @@ public class AddressesData {
         fromText.setFont(App.txtFont);
         fromText.setFill(App.txtColor);
 
-        String nullAddressImageString = "/assets/enterAddress.png";
+        String nullAddressImageString = "/assets/selectAddress.png";
         Image nullAddressImg = new Image(nullAddressImageString);
 
         MenuButton fromAddressBtn = new MenuButton();
@@ -798,6 +807,7 @@ public class AddressesData {
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
+        
         for (AddressData addressItem : m_addressDataList) {
 
             MenuItem addressMenuItem = new MenuItem(addressItem.getAddressString());
@@ -806,7 +816,9 @@ public class AddressesData {
             addressMenuItem.setGraphic(IconButton.getIconView(addressImage, addressImage.getWidth()));
 
             addressItem.getImageProperty().addListener((obs, oldVal, newVal) -> {
-                addressMenuItem.setGraphic(IconButton.getIconView(newVal, newVal.getWidth()));
+                if(newVal != null){
+                    addressMenuItem.setGraphic(IconButton.getIconView(newVal, newVal.getWidth()));
+                }
             });
 
             fromAddressBtn.getItems().add(addressMenuItem);
@@ -883,6 +895,14 @@ public class AddressesData {
 
         AmountSendBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0, m_networkType), sendScene, true);
         ergoAmountBox.priceQuoteProperty().bind(m_currentQuote);
+        
+        ergoAmountBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+            if(selectedAddressDataProperty().get() == null){
+         
+                fromAddressBtn.show();
+            }
+        });
+
         HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
 
         Tooltip addCryptoBtnTip = new Tooltip("Add Token");
@@ -902,6 +922,50 @@ public class AddressesData {
         amountBoxes.setLastRowItem(addCryptoBtn, AmountBoxes.ADD_AS_LAST_ROW);
         amountBoxes.setId("bodyBox");
 
+        Runnable updateMaxBalance = () ->{
+            AddressData addressData = m_selectedAddressData.get();
+            if(addressData != null){
+                ergoAmountBox.balanceAmountProperty().bind( addressData.ergoAmountProperty()) ;
+                for(int i = 0; i < amountBoxes.amountsList().size() ; i++ ){
+                    AmountBox amountBox = amountBoxes.amountsList().get(i);
+                    if(amountBox != null && amountBox instanceof AmountSendBox){
+                        AmountSendBox amountSendBox = (AmountSendBox) amountBox;
+                        
+                        PriceAmount tokenAmount = addressData.getConfirmedTokenAmount(amountSendBox.getTokenId());
+
+                        amountSendBox.balanceAmountProperty().set(tokenAmount);
+
+                    }
+               }
+            }else{
+                ergoAmountBox.balanceAmountProperty().unbind();
+                ergoAmountBox.balanceAmountProperty().set(null);
+                
+               for(AmountBox amountBox : amountBoxes.amountsList() ){
+                    if(amountBox != null && amountBox instanceof AmountSendBox){
+                        AmountSendBox amountSendBox = (AmountSendBox) amountBox;
+                        amountSendBox.balanceAmountProperty().set(null);
+                    }
+               }
+            }
+        };
+        updateMaxBalance.run();
+        ChangeListener<? super LocalDateTime> balanceChangeListener = (obs, oldVal, newVal) -> {
+            updateMaxBalance.run();
+        };
+
+        m_selectedAddressData.addListener((obs, oldval, newval)->{
+            updateMaxBalance.run();
+            if(oldval != null){
+                oldval.getLastUpdated().removeListener(balanceChangeListener);
+            }
+            if(newval != null){
+                newval.getLastUpdated().addListener(balanceChangeListener);
+            }
+        });
+
+        
+
         addCryptoBtn.prefWidthProperty().bind(amountBoxes.widthProperty());
        
         Region sendBoxSpacer = new Region();
@@ -915,9 +979,9 @@ public class AddressesData {
             a.show();
         };
 
-        
+        BufferedButton sendBtn = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 30);
         sendBtn.setFont(App.txtFont);
-        sendBtn.setId("menuBtn");
+       
         sendBtn.setUserData("sendButton");
         sendBtn.setContentDisplay(ContentDisplay.LEFT);
         sendBtn.setPadding(new Insets(3, 15, 3, 15));
@@ -968,8 +1032,8 @@ public class AddressesData {
 
 
         HBox sendBox = new HBox(sendBtn);
-        sendBox.setPrefHeight(70);
-        sendBox.setPadding(new Insets(0,0,0,10));
+        sendBox.setPrefHeight(80);
+        sendBox.setPadding(new Insets(0,30,0,15));
         sendBox.setAlignment(Pos.CENTER_RIGHT);
         
         HBox ergoAmountPaddingBox = new HBox(ergoAmountBox);
@@ -995,9 +1059,15 @@ public class AddressesData {
         VBox.setVgrow(bodyLayoutBox,Priority.ALWAYS);
         bodyLayoutBox.setPadding(new Insets(0, 4, 4,4));
 
-
-        HBox footerBox = new HBox(nodeStatusBox, sendBox);
+        ScrollPane bottomScroll = new ScrollPane(nodeStatusBox);
        
+        HBox footerBox = new HBox(bottomScroll, sendBox);
+        
+        bottomScroll.setPrefViewportHeight(60);
+        bottomScroll.prefViewportWidthProperty().bind(footerBox.widthProperty().subtract(sendBox.widthProperty()).subtract(70));
+        
+        nodeStatusBox.prefWidthProperty().bind(bottomScroll.prefViewportWidthProperty().subtract(20));
+        
         HBox.setHgrow(footerBox, Priority.ALWAYS);
         footerBox.setPadding(new Insets(10,30,10,15));
         footerBox.setAlignment(Pos.CENTER_LEFT);

@@ -41,7 +41,7 @@ public class ErgoMarketsData {
     public final static String STARTING = "Starting";
     public final static String STOPPED = "Stopped";
     public final static String ERROR = "Error";
-
+    public final static String STOP = "STOP";
     public final static String POLLED = "POLLED";
     public final static String REALTIME = "REALTIME";
 

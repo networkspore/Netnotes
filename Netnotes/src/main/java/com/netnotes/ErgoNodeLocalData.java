@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -410,37 +411,40 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             updateCycle();
         }
+        if( m_nodeMsgBuffer.size() > 0){
+            ArrayList<ErgoNodeMsg> newMsgs = new ArrayList<ErgoNodeMsg>();
+            if (m_nodeMsgBuffer.size() > 0) {
+                synchronized (m_nodeMsgBuffer) {
+                
+                    int j = m_nodeMsgBuffer.size() - 1;
+                    if(j > -1){
+                        ErgoNodeMsg ergoNodeMsg = m_nodeMsgBuffer.get(j);
+                     
+                        String lastInputId = m_lastNodeMsgId.get();
+                        if ( !(ergoNodeMsg.getId().equals(lastInputId))) {
+                            m_lastNodeMsgId.set(lastInputId);
+                            newMsgs.add(ergoNodeMsg);
 
-        ArrayList<ErgoNodeMsg> newMsgs = new ArrayList<ErgoNodeMsg>();
-        if (m_nodeMsgBuffer.size() > 0) {
-            synchronized (m_nodeMsgBuffer) {
-                int j = m_nodeMsgBuffer.size() - 1;
-
-                ErgoNodeMsg ergoNodeMsg = m_nodeMsgBuffer.get(j);
-                String lastInputId = m_lastNodeMsgId.get();
-                if (!(ergoNodeMsg.getId().equals(lastInputId))) {
-                    m_lastNodeMsgId.set(lastInputId);
-                    newMsgs.add(ergoNodeMsg);
-
-                    j--;
-                    while (j > 0 && !(ergoNodeMsg.getId().equals(lastInputId))) {
-                        newMsgs.add(0, ergoNodeMsg);
-                        ergoNodeMsg = m_nodeMsgBuffer.get(j);
-                        j--;
+                            j--;
+                            while (j > 0 && !(ergoNodeMsg.getId().equals(lastInputId))) {
+                                newMsgs.add(0, ergoNodeMsg);
+                                ergoNodeMsg = m_nodeMsgBuffer.get(j);
+                                j--;
+                            }
+                        }
                     }
+
                 }
+            }
+            int size = newMsgs.size();
+            if (size > 0) {
 
+                for (int i = 0; i < size; i++) {
+                    
+                    inputNodeMsg(newMsgs.get(i));
+                }
             }
         }
-        int size = newMsgs.size();
-        if (size > 0) {
-
-            for (int i = 0; i < size; i++) {
-
-                inputNodeMsg(newMsgs.get(i));
-            }
-        }
-
     };
 
     final private void inputNodeMsg(ErgoNodeMsg msg) {
@@ -489,7 +493,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
 
             m_future = m_executor.submit(new Runnable() {
-
+                 Process proc;
                 /*private final ExecutorService executor = Executors.newCachedThreadPool(
                         new ThreadFactory() {
                     public Thread newThread(Runnable r) {
@@ -503,9 +507,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 public void run() {
 
                     try {
-                        Process proc = Runtime.getRuntime().exec(cmd, null, appFile.getParentFile());
+                        proc = Runtime.getRuntime().exec(cmd, null, appFile.getParentFile());
                         BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
+                
                         if (proc.isAlive()) {
                             Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STARTED));
                             if (m_scheduledFuture == null || (m_scheduledFuture != null && m_scheduledFuture.isDone())) {
@@ -526,12 +531,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                                 s = stdInput.readLine();
                                 String str = s;
+                                if(s != null){
                                 synchronized (m_nodeMsgBuffer) {
                                     if (m_nodeMsgBuffer.size() > MAX_INPUT_BUFFER_SIZE) {
                                         m_nodeMsgBuffer.remove(0);
                                     }
                                     m_nodeMsgBuffer.add(new ErgoNodeMsg(str));
-                                }
+                                }}
                             } catch (IOException e) {
 
                                 proc.waitFor(2, TimeUnit.SECONDS);
@@ -551,10 +557,26 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                             }
 
                         }
-
+                        proc.waitFor();
+                        Platform.runLater(()->{ 
+                            statusProperty.set(ErgoMarketsData.STOPPED);
+                            m_pid = -1;
+                            if(m_scheduledFuture != null){
+                                m_scheduledFuture.cancel(false);
+                            }
+                            if(m_future != null){
+                                m_future.cancel(false);
+                            }
+                        });
+                       
+                        
+                            
                     } catch (Exception e) {
 
                     }
+
+              
+
                     //   m_pid = -1;
                     //   statusProperty().set(MarketsData.STOPPED);
                 }
@@ -569,6 +591,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     @Override
     public void start() {
         String currentStatus =  statusProperty.get();
+
         if (isSetupProperty.get() && currentStatus.equals(ErgoMarketsData.STOPPED)) {
             Runnable runError = () -> {
                 Platform.runLater(() -> {
@@ -617,6 +640,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 runError.run();
             }
 
+        }else{
+            if(!isSetupProperty.get()){
+                setup();
+            }
         }
 
     }
@@ -1653,18 +1680,28 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     @Override
     public void stop() {
 
-        if (m_scheduledFuture != null && !m_scheduledFuture.isDone()) {
-            m_scheduledFuture.cancel(false);
-
-        }
         if (!statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
+            String[] pids = Utils.pslastPID(m_appFileName);
 
+            if(pids != null){
+                for(int i = 0; i < pids.length ; i++){
+                    Utils.psStopProcess(pids[i]);
+                }
+            }else{
+              //  kill();
+            }
+        }
+    }
+
+    public void kill(){
+        if (!statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
             Utils.wmicTerminate(m_appFileName);
+           
 
-            statusProperty.set(ErgoMarketsData.STOPPED);
+           // statusProperty.set(ErgoMarketsData.STOPPED);
 
         }
-
+         
     }
 
     public boolean getIsSetup() {
@@ -1695,37 +1732,17 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         botTimeText.setFill(getSecondaryColor());
         botTimeText.textProperty().bind(cmdStatusUpdated);
 
-        TextField centerField = new TextField(getIsSetup() ? "Offline" : "(Not Installed)");
-        centerField.setFont(App.txtFont);
-        centerField.setEditable(false);
+        Text syncText = new Text(getIsSetup() ? "Offline" : "(Not Installed)");
+        syncText.setFont(App.txtFont);
+        syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
+      //  centerField.setEditable(false);
         //centerField.setPadding(new Insets(0, 10, 0, 0));
-        HBox.setHgrow(centerField, Priority.ALWAYS);
+       // HBox.setHgrow(centerField, Priority.ALWAYS);
        // centerField.textProperty().bind(statusString);
 
-        Runnable updateCenterFieldString = ()->{
-            String status = statusProperty.get();
-            boolean synced = syncedProperty.get();
-            if(status != null){
-                switch(status){
-                    case ErgoMarketsData.STOPPED:
-                        centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
-                    break;
-                    case ErgoMarketsData.STARTING:
-                         centerField.setText("Starting up...");
-                    break;
-                    case ErgoMarketsData.STARTED:
-                        centerField.setText((synced ? "Ready: " : "Syncing: ") + statusString.get());
-                    break;
-                }
+   
 
-            }else{
-                centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
-            }
-        
-        };
-        statusString.addListener((obs,oldval,newval)->updateCenterFieldString.run());
-        syncedProperty.addListener((obs,oldval,newval)->updateCenterFieldString.run());
-        statusProperty.addListener((obs, oldval, newval)->updateCenterFieldString.run());
+
 
 
         Text middleTopRightText = new Text();
@@ -1749,7 +1766,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         Region currencySpacer = new Region();
         currencySpacer.setMinWidth(10);
 
-        HBox centerBox = new HBox(centerField, centerRightBox);
+        HBox centerFieldBox = new HBox(syncText);
+        centerFieldBox.setAlignment(Pos.CENTER);
+        HBox.setHgrow(centerFieldBox, Priority.ALWAYS);
+
+        HBox centerBox = new HBox(centerFieldBox, centerRightBox);
         centerBox.setPadding(new Insets(0, 5, 0, 5));
         centerBox.setAlignment(Pos.CENTER_LEFT);
        // centerBox.setId("darkBox");
@@ -1778,9 +1799,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         ipText.setFill(getPrimaryColor());
         ipText.setFont(getSmallFont());
 
-        Text syncText = new Text();
-        syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
-        syncText.setFont(getSmallFont());
 
         Region lbotRegion = new Region();
         lbotRegion.setMinWidth(5);
@@ -1790,7 +1808,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         rbotRegion.setMinWidth(5);
         HBox.setHgrow(rbotRegion, Priority.ALWAYS);
 
-        HBox bottomBox = new HBox(ipText, lbotRegion, syncText, rbotRegion, botTimeText);
+        HBox bottomBox = new HBox(ipText, lbotRegion, rbotRegion, botTimeText);
        // bottomBox.setId("darkBox");
         bottomBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -1807,7 +1825,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox rowBox = new HBox(contentsBox);
         rowBox.setPadding(new Insets(0, 0, 5, 0));
         rowBox.setAlignment(Pos.CENTER_LEFT);
-        rowBox.setId("darkRowBox");
+
         HBox.setHgrow(rowBox, Priority.ALWAYS);
         // rowBox.setId("rowBox");
 
@@ -1819,10 +1837,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         Runnable updateSynced = () -> {
             String status = statusProperty.get() == null ? ErgoMarketsData.STOPPED : statusProperty.get();
-
+            syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
             if (!status.equals(ErgoMarketsData.STOPPED)) {
 
-                Platform.runLater(() -> {
+               
                     boolean synced = syncedProperty.get();
                     int peerCount = peerCountProperty.get();
                     long networkBlockHeight = networkBlockHeightProperty.get();
@@ -1834,18 +1852,19 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         //    syncText.setText("Updating sync status...");
                         //  } else {
 
-                        syncText.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                        syncText.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) );
 
                         //+ " (" + String.format("%.1f", p * 100) + ")");
                         // }
                     } else {
-                        syncText.setText("Synchronized: " + nodeBlockHeight + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                        syncText.setText("Synchronized: " + nodeBlockHeight );
                     }
-                });
+                    topRightText.setText("Peers: " + peerCount + " ");
             } else {
-                Platform.runLater(() -> {
-                    syncText.setText("");
-                });
+ 
+                    
+                syncText.setText(getIsSetup() ? "Offline" : "(Not Installed)");
+    
             }
 
         };
@@ -1854,12 +1873,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         nodeBlockHeightProperty.addListener((obs, oldVal, newVal) -> updateSynced.run());
         networkBlockHeightProperty.addListener((obs, oldval, newVal) -> updateSynced.run());
         statusProperty.addListener((obs, oldval, newval) -> updateSynced.run());
-        syncedProperty.addListener((obs, oldVal, newVal) -> {
+        syncedProperty.addListener((obs,oldval,newval)->updateSynced.run());
 
-            syncText.setFill(newVal ? getPrimaryColor() : getSecondaryColor());
-           // powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
-
-        });
         updateSynced.run();
 
         rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
@@ -1875,6 +1890,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         // syncField.minWidthProperty().bind(rowBox.widthProperty().subtract(botTimeText.layoutBoundsProperty().get().getWidth()).subtract(200));
        rowBox.setMouseTransparent(true);
         start();
+        rowBox.setId("blackBox");
         return rowBox;
     }
 
@@ -1899,7 +1915,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             defaultIdTip.setText(newval != null && newval.equals(getId()) ? "Default Node" : "Set default");
         });
 
-        statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
+        
 
         Text topInfoStringText = new Text();
         topInfoStringText.setFont(getFont());
@@ -1947,6 +1963,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         syncedProperty.addListener((obs,oldval,newval)->updateCenterFieldString.run());
         statusProperty.addListener((obs, oldval, newval)->updateCenterFieldString.run());
 
+        updateCenterFieldString.run();
 
         Text middleTopRightText = new Text();
         middleTopRightText.setFont(getFont());
@@ -1972,11 +1989,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         statusBtn.setTooltip(statusBtnTip);
         statusBtn.setOnAction(action -> {
             if (statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
-                if (getIsSetup()) {
-                    start();
-                } else {
-                    setup();
-                }
+              
+                start();
+               
             } else {
                 stop();
 
@@ -2009,27 +2024,30 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             if (value.equals(ErgoMarketsData.STOPPED)) {
                 String stoppedString = getIsSetup() ? "Start" : "Setup";
-                if (!statusBtnTip.getText().equals(stoppedString)) {
+                
 
                     statusBtnTip.setText(stoppedString);
-                    statusBtn.getBufferedImageView().setDefaultImage(new Image(getIsSetup() ? getStartImgUrl() : getInstallImgUrl()), 15);
+
+                    
+
                     centerField.setAlignment(Pos.CENTER);
                     statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
                    // powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
 
-                }
+                
+                statusBtn.setImage(new Image(getIsSetup() ? getStartImgUrl() : getInstallImgUrl()));
             } else {
-                if (!statusBtnTip.getText().equals("Stop")) {
+                
 
                     statusBtnTip.setText("Stop");
-                    statusBtn.getBufferedImageView().setDefaultImage(new Image(getStopImgUrl()), 15);
+                    statusBtn.setImage(new Image(getStopImgUrl()));
                     statusString.set(value);
 
                     centerField.setAlignment(Pos.CENTER_LEFT);
                     /*if (!syncedProperty.get()) {
                         powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerInitUrl()), 15));
                     }*/
-                }
+                
             }
         };
 
@@ -2079,13 +2097,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
 
         HBox contentsBox = new HBox(leftBox, bodyBox, rightBox);
-        contentsBox.setId("rowBox");
+       // contentsBox.setId("rowBox");
         HBox.setHgrow(contentsBox, Priority.ALWAYS);
 
         HBox rowBox = new HBox(contentsBox);
         rowBox.setPadding(new Insets(0, 0, 5, 0));
         rowBox.setAlignment(Pos.CENTER_RIGHT);
-        rowBox.setId("unselected");
+      //  rowBox.setId("unselected");
         HBox.setHgrow(rowBox, Priority.ALWAYS);
         // rowBox.setId("rowBox");
 
@@ -2164,15 +2182,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         return rowBox;
     }
 
-    @Override
-    public String getStartImgUrl(){
-        return "/assets/play-30.png";
-    }
 
-    @Override
-    public String getStopImgUrl() { 
-        return "/assets/stop-30.png";
-    }
 
     @Override
     public String getName(){

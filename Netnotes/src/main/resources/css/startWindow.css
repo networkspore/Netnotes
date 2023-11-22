@@ -143,6 +143,8 @@
   
 }
 
+
+
 #darkRowBox {
     -fx-background-color: #111111;
     -fx-border-color: transparent;
@@ -155,8 +157,10 @@
 
 }
 
+
+
 #unSelected {
-    -fx-opacity: .7;
+    -fx-opacity: .9;
 }
 
 #selected{
@@ -245,19 +249,7 @@
     fx-background-color: linear-gradient(to left, #77777790 5%, #00000000, #77777790 95%);
 }
 
-#toolBtn {
-    -fx-background-color: transparent;
-    -fx-text-fill: #cdd4da;
 
-    
-    -fx-opacity: .6;
-}
-
-#toolBtn:hover {
-    -fx-background-color: #33333380;
-    -fx-opacity: 1;
-    -fx-text-fill: white;
-}
 
 
 #closeBtn {
@@ -757,6 +749,35 @@
     -fx-position-shape: true;
     -fx-text-fill: #777777;
 }
+
+#toolBtn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #cdd4da;
+
+    -fx-cursor: hand;
+    -fx-opacity: .6;
+}
+
+#toolBtn:hover {
+    -fx-background-color: #33333380;
+    -fx-opacity: 1;
+    -fx-text-fill: white;
+}
+
+#toolBtnUnderline {
+    -fx-background-color: transparent;
+    -fx-text-fill: #cdd4da;
+    -fx-cursor: hand;
+    -fx-underline: true;
+    -fx-opacity: .6;
+}
+
+#toolBtnUnderline:hover {
+    
+    -fx-opacity: 1;
+    -fx-text-fill: white;
+}
+
 
 #urlBtn{
     -fx-cursor: hand;

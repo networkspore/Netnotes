@@ -23,23 +23,23 @@ public class ErgoNodeMsg {
         public final static String REQUEST_DATA = "Polling";
         public final static String NEW_HEIGHT = "New height";
     }
-    private String m_line = null;
+    private String m_line = "";
 
-    private String m_id = null;
-    private String m_type = null;
+    private String m_id = FriendlyId.createFriendlyId();
+    private String m_type = "";
 
-    private String m_timeStamp = null;
+    private String m_timeStamp = "";
 
-    private String m_typeString = null;
-    private String m_source = null;
-    private String m_sourceCtx = null;
-    private String m_body = null;
+    private String m_typeString = "";
+    private String m_source = "";
+    private String m_sourceCtx = "";
+    private String m_body = "";
     private long m_height = -1;
 
     private Exception m_exception = null;
 
     public ErgoNodeMsg(String line) {
-        m_id = FriendlyId.createFriendlyId();
+     
         m_line = line;
         try {
             parseLine();

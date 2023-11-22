@@ -1331,6 +1331,91 @@ public class Utils {
         stage.setY(screenRectangle.getHeight()/2 - stage.getHeight()/2);
     }
 
+    
+
+    public static String[] pslastPID(String jarname){
+          try {
+          //  File logFile = new File("wmicTerminate-log.txt");
+            //Get-Process | Where {$_.ProcessName -Like "SearchIn*"}
+         //   String[] wmicCmd = {"powershell", "Get-Process", "|", "Where", "{$_.ProcessName", "-Like", "'*" +  jarname+ "*'}"};
+            Process psProc = Runtime.getRuntime().exec("powershell Get-WmiObject Win32_Process | WHERE {$_.CommandLine -Like '*"+jarname+"*' } | Select ProcessId");
+
+            BufferedReader psStderr = new BufferedReader(new InputStreamReader(psProc.getErrorStream()));
+            //String pserr = null;
+
+
+            ArrayList<String> pids = new ArrayList<>();
+
+            BufferedReader psStdInput = new BufferedReader(new InputStreamReader(psProc.getInputStream()));
+
+            String psInput = null;
+           // boolean gotInput = false;
+            //   int pid = -1;
+               
+            while ((psInput = psStdInput.readLine()) != null) {
+              //  
+              //  gotInput = true;
+                psInput.trim();
+                if(!psInput.equals("") && !psInput.startsWith("ProcessId") && !psInput.startsWith("---------")){
+                    Files.writeString(new File("psPID.txt").toPath(), "\nps:" + psInput, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    
+                    pids.add(psInput);
+                }
+            }
+            
+            String  pserr = null;
+            while ((pserr = psStderr.readLine()) != null) {
+                try {
+                    Files.writeString(new File("psPID.txt").toPath(), "\npsPID err: " + pserr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+                
+                }
+               // Files.writeString(logFile.toPath(), "\nps err: " + wmicerr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                
+            }
+
+            psProc.waitFor();
+            if( pids.size() > 0){
+                String[] pidArray = new String[pids.size()];
+
+                pidArray =  pids.toArray(pidArray);
+                
+                return pidArray;
+            }else{
+                return null;
+            }
+            
+
+        } catch (Exception e) {
+              try {
+                Files.writeString(new File("psPID.txt").toPath(), "\npsPID: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+             
+            }
+             
+            return null;
+        }
+   
+    }
+
+     public static void psStopProcess(String pid){
+          try {
+          //  File logFile = new File("wmicTerminate-log.txt");
+            //Get-Process | Where {$_.ProcessName -Like "SearchIn*"}
+         //   String[] wmicCmd = {"powershell", "Get-Process", "|", "Where", "{$_.ProcessName", "-Like", "'*" +  jarname+ "*'}"};
+            Process psProc = Runtime.getRuntime().exec("powershell stop-process -id " + pid );
+
+
+            psProc.waitFor();
+
+
+
+        } catch (Exception e) {
+            
+        }
+   
+    }
+
 
     public static boolean wmicTerminate(String jarName) {
         try {

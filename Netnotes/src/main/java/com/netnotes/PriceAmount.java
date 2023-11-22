@@ -94,14 +94,19 @@ public class PriceAmount {
         return m_created;
     }
 
-    @Override
-    public String toString() {
-        
+    public String getAmountString(){
         int precision = getCurrency().getFractionalPrecision();
         DecimalFormat df = new DecimalFormat("0");
         df.setMaximumFractionDigits(precision);
         
         String formatedDecimals = df.format(m_amount);
+        return formatedDecimals;
+    }
+
+    @Override
+    public String toString() {
+        String formatedDecimals = getAmountString();
+        
         String amount = m_valid ? formatedDecimals : "-";
 
         switch (getCurrency().getSymbol()) {

@@ -61,7 +61,7 @@ public class ErgoNodeData {
     private Color m_secondaryColor = new Color(.4, .4, .4, .9);
     private Color m_primaryColor = new Color(.7, .7, .7, .9); 
 
-    private String m_startImgUrl = "/assets/refresh-white-30.png";
+    private String m_startImgUrl = "/assets/play-30.png";
     private String m_stopImgUrl = "/assets/stop-30.png";
 
     public final SimpleBooleanProperty isSetupProperty = new SimpleBooleanProperty(false);
@@ -204,12 +204,12 @@ public class ErgoNodeData {
         botTimeText.setFill(m_secondaryColor);
         botTimeText.textProperty().bind(cmdStatusUpdated);
         
-        TextField centerField = new TextField(centerString);
+        Text centerField = new Text(centerString);
         centerField.setFont(App.txtFont);
-        centerField.setId("handField");
-        centerField.setEditable(false);
+        centerField.setFill(App.txtColor);
+       // centerField.setEditable(false);
 
-        centerField.setPadding(new Insets(0, 10, 0, 0));
+       // centerField.setPadding(new Insets(0, 10, 0, 0));
 
         centerField.textProperty().bind(statusString);
 
@@ -231,12 +231,16 @@ public class ErgoNodeData {
         Region currencySpacer = new Region();
         currencySpacer.setMinWidth(10);
 
-        HBox centerBox = new HBox(centerField, centerRightBox);
+        HBox centerFieldBox = new HBox(centerField);
+        centerFieldBox.setAlignment(Pos.CENTER);
+        HBox.setHgrow(centerFieldBox, Priority.ALWAYS);
+
+        HBox centerBox = new HBox(centerFieldBox, centerRightBox);
         centerBox.setPadding(new Insets(0, 5, 0, 5));
         centerBox.setAlignment(Pos.CENTER_LEFT);
       //  centerBox.setId("darkBox");
 
-        centerField.prefWidthProperty().bind(centerBox.widthProperty().subtract(centerRightBox.widthProperty()).subtract(20));
+       // centerField.prefWidthProperty().bind(centerBox.widthProperty().subtract(centerRightBox.widthProperty()).subtract(20));
 
         HBox topSpacer = new HBox();
         HBox bottomSpacer = new HBox();
@@ -277,6 +281,7 @@ public class ErgoNodeData {
 
         contentsBox.setMouseTransparent(true);
         start();
+        contentsBox.setId("blackBox");
         return contentsBox;
     }
 
@@ -431,13 +436,13 @@ public class ErgoNodeData {
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
 
         HBox contentsBox = new HBox(leftBox, bodyBox, rightBox);
-        contentsBox.setId("rowBox");
+     
         HBox.setHgrow(contentsBox, Priority.ALWAYS);
 
         HBox rowBox = new HBox(contentsBox);
         rowBox.setPadding(new Insets(0, 0, 5, 0));
         rowBox.setAlignment(Pos.CENTER_RIGHT);
-        rowBox.setId("darkRowBox");
+       
         HBox.setHgrow(rowBox, Priority.ALWAYS);
 
         rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {

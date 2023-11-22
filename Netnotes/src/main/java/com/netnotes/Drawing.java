@@ -282,7 +282,7 @@ public class Drawing {
     }
 
     //topleft to bottomRight
-    public static void dr1wLineRect(BufferedImage img, Color color, int lineSize, int x1, int y1, int x2, int y2) {
+    public static void drawLineRect(BufferedImage img, Color color, int lineSize, int x1, int y1, int x2, int y2) {
         int RGB = color.getRGB();
         fillArea(img, RGB, x1, y1, x1 + lineSize, y2);
         fillArea(img, RGB, x2 - lineSize, y1, x2, y2);

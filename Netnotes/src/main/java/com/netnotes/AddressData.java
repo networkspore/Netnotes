@@ -493,8 +493,11 @@ public class AddressData extends Network {
 
             m_ergoAmountProperty.addListener((obs,oldval,newval)->updateAmountBoxes.run());
 
+             
+            VBox paddingAmountBox = new VBox(amountBoxPadding);        
+            paddingAmountBox.setPadding(new Insets(5,16,0,0));
 
-            VBox boxesVBox = new VBox( amountBoxes);
+            VBox boxesVBox = new VBox(amountBoxPadding, amountBoxes);
             HBox.setHgrow(boxesVBox, Priority.ALWAYS);
 
             ScrollPane scrollPane = new ScrollPane(boxesVBox);
@@ -513,9 +516,7 @@ public class AddressData extends Network {
             updateBox.setPadding(new Insets(2,2,2,0));
             updateBox.setAlignment(Pos.CENTER_RIGHT);
 
-    
-            VBox paddingAmountBox = new VBox(amountBoxPadding);        
-            paddingAmountBox.setPadding(new Insets(5,16,0,0));
+   
           
             
             VBox bodyBox = new VBox(addressBox, paddingAmountBox, scrollPane);
@@ -913,11 +914,21 @@ public class AddressData extends Network {
     private void setImageBuffer(Image image) {
         m_imgBuffer.set(image == null ? null : image);
 
-       setGraphic(m_imgBuffer.get() == null ? null : getIconView(m_imgBuffer.get(), m_imgBuffer.get().getWidth()));
-         getLastUpdated().set(LocalDateTime.now());
+        setGraphic(m_imgBuffer.get() == null ? null : getIconView(m_imgBuffer.get(), m_imgBuffer.get().getWidth()));
+        getLastUpdated().set(LocalDateTime.now());
     }
 
-    
+    public PriceAmount getConfirmedTokenAmount(String tokenId){
+        if(tokenId != null){
+            for(int i = 0; i < m_confirmedTokensList.size(); i++){
+                PriceAmount tokenAmount = m_confirmedTokensList.get(i);
+                if(tokenAmount.getCurrency().getTokenId().equals(tokenId)){
+                    return tokenAmount;
+                }
+            }
+        }
+        return null;
+    }
 
     public void updateBalance() {
 
