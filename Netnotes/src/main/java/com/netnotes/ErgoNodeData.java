@@ -232,7 +232,7 @@ public class ErgoNodeData {
         currencySpacer.setMinWidth(10);
 
         HBox centerFieldBox = new HBox(centerField);
-        centerFieldBox.setAlignment(Pos.CENTER);
+        centerFieldBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(centerFieldBox, Priority.ALWAYS);
 
         HBox centerBox = new HBox(centerFieldBox, centerRightBox);
@@ -289,7 +289,7 @@ public class ErgoNodeData {
 
        
          Tooltip defaultIdTip = new Tooltip(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? "Default Node" : "Set default");
-
+        defaultIdTip.setShowDelay(new Duration(100));
         BufferedButton defaultIdBtn = new BufferedButton(m_ergoNodesList.defaultNodeIdProperty().get() != null && m_ergoNodesList.defaultNodeIdProperty().get().equals(getId()) ? m_radioOnUrl : m_radioOffUrl, 15);
         defaultIdBtn.setTooltip(defaultIdTip);
         defaultIdBtn.setOnAction(e->{

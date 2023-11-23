@@ -285,7 +285,7 @@ public class ErgoNodeConfig {
         if (m_configMode.equals(ConfigMode.BASIC)) {
 
             String configFileString = "ergo {";
-            configFileString += "\n  directory = ${ergo.directory}\"/.ergo\"";
+         //   configFileString += "\n  directory = ${ergo.directory}\"/.ergo\"";
             configFileString += "\n  node {\n";
             configFileString += "\n    stateType = \"" + (m_stateMode.equals(DigestAccess.LOCAL) ? "digest" : "utxo") + "\"";
             configFileString += "\n    mining = false";

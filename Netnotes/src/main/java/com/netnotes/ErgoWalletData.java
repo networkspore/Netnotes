@@ -335,14 +335,14 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
      
 
-        Tooltip sendTip = new Tooltip("Select address");
+        Tooltip sendTip = new Tooltip("Send");
         sendTip.setShowDelay(new javafx.util.Duration(100));
     
 
-        BufferedButton sendButton = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
-        sendButton.setTooltip(sendTip);
-        sendButton.setId("menuBtn");
-        sendButton.setUserData("sendButton");
+        BufferedButton sendBtn = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
+        sendBtn.setTooltip(sendTip);
+        sendBtn.setId("menuBtn");
+        sendBtn.setUserData("sendButton");
    
 
 
@@ -607,7 +607,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
    
 
 
-        HBox menuBar = new HBox(sendButton, addButton, spacer, rightSideMenu);
+        HBox menuBar = new HBox(sendBtn, addButton, spacer, rightSideMenu);
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setAlignment(Pos.CENTER_LEFT);
         menuBar.setId("menuBar");
@@ -705,7 +705,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         getAvailableMarketsMenu.run();
         updateTokensMenu.run();
 
-        sendButton.setOnAction((actionEvent) -> {
+        sendBtn.setOnAction((actionEvent) -> {
             Button closeStageBtn = new Button();
             Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage, closeStageBtn);
             if (sendScene != null) {

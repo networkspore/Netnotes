@@ -55,6 +55,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.util.Duration;
 
 public class ErgoNodesList {
 
@@ -557,7 +558,8 @@ public class ErgoNodesList {
             publicNodesBox.setMinHeight(40);
 
             Tooltip defaultTypeBtnTip = new Tooltip("Set default");
-
+            defaultTypeBtnTip.setShowDelay(new Duration(100));
+            
             BufferedButton defaultTypeBtn = new BufferedButton(m_defaultAddType.equals(nodeOption.get()) ? "/assets/star-30.png" : "/assets/star-outline-30.png", 20);
             defaultTypeBtn.setTooltip(defaultTypeBtnTip);
 

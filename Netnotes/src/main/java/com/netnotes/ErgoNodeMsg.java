@@ -21,7 +21,7 @@ public class ErgoNodeMsg {
 
         public final static String SYNC_MSG = "Syncing";
         public final static String REQUEST_DATA = "Polling";
-        public final static String NEW_HEIGHT = "New height";
+        public final static String NEW_HEIGHT = "Updated";
     }
     private String m_line = "";
 

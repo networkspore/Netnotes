@@ -213,8 +213,12 @@ public class ErgoAmountBox extends HBox {
         
         final String urlString = "https://ergoplatform.org";
 
+         int size = 10 + Utils.measureString(urlString, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14));
+
+
         Button currencyUrlBtn = new Button(urlString);
         currencyUrlBtn.setId("urlBtn");
+        currencyUrlBtn.setPrefWidth(size);
         currencyUrlBtn.setOnAction(e->{
             ErgoWallets ergoWallets = (ErgoWallets) ergoNetworkData.getNetwork(ErgoWallets.NETWORK_ID);
             if(ergoWallets != null){
@@ -223,7 +227,7 @@ public class ErgoAmountBox extends HBox {
         });
 
         VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
-        tokenInfoVBox.setAlignment(Pos.CENTER);
+        tokenInfoVBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(tokenInfoVBox, Priority.ALWAYS);
 
         currencyUrlBtn.prefWidthProperty().bind(tokenInfoVBox.widthProperty());
@@ -237,14 +241,10 @@ public class ErgoAmountBox extends HBox {
         menuBtn.setTooltip(menuBtnBtnTip);
         menuBtn.setTextAlignment(TextAlignment.LEFT);
         
-        
+    
 
-        HBox rightSideBox = new HBox(tokenInfoVBox, menuBtn);
-        VBox.setVgrow(rightSideBox, Priority.ALWAYS);
-        HBox.setHgrow(rightSideBox, Priority.ALWAYS);
-        rightSideBox.setAlignment(Pos.CENTER_LEFT);
 
-        getChildren().addAll(amountBtn, rightSideBox);
+        getChildren().addAll(menuBtn, amountBtn,tokenInfoVBox);
 
         Runnable updates = () ->{
             

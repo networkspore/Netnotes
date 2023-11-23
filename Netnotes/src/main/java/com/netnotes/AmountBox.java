@@ -226,13 +226,17 @@ public class AmountBox extends HBox {
 
         Button currencyUrlBtn = new Button("(No information available)");
         currencyUrlBtn.setId("urlBtn");
-
+    
 
         VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
-       tokenInfoVBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(tokenInfoVBox, Priority.ALWAYS);
-
-        currencyUrlBtn.prefWidthProperty().bind(tokenInfoVBox.widthProperty());
+        tokenInfoVBox.setAlignment(Pos.CENTER_LEFT);
+        
+        currencyUrlBtn.textProperty().addListener((obs,oldval,newval)->{
+            if(newval != null){
+                int size = Utils.measureString(newval, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14));
+                currencyUrlBtn.setPrefWidth(size +10);
+            }
+        });
 
         Tooltip ergoTokensBtnTip = new Tooltip("Options");
         
@@ -261,12 +265,9 @@ public class AmountBox extends HBox {
         MenuItem addItem = new MenuItem("Add to Ergo Tokens");
         MenuItem viewItem = new MenuItem("View in Ergo Tokens");
 
-        HBox rightSideBox = new HBox(tokenInfoVBox, ergoTokensBtn);
-        VBox.setVgrow(rightSideBox, Priority.ALWAYS);
-        HBox.setHgrow(rightSideBox, Priority.ALWAYS);
-        rightSideBox.setAlignment(Pos.CENTER_LEFT);
 
-        getChildren().addAll(amountBtn, rightSideBox);
+
+        getChildren().addAll( ergoTokensBtn, amountBtn, tokenInfoVBox);
 
         
 

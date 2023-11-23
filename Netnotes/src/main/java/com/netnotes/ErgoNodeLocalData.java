@@ -90,6 +90,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public final static String DEFAULT_CONFIG_NAME = "ergo.conf";
     public final static int MAX_CONSOLE_ROWS = 200;
     public final static int MAX_INPUT_BUFFER_SIZE = 30;
+    public final static int SYNC_TIMEOUT_CYCLE = 10;
 
     final private List<ErgoNodeMsg> m_nodeMsgBuffer = Collections.synchronizedList(new ArrayList<ErgoNodeMsg>());
 
@@ -137,6 +138,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     private AtomicReference<String> m_lastNodeMsgId = new AtomicReference<>(null);
     private AtomicInteger m_inputCycleIndex = new AtomicInteger(0);
+    private AtomicInteger m_isSyncStuck = new AtomicInteger(-1);
     public final AtomicBoolean isGettingInfo = new AtomicBoolean(false);
     public long INPUT_CYCLE_PERIOD = 100;
 
@@ -345,11 +347,47 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     private final SimpleIntegerProperty peerCountProperty = new SimpleIntegerProperty(-1);
 
+    public void cleanSync() throws IOException{
+        Files.writeString(logFile.toPath(),"\nErgoLocalNode: Clean Sync Required - Re-syncing node",StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+        File stateDir = new File(m_appDir.getCanonicalPath() + "/.ergo/state");
+        File historyDir = new File(m_appDir.getCanonicalPath() + "/.ergo/history");
+        
+        if(stateDir.isDirectory()){
+            FileUtils.deleteDirectory(stateDir);
+        }
+        if(historyDir.isDirectory()){
+            FileUtils.deleteDirectory(historyDir);
+        }
+        
+    }
+   
     private final void updateCycle() {
         //get Network info
         final String localApiString = namedNodeUrlProperty.get().getUrlString() + "/info";
         final String prevVersionString = m_appVersion.get().get();
-
+        if(m_isSyncStuck.get() > -1){
+            if(m_isSyncStuck.get() > SYNC_TIMEOUT_CYCLE){
+                stop();
+                try {
+                    cleanSync();
+                    start();
+                    
+                } catch (IOException e) {
+                    
+                    kill();
+                    try {
+                        Files.writeString(logFile.toPath(),"\nErgoLocalNode: Clean Sync Failed " + e.toString(),StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        cleanSync();
+                    } catch (IOException e1) {
+                
+                    }
+                }
+                start();
+                m_isSyncStuck.set(-1);
+            }
+            m_isSyncStuck.set(m_isSyncStuck.get() + 1);
+        }
         isGettingInfo.set(true);
         Utils.getUrlJson(localApiString, (onSucceeded) -> {
             Object sourceObject = onSucceeded.getSource().getValue();
@@ -408,8 +446,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         int cycle = m_inputCycleIndex.incrementAndGet();
         if (cycle == 100) {
             m_inputCycleIndex.set(0);
-
-            updateCycle();
+            
+            Platform.runLater(()->updateCycle());
         }
         if( m_nodeMsgBuffer.size() > 0){
             ArrayList<ErgoNodeMsg> newMsgs = new ArrayList<ErgoNodeMsg>();
@@ -1149,6 +1187,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                 JsonElement nameElement = assetObject.get("name");
 
                                 if (downloadUrlElement != null && downloadUrlElement.isJsonPrimitive()) {
+                                    try {
+                                        Files.writeString(new File("ergSetup.txt").toPath(), assetObject.toString());
+                                    } catch (IOException e1) {
+                                     
+                                    }
                                     String url = downloadUrlElement.getAsString();
                                     String name = nameElement.getAsString();
                                     latestJarNameField.setText(name);
@@ -1202,10 +1245,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         }); */
 
-        if (ergoNodes.getNetworksData().getAppData().getUpdates()) {
+       // if (ergoNodes.getNetworksData().getAppData().getUpdates()) {
             getLatestUrl.run();
-        }
-
+     //   }
+        
         downloadBtnEffect.run();
 
         latestJarRadio.setOnAction(e -> {
@@ -1687,9 +1730,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 for(int i = 0; i < pids.length ; i++){
                     Utils.psStopProcess(pids[i]);
                 }
-            }else{
-              //  kill();
             }
+            networkBlockHeightProperty.set(-1);
+            nodeBlockHeightProperty.set(-1);
         }
     }
 
@@ -1732,9 +1775,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         botTimeText.setFill(getSecondaryColor());
         botTimeText.textProperty().bind(cmdStatusUpdated);
 
-        Text syncText = new Text(getIsSetup() ? "Offline" : "(Not Installed)");
-        syncText.setFont(App.txtFont);
-        syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
+        Text centerText = new Text(getIsSetup() ? "Offline" : "(Not Installed)");
+        centerText.setFont(App.txtFont);
+        centerText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
       //  centerField.setEditable(false);
         //centerField.setPadding(new Insets(0, 10, 0, 0));
        // HBox.setHgrow(centerField, Priority.ALWAYS);
@@ -1766,13 +1809,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         Region currencySpacer = new Region();
         currencySpacer.setMinWidth(10);
 
-        HBox centerFieldBox = new HBox(syncText);
+        HBox centerFieldBox = new HBox(centerText);
         centerFieldBox.setAlignment(Pos.CENTER);
         HBox.setHgrow(centerFieldBox, Priority.ALWAYS);
 
         HBox centerBox = new HBox(centerFieldBox, centerRightBox);
         centerBox.setPadding(new Insets(0, 5, 0, 5));
-        centerBox.setAlignment(Pos.CENTER_LEFT);
+        centerBox.setAlignment(Pos.CENTER);
        // centerBox.setId("darkBox");
 
         //centerField.prefWidthProperty().bind(centerBox.widthProperty().subtract(centerRightBox.widthProperty()).subtract(20));
@@ -1808,11 +1851,15 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         rbotRegion.setMinWidth(5);
         HBox.setHgrow(rbotRegion, Priority.ALWAYS);
 
-        HBox bottomBox = new HBox(ipText, lbotRegion, rbotRegion, botTimeText);
+        Text botMidText = new Text();
+        botMidText.setFont(getSmallFont());
+        botMidText.setFill(getSecondaryColor());
+
+        HBox bottomBox = new HBox(ipText, lbotRegion,botMidText, rbotRegion, botTimeText);
        // bottomBox.setId("darkBox");
         bottomBox.setAlignment(Pos.CENTER_LEFT);
 
-        //syncText.prefWidthProperty().bind(bottomBox.widthProperty().subtract(ipText.layoutBoundsProperty().get().getWidth()).subtract(botTimeText.layoutBoundsProperty().get().getWidth()));
+        //centerText.prefWidthProperty().bind(bottomBox.widthProperty().subtract(ipText.layoutBoundsProperty().get().getWidth()).subtract(botTimeText.layoutBoundsProperty().get().getWidth()));
         HBox.setHgrow(bottomBox, Priority.ALWAYS);
 
         VBox bodyBox = new VBox(topSpacer, topBox, centerBox, bottomBox, bottomSpacer);
@@ -1837,7 +1884,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         Runnable updateSynced = () -> {
             String status = statusProperty.get() == null ? ErgoMarketsData.STOPPED : statusProperty.get();
-            syncText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
+            centerText.setFill(syncedProperty.get() ? getPrimaryColor() : getSecondaryColor());
             if (!status.equals(ErgoMarketsData.STOPPED)) {
 
                
@@ -1846,24 +1893,46 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     long networkBlockHeight = networkBlockHeightProperty.get();
                     long nodeBlockHeight = nodeBlockHeightProperty.get();
 
-                    if (!synced) {
-                        //  double p = (networkBlockHeight / nodeBlockHeight);
-                        //if (networkBlockHeight == -1 || nodeBlockHeight == -1) {
-                        //    syncText.setText("Updating sync status...");
-                        //  } else {
+                    if (networkBlockHeight != nodeBlockHeight) {
+                        if(synced){
+                            botMidText.setFill(getSecondaryColor());
+                            syncedProperty.set(false);
+                        }
+                       
 
-                        syncText.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) );
+                        if(networkBlockHeight == -1){
+                            centerText.setText("Starting up...");
+                        }else{
+                            
+                            if(nodeBlockHeight == -1){
+                                int seconds =  (SYNC_TIMEOUT_CYCLE - m_isSyncStuck.get()); 
+                                centerText.setText("Finding next block... " + (m_isSyncStuck.get() > 2 ? ("(Timeout: " + seconds +"s)") : ""));
+                                
+                            }else{
+                                //botMidText.setText("Height: " + nodeBlockHeight);
+                        
+                                centerText.setText("Syncing: " +nodeBlockHeight + "/" + networkBlockHeight);
+                            }
+                            
+                        }
+                    
 
                         //+ " (" + String.format("%.1f", p * 100) + ")");
                         // }
                     } else {
-                        syncText.setText("Synchronized: " + nodeBlockHeight );
+                        if(!syncedProperty.get()){
+                            syncedProperty.set(true);
+                           
+                        }
+                        centerText.setText("Ready" );
+                        botMidText.setText("Synchronized: " + nodeBlockHeight);
+                        botMidText.setFill(getPrimaryColor());
                     }
-                    topRightText.setText("Peers: " + peerCount + " ");
+                    topRightText.setText("Peers: " + (peerCount == -1 ? 0 : peerCount) + " ");
             } else {
  
                     
-                syncText.setText(getIsSetup() ? "Offline" : "(Not Installed)");
+                centerText.setText(getIsSetup() ? "Offline" : "(Not Installed)");
     
             }
 
@@ -1873,8 +1942,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         nodeBlockHeightProperty.addListener((obs, oldVal, newVal) -> updateSynced.run());
         networkBlockHeightProperty.addListener((obs, oldval, newVal) -> updateSynced.run());
         statusProperty.addListener((obs, oldval, newval) -> updateSynced.run());
-        syncedProperty.addListener((obs,oldval,newval)->updateSynced.run());
-
+        statusString.addListener((obs,oldval,newval)->updateSynced.run());
         updateSynced.run();
 
         rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
@@ -1898,7 +1966,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public HBox getRowItem() {
 
         Tooltip defaultIdTip = new Tooltip(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? "Default Node" : "Set default");
-
+        defaultIdTip.setShowDelay(new Duration(100));
         BufferedButton defaultIdBtn = new BufferedButton(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? getRadioOnUrl() : getRadioOffUrl(), 15);
         defaultIdBtn.setTooltip(defaultIdTip);
         defaultIdBtn.setOnAction(e->{
@@ -2131,10 +2199,24 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         //    syncText.setText("Updating sync status...");
                         //  } else {
 
-                        syncText.setText((nodeBlockHeight == -1 ? "Getting block height..." : nodeBlockHeight) + " / " + (networkBlockHeight == -1 ? "Getting: Network height..." : networkBlockHeight) + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                       
 
-                        //+ " (" + String.format("%.1f", p * 100) + ")");
-                        // }
+                        if(nodeBlockHeight == -1 || networkBlockHeight == -1){
+                                syncText.setText("Getting information..."+ (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                            }else{
+                                if(nodeBlockHeight == -1){
+                                    int seconds =  (SYNC_TIMEOUT_CYCLE - m_isSyncStuck.get()); 
+                                    syncText.setText( (m_isSyncStuck.get() > 2 ? ("Sync Timeout: " + seconds +"s") : "") + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                                    if(m_isSyncStuck.get() == -1){
+                                        m_isSyncStuck.set(1);
+                                    }
+                                }else{
+                                    m_isSyncStuck.set(-1);
+                                    double percent = (nodeBlockHeight / networkBlockHeight) * 100;
+                                     syncText.setText( nodeBlockHeight + " / " + networkBlockHeight + " (" +String.format("%.1f",percent)+"%)"+ (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                                }
+                               
+                            }
                     } else {
                         syncText.setText("Synchronized: " + nodeBlockHeight + (peerCount > 0 ? "   Peers: " + peerCount : ""));
                     }

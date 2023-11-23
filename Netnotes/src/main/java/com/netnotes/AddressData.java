@@ -404,7 +404,7 @@ public class AddressData extends Network {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            Tooltip sendTip = new Tooltip("Select address");
+            Tooltip sendTip = new Tooltip("Send");
             sendTip.setShowDelay(new javafx.util.Duration(100));
 
             BufferedButton sendButton = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);

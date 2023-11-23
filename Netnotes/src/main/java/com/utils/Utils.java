@@ -1357,7 +1357,6 @@ public class Utils {
               //  gotInput = true;
                 psInput.trim();
                 if(!psInput.equals("") && !psInput.startsWith("ProcessId") && !psInput.startsWith("---------")){
-                    Files.writeString(new File("psPID.txt").toPath(), "\nps:" + psInput, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     
                     pids.add(psInput);
                 }
@@ -1366,7 +1365,7 @@ public class Utils {
             String  pserr = null;
             while ((pserr = psStderr.readLine()) != null) {
                 try {
-                    Files.writeString(new File("psPID.txt").toPath(), "\npsPID err: " + pserr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(new File("netnotes-log.txt").toPath(), "\npsPID err: " + pserr, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
                 
                 }
@@ -1388,7 +1387,7 @@ public class Utils {
 
         } catch (Exception e) {
               try {
-                Files.writeString(new File("psPID.txt").toPath(), "\npsPID: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(new File("netnotes-log.txt").toPath(), "\npsPID: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
              
             }
@@ -1404,6 +1403,22 @@ public class Utils {
             //Get-Process | Where {$_.ProcessName -Like "SearchIn*"}
          //   String[] wmicCmd = {"powershell", "Get-Process", "|", "Where", "{$_.ProcessName", "-Like", "'*" +  jarname+ "*'}"};
             Process psProc = Runtime.getRuntime().exec("powershell stop-process -id " + pid );
+
+
+            psProc.waitFor();
+
+
+
+        } catch (Exception e) {
+            
+        }
+   
+    }
+
+     public static void cmdTaskKill(String pid){
+          try {
+
+            Process psProc = Runtime.getRuntime().exec("cmd /c taskkill /PID " + pid );
 
 
             psProc.waitFor();

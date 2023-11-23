@@ -11,17 +11,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
-
 
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.InputBoxesSelectionException;
 import org.ergoplatform.appkit.NetworkType;
 import org.ergoplatform.appkit.Parameters;
+import org.ergoplatform.appkit.RestApiErgoClient;
 import org.ergoplatform.appkit.SignedTransaction;
 import org.ergoplatform.appkit.UnsignedTransaction;
+import org.ergoplatform.appkit.ErgoToken;
 
 import com.google.gson.JsonObject;
 
@@ -29,7 +28,7 @@ import com.satergo.Wallet;
 import com.satergo.WalletKey;
 import com.satergo.WalletKey.Failure;
 import com.satergo.ergo.ErgoInterface;
-import com.utils.Utils;
+
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -981,10 +980,10 @@ public class AddressesData {
 
         BufferedButton sendBtn = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 30);
         sendBtn.setFont(App.txtFont);
-       
+        sendBtn.setId("toolBtn");
         sendBtn.setUserData("sendButton");
         sendBtn.setContentDisplay(ContentDisplay.LEFT);
-        sendBtn.setPadding(new Insets(3, 15, 3, 15));
+        sendBtn.setPadding(new Insets(3, 15, 3, 5));
         sendBtn.setOnAction(e -> {
             requiredErgoNodes.run();
             if(m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) != null){
@@ -1032,10 +1031,10 @@ public class AddressesData {
 
 
         HBox sendBox = new HBox(sendBtn);
-        sendBox.setPrefHeight(80);
-        sendBox.setPadding(new Insets(0,30,0,15));
+        VBox.setVgrow(sendBox, Priority.ALWAYS);
+        sendBox.setPadding(new Insets(0,30,8,15));
         sendBox.setAlignment(Pos.CENTER_RIGHT);
-        
+
         HBox ergoAmountPaddingBox = new HBox(ergoAmountBox);
         ergoAmountPaddingBox.setId("bodyBox");
         ergoAmountPaddingBox.setPadding(new Insets(10,10,0,10));
@@ -1069,7 +1068,7 @@ public class AddressesData {
         nodeStatusBox.prefWidthProperty().bind(bottomScroll.prefViewportWidthProperty().subtract(20));
         
         HBox.setHgrow(footerBox, Priority.ALWAYS);
-        footerBox.setPadding(new Insets(10,30,10,15));
+        footerBox.setPadding(new Insets(5,30,0,5));
         footerBox.setAlignment(Pos.CENTER_LEFT);
 
         HBox paddingBox = new HBox(menuBar);
@@ -1091,12 +1090,7 @@ public class AddressesData {
         return sendScene;
     }
 
-    private String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
-        return ergoClient.execute(ctx -> {
-            String quoted = ctx.sendTransaction(signedTx);
-            return quoted.substring(1, quoted.length() - 1);
-        });
-    }
+
 
     public JsonObject getErgoClientObject(String nodeId) {
         JsonObject jsonObject = new JsonObject();
@@ -1106,53 +1100,5 @@ public class AddressesData {
         return jsonObject;
     }
 
-    private boolean sendErg(long nanoErg, String receipientAddress, Address senderAddress, long fee, String nodeId, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
-        if (receipientAddress != null && senderAddress != null && nodeId != null && fee >= Parameters.MinFee) {
-            NoteInterface nodeInterface = m_walletData.getNodeInterface();
-            if (nodeInterface != null) {
-                return nodeInterface.sendNote(getErgoClientObject(nodeId), (successEvent) -> {
-                    WorkerStateEvent workerEvent = successEvent;
-                    Object sourceObject = workerEvent.getSource().getValue();
-                    if (sourceObject != null) {
-                        ErgoClient ergoClient = (ErgoClient) sourceObject;
-                        String txId = null;
-
-                        JsonObject txInfoJson = new JsonObject();
-                        txInfoJson.addProperty("fee", fee);
-                        txInfoJson.addProperty("nanoErg", nanoErg);
-                        txInfoJson.addProperty("receipientAddress", receipientAddress);
-                        txInfoJson.addProperty("returnAddress", senderAddress.toString());
-                        txInfoJson.addProperty("nodeId", nodeId);
-                        try {
-
-                            UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(ergoClient,
-                                    m_wallet.addressStream(m_networkType).toList(),
-                                    Address.create(receipientAddress), nanoErg, fee, senderAddress);
-
-                            txId = transact(ergoClient, ergoClient.execute(ctx -> {
-                                try {
-                                    return m_wallet.key().sign(ctx, unsignedTx, m_wallet.myAddresses.keySet());
-                                } catch (WalletKey.Failure ex) {
-
-                                    txInfoJson.addProperty("unauthorized", ex.toString());
-                                    return null;
-                                }
-                            }));
-
-                            // if (txId != null) Utils.textDialogWithCopy(Main.lang("transactionId"), txId);
-                        } catch (InputBoxesSelectionException ibsEx) {
-                            txInfoJson.addProperty("insufficientFunds", ibsEx.toString());
-                        }
-                        if (txId != null) {
-                            txInfoJson.addProperty("txId", txId);
-                        }
-
-                        Utils.returnObject(txInfoJson, onSuccess, null);
-                    }
-                }, onFailed);
-            }
-        }
-        return false;
-    }
 
 }
