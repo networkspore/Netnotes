@@ -224,7 +224,7 @@
 }
 
 #amountMenuBtn {
-    -fx-padding: 0;
+   -fx-padding: 2 4 2 4;
     -fx-opacity: .3;
     -fx-shape: "...";
     -fx-background-color: transparent;
@@ -515,7 +515,7 @@
 }
 
 #menuBtn {
-    -fx-padding: 2 4 2 4;
+    -fx-padding: 0;
     -fx-background-color: transparent;
     -fx-opacity: .6;
 }
@@ -543,7 +543,7 @@
 
 
 .menu-button {
-    -fx-padding: 0;
+    -fx-padding: 2 4 2 4;
     -fx-opacity: .7;
     -fx-shape: "...";
     -fx-background-color: transparent;
@@ -562,9 +562,9 @@
 
 .menu-button .label:hover {
     -fx-text-fill: #FFFFFF;
-    -fx-background-color: #33333360;
+    -fx-background-color: transparent;
     -fx-opacity: 1;
-
+    
 
 }
 

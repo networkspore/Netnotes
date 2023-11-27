@@ -928,20 +928,39 @@ public class AddressesData {
         Tooltip addTokenBtnTip = new Tooltip("Add Token");
         addTokenBtnTip.setShowDelay(new Duration(100));
 
-        AmountMenuButton addTokenBtn = new AmountMenuButton("/assets/add-outline-white-40.png", 20);
-        addTokenBtn.setAlignment(Pos.CENTER);
+        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png", 20);
         addTokenBtn.setTooltip(addTokenBtnTip);
-        addTokenBtn.setPadding(new Insets(2,0,2,0));
-        addTokenBtn.setNullDisable(true);
-        addTokenBtn.addressDataProperty().bind(m_selectedAddressData);
+      
 
-        BufferedButton deleteTokenBtn = new BufferedButton();
+        Tooltip addAllTokenBtnTip = new Tooltip("Add All Tokens");
+        addAllTokenBtnTip.setShowDelay(new Duration(100));
+        
+        BufferedButton addAllTokenBtn = new BufferedButton("/assets/add-all-30.png", 20);
+        addAllTokenBtn.setTooltip(addAllTokenBtnTip);
 
-        HBox amountRightSideBox = new HBox(addTokenBtn);
+
+        Tooltip removeTokenBtnTip = new Tooltip("Remove Token");
+        removeTokenBtnTip.setShowDelay(new Duration(100));
+
+
+        BufferedMenuButton removeTokenBtn = new BufferedMenuButton("/assets/remove-30.png", 20);
+        removeTokenBtn.setTooltip(removeTokenBtnTip);
+
+   
+        Tooltip removeAllTokenBtnTip = new Tooltip("Remove All Tokens");
+        removeAllTokenBtnTip.setShowDelay(new Duration(100));
+
+
+        BufferedButton removeAllTokenBtn = new BufferedButton("/assets/remove-all-30.png", 20);
+        removeAllTokenBtn.setTooltip(removeAllTokenBtnTip);
+
+  
+
+        HBox amountRightSideBox = new HBox(addTokenBtn, addAllTokenBtn, removeTokenBtn, removeAllTokenBtn) ;
         amountRightSideBox.setPadding(new Insets(0));
         amountRightSideBox.setAlignment(Pos.BOTTOM_RIGHT);
         VBox.setVgrow(amountRightSideBox, Priority.ALWAYS);
-        amountRightSideBox.setId("bodyBox");
+ 
     //    HBox.setHgrow(amountRightSideBox,Priority.ALWAYS);
 
 
@@ -973,14 +992,99 @@ public class AddressesData {
        // addTokenBtn.setOnAction(e->addTokenBtn.show());
 
         AmountBoxes amountBoxes = new AmountBoxes();
-        amountBoxes.setPadding(new Insets(10,0,10,0));
+        amountBoxes.setPadding(new Insets(10,10,10,0));
 
         amountBoxes.setAlignment(Pos.TOP_LEFT);
      //   amountBoxes.setLastRowItem(addTokenBtn, AmountBoxes.ADD_AS_LAST_ROW);
         amountBoxes.setId("bodyBox");
+      //  addTokenBtn.setAmountBoxes(amountBoxes);
 
+        addTokenBtn.addEventFilter(MouseEvent.MOUSE_PRESSED, e->{
+            addTokenBtn.getItems().clear();
+           //addTokenBtn.getItems().add(new MenuItem("bob"));
+            
+            AddressData addressData = m_selectedAddressData.get();
+            if(addressData != null){
+            
+          
+                long balanceTimestamp = System.currentTimeMillis();
+                int size = addressData.getConfirmedTokenList().size();
+                PriceAmount[] tokenArray = size > 0 ? new PriceAmount[size] : null;
+                tokenArray = tokenArray != null ? addressData.getConfirmedTokenList().toArray(tokenArray) : null;
+                if(tokenArray != null){
+                    for(int i = 0; i < size ; i ++){
+                        PriceAmount tokenAmount = tokenArray[i];
+                        String tokenId = tokenAmount.getTokenId();
+                        boolean exists = amountBoxes.getAmountBox(tokenId) != null;
+                        if(!exists){
+                            AmountMenuItem menuItem = new AmountMenuItem(tokenAmount);
+                            addTokenBtn.getItems().add(menuItem);
+                            menuItem.setOnAction(e1->{
+                                PriceAmount menuItemPriceAmount = menuItem.priceAmountProperty().get();
+                                PriceCurrency menuItemPriceCurrency = menuItemPriceAmount.getCurrency();
+                                AmountSendBox newAmountSendBox = new AmountSendBox(new PriceAmount(0, menuItemPriceCurrency), sendScene, true);
+                                newAmountSendBox.balanceAmountProperty().set(menuItemPriceAmount);
+                                newAmountSendBox.setTimeStamp(balanceTimestamp);
+                            });
+                   
+                        }
+                    }
+                }
+            }
+            
     
-        addTokenBtn.setAmountBoxes(amountBoxes);
+        });
+
+        addAllTokenBtn.setOnAction(e->{
+            AddressData addressData = m_selectedAddressData.get();
+            if(addressData != null){
+            
+                ArrayList<PriceAmount> tokenList = addressData.getConfirmedTokenList();
+                long timeStamp = System.currentTimeMillis();
+
+                for(int i = 0; i < tokenList.size() ; i ++){
+                    PriceAmount tokenAmount = tokenList.get(i);
+                    String tokenId = tokenAmount.getTokenId();
+                    AmountSendBox existingTokenBox = (AmountSendBox) amountBoxes.getAmountBox(tokenId);
+                    if(existingTokenBox == null){
+                        PriceCurrency tokenCurrency = tokenAmount.getCurrency();
+                        AmountSendBox tokenAmountBox = new AmountSendBox(new PriceAmount(0, tokenCurrency), sendScene, true);
+                        tokenAmountBox.balanceAmountProperty().set(tokenAmount);
+                        tokenAmountBox.setTimeStamp(timeStamp);
+                        amountBoxes.add(tokenAmountBox);
+                    }else{
+                        existingTokenBox.setTimeStamp(timeStamp);
+                        existingTokenBox.balanceAmountProperty().set(tokenAmount);
+                    }
+                }
+            }
+        });
+
+        removeTokenBtn.addEventFilter(MouseEvent.MOUSE_PRESSED, e->{
+   
+            removeTokenBtn.getItems().clear();
+            int size = amountBoxes.amountsList().size();
+            if(size > 0){
+                AmountBox[] boxArray = new AmountBox[size];
+                boxArray = amountBoxes.amountsList().toArray(boxArray);
+                
+                for(int i = 0; i < size ; i ++){
+                    AmountBox tokenBox = boxArray[i];
+                    PriceAmount tokenAmount = tokenBox.priceAmountProperty().get();
+                    AmountMenuItem removeAmountItem = new AmountMenuItem(tokenAmount);
+                    removeAmountItem.setOnAction(e1->{
+                        String tokenId = removeAmountItem.getTokenId();
+                        amountBoxes.removeAmountBox(tokenId);
+                    });
+                    removeTokenBtn.getItems().add(removeAmountItem);
+                }
+            }
+            
+        });
+
+        removeAllTokenBtn.setOnAction(e->{
+            amountBoxes.clear();
+        });
 
         Runnable updateErgoMaxBalance = ()->{
             AddressData addressData = m_selectedAddressData.get();
