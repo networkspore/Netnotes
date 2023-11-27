@@ -927,14 +927,14 @@ public class AddressesData {
         Tooltip addTokenBtnTip = new Tooltip("Add Token");
         addTokenBtnTip.setShowDelay(new Duration(100));
 
-        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png",18);
+        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png",20);
         addTokenBtn.setTooltip(addTokenBtnTip);
       
 
         Tooltip addAllTokenBtnTip = new Tooltip("Add All Tokens");
         addAllTokenBtnTip.setShowDelay(new Duration(100));
         
-        BufferedButton addAllTokenBtn = new BufferedButton("/assets/add-all-30.png", 24);
+        BufferedButton addAllTokenBtn = new BufferedButton("/assets/add-all-30.png", 20);
         addAllTokenBtn.setTooltip(addAllTokenBtnTip);
 
 
@@ -942,7 +942,7 @@ public class AddressesData {
         removeTokenBtnTip.setShowDelay(new Duration(100));
 
 
-        BufferedMenuButton removeTokenBtn = new BufferedMenuButton("/assets/remove-30.png", 18);
+        BufferedMenuButton removeTokenBtn = new BufferedMenuButton("/assets/remove-30.png", 20);
         removeTokenBtn.setTooltip(removeTokenBtnTip);
 
    
@@ -950,7 +950,7 @@ public class AddressesData {
         removeAllTokenBtnTip.setShowDelay(new Duration(100));
 
 
-        BufferedButton removeAllTokenBtn = new BufferedButton("/assets/remove-all-30.png", 24);
+        BufferedButton removeAllTokenBtn = new BufferedButton("/assets/remove-all-30.png", 20);
         removeAllTokenBtn.setTooltip(removeAllTokenBtnTip);
 
         HBox amountBoxesButtons = new HBox(addTokenBtn, addAllTokenBtn, removeTokenBtn, removeAllTokenBtn);
@@ -1175,7 +1175,7 @@ public class AddressesData {
         sendBtn.setId("toolBtn");
         sendBtn.setUserData("sendButton");
         sendBtn.setContentDisplay(ContentDisplay.LEFT);
-        sendBtn.setPadding(new Insets(3, 15, 3, 5));
+        sendBtn.setPadding(new Insets(5, 10, 3, 5));
         sendBtn.setOnAction(e -> {
             requiredErgoNodes.run();
             if(m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) != null){
@@ -1224,7 +1224,7 @@ public class AddressesData {
 
         HBox sendBox = new HBox(sendBtn);
         VBox.setVgrow(sendBox, Priority.ALWAYS);
-        sendBox.setPadding(new Insets(0,30,8,15));
+        sendBox.setPadding(new Insets(0,0,8,15));
         sendBox.setAlignment(Pos.CENTER_RIGHT);
 
         HBox ergoAmountPaddingBox = new HBox(ergoAmountBox);

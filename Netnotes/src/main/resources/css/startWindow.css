@@ -517,7 +517,7 @@
 }
 
 #menuBtn {
-    -fx-padding: 2 4 2 4;
+    -fx-padding: 4 3 4 3;
     -fx-background-color: transparent;
     -fx-opacity: .8;
 }
@@ -545,7 +545,7 @@
 
 
 .menu-button {
-    -fx-padding: 2 4 2 4;
+    -fx-padding: 5 2 0 2;
     -fx-opacity: .8;
     -fx-shape: "...";
     -fx-background-color: transparent;
