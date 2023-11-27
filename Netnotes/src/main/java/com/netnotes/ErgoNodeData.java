@@ -232,7 +232,7 @@ public class ErgoNodeData {
         currencySpacer.setMinWidth(10);
 
         HBox centerFieldBox = new HBox(centerField);
-        centerFieldBox.setAlignment(Pos.CENTER_LEFT);
+        centerFieldBox.setAlignment(Pos.CENTER);
         HBox.setHgrow(centerFieldBox, Priority.ALWAYS);
 
         HBox centerBox = new HBox(centerFieldBox, centerRightBox);
@@ -257,6 +257,7 @@ public class ErgoNodeData {
         HBox.setHgrow(topMiddleRegion, Priority.ALWAYS);
 
         HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
+        topBox.setPadding(new Insets(0,5,0,5));
      //   topBox.setId("darkBox");
 
         Text ipText = new Text(namedNodeUrlProperty.get() != null ? (namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : namedNodeUrlProperty.get().getUrlString()) : "Configure node");
@@ -269,19 +270,20 @@ public class ErgoNodeData {
         HBox bottomBox = new HBox(ipText, bottomMiddleRegion, botTimeText);
       //  bottomBox.setId("darkBox");
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-
+        bottomBox.setPadding(new Insets(0,5,0,5));
         HBox.setHgrow(bottomBox, Priority.ALWAYS);
 
         VBox bodyBox = new VBox(topSpacer, topBox, centerBox, bottomBox, bottomSpacer);
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
 
         HBox contentsBox = new HBox( bodyBox);
+        contentsBox.setPadding(new Insets(0,5,0,5));
        // contentsBox.setId("rowBox");
         HBox.setHgrow(contentsBox, Priority.ALWAYS);
 
-        contentsBox.setMouseTransparent(true);
+       
         start();
-        contentsBox.setId("blackBox");
+        contentsBox.setId("bodyRowBox");
         return contentsBox;
     }
 

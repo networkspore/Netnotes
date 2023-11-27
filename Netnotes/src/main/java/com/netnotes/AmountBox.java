@@ -453,9 +453,9 @@ public class AmountBox extends HBox {
         BigInteger integers = priceAmount != null ? priceAmount.getBigDecimalAmount().toBigInteger() : BigInteger.ZERO;
         BigDecimal decimals = priceAmount != null ? priceAmount.getBigDecimalAmount().subtract(new BigDecimal(integers)) : BigDecimal.ZERO;
         int decimalPlaces = priceAmount != null ? priceAmount.getCurrency().getFractionalPrecision() : 0;
-        String cryptoName = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "UKNOWN";
-        int space = cryptoName.indexOf(" ");
-        cryptoName = space != -1 ? cryptoName.substring(0, space) : cryptoName;
+        String currencyName = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "UKNOWN";
+        int space = currencyName.indexOf(" ");
+        currencyName = space != -1 ? currencyName.substring(0, space) : currencyName;
 
         String currencyPrice = priceValid && priceQuote != null ? priceQuote.toString() : "-.--";
 
@@ -494,16 +494,16 @@ public class AmountBox extends HBox {
         integersX = integersX < 130 ? 130 : integersX;
         int decimalsX = integersX + stringWidth + 1;
 
-       // int cryptoNameStringWidth = fm.stringWidth(cryptoName);
+       // int currencyNameStringWidth = fm.stringWidth(currencyName);
         int decsWidth = fm.stringWidth(decs);
+        int currencyNameWidth = fm.stringWidth(currencyName);
 
-        int width = decimalsX + stringWidth + decsWidth + (padding * 2)+40;
-        int widthIncrease = width;
+        int width = decimalsX + stringWidth + (decsWidth < currencyNameWidth ? currencyNameWidth : decsWidth) + (padding * 2)+40;
+       
         width = width < m_minImgWidth ? m_minImgWidth : width;
 
-        widthIncrease = width - widthIncrease;
-
-        int cryptoNameStringX = decimalsX + 2;
+       
+        int currencyNameStringX = decimalsX + 2;
 
         g2d.dispose();
         
@@ -557,7 +557,7 @@ public class AmountBox extends HBox {
         }
 
         
-        g2d.drawString(cryptoName, cryptoNameStringX, height - 10);
+        g2d.drawString(currencyName, currencyNameStringX, height - 10);
 
         g2d.setFont(smallFont);
         g2d.setColor(java.awt.Color.WHITE);

@@ -249,9 +249,9 @@ public class AmountSendBox extends AmountBox {
         BigInteger integers = balanceAmount != null ? balanceAmount.getBigDecimalAmount().toBigInteger() : BigInteger.ZERO;
         BigDecimal decimals = balanceAmount != null ? balanceAmount.getBigDecimalAmount().subtract(new BigDecimal(integers)) : BigDecimal.ZERO;
         int decimalPlaces = balanceAmount != null ? balanceAmount.getCurrency().getFractionalPrecision() : 0;
-        String cryptoName = balanceAmount != null ? balanceAmount.getCurrency().getSymbol() : "UKNOWN";
-        int space = cryptoName.indexOf(" ");
-        cryptoName = space != -1 ? cryptoName.substring(0, space) : cryptoName;
+        String currencyName = balanceAmount != null ? balanceAmount.getCurrency().getSymbol() : "UKNOWN";
+        int space = currencyName.indexOf(" ");
+        currencyName = space != -1 ? currencyName.substring(0, space) : currencyName;
 
      
 
@@ -289,16 +289,14 @@ public class AmountSendBox extends AmountBox {
       
         int decimalsX = integersX + stringWidth + 1;
 
-       // int cryptoNameStringWidth = fm.stringWidth(cryptoName);
-        int decsWidth = fm.stringWidth(decs);
+       // int currencyNameStringWidth = fm.stringWidth(currencyName);
+        int decsWidth = decs.equals("") ? 0 : fm.stringWidth(decs);
+        int currencyNameWidth = fm.stringWidth(currencyName);
 
-        int width = decimalsX + stringWidth + decsWidth + (padding * 2) + padding + maxWidth;
-        int widthIncrease = width;
-        
+        int width = decimalsX + stringWidth + (decsWidth < currencyNameWidth ? currencyNameWidth : decsWidth) + (padding * 2) + padding + maxWidth;
+  
 
-        widthIncrease = width - widthIncrease;
-
-        int cryptoNameStringX = decimalsX + 2;
+        int currencyNameStringX = decimalsX + 2;
 
         g2d.dispose();
         
@@ -328,7 +326,7 @@ public class AmountSendBox extends AmountBox {
         }
          #ffffff05, #66666680, #ffffff05*/
          Drawing.fillArea(img, 0xff000000, 0, 0, width,height);
-        Drawing.drawBar(1, 0x30ffffff, 0x60666666,img, 0, 0, width/2, height/2);
+        Drawing.drawBar(1, 0x30ffffff, 0x60666666,img, 0, 0, width, height/2);
 
   
 
@@ -357,7 +355,7 @@ public class AmountSendBox extends AmountBox {
         }
 
         
-        g2d.drawString(cryptoName, cryptoNameStringX, height - 10);
+        g2d.drawString(currencyName, currencyNameStringX, height - 10);
         // ((height - fm.getHeight()) / 2) + fm.getAscent())
         g2d.setColor(Color.WHITE);
         g2d.drawString(maxString, width - ((padding*2) + maxWidth),  ((height - fm.getHeight()) / 2) + fm.getAscent());

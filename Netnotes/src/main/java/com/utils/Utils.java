@@ -59,9 +59,11 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.URLConnection;
 
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
@@ -1431,6 +1433,24 @@ public class Utils {
    
     }
 
+
+    public static int findMenuItemIndex(ObservableList<MenuItem> list, String id){
+        if(id != null){
+            for(int i = 0; i < list.size() ; i++){
+                MenuItem menuItem = list.get(i);
+                Object userData = menuItem.getUserData();
+
+                if(userData != null && userData instanceof String){
+                    String menuItemId = (String) userData;
+                    if(menuItemId.equals(id)){
+                        return i;
+                    }
+                }
+            }
+        }
+
+        return -1;
+    }
 
     public static boolean wmicTerminate(String jarName) {
         try {

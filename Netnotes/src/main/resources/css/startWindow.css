@@ -143,18 +143,27 @@
   
 }
 
+#bodyRowBox {
+    -fx-text-fill: white;
+    -fx-background-color: #33333350;
+    -fx-opacity:.9;
+    -fx-cursor:hand;
+    -fx-alignment: center-left;
+}
 
+#bodyRowBox:hover{
+    -fx-opacity:1;
+}
 
 #darkRowBox {
     -fx-background-color: #111111;
     -fx-border-color: transparent;
-    -fx-border-width: 0;
-    -fx-opacity: .9;
+
 }
 
 #darkRowBox:hover {
     -fx-opacity: 1;
-
+    -fx-background-color:#151515;
 }
 
 
@@ -409,6 +418,7 @@
 #transparentColor {
     -fx-background-color: transparent;
 }
+
 #whiteColor {
     -fx-background-color: white;
 }
@@ -544,7 +554,7 @@
 }
 
 .menu-button .label{
-    -fx-text-fill: #777777;
+    -fx-text-fill: white;
     -fx-font-family: 'OCR A Extended';
     -fx-font-size: 14px;
     -fx-padding: 0;
@@ -577,8 +587,8 @@
 
 
 .menu-item .label{
-    -fx-text-fill: #777777;
-    -fx-opacity: 0.6;
+    -fx-text-fill: white;
+    -fx-opacity: 0.9;
 }
 
 .menu-item:hover {

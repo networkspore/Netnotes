@@ -23,7 +23,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
-
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 
@@ -54,10 +54,17 @@ public class AddressBox extends HBox {
         m_addressInformation.set(addressInformation);
         
         Button addressBtn = new Button();
-        addressBtn.setId("amountBtn");
+        addressBtn.setId("transparentColor");
         addressBtn.setContentDisplay(ContentDisplay.LEFT);
         addressBtn.setAlignment(Pos.CENTER_LEFT);
         addressBtn.setPadding(new Insets(0));
+        addressBtn.setMouseTransparent(true);
+
+        addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+            if(getChildren().contains(addressBtn)){
+                addressBtn.fire();
+            }
+        });
         //addressBtn.setGraphicTextGap(25);
 
         m_imgBuffer.addListener((obs,oldval,newval)-> {
@@ -65,7 +72,6 @@ public class AddressBox extends HBox {
                 addressBtn.setGraphic(IconButton.getIconView(newval, newval.getWidth()));
             }
         });
-
 
         setAlignment(Pos.CENTER_LEFT);
 
@@ -142,7 +148,7 @@ public class AddressBox extends HBox {
  
         getChildren().add(addressBtn);
 
-        addressBtn.prefWidthProperty().bind(this.widthProperty());
+       
 
         Runnable setNotFocused = () ->{
             if (getChildren().contains(enterButton)) {

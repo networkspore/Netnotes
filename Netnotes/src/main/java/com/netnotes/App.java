@@ -102,7 +102,7 @@ public class App extends Application {
     public static Color altColor = Color.web("#777777");
     public static Color formFieldColor = new Color(.8, .8, .8, .9);
 
-    public static Image icon = new Image("/assets/icon20.png");
+    public static Image icon = new Image("/assets/icon15.png");
     public static Image logo = new Image("/assets/icon256.png");
     public static Image ergoLogo = new Image("/assets/ergo-network.png");
     public static Image waitingImage = new Image("/assets/spinning.gif");

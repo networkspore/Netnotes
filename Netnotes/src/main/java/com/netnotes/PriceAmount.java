@@ -41,10 +41,13 @@ public class PriceAmount {
         m_created = LocalDateTime.now();
     }
 
-  public void setBigDecimalAmount(BigDecimal amount) {
+    public void setBigDecimalAmount(BigDecimal amount) {
         m_amount = amount;
     }
 
+    public String getTokenId(){
+        return m_currency.getTokenId();
+    }
     
     public BigDecimal getBigDecimalAmount(){
         return m_amount;
