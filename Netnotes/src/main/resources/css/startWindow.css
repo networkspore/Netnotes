@@ -151,6 +151,8 @@
     -fx-alignment: center-left;
 }
 
+
+
 #bodyRowBox:hover{
     -fx-opacity:1;
 }
@@ -515,9 +517,9 @@
 }
 
 #menuBtn {
-    -fx-padding: 0;
+    -fx-padding: 2 4 2 4;
     -fx-background-color: transparent;
-    -fx-opacity: .6;
+    -fx-opacity: .8;
 }
 
 #menuBtn:hover {
@@ -544,7 +546,7 @@
 
 .menu-button {
     -fx-padding: 2 4 2 4;
-    -fx-opacity: .7;
+    -fx-opacity: .8;
     -fx-shape: "...";
     -fx-background-color: transparent;
     -fx-background-radius: 0 0 0 0;
@@ -557,7 +559,7 @@
     -fx-text-fill: white;
     -fx-font-family: 'OCR A Extended';
     -fx-font-size: 14px;
-    -fx-padding: 0;
+   
 }
 
 .menu-button .label:hover {
@@ -716,6 +718,11 @@
     -fx-background-radius: 20 0 0 20;
 }
 
+#bodyBoxMenu {
+    -fx-background-color: linear-gradient(to top, #33333350, #33333350 75%, #66666650);
+    -fx-border-radius: 4 4 0 0;
+    -fx-background-radius: 4 4 0 0;
+}
 
 #bodyBox {
     -fx-background-color: #33333350;

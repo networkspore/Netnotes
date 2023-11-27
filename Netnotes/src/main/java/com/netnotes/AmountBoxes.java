@@ -131,10 +131,16 @@ public class AmountBoxes extends VBox {
 
     public void removeAmountBox(String tokenId){
         if(tokenId != null){
-            for(int i = 0; i < m_amountsList.size(); i++){
-                AmountBox amountBox = m_amountsList.get(i);
-                if(amountBox.getTokenId().equals(tokenId)){
-                    m_amountsList.remove(i);
+            int size = m_amountsList.size();
+            AmountBox[] amountBoxes = new AmountBox[size];
+            amountBoxes = m_amountsList.toArray(amountBoxes);
+
+            for(int i = 0; i < size; i++){
+                AmountBox amountBox = amountBoxes[i];
+                String amountBoxTokenId = amountBox.getTokenId();
+
+                if(amountBoxTokenId != null && amountBox.getTokenId().equals(tokenId)){
+                    m_amountsList.remove(amountBox);
                     break;
                 }
             }
@@ -143,9 +149,15 @@ public class AmountBoxes extends VBox {
 
     public AmountBox getAmountBox(String tokenId){
         if(tokenId != null){
-            for(int i = 0; i < m_amountsList.size(); i++){
-                AmountBox amountBox = m_amountsList.get(i);
-                if(amountBox.getTokenId().equals(tokenId)){
+            int size = m_amountsList.size();
+            AmountBox[] amountBoxes = new AmountBox[size];
+            amountBoxes = m_amountsList.toArray(amountBoxes);
+
+            for(int i = 0; i < size; i++){
+                AmountBox amountBox = amountBoxes[i];
+                String amountBoxTokenId = amountBox.getTokenId();
+
+                if(amountBoxTokenId != null && amountBoxTokenId.equals(tokenId)){
                     return amountBox;
                 }
             }

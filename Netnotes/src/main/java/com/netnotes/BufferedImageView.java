@@ -19,7 +19,9 @@ public class BufferedImageView extends ImageView {
     }
 
     public BufferedImageView(Image image, double imageWidth) {
-        this(image, false);
+        super(image);
+        m_img = image;
+        setPreserveRatio(true);
         setFitWidth(imageWidth);
 
     }

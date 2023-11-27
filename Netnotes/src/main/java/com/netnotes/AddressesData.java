@@ -739,7 +739,7 @@ public class AddressesData {
         Image nullAddressImg = new Image(nullAddressImageString);
 
         MenuButton fromAddressBtn = new MenuButton();
-        fromAddressBtn.setMinHeight(50);
+        fromAddressBtn.setMaxHeight(40);
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
@@ -816,7 +816,6 @@ public class AddressesData {
         HBox.setHgrow(fromRowBox, Priority.ALWAYS);
         fromRowBox.setAlignment(Pos.CENTER_LEFT);
         fromRowBox.setId("bodyRowBox");
-      
         fromRowBox.setPadding(new Insets(0));
 
         HBox fromAddressBox = new HBox(fromText,fromRowBox);
@@ -928,14 +927,14 @@ public class AddressesData {
         Tooltip addTokenBtnTip = new Tooltip("Add Token");
         addTokenBtnTip.setShowDelay(new Duration(100));
 
-        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png", 20);
+        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png",18);
         addTokenBtn.setTooltip(addTokenBtnTip);
       
 
         Tooltip addAllTokenBtnTip = new Tooltip("Add All Tokens");
         addAllTokenBtnTip.setShowDelay(new Duration(100));
         
-        BufferedButton addAllTokenBtn = new BufferedButton("/assets/add-all-30.png", 20);
+        BufferedButton addAllTokenBtn = new BufferedButton("/assets/add-all-30.png", 24);
         addAllTokenBtn.setTooltip(addAllTokenBtnTip);
 
 
@@ -943,7 +942,7 @@ public class AddressesData {
         removeTokenBtnTip.setShowDelay(new Duration(100));
 
 
-        BufferedMenuButton removeTokenBtn = new BufferedMenuButton("/assets/remove-30.png", 20);
+        BufferedMenuButton removeTokenBtn = new BufferedMenuButton("/assets/remove-30.png", 18);
         removeTokenBtn.setTooltip(removeTokenBtnTip);
 
    
@@ -951,13 +950,16 @@ public class AddressesData {
         removeAllTokenBtnTip.setShowDelay(new Duration(100));
 
 
-        BufferedButton removeAllTokenBtn = new BufferedButton("/assets/remove-all-30.png", 20);
+        BufferedButton removeAllTokenBtn = new BufferedButton("/assets/remove-all-30.png", 24);
         removeAllTokenBtn.setTooltip(removeAllTokenBtnTip);
 
-  
+        HBox amountBoxesButtons = new HBox(addTokenBtn, addAllTokenBtn, removeTokenBtn, removeAllTokenBtn);
+        amountBoxesButtons.setId("bodyBoxMenu");
+        amountBoxesButtons.setPadding(new Insets(0,5,0,5));
+        amountBoxesButtons.setAlignment(Pos.BOTTOM_CENTER);
 
-        HBox amountRightSideBox = new HBox(addTokenBtn, addAllTokenBtn, removeTokenBtn, removeAllTokenBtn) ;
-        amountRightSideBox.setPadding(new Insets(0));
+        VBox amountRightSideBox = new VBox(amountBoxesButtons);
+        amountRightSideBox.setPadding(new Insets(0,3,0,0));
         amountRightSideBox.setAlignment(Pos.BOTTOM_RIGHT);
         VBox.setVgrow(amountRightSideBox, Priority.ALWAYS);
  
@@ -1015,23 +1017,30 @@ public class AddressesData {
                     for(int i = 0; i < size ; i ++){
                         PriceAmount tokenAmount = tokenArray[i];
                         String tokenId = tokenAmount.getTokenId();
-                        boolean exists = amountBoxes.getAmountBox(tokenId) != null;
-                        if(!exists){
-                            AmountMenuItem menuItem = new AmountMenuItem(tokenAmount);
-                            addTokenBtn.getItems().add(menuItem);
-                            menuItem.setOnAction(e1->{
-                                PriceAmount menuItemPriceAmount = menuItem.priceAmountProperty().get();
-                                PriceCurrency menuItemPriceCurrency = menuItemPriceAmount.getCurrency();
-                                AmountSendBox newAmountSendBox = new AmountSendBox(new PriceAmount(0, menuItemPriceCurrency), sendScene, true);
-                                newAmountSendBox.balanceAmountProperty().set(menuItemPriceAmount);
-                                newAmountSendBox.setTimeStamp(balanceTimestamp);
-                            });
+                        
+                        if(tokenId != null){
+                            AmountBox isBox = amountBoxes.getAmountBox(tokenId);
+
+                            if(isBox == null){
+                                AmountMenuItem menuItem = new AmountMenuItem(tokenAmount);
+                                addTokenBtn.getItems().add(menuItem);
+                                menuItem.setOnAction(e1->{
+                                    PriceAmount menuItemPriceAmount = menuItem.priceAmountProperty().get();
+                                    PriceCurrency menuItemPriceCurrency = menuItemPriceAmount.getCurrency();
+                                    AmountSendBox newAmountSendBox = new AmountSendBox(new PriceAmount(0, menuItemPriceCurrency), sendScene, true);
+                                    newAmountSendBox.balanceAmountProperty().set(menuItemPriceAmount);
+                                    newAmountSendBox.setTimeStamp(balanceTimestamp);
+                                    amountBoxes.add(newAmountSendBox);
+                                });
+                            }
                    
                         }
                     }
                 }
             }
-            
+            if(addTokenBtn.getItems().size() == 0){
+                addTokenBtn.getItems().add(new MenuItem("No tokens to add"));
+            }
     
         });
 
@@ -1079,7 +1088,9 @@ public class AddressesData {
                     removeTokenBtn.getItems().add(removeAmountItem);
                 }
             }
-            
+            if(removeTokenBtn.getItems().size() == 0){
+                removeTokenBtn.getItems().add(new MenuItem("No tokens to remove"));
+            }
         });
 
         removeAllTokenBtn.setOnAction(e->{
