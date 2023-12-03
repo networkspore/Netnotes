@@ -117,7 +117,7 @@ public class ErgoNodesList {
             m_ergoLocalNode = new ErgoNodeLocalData(localNodeId, this);
             m_defaultId.set(localNodeId);
 
-            m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+            m_ergoLocalNode.lastUpdated().addListener(m_nodeUpdateListener);
             add(new ErgoNodeData(this, ErgoNodeData.LIGHT_CLIENT, new NamedNodeUrl()), true);
             save();
         }
@@ -146,15 +146,15 @@ public class ErgoNodesList {
             if (namedNodeUrl != null) {
                 m_ergoLocalNode = new ErgoNodeLocalData(namedNodeUrl, localNodeObject, this);
 
-                m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+                m_ergoLocalNode.lastUpdated().addListener(m_nodeUpdateListener);
             } else {
                 m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
-                m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+                m_ergoLocalNode.lastUpdated().addListener(m_nodeUpdateListener);
             }
 
         } else {
             m_ergoLocalNode = new ErgoNodeLocalData(FriendlyId.createFriendlyId(), this);
-            m_ergoLocalNode.lastUpdated.addListener(m_nodeUpdateListener);
+            m_ergoLocalNode.lastUpdated().addListener(m_nodeUpdateListener);
         }
 
         if (nodesElement != null && nodesElement.isJsonArray()) {

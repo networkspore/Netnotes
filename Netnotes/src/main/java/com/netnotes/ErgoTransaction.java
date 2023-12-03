@@ -1,6 +1,5 @@
 package com.netnotes;
 
-import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.ErgoToken;
 import org.ergoplatform.appkit.InputBoxesSelectionException;
@@ -22,11 +21,11 @@ public class ErgoTransaction {
     private String m_nodeUrl;
     private NetworkType m_networkType;
     private long m_nanoErg;
-    private String m_receipientAddress;
+    private AddressInformation m_receipientAddress;
     private String m_senderAddress;
     private long m_fee;
     private long m_created;
-   
+    private AmountConfirmBox[] m_ergoTokens;
 
     
     public static String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
@@ -37,18 +36,41 @@ public class ErgoTransaction {
     }
  
 
-    public ErgoTransaction(AddressData addressData, Wallet wallet, long nanoErg, String receipientAddress, String nodeApiAddress, String apiKey, String explorerUrl, long fee, ErgoToken... ergoTokens){
-
+    public ErgoTransaction(AddressData addressData, Wallet wallet, long nanoErg, AddressInformation receipientAddress, String nodeApiAddress, String apiKey, String explorerUrl, long fee, AmountBox[] tokenBoxes){
+        m_explorerUrl = explorerUrl;
+        m_nodeUrl = nodeApiAddress;
         m_nanoErg = nanoErg;
         m_receipientAddress = receipientAddress;
         m_senderAddress = addressData.getAddress().toString();
         m_networkType = addressData.getNetworkType();
+        
+        int amountOfTokens = tokenBoxes != null && tokenBoxes.length > 0 ? tokenBoxes.length : 0;
+        ErgoToken[] tokenArray = new ErgoToken[amountOfTokens] ;
+        m_ergoTokens = new AmountConfirmBox[amountOfTokens];                        
+        
+        if(amountOfTokens > 0 && tokenBoxes != null && tokenArray != null){
+            for(int i = 0; i < amountOfTokens ; i++){
+                AmountBox box = tokenBoxes[i];
+                if(box != null && box instanceof AmountConfirmBox){
+                    AmountConfirmBox confirmBox = (AmountConfirmBox) box;
+                    m_ergoTokens[i] = confirmBox;
+                        
+                        tokenArray[i] = confirmBox.getErgoToken();
+                    
+                }
+            }
+                
+        }
+
+        
+        m_fee = fee;
+
         try {
-            ErgoClient ergoClient = RestApiErgoClient.create(nodeApiAddress, m_networkType, apiKey, explorerUrl);
+            ErgoClient ergoClient = RestApiErgoClient.create(m_nodeUrl, m_networkType, apiKey, m_explorerUrl);
 
             UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(ergoClient,
                         wallet.addressStream(m_networkType).toList(),
-                    Address.create(receipientAddress), nanoErg, fee, addressData.getAddress(), ergoTokens);
+                    receipientAddress.getAddress(), m_nanoErg, m_fee, addressData.getAddress(), tokenArray);
 
             String txId = transact(ergoClient, ergoClient.execute(ctx -> {
                 try {
@@ -85,7 +107,7 @@ public class ErgoTransaction {
         return m_nanoErg;
     }
 
-    public String getReceipientAddress(){
+    public AddressInformation getReceipientAddressInfo(){
         return m_receipientAddress;
     }
 
@@ -135,6 +157,5 @@ public class ErgoTransaction {
     }
 
  
-    
     
 }

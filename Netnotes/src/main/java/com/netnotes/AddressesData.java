@@ -1,13 +1,8 @@
 package com.netnotes;
 
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
+
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
@@ -18,18 +13,23 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 
+import org.ergoplatform.appkit.ErgoToken;
 import org.ergoplatform.appkit.Address;
-
 import org.ergoplatform.appkit.NetworkType;
+import org.reactfx.util.FxTimer;
 
 import com.satergo.Wallet;
 import com.satergo.WalletKey.Failure;
+import com.utils.Utils;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
+import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
@@ -43,12 +43,15 @@ import javafx.scene.control.ContentDisplay;
 
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -56,7 +59,8 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -70,6 +74,7 @@ public class AddressesData {
     private Wallet m_wallet;
     private ErgoWalletData m_walletData;
     private Stage m_walletStage;
+    
     
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
 
@@ -453,7 +458,7 @@ public class AddressesData {
 
         Runnable requiredErgoNodes = () ->{
             if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
-                Alert a = new Alert(AlertType.NONE, "Ergo Nodes must be installed in order to send from this wallet. \n\nWould you like to install Ergo Nodes?\n\n", ButtonType.YES, ButtonType.NO);
+                Alert a = new Alert(AlertType.NONE, "Would you like to install Ergo Nodes?\n\n", ButtonType.YES, ButtonType.NO);
                 a.setTitle("Required: Ergo Nodes");
                 a.setHeaderText("Required: Ergo Nodes");
                 a.initOwner(parentStage);
@@ -474,6 +479,8 @@ public class AddressesData {
             }
         };
         requiredErgoNodes.run();
+
+        SimpleStringProperty babbleTokenId = new SimpleStringProperty(null);
 
         String oldStageName = parentStage.getTitle();
 
@@ -979,6 +986,7 @@ public class AddressesData {
 
         AmountSendBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0, m_networkType), sendScene, true);
         ergoAmountBox.priceQuoteProperty().bind(m_currentQuote);
+        ergoAmountBox.isFeeProperty().set(true);
         
         ergoAmountBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
             if(selectedAddressDataProperty().get() == null){
@@ -1099,8 +1107,11 @@ public class AddressesData {
 
         Runnable updateErgoMaxBalance = ()->{
             AddressData addressData = m_selectedAddressData.get();
+          
             if(addressData != null){
-                ergoAmountBox.balanceAmountProperty().bind( addressData.ergoAmountProperty()) ;
+              
+                ergoAmountBox.balanceAmountProperty().bind( addressData.ergoAmountProperty());
+                
             }else{
                 ergoAmountBox.balanceAmountProperty().unbind();
                 ergoAmountBox.balanceAmountProperty().set(null);
@@ -1135,6 +1146,19 @@ public class AddressesData {
             }
         };
         updateTokensMaxBalance.run();
+
+        Runnable updateBabbleFees = () ->{
+            String babbleId = babbleTokenId.get();
+
+            if(babbleId == null){
+                ergoAmountBox.isFeeProperty().set(true);      
+            }
+        };
+
+        updateBabbleFees.run();
+
+        babbleTokenId.addListener((obs,oldval,newval)->updateBabbleFees.run());
+
         ChangeListener<? super LocalDateTime> balanceChangeListener = (obs, oldVal, newVal) -> {
   
         
@@ -1161,13 +1185,72 @@ public class AddressesData {
        
         Region sendBoxSpacer = new Region();
         HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
+
+
       
-        Runnable finalCheckAndSend = () ->{
-            Alert a = new Alert(AlertType.NONE, "Final check and send.", ButtonType.OK);
-            a.setTitle("Check");
-            a.setHeaderText("Check");
-            a.initOwner(parentStage);
-            a.show();
+        Runnable checkAndSend = () ->{
+          
+            AddressData addressData = m_selectedAddressData.get(); 
+
+            if(ergoAmountBox.isNotAvailable()){
+                String insufficentErrorString = "Address does not contain: " + ergoAmountBox.priceAmountProperty().get().toString() + ( ergoAmountBox.isFeeProperty().get() ?  ("\nAfter paying the send fee of: " + ergoAmountBox.feeAmountProperty().get().toString()) : "");
+                Alert a = new Alert(AlertType.NONE,  insufficentErrorString, ButtonType.CANCEL);
+                a.setTitle("Insuficient Funds");
+                a.initOwner(parentStage);
+                a.setHeaderText("Insuficient Funds");
+                a.show();
+                return;
+            }
+
+            AddressInformation addressInformation = toAddressEnterBox.addressInformationProperty().get();
+
+            if(addressInformation != null && addressInformation.getAddress() != null){
+                ErgoNodeData ergoNodeData = selectedNodeData().get();
+                ErgoExplorerData ergoExplorerData = selectedExplorerData().get();
+                AmountBox[] amountBoxArray = amountBoxes.getAmountBoxArray();
+                int amountOfTokens = amountBoxArray != null && amountBoxArray.length > 0 ? amountBoxArray.length : 0;
+                AmountSendBox[] tokenArray = amountOfTokens > 0 ? new AmountSendBox[amountOfTokens] : null;
+                
+                if(amountOfTokens > 0 && amountBoxArray != null && tokenArray != null){
+                    for(int i = 0; i < amountOfTokens ; i++){
+                        AmountBox box = amountBoxArray[i];
+                        if(box != null && box instanceof AmountSendBox){
+                            AmountSendBox sendBox = (AmountSendBox) box;
+                            if(sendBox.isNotAvailable()){
+                                Alert a = new Alert(AlertType.NONE, "Address does not contain: " + sendBox.priceAmountProperty().get().toString(), ButtonType.CANCEL);
+                                a.setTitle("Insuficient Funds");
+                                a.initOwner(parentStage);
+                                a.setHeaderText("Insuficient Funds");
+                                a.show();
+                                return;
+                            }else{
+                                
+                                tokenArray[i] = sendBox;
+                            }
+                        }
+                    }
+                        
+                }
+              //  String babbleId = babbleTokenId.get();
+                
+              //  AmountSendBox feeSendBox = ergoAmountBox;
+                PriceAmount feeAmount = ergoAmountBox.priceAmountProperty().get();
+
+                showTxConfirmScene(addressData, addressInformation, ergoNodeData, ergoExplorerData, ergoAmountBox, tokenArray, feeAmount, sendScene, parentStage, ()-> closeBtn.fire());
+            }else{
+                Alert a = new Alert(AlertType.NONE, "Enter a valid address.", ButtonType.CANCEL);
+                a.setTitle("Invalid Receiver Address");
+                a.initOwner(parentStage);
+                a.setHeaderText("Invalid Receiver Address");
+                a.show();
+                return;
+            }
+
+            
+           
+          
+            
+
         };
 
         BufferedButton sendBtn = new BufferedButton("Send", "/assets/arrow-send-white-30.png", 30);
@@ -1183,40 +1266,16 @@ public class AddressesData {
                 if(ergoNodeData != null){
                     if(ergoNodeData instanceof ErgoNodeLocalData){
                         ErgoNodeLocalData localErgoNode = (ErgoNodeLocalData) ergoNodeData;
-                        if(localErgoNode.isSetupProperty.get()){
-
+                        if(localErgoNode.isSetupProperty().get()){
+                            checkAndSend.run();
                         }else{
-                            Alert a = new Alert(AlertType.NONE, "The selected node requires setup. Would you like to set it up now?", ButtonType.YES, ButtonType.NO);
-                            a.setTitle("Setup Required");
-                            a.setHeaderText("Setup Required");
-                            a.initOwner(parentStage);
-                            Optional<ButtonType> result = a.showAndWait();
-                            if(result != null && result.isPresent() && result.get() == ButtonType.YES){
-                                localErgoNode.setup();
-                            }
+                            localErgoNode.setup();
                         }
                     }else{
-                        boolean nodeAvailable = ergoNodeData.availableProperty.get();
-                        if(nodeAvailable){
-                            finalCheckAndSend.run();
-                        }else{
-                            Alert a = new Alert(AlertType.NONE, "The selected node cannot be reached. Please select an alternate node or add a node using Ergo Nodes.", ButtonType.OK);
-                            a.setTitle("Node Unavailable");
-                            a.setHeaderText("Node Unavailable");
-                            a.initOwner(parentStage);
-                            a.showAndWait();
-                            nodesBtn.show();
-                        }
+                        checkAndSend.run();  
                     }
                 }else{
-                    Alert a = new Alert(AlertType.NONE, "Please select a node from the drop down menu.", ButtonType.OK);
-                    a.setTitle("Select Node");
-                    a.setHeaderText("Select Node");
-                    a.initOwner(parentStage);
-                    a.showAndWait();
-
-                    nodesBtn.show();
-              
+                    nodesBtn.show();      
                 }
             }
         });
@@ -1258,12 +1317,6 @@ public class AddressesData {
         
        
         HBox footerBox = new HBox(sendBox);
-        
-        /*nodeScroll.setPrefViewportHeight(60);
-        nodeScroll.prefViewportWidthProperty().bind(footerBox.widthProperty().subtract(sendBox.widthProperty()).subtract(70));
-        
-        nodeStatusBox.prefWidthProperty().bind(nodeScroll.prefViewportWidthProperty().subtract(20));*/
-        
         HBox.setHgrow(footerBox, Priority.ALWAYS);
         footerBox.setPadding(new Insets(5,30,0,5));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
@@ -1288,6 +1341,245 @@ public class AddressesData {
     }
 
 
+    
+    public Scene showTxConfirmScene(AddressData addressData,AddressInformation receiverAddress, ErgoNodeData ergoNode, ErgoExplorerData explorerData, AmountSendBox ergoSendBox, AmountSendBox[] tokenAmounts, PriceAmount feeAmount, Scene parentScene, Stage parentStage, Runnable parentClose){
+        
+        String oldStageName = parentStage.getTitle();
+        String title = "Confirmation - Send - " + getWalletData().getName() + "("+m_networkType.toString() + ")";
+        Button maximizeBtn = new Button();
+        Button closeBtn = new Button();
 
+        closeBtn.setOnAction(e->{
+            parentClose.run();
+        });
+
+        HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), maximizeBtn, closeBtn, parentStage);
+        maximizeBtn.setOnAction(e->{
+            parentStage.setMaximized(!parentStage.isMaximized());
+        });
+
+        Tooltip backTip = new Tooltip("Back");
+        backTip.setShowDelay(new javafx.util.Duration(100));
+        backTip.setFont(App.txtFont);
+
+        BufferedButton backButton = new BufferedButton("/assets/return-back-up-30.png", App.MENU_BAR_IMAGE_WIDTH) ;
+        backButton.setId("menuBtn");
+        backButton.setTooltip(backTip);
+        backButton.setOnAction(e -> {
+            parentStage.setScene(parentScene);
+            parentStage.setTitle(oldStageName);
+        });
+
+        HBox menuBar = new HBox(backButton);
+        HBox.setHgrow(menuBar, Priority.ALWAYS);
+        menuBar.setAlignment(Pos.CENTER_LEFT);
+        menuBar.setId("menuBar");
+        menuBar.setPadding(new Insets(1, 0, 1, 5));
+
+        VBox menuPaddingBox = new VBox(menuBar);
+        menuPaddingBox.setPadding(new Insets(0,5,0,5));
+
+
+
+        final String addressString = addressData.getAddress().toString();
+
+        
+        Text addressText = new Text("From: ");
+        addressText.setFill(App.txtColor);
+        addressText.setFont(App.txtFont);
+
+        TextField addressField = new TextField("(" + addressData.getName() + ") " + addressString);
+        addressField.setId("addressField");
+        addressField.setEditable(false);
+        HBox.setHgrow(addressField,Priority.ALWAYS);
+
+        HBox addressBox = new HBox(addressText, addressField);
+        HBox.setHgrow(addressBox, Priority.ALWAYS);
+        addressBox.setAlignment(Pos.CENTER_LEFT);
+        addressBox.setPrefHeight(30);
+
+        Text receiverText = new Text("To:   ");
+        receiverText.setFill(App.txtColor);
+        receiverText.setFont(App.txtFont);
+
+
+        final String receiverString = receiverAddress.getAddress().toString();
+        TextField receiverField = new TextField(receiverString);
+        receiverField.setId("addressField");
+        receiverField.setEditable(false);
+        HBox.setHgrow(receiverField, Priority.ALWAYS);
+
+        HBox receiverBox = new HBox(receiverText, receiverField);
+        HBox.setHgrow(receiverBox, Priority.ALWAYS);
+        receiverBox.setAlignment(Pos.CENTER_LEFT);
+        receiverBox.setPrefHeight(30);
+
+
+        Text nodeText = new Text("Node: ");
+        nodeText.setFill(App.txtColor);
+        nodeText.setFont(App.txtFont);
+
+
+        final String nodeString = ergoNode.getName() + " (" + ergoNode.namedNodeUrlProperty().get().getUrlString() + ")";
+        TextField nodeField = new TextField(nodeString);
+        nodeField.setId("addressField");
+        nodeField.setEditable(false);
+        nodeField.setPrefWidth(Utils.measureString(nodeString, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14)) + 30);
+
+        HBox nodeBox = new HBox(nodeText, nodeField);
+        HBox.setHgrow(nodeBox, Priority.ALWAYS);
+        nodeBox.setAlignment(Pos.CENTER_LEFT);
+        nodeBox.setPrefHeight(30);
+
+        VBox layoutBox = new VBox();
+        Scene confirmTxScene = new Scene(layoutBox, 600, 500);
+        confirmTxScene.getStylesheets().add("/css/startWindow.css");
+        parentStage.setScene(confirmTxScene);
+        parentStage.setTitle(title);
+
+    
+
+        AmountConfirmBox ergoAmountBox = new AmountConfirmBox(ergoSendBox, confirmTxScene);
+        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
+        ergoAmountBox.priceQuoteProperty().bind(currentPriceQuoteProperty());
+
+
+        HBox amountBoxPadding = new HBox(ergoAmountBox);
+        amountBoxPadding.setPadding(new Insets(10,10,0,10));
+
+
+
+
+        AmountBoxes amountBoxes = new AmountBoxes();
+        amountBoxes.setPadding(new Insets(5,10,5,0));
+        amountBoxes.setAlignment(Pos.TOP_LEFT);
+
+     
+        Runnable updateTokens = () ->{
+            if(tokenAmounts != null && tokenAmounts.length > 0){
+                int numTokens = tokenAmounts.length;
+                for(int i = 0; i< numTokens ; i++){
+                    AmountSendBox sendBox = tokenAmounts[i];
+                    if(sendBox.priceAmountProperty().get().getLongAmount() > 0){
+                        AmountConfirmBox confirmBox = new AmountConfirmBox(sendBox, confirmTxScene);
+                        amountBoxes.add(confirmBox);  
+                    }
+                }
+            }
+        };
+        updateTokens.run();
+
+        VBox infoBox = new VBox(nodeBox, addressBox, receiverBox);
+        HBox.setHgrow(infoBox, Priority.ALWAYS);
+        infoBox.setPadding(new Insets(10,15,10,15));
+
+        VBox paddingAmountBox = new VBox(amountBoxPadding);        
+        paddingAmountBox.setPadding(new Insets(5,16,0,0));
+
+        VBox boxesVBox = new VBox(amountBoxPadding, amountBoxes);
+        HBox.setHgrow(boxesVBox, Priority.ALWAYS);
+
+        ScrollPane scrollPane = new ScrollPane(boxesVBox);
+        scrollPane.setPadding(new Insets(0,0,5, 0));
+        
+        HBox infoBoxPadding = new HBox(infoBox);
+        HBox.setHgrow(infoBoxPadding,Priority.ALWAYS);
+        infoBoxPadding.setPadding(new Insets(0, 4, 0,4));
+
+        VBox bodyBox = new VBox(infoBoxPadding, paddingAmountBox, scrollPane);
+     
+        bodyBox.setPadding(new Insets(0,0,0,15));
+        HBox.setHgrow(bodyBox,Priority.ALWAYS);
+
+
+        VBox bodyPaddingBox = new VBox(bodyBox);
+        bodyPaddingBox.setPadding(new Insets(4,4, 0, 4));
+        HBox.setHgrow(bodyPaddingBox,Priority.ALWAYS);
+
+        Text confirmText = new Text("Notice");
+        confirmText.setFill(App.txtColor);
+        confirmText.setFont(App.txtFont);
+
+        HBox confirmTextBox = new HBox(confirmText);
+        
+        TextArea confirmNotice = new TextArea("All transactions are considered final and cannot be reversed. Please verify the transaction and the reputation of the receiving party.");
+        HBox.setHgrow(confirmNotice, Priority.ALWAYS);
+        confirmNotice.setWrapText(true);
+        confirmNotice.setPrefRowCount(2);
+        
+        HBox confirmNoticeBox = new HBox(confirmNotice);
+        HBox.setHgrow(confirmNoticeBox, Priority.ALWAYS);
+        confirmNoticeBox.setPadding(new Insets(5,15,0,15));
+
+        VBox confirmTextVBox = new VBox(confirmTextBox, confirmNoticeBox);
+        confirmTextVBox.setPadding(new Insets(0,15,0,15));
+
+        Text passwordTxt = new Text("> Enter Netnotes password to confirm:");
+        passwordTxt.setFill(App.txtColor);
+        passwordTxt.setFont(App.txtFont);
+
+        PasswordField passwordField = new PasswordField();
+        passwordField.setFont(App.txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+        passwordField.setOnAction(e->{
+            Stage statusStage = App.getStatusStage("Verifying - Netnotes", "Verifying...");
+            if (passwordField.getText().length() < 6) {
+                passwordField.setText("");
+            } else {
+                NamedNodeUrl namedNodeUrl = ergoNode.namedNodeUrlProperty().get();
+                String nodeUrlString = namedNodeUrl.getUrlString();
+                String apiString = namedNodeUrl.getApiKey();
+                String ergoExplorerUrl = explorerData != null ? explorerData.ergoNetworkUrlProperty.get().getUrlString() : null;
+                AmountBox[] amountBoxArray = amountBoxes.getAmountBoxArray();
+        
+                statusStage.show();
+                
+                FxTimer.runLater(java.time.Duration.ofMillis(100), () -> {
+                    String password = passwordField.getText();
+                        
+                    Platform.runLater(() -> passwordField.setText(""));
+                    byte[] hashBytes = getWalletData().getErgoWallets().getNetworksData().getAppData().getAppKeyBytes();
+                    BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), hashBytes);
+                    statusStage.close();
+                    if (result.verified) {
+                        
+                   
+                        ErgoTransaction ergoTransaction = new ErgoTransaction(addressData, m_wallet, ergoAmountBox.getLongAmount(), receiverAddress, nodeUrlString, apiString, ergoExplorerUrl, feeAmount.getLongAmount(), amountBoxArray);
+
+                    }
+                });
+            }
+        });
+
+        Platform.runLater(() -> passwordField.requestFocus());
+
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+        passwordBox.setPadding(new Insets(20, 0, 15, 15));
+   
+
+        VBox footerBox = new VBox(confirmTextVBox, passwordBox);
+        HBox.setHgrow(footerBox, Priority.ALWAYS);
+        footerBox.setPadding(new Insets(5,15,0,4));
+        footerBox.setAlignment(Pos.CENTER_RIGHT);
+
+        
+        layoutBox.getChildren().addAll(titleBox,menuPaddingBox,infoBoxPadding, bodyPaddingBox, footerBox);
+        
+        
+        scrollPane.prefViewportWidthProperty().bind(confirmTxScene.widthProperty().subtract(60));
+        scrollPane.prefViewportHeightProperty().bind(parentStage.heightProperty().subtract(titleBox.heightProperty()).subtract(menuPaddingBox.heightProperty()).subtract(infoBox.heightProperty()).subtract(footerBox.heightProperty()).subtract(10));
+        amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(50));
+        amountBoxes.prefWidthProperty().bind(confirmTxScene.widthProperty().subtract(60));
+
+        java.awt.Rectangle rect = getWalletData().getNetworksData().getMaximumWindowBounds();
+
+        ResizeHelper.addResizeListener(parentStage, 200, 250, rect.getWidth(), rect.getHeight());
+
+    
+
+        return confirmTxScene;
+    }
 
 }

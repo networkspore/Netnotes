@@ -102,6 +102,17 @@ public class AmountBoxes extends VBox {
         return m_listVBox;
     }
 
+    public AmountBox[] getAmountBoxArray(){
+        int size = m_amountsList.size();
+        if(size == 0){
+            return null;
+        }
+        AmountBox[] amountBoxes = new AmountBox[size];
+        amountBoxes = m_amountsList.toArray(amountBoxes);
+        return amountBoxes;
+    }
+
+
     public void add(AmountBox amountBox){
         if(amountBox != null){
             AmountBox existingBox = getAmountBox(amountBox.getTokenId());

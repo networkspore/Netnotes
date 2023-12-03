@@ -47,7 +47,7 @@ public class ErgoNodeData {
     public final static String NODE_INSTALLER = "Node Installer";
     public final static String LOCAL_NODE = "Local Node";
 
-    public final SimpleObjectProperty< NamedNodeUrl> namedNodeUrlProperty = new SimpleObjectProperty<>();
+    private final SimpleObjectProperty< NamedNodeUrl> m_namedNodeUrlProperty = new SimpleObjectProperty<>();
 
     private String m_imgUrl = "/assets/ergoNodes-30.png";
 
@@ -64,22 +64,24 @@ public class ErgoNodeData {
     private String m_startImgUrl = "/assets/play-30.png";
     private String m_stopImgUrl = "/assets/stop-30.png";
 
-    public final SimpleBooleanProperty isSetupProperty = new SimpleBooleanProperty(false);
-    public final SimpleStringProperty statusProperty = new SimpleStringProperty(ErgoMarketsData.STOPPED);
-    public final SimpleStringProperty statusString = new SimpleStringProperty("");
-    public final SimpleObjectProperty<LocalDateTime> shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
-    public final SimpleStringProperty cmdProperty = new SimpleStringProperty("");
-    public final SimpleStringProperty cmdStatusUpdated = new SimpleStringProperty(String.format("%29s", Utils.formatDateTimeString(LocalDateTime.now())));
-    public final SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
+   
+    private final SimpleStringProperty m_statusProperty = new SimpleStringProperty(ErgoMarketsData.STOPPED);
+    private final SimpleStringProperty m_statusString = new SimpleStringProperty("");
+    private final SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
+    private final SimpleStringProperty m_cmdProperty = new SimpleStringProperty("");
+    private final SimpleStringProperty m_cmdStatusUpdated = new SimpleStringProperty(String.format("%29s", Utils.formatDateTimeString(LocalDateTime.now())));
+    private final SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
 
     private ChangeListener<LocalDateTime> m_updateListener = null;
+
+    
 
     //  public SimpleStringProperty nodeApiAddress;
     private ErgoNodesList m_ergoNodesList;
 
     private String m_clientType = LIGHT_CLIENT;
 
-    public final SimpleBooleanProperty availableProperty = new SimpleBooleanProperty(false);
+    private final SimpleBooleanProperty availableProperty = new SimpleBooleanProperty(false);
 
     public ErgoNodeData(ErgoNodesList nodesList, JsonObject jsonObj) {
         m_ergoNodesList = nodesList;
@@ -92,12 +94,40 @@ public class ErgoNodeData {
         m_ergoNodesList = ergoNodesList;
         m_clientType = clientType;
 
-        namedNodeUrlProperty.set(namedNodeUrl == null ? new NamedNodeUrl() : namedNodeUrl);
+        m_namedNodeUrlProperty.set(namedNodeUrl == null ? new NamedNodeUrl() : namedNodeUrl);
 
     }
 
+    public SimpleObjectProperty< NamedNodeUrl> namedNodeUrlProperty(){
+        return m_namedNodeUrlProperty;
+    }
+
+    public SimpleStringProperty statusProperty(){
+        return m_statusProperty;
+    }
+
+    public SimpleStringProperty statusString(){
+        return m_statusString;
+    }
+
+    public SimpleObjectProperty<LocalDateTime> shutdownNow(){
+        return m_shutdownNow;
+    }
+
+    public SimpleStringProperty cmdProperty(){
+        return m_cmdProperty;
+    }
+
+    public SimpleStringProperty cmdStatusUpdated(){
+        return m_cmdStatusUpdated;
+    }
+
+    public SimpleObjectProperty<LocalDateTime> lastUpdated(){
+        return m_lastUpdated;
+    }
+
     public String getId() {
-        return namedNodeUrlProperty.get().getId();
+        return m_namedNodeUrlProperty.get().getId();
     }
 
     public String getClientType() {
@@ -105,18 +135,18 @@ public class ErgoNodeData {
     }
 
     public String getName() {
-        return namedNodeUrlProperty.get() == null ? "INVALID NODE" : namedNodeUrlProperty.get().getName();
+        return m_namedNodeUrlProperty.get() == null ? "INVALID NODE" : m_namedNodeUrlProperty.get().getName();
     }
 
     public NetworkType getNetworkType() {
-        return namedNodeUrlProperty.get() == null ? null : namedNodeUrlProperty.get().getNetworkType();
+        return m_namedNodeUrlProperty.get() == null ? null : m_namedNodeUrlProperty.get().getNetworkType();
     }
 
     public void openJson(JsonObject jsonObj) {
 
         JsonElement namedNodeElement = jsonObj == null ? null : jsonObj.get("namedNode");
 
-        namedNodeUrlProperty.set(namedNodeElement != null && namedNodeElement.isJsonObject() ? new NamedNodeUrl(namedNodeElement.getAsJsonObject()) : new NamedNodeUrl());
+        m_namedNodeUrlProperty.set(namedNodeElement != null && namedNodeElement.isJsonObject() ? new NamedNodeUrl(namedNodeElement.getAsJsonObject()) : new NamedNodeUrl());
 
     }
 
@@ -125,7 +155,7 @@ public class ErgoNodeData {
     }
 
     public JsonObject getJsonObject() {
-        NamedNodeUrl namedNodeUrl = namedNodeUrlProperty.get();
+        NamedNodeUrl namedNodeUrl = m_namedNodeUrlProperty.get();
 
         JsonObject json = new JsonObject();
 
@@ -191,7 +221,7 @@ public class ErgoNodeData {
     
         String centerString = "";
 
-        Text topInfoStringText = new Text((namedNodeUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
+        Text topInfoStringText = new Text((m_namedNodeUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
         topInfoStringText.setFont(m_font);
         topInfoStringText.setFill(m_primaryColor);
 
@@ -202,7 +232,7 @@ public class ErgoNodeData {
         Text botTimeText = new Text();
         botTimeText.setFont(m_smallFont);
         botTimeText.setFill(m_secondaryColor);
-        botTimeText.textProperty().bind(cmdStatusUpdated);
+        botTimeText.textProperty().bind(m_cmdStatusUpdated);
         
         Text centerField = new Text(centerString);
         centerField.setFont(App.txtFont);
@@ -211,13 +241,13 @@ public class ErgoNodeData {
 
        // centerField.setPadding(new Insets(0, 10, 0, 0));
 
-        centerField.textProperty().bind(statusString);
+        centerField.textProperty().bind(m_statusString);
 
         Text middleTopRightText = new Text();
         middleTopRightText.setFont(m_font);
         middleTopRightText.setFill(m_secondaryColor);
 
-        middleTopRightText.textProperty().bind(cmdProperty);
+        middleTopRightText.textProperty().bind(m_cmdProperty);
 
         Text middleBottomRightText = new Text(getNetworkTypeString());
         middleBottomRightText.setFont(m_font);
@@ -260,7 +290,7 @@ public class ErgoNodeData {
         topBox.setPadding(new Insets(0,5,0,5));
      //   topBox.setId("darkBox");
 
-        Text ipText = new Text(namedNodeUrlProperty.get() != null ? (namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : namedNodeUrlProperty.get().getUrlString()) : "Configure node");
+        Text ipText = new Text(m_namedNodeUrlProperty.get() != null ? (m_namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : m_namedNodeUrlProperty.get().getUrlString()) : "Configure node");
         ipText.setFill(m_primaryColor);
         ipText.setFont(m_smallFont);
 
@@ -310,7 +340,7 @@ public class ErgoNodeData {
 
         String centerString = "";
 
-        Text topInfoStringText = new Text((namedNodeUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
+        Text topInfoStringText = new Text((m_namedNodeUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
         topInfoStringText.setFont(m_font);
         topInfoStringText.setFill(m_primaryColor);
 
@@ -321,7 +351,7 @@ public class ErgoNodeData {
         Text botTimeText = new Text();
         botTimeText.setFont(m_smallFont);
         botTimeText.setFill(m_secondaryColor);
-        botTimeText.textProperty().bind(cmdStatusUpdated);
+        botTimeText.textProperty().bind(m_cmdStatusUpdated);
         
         TextField centerField = new TextField(centerString);
         centerField.setFont(m_largeFont);
@@ -330,13 +360,13 @@ public class ErgoNodeData {
         centerField.setAlignment(Pos.CENTER);
         centerField.setPadding(new Insets(0, 10, 0, 0));
 
-        centerField.textProperty().bind(statusString);
+        centerField.textProperty().bind(m_statusString);
 
         Text middleTopRightText = new Text();
         middleTopRightText.setFont(m_font);
         middleTopRightText.setFill(m_secondaryColor);
 
-        middleTopRightText.textProperty().bind(cmdProperty);
+        middleTopRightText.textProperty().bind(m_cmdProperty);
 
         Text middleBottomRightText = new Text(getNetworkTypeString());
         middleBottomRightText.setFont(m_font);
@@ -347,22 +377,22 @@ public class ErgoNodeData {
 
         VBox.setVgrow(centerRightBox, Priority.ALWAYS);
 
-        Tooltip statusBtnTip = new Tooltip(statusProperty.get().equals(ErgoMarketsData.STOPPED) ? "Ping" : "Stop");
+        Tooltip statusBtnTip = new Tooltip(m_statusProperty.get().equals(ErgoMarketsData.STOPPED) ? "Ping" : "Stop");
         statusBtnTip.setShowDelay(new Duration(100));
-        BufferedButton statusBtn = new BufferedButton(statusProperty.get().equals(ErgoMarketsData.STOPPED) ? m_startImgUrl : m_stopImgUrl, 15);
+        BufferedButton statusBtn = new BufferedButton(m_statusProperty.get().equals(ErgoMarketsData.STOPPED) ? m_startImgUrl : m_stopImgUrl, 15);
         statusBtn.setId("statusBtn");
         statusBtn.setPadding(new Insets(0, 10, 0, 10));
         statusBtn.setTooltip(statusBtnTip);
         statusBtn.setOnAction(action -> {
-            if (statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
+            if (m_statusProperty.get().equals(ErgoMarketsData.STOPPED)) {
                 start();
             } else {
-                shutdownNow.set(LocalDateTime.now());
+                m_shutdownNow.set(LocalDateTime.now());
             }
         });
 
-        statusProperty.addListener((obs, oldVal, newVal) -> {
-            switch (statusProperty.get()) {
+        m_statusProperty.addListener((obs, oldVal, newVal) -> {
+            switch (m_statusProperty.get()) {
                 case ErgoMarketsData.STOPPED:
 
                     statusBtnTip.setText("Ping");
@@ -421,7 +451,7 @@ public class ErgoNodeData {
         HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
         topBox.setId("darkBox");
 
-        Text ipText = new Text(namedNodeUrlProperty.get() != null ? (namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : namedNodeUrlProperty.get().getUrlString()) : "Configure node");
+        Text ipText = new Text(m_namedNodeUrlProperty.get() != null ? (m_namedNodeUrlProperty.get().getUrlString() == null ? "IP INVALID" : m_namedNodeUrlProperty.get().getUrlString()) : "Configure node");
         ipText.setFill(m_primaryColor);
         ipText.setFont(m_smallFont);
 
@@ -471,13 +501,13 @@ public class ErgoNodeData {
     }
 
     public void start() {
-        NamedNodeUrl namedNodeUrl = namedNodeUrlProperty.get();
+        NamedNodeUrl namedNodeUrl = m_namedNodeUrlProperty.get();
         if (namedNodeUrl != null && namedNodeUrl.getIP() != null) {
             Runnable r = () -> {
-                Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STARTED));
-                statusString.set("Pinging...");
+                Platform.runLater(() -> m_statusProperty.set(ErgoMarketsData.STARTED));
+                m_statusString.set("Pinging...");
                 pingIP(namedNodeUrl.getIP());
-                Platform.runLater(() -> statusProperty.set(ErgoMarketsData.STOPPED));
+                Platform.runLater(() -> m_statusProperty.set(ErgoMarketsData.STOPPED));
             };
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -489,15 +519,15 @@ public class ErgoNodeData {
     public void addUpdateListener(ChangeListener<LocalDateTime> changeListener) {
         m_updateListener = changeListener;
         if (m_updateListener != null) {
-            lastUpdated.addListener(m_updateListener);
+            m_lastUpdated.addListener(m_updateListener);
 
         }
-        // lastUpdated.addListener();
+        // m_lastUpdated.addListener();
     }
 
     public void removeUpdateListener() {
         if (m_updateListener != null) {
-            lastUpdated.removeListener(m_updateListener);
+            m_lastUpdated.removeListener(m_updateListener);
             m_updateListener = null;
         }
     }
@@ -523,8 +553,14 @@ public class ErgoNodeData {
         return menuBar;
     }
 
+    private boolean m_available = false;
+
+    public boolean isAvailable(){
+        return m_available;
+    }
+
     public void pingIP(String ip) {
-        cmdProperty.set("PING");
+        m_cmdProperty.set("PING");
         String[] cmd = {"cmd", "/c", "ping", ip};
 
         try {
@@ -545,8 +581,8 @@ public class ErgoNodeData {
 
                 if (s.indexOf("timed out") > 0) {
                     availableProperty.set(false);
-                    statusString.set("Timed out");
-                    cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+                    m_statusString.set("Timed out");
+                    m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
                 }
 
                 if (indexOftimeString > 0) {
@@ -558,8 +594,8 @@ public class ErgoNodeData {
 
                     String time = s.substring(indexOftimeString + lengthOftime, indexOfms + 2);
 
-                    statusString.set("Ping: " + time);
-                    cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+                    m_statusString.set("Ping: " + time);
+                    m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
                 }
 
                 String avgString = "Average = ";
@@ -570,28 +606,30 @@ public class ErgoNodeData {
 
                     String avg = s.substring(indexOfAvgString + lengthOfAvg);
 
-                    statusString.set("Average: " + avg);
+                    m_statusString.set("Average: " + avg);
 
-                    cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+                    m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
 
                 }
 
             }
             if (!availableProperty.get()) {
-                statusString.set("Offline");
-                cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-                cmdProperty.set("");
+                m_statusString.set("Offline");
+                m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+                m_cmdProperty.set("");
+                m_available = false;
             } else {
                 Thread.sleep(1000);
-                cmdProperty.set("");
-                statusString.set("Online");
+                m_cmdProperty.set("");
+                m_statusString.set("Online");
+                m_available = true;
 
             }
             // String[] splitStr = javaOutputList.get(0).trim().split("\\s+");
             //Version jV = new Version(splitStr[1].replaceAll("/[^0-9.]/g", ""));
         } catch (Exception e) {
-            cmdProperty.set("");
-            cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+            m_cmdProperty.set("");
+            m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
 
         }
 

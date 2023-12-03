@@ -197,6 +197,11 @@ public class AddressBox extends HBox {
         return m_addressInformation;
     }
 
+    @Override
+    public String toString(){
+        return m_addressInformation.get().toString();
+    }
+
     /*
         TextField toTextField = new TextField();
 
