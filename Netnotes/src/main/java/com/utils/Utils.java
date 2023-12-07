@@ -70,6 +70,8 @@ import javafx.stage.Stage;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FilenameUtils;
+import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.NetworkType;
 
 import java.io.FilenameFilter;
@@ -87,8 +89,10 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.netnotes.App;
 import com.netnotes.HashData;
+import com.netnotes.Main;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
+import com.satergo.ergo.ErgoInterface;
 import com.satergo.extra.AESEncryption;
 
 public class Utils {
@@ -119,6 +123,25 @@ public class Utils {
 
         return digestFileBlake2b(file,32);
         
+    }
+
+    public static boolean findPathPrefixInRoots(String filePathString){
+        File roots[] = File.listRoots();
+
+        if(roots != null && roots.length > 0 && filePathString != null && filePathString.length() > 0){
+
+            String appDirPrefix = FilenameUtils.getPrefix(filePathString);
+
+            for(int i = 0; i < roots.length; i++){
+                String rootString = roots[i].getAbsolutePath();
+
+                if(rootString.startsWith(appDirPrefix)){
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public static byte[] digestFileBlake2b(File file, int digestLength) throws IOException {
@@ -1433,6 +1456,7 @@ public class Utils {
    
     }
 
+   
 
     public static int findMenuItemIndex(ObservableList<MenuItem> list, String id){
         if(id != null){

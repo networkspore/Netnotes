@@ -6,12 +6,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import org.ergoplatform.appkit.NetworkType;
 
 import com.devskiller.friendly_id.FriendlyId;
-
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.satergo.Wallet;
@@ -57,7 +58,9 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
     private File logFile = new File("netnotes-log.txt");
     private File m_walletFile = null;
-    // private File m_walletDirectory;
+      
+    private final ArrayList<ErgoTransaction> m_transactions = new ArrayList<>();
+
 
     private NetworkType m_networkType = NetworkType.MAINNET;
 
@@ -160,6 +163,26 @@ public class ErgoWalletData extends Network implements NoteInterface {
         return m_cycleTimeUnit;
     }
 
+  
+    public void addTransaction(ErgoTransaction transaction){
+        m_transactions.add(transaction);
+        getLastUpdated().set(LocalDateTime.now());
+    }
+
+
+    public JsonArray getTransactionsArray(){
+        int size = m_transactions.size();
+        ErgoTransaction[] ergoTransactions = new ErgoTransaction[size];
+        ergoTransactions = m_transactions.toArray(ergoTransactions);
+
+        JsonArray jsonArray = new JsonArray();
+        for(int i = 0; i < size; i++){
+            JsonObject tokenJson = ergoTransactions[i].getJsonObject();
+            jsonArray.add(tokenJson);
+        }
+        return jsonArray; 
+    }
+
 
     @Override
     public JsonObject getJsonObject() {
@@ -184,7 +207,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             jsonObject.addProperty("marketId", m_marketsId);
         }
         jsonObject.addProperty("isErgoTokens", m_isErgoTokens);
-
+        jsonObject.add("transactions", getTransactionsArray());
         return jsonObject;
     }
 

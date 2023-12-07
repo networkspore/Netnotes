@@ -75,16 +75,6 @@ public class ErgoInterface {
         }
     }
 
-    public static int getNetworkBlockHeight(NetworkType networkType) {
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = ErgoNodeAccess.httpRequestBuilder().uri(URI.create(getExplorerUrl(networkType) + "/blocks?limit=1&sortBy=height&sortDirection=desc")).build();
-        try {
-            JsonObject body = JsonParser.object().from(httpClient.send(request, ofString()).body());
-            return body.getArray("items").getObject(0).getInt("height");
-        } catch (JsonParserException | IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * @param ergoClient ErgoClient, see for example {@link #newNodeApiClient}

@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.ergoplatform.appkit.NetworkType;
 import org.reactfx.util.FxTimer;
 
@@ -45,6 +45,9 @@ import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
@@ -120,13 +123,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public double CORE_SETUP_STAGE_HEIGHT = 395;
 
     public double SETTINGS_STAGE_WIDTH = 1024;
-    public double SETTINGS_STAGE_HEIGHT = 768;
+    public double SETTINGS_STAGE_HEIGHT = 800;
+
+    private Stage m_settingsStage = null;
 
     public long INPUT_CYCLE_PERIOD = 100;
 
     private ErgoNodeConfig m_nodeConfigData = null;
-    
-    
+
     private ExecutorService m_executor = null;
     private Future<?> m_future = null;
     private ScheduledFuture<?> m_scheduledFuture = null;
@@ -143,11 +147,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     private AtomicInteger m_inputCycleIndex = new AtomicInteger(0);
     private AtomicInteger m_isSyncStuck = new AtomicInteger(-1);
     private final AtomicBoolean isGettingInfo = new AtomicBoolean(false);
-   
-    private boolean m_deleteOldFiles = true;
 
-  
-   
+    private boolean m_deleteOldFiles = true;
 
     private final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
         public Thread newThread(Runnable r) {
@@ -169,7 +170,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         super(ergoNodesList, LOCAL_NODE, namedNode);
         openJson(json);
         setListeners();
-        if(m_runOnStart){
+        if (m_runOnStart) {
             start();
         }
     }
@@ -208,9 +209,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     }
 
-    public void configFileError() {
-        Alert a = new Alert(AlertType.WARNING, "Local node config file has been altered.", ButtonType.OK);
-        a.setHeaderText("Error: Config Mismatch");
+    public void configFileError(boolean updated) {
+        Alert a = new Alert(AlertType.WARNING, "Local node config file has been altered and " + (updated ? "has been reverted to the last saved file." : " cannot be recoverd. Node setup will be required."), ButtonType.OK);
+        a.setHeaderText("Config Mismatch");
         a.setTitle("Error: Config Mistmatch - Local Node - Ergo Nodes");
         a.show();
 
@@ -218,14 +219,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     @Override
     public void openJson(JsonObject jsonObj) {
-        
+
         if (jsonObj != null) {
-            /*try {
-                Files.writeString(logFile.toPath(), "\nJsonData: " + jsonObj.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e) {
             
-            }*/
-            
+ 
+
             JsonElement isSetupElement = jsonObj.get("isSetup");
             JsonElement runOnStartElement = jsonObj.get("runOnStart");
             JsonElement appDirElement = jsonObj.get("appDir");
@@ -235,123 +233,128 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             JsonElement appVersionElement = jsonObj.get("appVersion");
             JsonElement configElement = jsonObj.get("config");
 
-            File appDir = appDirElement != null && appDirElement.isJsonPrimitive() ? new File(appDirElement.getAsString()) : null;
+            String appDirString = appDirElement != null && appDirElement.isJsonPrimitive()  ? appDirElement.getAsString() : null;
+           
 
-            m_appDir = appDir != null && appDir.isDirectory() ? appDir : null;
-            m_isSetupProperty.set(isSetupElement != null && isSetupElement.isJsonPrimitive() ? isSetupElement.getAsBoolean() : false);
-            m_runOnStart = runOnStartElement != null && runOnStartElement.isJsonPrimitive() ? runOnStartElement.getAsBoolean() : false;
-            m_appFileHashData = null;
-            m_nodeConfigData = null;
+            if(Utils.findPathPrefixInRoots(appDirString)){
+                 m_appDir = appDirString != null ? new File(appDirString) : null;
+                m_isSetupProperty.set(isSetupElement != null && isSetupElement.isJsonPrimitive() ? isSetupElement.getAsBoolean() : false);
+                m_runOnStart = runOnStartElement != null && runOnStartElement.isJsonPrimitive() ? runOnStartElement.getAsBoolean() : false;
+                m_appFileHashData = null;
+                m_nodeConfigData = null;
 
-            String appFileName = m_appDir != null && appFileNameElement != null && appFileNameElement.isJsonPrimitive() ? appFileNameElement.getAsString() : null;
-            File appFile = appFileName != null ? new File(m_appDir.getAbsolutePath() + "/" + appFileName) : null;
+                JsonObject configJson = configElement != null && configElement.isJsonObject() ? configElement.getAsJsonObject() : null;
 
-            if (appFile != null && appFile.isFile() && appFileHashDataElement != null && appFileHashDataElement.isJsonObject() && configElement != null && configElement.isJsonObject()) {
-                m_appFileName = appFileName;
-                boolean isCorrectHash = false;
+                String appFileName = m_appDir != null && appFileNameElement != null && appFileNameElement.isJsonPrimitive() ? appFileNameElement.getAsString() : null;
+                File appFile = appFileName != null ? new File(m_appDir.getAbsolutePath() + "/" + appFileName) : null;
 
-                try {
-                    m_appFileHashData = new HashData(appFileHashDataElement.getAsJsonObject());
-                    m_appVersion.set(appVersionElement != null && appVersionElement.isJsonPrimitive() ? new Version(appVersionElement.getAsString()) : new Version());
+                if (appFile != null && appFile.canRead() && appFile.isFile() && appFileHashDataElement != null && appFileHashDataElement.isJsonObject() && configElement != null && configElement.isJsonObject()) {
+                    m_appFileName = appFileName;
+                    boolean isCorrectHash = false;
 
-                    HashData appFileHashData = new HashData(appFile);
-/*
-                    Files.writeString(logFile.toPath(), "\nAppfiledata: " +appFileHashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-*/
-                    isCorrectHash = m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex());
-                    
-                } catch (Exception e) {
                     try {
-                        Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e1) {
-              
+                        m_appFileHashData = new HashData(appFileHashDataElement.getAsJsonObject());
+                        m_appVersion.set(appVersionElement != null && appVersionElement.isJsonPrimitive() ? new Version(appVersionElement.getAsString()) : new Version());
+
+                        HashData appFileHashData = new HashData(appFile);
+                        /*
+                        Files.writeString(logFile.toPath(), "\nAppfiledata: " +appFileHashData.getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        */
+                        isCorrectHash = m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex());
+
+                    } catch (Exception e) {
+                        try {
+                            Files.writeString(logFile.toPath(), "\n" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e1) {
+
+                        }
                     }
-                }
-                
-                if (isCorrectHash) {
 
-                    try {
-                        m_nodeConfigData = new ErgoNodeConfig(configElement.getAsJsonObject(), m_appDir);
-                        
-                        if (m_nodeConfigData != null && m_nodeConfigData.getConfigFile() != null && m_nodeConfigData.getConfigFile().isFile() &&  m_nodeConfigData.getConfigFileHashData() != null) {
-                           
-                            HashData configFileHashData = new HashData(m_nodeConfigData.getConfigFile());
-                        
-                            String nodeConfigHash = m_nodeConfigData.getConfigFileHashData().getHashStringHex();
-                            if (nodeConfigHash.equals(configFileHashData.getHashStringHex()) ) {
+                    if (isCorrectHash) {
 
-                                if (m_runOnStart) {
-                                    runNode(m_nodeConfigData.getConfigFile(), appFile);
+                        try {
+                            m_nodeConfigData = new ErgoNodeConfig(configJson, m_appDir);
+
+                            if (m_nodeConfigData != null && m_nodeConfigData.getConfigFile() != null && m_nodeConfigData.getConfigFile().isFile() && m_nodeConfigData.getConfigFileHashData() != null) {
+
+                                HashData configFileHashData = new HashData(m_nodeConfigData.getConfigFile());
+
+                                String nodeConfigHash = m_nodeConfigData.getConfigFileHashData().getHashStringHex();
+                                if (nodeConfigHash.equals(configFileHashData.getHashStringHex())) {
+
+                                    if (m_runOnStart) {
+                                        runNode(m_nodeConfigData.getConfigFile(), appFile);
+                                    }
+                                } else {
+
+                                    m_runOnStart = false;
+
+                                    configFileError(true);
+                                    m_nodeConfigData.updateConfigFile();
                                 }
+
                             } else {
-                                
+
                                 m_runOnStart = false;
-                                m_isSetupProperty.set(false);
-                                configFileError();
+
+                                configFileError(true);
+                                m_nodeConfigData.updateConfigFile();
                             }
-                      
-                        } else {
-                    
+                        } catch (Exception e) {
                             m_runOnStart = false;
                             m_isSetupProperty.set(false);
-                            configFileError();
+                            configFileError(false);
+
                         }
-                     } catch (Exception e) {
+
+                    } else {
                         m_runOnStart = false;
-                        m_isSetupProperty.set(false);
-                        configFileError();
-                        
-                    }
-                   
+                        m_appFileHashData = null;
+                        m_nodeConfigData = null;
 
-                } else {
-                    m_runOnStart = false;
-                    m_appFileHashData = null;
-                    m_nodeConfigData = null;
-
-                    if (m_isSetupProperty.get()) {
-                        m_isSetupProperty.set(false);
-                        coreFileError();
+                        if (m_isSetupProperty.get()) {
+                            m_isSetupProperty.set(false);
+                            coreFileError();
+                        }
                     }
+
                 }
 
+                if (appExecParamsElement != null && appExecParamsElement.isJsonPrimitive()) {
+                    m_execParams = appExecParamsElement.getAsString();
+                }
+
+            }else{
+                isSetupProperty().set(false);
             }
-
-            if(appExecParamsElement != null && appExecParamsElement.isJsonPrimitive()){
-                m_execParams = appExecParamsElement.getAsString();
-            }
-
-         
-
         }
 
     }
 
-    public  SimpleObjectProperty<Version> appVersionProperty(){
+    public SimpleObjectProperty<Version> appVersionProperty() {
         return m_appVersion;
     }
 
-    public SimpleBooleanProperty isSetupProperty(){
+    public SimpleBooleanProperty isSetupProperty() {
         return m_isSetupProperty;
     }
 
-    public SimpleBooleanProperty syncedProperty(){
+    public SimpleBooleanProperty syncedProperty() {
         return m_syncedProperty;
     }
 
-    public SimpleLongProperty nodeBlockHeightProperty(){
+    public SimpleLongProperty nodeBlockHeightProperty() {
         return m_nodeBlockHeightProperty;
     }
 
-    public SimpleLongProperty m_networkBlockHeightProperty(){
+    public SimpleLongProperty networkBlockHeightProperty() {
         return m_networkBlockHeightProperty;
     }
 
-
     @Override
-    public boolean isAvailable(){
+    public boolean isAvailable() {
         return statusProperty().get().equals(ErgoMarketsData.STARTED);
-    }    
+    }
 
     public long getSpaceRequired() {
         return m_spaceRequired;
@@ -371,43 +374,43 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     }
 
     public File getAppFile() {
-        return m_appDir != null && m_appDir.isDirectory() && m_appFileName != null ? new File(m_appDir.getAbsolutePath() + "/" + m_appFileName) : null;
+        return m_appDir != null && m_appDir.exists() && m_appDir.isDirectory() && m_appFileName != null ? new File(m_appDir.getAbsolutePath() + "/" + m_appFileName) : null;
     }
 
     private final SimpleIntegerProperty m_peerCountProperty = new SimpleIntegerProperty(-1);
 
-    public void cleanSync() throws IOException{
-        Files.writeString(logFile.toPath(),"\nErgoLocalNode: Clean Sync Required - Re-syncing node",StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    public void cleanSync() throws IOException {
+        Files.writeString(logFile.toPath(), "\nErgoLocalNode: Clean Sync Required - Re-syncing node", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
         File stateDir = new File(m_appDir.getCanonicalPath() + "/.ergo/state");
         File historyDir = new File(m_appDir.getCanonicalPath() + "/.ergo/history");
-        
-        if(stateDir.isDirectory()){
+
+        if (stateDir.isDirectory()) {
             FileUtils.deleteDirectory(stateDir);
         }
-        if(historyDir.isDirectory()){
+        if (historyDir.isDirectory()) {
             FileUtils.deleteDirectory(historyDir);
         }
-        
+
     }
-   
+
     private final void updateCycle() {
         //get Network info
         final String localApiString = namedNodeUrlProperty().get().getUrlString() + "/info";
         final String prevVersionString = m_appVersion.get().get();
-        if(m_isSyncStuck.get() > -1){
-            if(m_isSyncStuck.get() > SYNC_TIMEOUT_CYCLE){
+        if (m_isSyncStuck.get() > -1) {
+            if (m_isSyncStuck.get() > SYNC_TIMEOUT_CYCLE) {
                 stop();
-                
-                FxTimer.runLater(java.time.Duration.ofMillis(500),()->{
+
+                FxTimer.runLater(java.time.Duration.ofMillis(500), () -> {
                     try {
                         cleanSync();
                     } catch (IOException e) {
-                        
+
                     }
                     Platform.runLater(() -> start());
                 });
-                
+
                 m_isSyncStuck.set(-1);
             }
             m_isSyncStuck.set(m_isSyncStuck.get() + 1);
@@ -427,7 +430,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 try {
                     Files.writeString(new File(m_appDir.getAbsolutePath() + "/info.json").toPath(), json.toString());
                 } catch (IOException e) {
-                
+
                 }
 
                 // long headerHeight = headerHeightElement != null && headerHeightElement.isJsonPrimitive() ? headerHeightElement.getAsLong() : -1;
@@ -441,17 +444,17 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     m_peerCountProperty.set(peerCount);
                     m_networkBlockHeightProperty.set(networkHeight);
 
-                    if(appVersionString != null && !prevVersionString.equals(appVersionString)){
-                        try{
-   
+                    if (appVersionString != null && !prevVersionString.equals(appVersionString)) {
+                        try {
+
                             m_appVersion.set(new Version(appVersionString));
                             lastUpdated().set(LocalDateTime.now());
-                             
-                        }catch(IllegalArgumentException e){
+
+                        } catch (IllegalArgumentException e) {
 
                         }
                     }
-                
+
                 });
                 isGettingInfo.set(false);
             }
@@ -470,20 +473,20 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         int cycle = m_inputCycleIndex.incrementAndGet();
         if (cycle == 100) {
             m_inputCycleIndex.set(0);
-            
-            Platform.runLater(()->updateCycle());
+
+            Platform.runLater(() -> updateCycle());
         }
-        if( m_nodeMsgBuffer.size() > 0){
+        if (m_nodeMsgBuffer.size() > 0) {
             ArrayList<ErgoNodeMsg> newMsgs = new ArrayList<ErgoNodeMsg>();
             if (m_nodeMsgBuffer.size() > 0) {
                 synchronized (m_nodeMsgBuffer) {
-                
+
                     int j = m_nodeMsgBuffer.size() - 1;
-                    if(j > -1){
+                    if (j > -1) {
                         ErgoNodeMsg ergoNodeMsg = m_nodeMsgBuffer.get(j);
-                     
+
                         String lastInputId = m_lastNodeMsgId.get();
-                        if ( !(ergoNodeMsg.getId().equals(lastInputId))) {
+                        if (!(ergoNodeMsg.getId().equals(lastInputId))) {
                             m_lastNodeMsgId.set(lastInputId);
                             newMsgs.add(ergoNodeMsg);
 
@@ -502,7 +505,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             if (size > 0) {
 
                 for (int i = 0; i < size; i++) {
-                    
+
                     inputNodeMsg(newMsgs.get(i));
                 }
             }
@@ -523,21 +526,21 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     }
 
-    public String getExecCmd(File appFile, File configFile){
+    public String getExecCmd(File appFile, File configFile) {
 
-         String networkTypeString = namedNodeUrlProperty().get().getNetworkType() == null ? NetworkType.MAINNET.toString() : namedNodeUrlProperty().get().getNetworkType().toString();
+        String networkTypeString = namedNodeUrlProperty().get().getNetworkType() == null ? NetworkType.MAINNET.toString() : namedNodeUrlProperty().get().getNetworkType().toString();
 
         String networkTypeFlag = networkTypeString.equals(NetworkType.MAINNET.toString()) ? "--mainnet" : "--testnet";
 
         String cmdPrefix = "java -jar " + appFile.getName() + " " + networkTypeFlag;
-        
+
         String cmdPostfix = " -c " + configFile.getName();
-        if(m_execParams == null){
+        if (m_execParams == null) {
             m_execParams = "";
         }
-        String params = m_execParams.trim().length() > 0 ? " " +  m_execParams.trim() : "";
+        String params = m_execParams.trim().length() > 0 ? " " + m_execParams.trim() : "";
 
-        return  cmdPrefix +  params  + cmdPostfix;
+        return cmdPrefix + params + cmdPostfix;
     }
 
     private void runNode(File appFile, File configFile) {
@@ -547,15 +550,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         }
 
         if ((m_future == null || m_future != null && m_future.isDone()) && m_pid == -1) {
-           
-
-
 
             String cmd = "cmd /c " + getExecCmd(appFile, configFile);
 
-
             m_future = m_executor.submit(new Runnable() {
-                 Process proc;
+                Process proc;
+
                 /*private final ExecutorService executor = Executors.newCachedThreadPool(
                         new ThreadFactory() {
                     public Thread newThread(Runnable r) {
@@ -572,7 +572,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         proc = Runtime.getRuntime().exec(cmd, null, appFile.getParentFile());
                         BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
-                
                         if (proc.isAlive()) {
                             Platform.runLater(() -> statusProperty().set(ErgoMarketsData.STARTED));
                             if (m_scheduledFuture == null || (m_scheduledFuture != null && m_scheduledFuture.isDone())) {
@@ -593,13 +592,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                                 s = stdInput.readLine();
                                 String str = s;
-                                if(s != null){
-                                synchronized (m_nodeMsgBuffer) {
-                                    if (m_nodeMsgBuffer.size() > MAX_INPUT_BUFFER_SIZE) {
-                                        m_nodeMsgBuffer.remove(0);
+                                if (s != null) {
+                                    synchronized (m_nodeMsgBuffer) {
+                                        if (m_nodeMsgBuffer.size() > MAX_INPUT_BUFFER_SIZE) {
+                                            m_nodeMsgBuffer.remove(0);
+                                        }
+                                        m_nodeMsgBuffer.add(new ErgoNodeMsg(str));
                                     }
-                                    m_nodeMsgBuffer.add(new ErgoNodeMsg(str));
-                                }}
+                                }
                             } catch (IOException e) {
 
                                 proc.waitFor(2, TimeUnit.SECONDS);
@@ -620,24 +620,20 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                         }
                         proc.waitFor();
-                        Platform.runLater(()->{ 
+                        Platform.runLater(() -> {
                             statusProperty().set(ErgoMarketsData.STOPPED);
                             m_pid = -1;
-                            if(m_scheduledFuture != null){
+                            if (m_scheduledFuture != null) {
                                 m_scheduledFuture.cancel(false);
                             }
-                            if(m_future != null){
+                            if (m_future != null) {
                                 m_future.cancel(false);
                             }
                         });
-                       
-                        
-                            
+
                     } catch (Exception e) {
 
                     }
-
-              
 
                     //   m_pid = -1;
                     //   statusProperty().set(MarketsData.STOPPED);
@@ -652,7 +648,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     @Override
     public void start() {
-        String currentStatus =  statusProperty().get();
+        String currentStatus = statusProperty().get();
 
         if (m_isSetupProperty.get() && currentStatus.equals(ErgoMarketsData.STOPPED)) {
             Runnable runError = () -> {
@@ -664,53 +660,62 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             };
 
             Platform.runLater(() -> statusProperty().set(ErgoMarketsData.STARTING));
-            File appFile = getAppFile();
 
-            File configFile = m_nodeConfigData != null ? m_nodeConfigData.getConfigFile() : null;
-          
-           
-            if (appFile != null && appFile.isFile() && configFile != null && configFile.isFile() && m_appFileHashData != null && m_nodeConfigData != null  && m_nodeConfigData.getConfigFileHashData()  != null) {
-                /*
-                try {
-                    Files.writeString(logFile.toPath(), "\nappFile: " + m_appFileHashData.getHashStringHex() + "\nconfigFile: " + m_nodeConfigData.getConfigFileHashData().getHashStringHex(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-            
-                }*/
-                try {
-                    HashData appFileHashData = new HashData( Utils.digestFile(appFile));
-                    HashData configFileHashData = new HashData(Utils.digestFile(configFile));
-               
+            checkDrive(m_appDir, (onSuccess)->{
+                Object sourceValue = onSuccess.getSource().getValue();
 
-                    if (m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex())) {
-                        if (m_nodeConfigData.getConfigFileHashData().getHashStringHex().equals(configFileHashData.getHashStringHex())) {
-                            runNode(appFile, configFile);
-                        } else {
+                if(sourceValue != null && sourceValue instanceof Boolean && (Boolean) sourceValue){
+                
+                    File appFile = getAppFile();
+
+                    File configFile = m_nodeConfigData != null ? m_nodeConfigData.getConfigFile() : null;
+
+                    if (appFile != null && appFile.isFile() && configFile != null && configFile.isFile() && m_appFileHashData != null && m_nodeConfigData != null && m_nodeConfigData.getConfigFileHashData() != null) {
+                     
+                        try {
+                            HashData appFileHashData = new HashData(Utils.digestFile(appFile));
+                            HashData configFileHashData = new HashData(Utils.digestFile(configFile));
+
+                            if (m_appFileHashData.getHashStringHex().equals(appFileHashData.getHashStringHex())) {
+                                if (m_nodeConfigData.getConfigFileHashData().getHashStringHex().equals(configFileHashData.getHashStringHex())) {
+                                    runNode(appFile, configFile);
+                                } else {
+                                    runError.run();
+
+                                    configFileError(false);
+
+                                }
+
+                            } else {
+
+                                runError.run();
+                                coreFileError();
+                            }
+
+                        } catch (Exception e) {
                             runError.run();
-                            configFileError();
                         }
-
                     } else {
-
                         runError.run();
-                        coreFileError();
                     }
 
-                 } catch (Exception e) {
+                }else{
                     runError.run();
                 }
-            } else {
-                runError.run();
-            }
 
-        }else{
-            if(!m_isSetupProperty.get()){
+            }, onFailed->{
+                runError.run();
+            });
+
+        } else {
+            if (!m_isSetupProperty.get()) {
                 setup();
             }
         }
 
     }
 
-    private Scene initialSetupScene(Button nextBtn, MenuButton configModeBtn, MenuButton digestAccessBtn, MenuButton blockchainModeBtn, TextField apiKeyField, SimpleObjectProperty<File> configFileOption, SimpleObjectProperty<File> directoryRoot, TextField directoryNameField, Stage stage) {
+    private Scene initialSetupScene(Button nextBtn, MenuButton configModeBtn, TextField apiKeyField, SimpleObjectProperty<File> configFileOption, SimpleObjectProperty<File> directoryRoot, TextField directoryNameField, Stage stage) {
         String titleString = "Setup - Local Node - " + ErgoNodes.NAME;
         stage.setTitle(titleString);
 
@@ -782,11 +787,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             }
         });
 
-        BufferedButton showKeyBtn = new BufferedButton("/assets/eye-30.png", 20);
+        BufferedButton showKeyBtn = new BufferedButton("/assets/eye-30.png", App.MENU_BAR_IMAGE_WIDTH);
 
         Tooltip randomApiKeyTip = new Tooltip("Random API Key");
 
-        Button randomApiKeyBtn = new BufferedButton("/assets/d6-30.png", 20);
+        BufferedButton randomApiKeyBtn = new BufferedButton("/assets/d6-30.png", App.MENU_BAR_IMAGE_WIDTH);
         randomApiKeyBtn.setTooltip(randomApiKeyTip);
         randomApiKeyBtn.setOnAction(e -> {
             try {
@@ -827,7 +832,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 showKeyBtn.setImage(new Image("/assets/eye-30.png"));
             }
         });
-
+        /*
         Text digestModeText = new Text(String.format("%-15s", " Transactions"));
         digestModeText.setFill(getPrimaryColor());
         digestModeText.setFont(App.txtFont);
@@ -882,7 +887,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         HBox.setHgrow(blockchainModeBox, Priority.ALWAYS);
 
-        /* Text noticeText = new Text(String.format("%-15s", "   Notice"));
+         Text noticeText = new Text(String.format("%-15s", "   Notice"));
         noticeText.setFill(getPrimaryColor());
         noticeText.setFont(App.txtFont);
 
@@ -904,7 +909,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         configModeBox.setPadding(new Insets(0, 0, 0, 15));
         configModeBox.setMinHeight(40);
 
-        VBox modeOptionsBodyBox = new VBox(apiKeyBox, digestModeBox, blockchainModeBox);
+        VBox modeOptionsBodyBox = new VBox(apiKeyBox);
         modeOptionsBodyBox.setPadding(new Insets(0, 0, 0, 15));
 
         Text advFileModeText = new Text(String.format("%-8s", "File"));
@@ -1018,15 +1023,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         requiredText.setFill(getPrimaryColor());
         requiredText.setFont(App.txtFont);
 
-        final String advSpaceRequiredString = "~100 Mb - >50 Gb";
-
-        TextField requiredField = new TextField("~500 MB");
+        //  final String advSpaceRequiredString = "~100 Mb - >50 Gb";
+        TextField requiredField = new TextField("~2 GB");
         requiredField.setFont(App.txtFont);
         requiredField.setId("formField");
         requiredField.setEditable(false);
         HBox.setHgrow(requiredField, Priority.ALWAYS);
 
-        Runnable estimateSpaceRequired = () -> {
+        /* Runnable estimateSpaceRequired = () -> {
             switch (blockchainModeBtn.getText()) {
                 case BlockchainMode.RECENT_ONLY:
                     requiredField.setText("~100 Mb");
@@ -1041,9 +1045,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         };
         blockchainModeBtn.textProperty().addListener((obs, oldval, newval) -> {
             estimateSpaceRequired.run();
-        });
+        });*/
 
-        configModeBtn.textProperty().addListener((obs, oldVal, newVal) -> {
+ /*configModeBtn.textProperty().addListener((obs, oldVal, newVal) -> {
             switch (newVal) {
                 case ConfigMode.ADVANCED:
                     requiredField.setText(advSpaceRequiredString);
@@ -1067,8 +1071,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                     break;
             }
-        });
-
+        });*/
         HBox requiredBox = new HBox(requiredText, requiredField);
         requiredBox.minHeightProperty().bind(rowHeight);
         HBox.setHgrow(requiredBox, Priority.ALWAYS);
@@ -1107,10 +1110,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         footerSpacer.setMinHeight(5);
 
         VBox footerBox = new VBox(footerSpacer);
-        
-        
 
-        VBox layoutBox = new VBox(titleBox, headerBox, bodyPaddingBox , footerBox);
+        VBox layoutBox = new VBox(titleBox, headerBox, bodyPaddingBox, footerBox);
         Scene setupNodeScene = new Scene(layoutBox, SETUP_STAGE_WIDTH, SETUP_STAGE_HEIGHT);
         setupNodeScene.getStylesheets().add("/css/startWindow.css");
 
@@ -1118,9 +1119,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             stage.close();
             m_stage = null;
         };
-
-        
-
 
         closeBtn.setOnAction(e -> closeStage.run());
         m_stage.setOnCloseRequest(e -> closeStage.run());
@@ -1214,7 +1212,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                     try {
                                         Files.writeString(new File("ergSetup.txt").toPath(), assetObject.toString());
                                     } catch (IOException e1) {
-                                     
+
                                     }
                                     String url = downloadUrlElement.getAsString();
                                     String name = nameElement.getAsString();
@@ -1269,10 +1267,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         }); */
 
-       // if (ergoNodes.getNetworksData().getAppData().getUpdates()) {
-            getLatestUrl.run();
-     //   }
-        
+        // if (ergoNodes.getNetworksData().getAppData().getUpdates()) {
+        getLatestUrl.run();
+        //   }
+
         downloadBtnEffect.run();
 
         latestJarRadio.setOnAction(e -> {
@@ -1310,7 +1308,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             getLatestBoolean.set(false);
         });
 
-        Text customText = new Text("Custom");
+        Text customText = new Text("Existing");
         customText.setFill(App.txtColor);
         customText.setFont((App.txtFont));
         customText.setOnMouseClicked(e -> {
@@ -1338,7 +1336,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                 if (Utils.checkJar(appFile)) {
                     jarFileBtn.setText(appFile.getAbsolutePath());
                     getLatestBoolean.set(false);
-
+                    jarFile.set(appFile);
                 } else {
                     Alert a = new Alert(AlertType.NONE, "Unable to open file.", ButtonType.CANCEL);
                     a.initOwner(stage);
@@ -1410,10 +1408,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         return setupNodeScene;
     }
 
-
-
-    public static long getRequiredSpace(String blockchainMode) {
-        switch (blockchainMode) {
+    public static long getRequiredSpace() {
+        /*switch (blockchainMode) {
             case BlockchainMode.RECENT_ONLY:
                 return 150L * 1024L * 1024L;
 
@@ -1422,29 +1418,60 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             case BlockchainMode.FULL:
             default:
-                return 50L * 1024L * 1024L * 1024L;
-        }
+                
+        }*/
+        return 2L * 1024L * 1024L * 1024L;
     }
 
+    public static void checkDrive(File appDir, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
+        Task<Boolean> task = new Task<Boolean>() {
+            @Override
+            public Boolean call() throws IOException {
+                String path = appDir.getCanonicalPath();
+                return Utils.findPathPrefixInRoots(path);
+             
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+
+    }
+
+
+
     public boolean checkValidSetup() {
+
         File appDir = m_appDir;
         File configFile = m_nodeConfigData.getConfigFile();
         File appFile = getAppFile();
 
-        return (appDir != null && appDir.isDirectory() && configFile != null && configFile.isFile() && appFile != null && appFile.isFile());
+        return (appDir != null && appDir.exists() && appDir.isDirectory() && configFile != null && configFile.exists() && configFile.isFile() && appFile != null && appFile.exists() && appFile.isFile());
     }
 
     public void setup() {
 
         if (m_stage == null) {
 
-            SimpleObjectProperty<File> directory = new SimpleObjectProperty<File>(getErgoNodesList().getErgoNodes().getAppDir());
-            TextField folderNameField = new TextField(DEFAULT_NODE_NAME);
+            File appFile = getAppFile();
+
+            File parentDir = appFile != null ? appFile.getParentFile() : null;
+
+
+            SimpleObjectProperty<File> directory = new SimpleObjectProperty<File>(parentDir != null && parentDir.isDirectory() ? parentDir.getParentFile() : getErgoNodesList().getErgoNodes().getAppDir());
+
+            TextField folderNameField = new TextField(parentDir != null && parentDir.isDirectory() ? parentDir.getName() : DEFAULT_NODE_NAME);
 
             TextField configApiKey = new TextField();
             MenuButton configModeBtn = new MenuButton(ConfigMode.BASIC);
-            MenuButton configDigestAccess = new MenuButton(DigestAccess.LOCAL);
-            MenuButton configBlockchainMode = new MenuButton(BlockchainMode.PRUNED);
+            // MenuButton configDigestAccess = new MenuButton(DigestAccess.LOCAL);
+            // MenuButton configBlockchainMode = new MenuButton(BlockchainMode.PRUNED);
 
             SimpleObjectProperty<File> configFileOption = new SimpleObjectProperty<>(null);
 
@@ -1455,23 +1482,39 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             m_stage.setResizable(false);
             m_stage.initStyle(StageStyle.UNDECORATED);
 
-            Scene initialScene = initialSetupScene(nextBtn, configModeBtn, configDigestAccess, configBlockchainMode, configApiKey, configFileOption, directory, folderNameField, m_stage);
+            Scene initialScene = initialSetupScene(nextBtn, configModeBtn, configApiKey, configFileOption, directory, folderNameField, m_stage);
             m_stage.setScene(initialScene);
 
             m_stage.show();
 
             nextBtn.setOnAction(e -> {
                 final String configMode = configModeBtn.getText();
-                final String digestMode = configDigestAccess.getText();
-                final String blockchainMode = configBlockchainMode.getText();
+                // final String digestMode = configDigestAccess.getText();
+                //  final String blockchainMode = configBlockchainMode.getText();
                 final String apiKey = configApiKey.getText();
                 final File dir = directory.get();
                 String directoryString = dir.getAbsolutePath();
 
                 final File installDir = new File(dir.getAbsolutePath() + "/" + folderNameField.getText());
 
+                if (!installDir.isDirectory()) {
+
+                    Alert a = new Alert(AlertType.NONE, "This will create the folder: \n" + folderNameField.getText() + "\n(" + dir.getAbsolutePath() +"\\"+ folderNameField.getText() + ")", ButtonType.OK, ButtonType.CANCEL);
+                    a.initOwner(m_stage);
+                    a.setTitle("Create Folder");
+                    a.setHeaderText("Create Folder");
+                    Optional<ButtonType> result = a.showAndWait();
+                    if (result != null && result.isPresent() && result.get() == ButtonType.CANCEL) {
+                        return;
+                    } else {
+                        if (result == null) {
+                            return;
+                        }
+                    }
+                }
+
                 long useableSpace = directory.get().getUsableSpace();
-                long requiredSpace = getRequiredSpace(blockchainMode);
+                long requiredSpace = getRequiredSpace();
                 String errorMsg = "";
 
                 if (!installDir.isDirectory()) {
@@ -1492,7 +1535,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     } else {
                         if (configMode.equals(ConfigMode.BASIC)) {
 
-                            install(configMode, DEFAULT_CONFIG_NAME, digestMode, blockchainMode, apiKey, installDir, initialScene);
+                            install(configMode, DEFAULT_CONFIG_NAME, apiKey, installDir, initialScene);
                         } else {
                             File configFile = configFileOption.get();
                             if (configFile != null && configFile.isFile()) {
@@ -1510,7 +1553,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                     }
                                 }
                                 if (newConfig.isFile()) {
-                                    install(configMode, configFileName, digestMode, blockchainMode, apiKey, installDir, initialScene);
+                                    install(configMode, configFileName, apiKey, installDir, initialScene);
                                 } else {
                                     Alert a = new Alert(AlertType.NONE, configFileErr, ButtonType.OK);
                                     a.initOwner(m_stage);
@@ -1551,7 +1594,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         return m_consoleOutputProperty;
     }
 
-    public void install(String configMode, String configFileName, String digestMode, String blockchainMode, String apiKeyString, File installDir, Scene initialScene) {
+    public void install(String configMode, String configFileName, String apiKeyString, File installDir, Scene initialScene) {
         if (m_stage == null) {
             setup();
         } else {
@@ -1576,7 +1619,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                 if (!getLatestBoolean.get() && jarFile.get() == null) {
 
-                    Alert a = new Alert(AlertType.NONE, "Select a custom node file.", ButtonType.OK);
+                    Alert a = new Alert(AlertType.NONE, "Select an existing node file.", ButtonType.OK);
                     a.initOwner(m_configStage);
                     a.setHeaderText("Custom File");
                     a.setTitle("Custom File - Setup - Ergo Nodes");
@@ -1593,10 +1636,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         m_stage = null;
 
                         try {
-                            m_nodeConfigData = new ErgoNodeConfig(apiKeyString, configMode, digestMode, blockchainMode, configFileName, m_appDir);
-                            namedNodeUrlProperty().set(new NamedNodeUrl(getId(), blockchainMode, "127.0.0.1", ErgoNodes.MAINNET_PORT, apiKeyString, NetworkType.MAINNET));
+                            m_nodeConfigData = new ErgoNodeConfig(apiKeyString, configMode, DigestAccess.ALL, BlockchainMode.FULL, configFileName, m_appDir);
+                          
                             m_isSetupProperty.set(true);
-                            lastUpdated().set(LocalDateTime.now());
+                            setNamedNodeUrl(new NamedNodeUrl(getId(), BlockchainMode.FULL, "127.0.0.1", ErgoNodes.MAINNET_PORT, apiKeyString, NetworkType.MAINNET));
                             start();
 
                         } catch (Exception e1) {
@@ -1608,8 +1651,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                             m_stage.setScene(initialScene);
 
                         }
-
-                        
 
                     };
 
@@ -1663,15 +1704,15 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                 m_stage.setScene(progressScene);
 
                                 if (customFile.getAbsolutePath().equals(appFile.getAbsolutePath())) {
-                              
+
                                     try {
-                                       
+
                                         m_appDir = installDir;
                                         m_appFileName = fileNameProperty.get();
                                         m_appFileHashData = new HashData(appFile);
 
                                         installComplete.run();
-                                    } catch(Exception er) {
+                                    } catch (Exception er) {
 
                                         Alert a = new Alert(AlertType.NONE, "Error: " + er.toString(), ButtonType.OK);
                                         a.initOwner(m_stage);
@@ -1750,8 +1791,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         if (!statusProperty().get().equals(ErgoMarketsData.STOPPED)) {
             String[] pids = Utils.pslastPID(m_appFileName);
 
-            if(pids != null){
-                for(int i = 0; i < pids.length ; i++){
+            if (pids != null) {
+                for (int i = 0; i < pids.length; i++) {
                     Utils.psStopProcess(pids[i]);
                 }
             }
@@ -1760,22 +1801,20 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         }
     }
 
-    public void kill(){
+    public void kill() {
         if (!statusProperty().get().equals(ErgoMarketsData.STOPPED)) {
             Utils.wmicTerminate(m_appFileName);
-           
 
-           // statusProperty().set(ErgoMarketsData.STOPPED);
-
+            // statusProperty().set(ErgoMarketsData.STOPPED);
         }
-         
+
     }
 
     public boolean getIsSetup() {
         return m_isSetupProperty.get();
     }
 
-    public void resetToDefault(){
+    public void resetToDefault() {
         getErgoNodesList().remove(getId());
 
     }
@@ -1783,9 +1822,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     @Override
     public HBox getStatusBox() {
 
-    //   statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
-
-        
+        //   statusString.set(getIsSetup() ? "Offline" : "(Not Installed)");
         Text middleTopRightText = new Text();
         middleTopRightText.setFont(getFont());
         middleTopRightText.setFill(getSecondaryColor());
@@ -1798,8 +1835,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         VBox centerRightBox = new VBox(middleTopRightText, middleBottomRightText);
         centerRightBox.setAlignment(Pos.CENTER_RIGHT);
-
-         
 
         Text topInfoStringText = new Text();
         topInfoStringText.setFont(getFont());
@@ -1819,12 +1854,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         centerText.setFont(App.txtFont);
         centerText.setFill(getPrimaryColor());
 
-        
         Region topMiddleRegion = new Region();
         HBox.setHgrow(topMiddleRegion, Priority.ALWAYS);
 
         HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
-    //    topBox.setId("darkBox");
+        //    topBox.setId("darkBox");
 
         Text ipText = new Text(namedNodeUrlProperty().get().getUrlString());
         ipText.setFill(getPrimaryColor());
@@ -1843,7 +1877,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox.setHgrow(rbotRegion, Priority.ALWAYS);
 
         HBox bottomBox = new HBox(ipText, lbotRegion, syncText, rbotRegion, botTimeText);
-       // bottomBox.setId("darkBox");
+        // bottomBox.setId("darkBox");
         bottomBox.setAlignment(Pos.CENTER_LEFT);
 
         //syncText.prefWidthProperty().bind(bottomBox.widthProperty().subtract(ipText.layoutBoundsProperty().get().getWidth()).subtract(botTimeText.layoutBoundsProperty().get().getWidth()));
@@ -1856,86 +1890,78 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox centerBox = new HBox(centerTextBox, centerRightBox);
         centerBox.setPadding(new Insets(0, 5, 0, 5));
         centerBox.setAlignment(Pos.CENTER_RIGHT);
-       // centerBox.setId("darkBox");
+        // centerBox.setId("darkBox");
 
-        VBox bodyBox = new VBox( topBox, centerBox, bottomBox);
+        VBox bodyBox = new VBox(topBox, centerBox, bottomBox);
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
 
         Runnable updateSynced = () -> {
             String status = statusProperty().get() == null ? ErgoMarketsData.STOPPED : statusProperty().get();
-           
+
             if (!status.equals(ErgoMarketsData.STOPPED)) {
 
-               
-                    boolean synced = m_syncedProperty.get();
-                    int peerCount = m_peerCountProperty.get();
-                    long networkBlockHeight = m_networkBlockHeightProperty.get();
-                    long nodeBlockHeight = m_nodeBlockHeightProperty.get();
+                boolean synced = m_syncedProperty.get();
+                int peerCount = m_peerCountProperty.get();
+                long networkBlockHeight = m_networkBlockHeightProperty.get();
+                long nodeBlockHeight = m_nodeBlockHeightProperty.get();
 
-                    if (!synced) {
-           
+                if (!synced) {
+
                     //    botMidText.setFill(getSecondaryColor());
-                        syncText.setText("");
-                        if(networkBlockHeight == -1){
-                            centerText.setText("Starting up...");
-                        }else{
-                            
-                            if(nodeBlockHeight == -1){
-                                int seconds =  (SYNC_TIMEOUT_CYCLE - m_isSyncStuck.get()); 
-                                centerText.setText("Finding next block... " + (m_isSyncStuck.get() > 2 ? ("(Timeout: " + seconds +"s)") : ""));
-                                
-                            }else{
-                                    String nodeBlockHeightString = nodeBlockHeight == -1 ? "Getting Node Height..." : nodeBlockHeight + "";
-                                String networkBlockHeightString = networkBlockHeight == -1 ? "Getting Network Height..." : networkBlockHeight + "";
-                                   
-                        
-                                centerText.setText("Syncing: " +nodeBlockHeightString + "/" + networkBlockHeightString);
-                            }
-                            
-                        }
-                    
-
-                        //+ " (" + String.format("%.1f", p * 100) + ")");
-                        // }
+                    syncText.setText("");
+                    if (networkBlockHeight == -1) {
+                        centerText.setText("Starting up...");
                     } else {
-                       
-                        centerText.setText("Ready" );
-                        syncText.setText("Height: " + nodeBlockHeight);
-                        centerText.setFill(Color.WHITE);
+
+                        if (nodeBlockHeight == -1) {
+                            int seconds = (SYNC_TIMEOUT_CYCLE - m_isSyncStuck.get());
+                            centerText.setText("Finding next block... " + (m_isSyncStuck.get() > 2 ? ("(Timeout: " + seconds + "s)") : ""));
+
+                        } else {
+                            String nodeBlockHeightString = nodeBlockHeight == -1 ? "Getting Node Height..." : nodeBlockHeight + "";
+                            String networkBlockHeightString = networkBlockHeight == -1 ? "Getting Network Height..." : networkBlockHeight + "";
+
+                            centerText.setText("Syncing: " + nodeBlockHeightString + "/" + networkBlockHeightString);
+                        }
+
                     }
-                    topRightText.setText("Peers: " + (peerCount == -1 ? 0 : peerCount) + " ");
+
+                    //+ " (" + String.format("%.1f", p * 100) + ")");
+                    // }
+                } else {
+
+                    centerText.setText("Ready");
+                    syncText.setText("Height: " + nodeBlockHeight);
+                    centerText.setFill(Color.WHITE);
+                }
+                topRightText.setText("Peers: " + (peerCount == -1 ? 0 : peerCount) + " ");
             } else {
- 
-                    
+
                 centerText.setText(getIsSetup() ? "Offline" : "(Not Installed)");
-    
+
             }
 
         };
 
-
         m_nodeBlockHeightProperty.addListener((obs, oldVal, newVal) -> updateSynced.run());
         m_networkBlockHeightProperty.addListener((obs, oldval, newVal) -> updateSynced.run());
         statusProperty().addListener((obs, oldval, newval) -> updateSynced.run());
-        m_syncedProperty.addListener((obs,oldval,newval)->updateSynced.run());
-        statusString().addListener((obs,oldval,newval)->updateSynced.run());
+        m_syncedProperty.addListener((obs, oldval, newval) -> updateSynced.run());
+        statusString().addListener((obs, oldval, newval) -> updateSynced.run());
         updateSynced.run();
 
-
-        namedNodeUrlProperty().addListener((obs, oldval, newval)->{
+        namedNodeUrlProperty().addListener((obs, oldval, newval) -> {
             ipText.setText(newval != null ? newval.getUrlString() : "Address unknown");
         });
 
         //double width = bottomBox.layoutBoundsProperty().get().getWidth() - ipText.layoutBoundsProperty().get().getWidth() - botTimeText.layoutBoundsProperty().get().getWidth();
         // syncField.minWidthProperty().bind(rowBox.widthProperty().subtract(botTimeText.layoutBoundsProperty().get().getWidth()).subtract(200));
-
         start();
-   
 
         HBox contentsBox = new HBox(bodyBox);
         HBox.setHgrow(contentsBox, Priority.ALWAYS);
         contentsBox.setId("bodyRowBox");
-        contentsBox.setPadding(new Insets(0,10,0,10));
+        contentsBox.setPadding(new Insets(0, 10, 0, 10));
         return contentsBox;
     }
 
@@ -1946,21 +1972,19 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         defaultIdTip.setShowDelay(new Duration(100));
         BufferedButton defaultIdBtn = new BufferedButton(getErgoNodesList().defaultNodeIdProperty().get() != null && getErgoNodesList().defaultNodeIdProperty().get().equals(getId()) ? getRadioOnUrl() : getRadioOffUrl(), 15);
         defaultIdBtn.setTooltip(defaultIdTip);
-        defaultIdBtn.setOnAction(e->{
+        defaultIdBtn.setOnAction(e -> {
             String currentDefaultId = getErgoNodesList().defaultNodeIdProperty().get();
-            if(currentDefaultId != null && currentDefaultId.equals(getId())){
+            if (currentDefaultId != null && currentDefaultId.equals(getId())) {
                 getErgoNodesList().defaultNodeIdProperty().set(null);
-            }else{
+            } else {
                 getErgoNodesList().defaultNodeIdProperty().set(getId());
             }
         });
 
-       getErgoNodesList().defaultNodeIdProperty().addListener((obs, oldval, newval)->{
+        getErgoNodesList().defaultNodeIdProperty().addListener((obs, oldval, newval) -> {
             defaultIdBtn.setImage(new Image(newval != null && newval.equals(getId()) ? getRadioOnUrl() : getRadioOffUrl()));
             defaultIdTip.setText(newval != null && newval.equals(getId()) ? "Default Node" : "Set default");
         });
-
-        
 
         Text topInfoStringText = new Text();
         topInfoStringText.setFont(getFont());
@@ -1983,30 +2007,30 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         centerField.setAlignment(Pos.CENTER);
         centerField.setPadding(new Insets(0, 10, 0, 0));
 
-        Runnable updateCenterFieldString = ()->{
+        Runnable updateCenterFieldString = () -> {
             String status = statusProperty().get();
             boolean synced = m_syncedProperty.get();
-            if(status != null){
-                switch(status){
+            if (status != null) {
+                switch (status) {
                     case ErgoMarketsData.STOPPED:
                         centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
-                    break;
+                        break;
                     case ErgoMarketsData.STARTING:
-                         centerField.setText("Starting up...");
-                    break;
+                        centerField.setText("Starting up...");
+                        break;
                     case ErgoMarketsData.STARTED:
                         centerField.setText((synced ? "Ready: " : "Syncing: ") + statusString().get());
-                    break;
+                        break;
                 }
 
-            }else{
+            } else {
                 centerField.setText(getIsSetup() ? "Offline" : "(Not Installed)");
             }
-        
+
         };
-        statusString().addListener((obs,oldval,newval)->updateCenterFieldString.run());
-        m_syncedProperty.addListener((obs,oldval,newval)->updateCenterFieldString.run());
-        statusProperty().addListener((obs, oldval, newval)->updateCenterFieldString.run());
+        statusString().addListener((obs, oldval, newval) -> updateCenterFieldString.run());
+        m_syncedProperty.addListener((obs, oldval, newval) -> updateCenterFieldString.run());
+        statusProperty().addListener((obs, oldval, newval) -> updateCenterFieldString.run());
 
         updateCenterFieldString.run();
 
@@ -2034,9 +2058,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         statusBtn.setTooltip(statusBtnTip);
         statusBtn.setOnAction(action -> {
             if (statusProperty().get().equals(ErgoMarketsData.STOPPED)) {
-              
+
                 start();
-               
+
             } else {
                 stop();
 
@@ -2069,30 +2093,25 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             if (value.equals(ErgoMarketsData.STOPPED)) {
                 String stoppedString = getIsSetup() ? "Start" : "Setup";
-                
 
-                    statusBtnTip.setText(stoppedString);
+                statusBtnTip.setText(stoppedString);
 
-                    
+                centerField.setAlignment(Pos.CENTER);
+                statusString().set(getIsSetup() ? "Offline" : "(Not Installed)");
+                // powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
 
-                    centerField.setAlignment(Pos.CENTER);
-                    statusString().set(getIsSetup() ? "Offline" : "(Not Installed)");
-                   // powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerOffUrl()), 15));
-
-                
                 statusBtn.setImage(new Image(getIsSetup() ? getStartImgUrl() : getInstallImgUrl()));
             } else {
-                
 
-                    statusBtnTip.setText("Stop");
-                    statusBtn.setImage(new Image(getStopImgUrl()));
-                    statusString().set(value);
+                statusBtnTip.setText("Stop");
+                statusBtn.setImage(new Image(getStopImgUrl()));
+                statusString().set(value);
 
-                    centerField.setAlignment(Pos.CENTER_LEFT);
-                    /*if (!m_syncedProperty.get()) {
+                centerField.setAlignment(Pos.CENTER_LEFT);
+                /*if (!m_syncedProperty.get()) {
                         powerBtn.setGraphic(IconButton.getIconView(new Image(getPowerInitUrl()), 15));
                     }*/
-                
+
             }
         };
 
@@ -2142,13 +2161,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
 
         HBox contentsBox = new HBox(leftBox, bodyBox, rightBox);
-       // contentsBox.setId("rowBox");
+        // contentsBox.setId("rowBox");
         HBox.setHgrow(contentsBox, Priority.ALWAYS);
 
         HBox rowBox = new HBox(contentsBox);
         rowBox.setPadding(new Insets(0, 0, 5, 0));
         rowBox.setAlignment(Pos.CENTER_RIGHT);
-      //  rowBox.setId("unselected");
+        //  rowBox.setId("unselected");
         HBox.setHgrow(rowBox, Priority.ALWAYS);
         // rowBox.setId("rowBox");
 
@@ -2176,25 +2195,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         //    syncText.setText("Updating sync status...");
                         //  } else {
 
-                       
-
-                        if(nodeBlockHeight == -1 && networkBlockHeight == -1){
-                                syncText.setText("Getting information..."+ (peerCount > 0 ? "   Peers: " + peerCount : ""));
-                        }else{
-                            if(nodeBlockHeight == -1){
-                                int seconds =  (SYNC_TIMEOUT_CYCLE - m_isSyncStuck.get()); 
-                                syncText.setText("Finding block height... " + (m_isSyncStuck.get() > 2 ? ("Sync Timeout: " + seconds +"s") : "") + (peerCount > 0 ? "   Peers: " + peerCount : ""));
-                                if(m_isSyncStuck.get() == -1){
+                        if (nodeBlockHeight == -1 && networkBlockHeight == -1) {
+                            syncText.setText("Getting information..." + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                        } else {
+                            if (nodeBlockHeight == -1) {
+                                int seconds = (SYNC_TIMEOUT_CYCLE - m_isSyncStuck.get());
+                                syncText.setText("Finding block height... " + (m_isSyncStuck.get() > 2 ? ("Sync Timeout: " + seconds + "s") : "") + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+                                if (m_isSyncStuck.get() == -1) {
                                     m_isSyncStuck.set(1);
                                 }
-                            }else{
+                            } else {
                                 m_isSyncStuck.set(-1);
                                 String nodeBlockHeightString = nodeBlockHeight == -1 ? "Getting Node Height..." : nodeBlockHeight + "";
                                 String networkBlockHeightString = networkBlockHeight == -1 ? "Getting Network Height..." : networkBlockHeight + "";
-                                syncText.setText( nodeBlockHeightString + " / " + networkBlockHeightString +  (peerCount > 0 ? "   Peers: " + peerCount : ""));
-             
+                                syncText.setText(nodeBlockHeightString + " / " + networkBlockHeightString + (peerCount > 0 ? "   Peers: " + peerCount : ""));
+
                             }
-                            
+
                         }
                     } else {
                         syncText.setText("Synchronized: " + nodeBlockHeight + (peerCount > 0 ? "   Peers: " + peerCount : ""));
@@ -2208,14 +2225,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         };
 
-
         m_nodeBlockHeightProperty.addListener((obs, oldVal, newVal) -> updateSynced.run());
         m_networkBlockHeightProperty.addListener((obs, oldval, newVal) -> updateSynced.run());
         statusProperty().addListener((obs, oldval, newval) -> updateSynced.run());
         m_syncedProperty.addListener((obs, oldVal, newVal) -> {
 
             syncText.setFill(newVal ? getPrimaryColor() : getSecondaryColor());
-           // powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
+            // powerBtn.setGraphic(IconButton.getIconView(new Image(newVal ? getPowerOnUrl() : (statusProperty.get().equals(ErgoMarketsData.STOPPED) ? getPowerOffUrl() : getPowerInitUrl())), 15));
 
         });
         updateSynced.run();
@@ -2243,21 +2259,17 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         return rowBox;
     }
 
-
-
     @Override
-    public String getName(){
+    public String getName() {
         return "Local Node (" + super.getName() + ")";
     }
-    
- 
 
-    public void setExecParams(String params){
+    public void setExecParams(String params) {
         m_execParams = params;
     }
 
-    public String getExecParams(){
-        
+    public String getExecParams() {
+
         return m_execParams;
     }
 
@@ -2266,7 +2278,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         NamedNodeUrl namedNodeUrl = namedNodeUrlProperty().get();
 
         JsonObject json = new JsonObject();
-        
 
         if (namedNodeUrl != null) {
             json.add("namedNode", namedNodeUrl.getJsonObject());
@@ -2296,65 +2307,61 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     }
 
-    public void openAppFile(Stage stage, Runnable onSuccess, Runnable onFailed){
+    public void openAppFile(Stage stage, Runnable onSuccess, Runnable onFailed) {
         stop();
         FileChooser chooser = new FileChooser();
-            chooser.setTitle("Select 'Ergo Core (.jar)'");
-            chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Ergo Core (.jar)", "*.jar"));
-            File coreFile = chooser.showOpenDialog(stage);
-            String errorString = "File cannot be opened.";
-            if(coreFile!= null){
-                if (Utils.checkJar(coreFile)) {
+        chooser.setTitle("Select 'Ergo Core (.jar)'");
+        chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Ergo Core (.jar)", "*.jar"));
+        File coreFile = chooser.showOpenDialog(stage);
+        String errorString = "File cannot be opened.";
+        if (coreFile != null) {
+            if (Utils.checkJar(coreFile)) {
 
-                    try {
-                        final String coreFileName = coreFile.getName();
-                        final HashData hashData = new HashData(coreFile);
-                        if(!coreFile.getAbsolutePath().equals(m_appDir.getAbsolutePath())){
-                            Files.move(coreFile.toPath(), new File(m_appDir.getAbsolutePath() + "/" +coreFileName).toPath(), StandardCopyOption.REPLACE_EXISTING );
-                        }
-                        
-                        final Version fileNameVersion = Utils.getFileNameVersion(coreFileName);
-                        
-                        
-                        
-                        Platform.runLater(()-> {
-                            m_appFileHashData = hashData;
-                            m_appFileName = coreFileName;
-                            m_appVersion.set( fileNameVersion != null ? fileNameVersion : new Version() );
-                            lastUpdated().set(LocalDateTime.now());
-                            onSuccess.run();
-                        });
-
-                    } catch (Exception e1) {
-                        Alert a = new Alert(AlertType.NONE, errorString + ":\n\n" + e1, ButtonType.OK);
-                        a.setHeaderText("Error Opening");
-                        a.setTitle("Error Opening - Settings - Local Node - Ergo Nodes");
-                        a.initOwner(m_stage);
-                        a.show();
-                    
-                        Platform.runLater(()-> onFailed.run());
-                    
+                try {
+                    final String coreFileName = coreFile.getName();
+                    final HashData hashData = new HashData(coreFile);
+                    if (!coreFile.getAbsolutePath().equals(m_appDir.getAbsolutePath())) {
+                        Files.move(coreFile.toPath(), new File(m_appDir.getAbsolutePath() + "/" + coreFileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
                     }
 
+                    final Version fileNameVersion = Utils.getFileNameVersion(coreFileName);
 
-                }else{
-                    Alert a = new Alert(AlertType.NONE, errorString, ButtonType.OK);
+                    Platform.runLater(() -> {
+                        m_appFileHashData = hashData;
+                        m_appFileName = coreFileName;
+                        m_appVersion.set(fileNameVersion != null ? fileNameVersion : new Version());
+                        lastUpdated().set(LocalDateTime.now());
+                        onSuccess.run();
+                    });
+
+                } catch (Exception e1) {
+                    Alert a = new Alert(AlertType.NONE, errorString + ":\n\n" + e1, ButtonType.OK);
                     a.setHeaderText("Error Opening");
                     a.setTitle("Error Opening - Settings - Local Node - Ergo Nodes");
                     a.initOwner(m_stage);
                     a.show();
-                    Platform.runLater(()-> onFailed.run());
-                    
+
+                    Platform.runLater(() -> onFailed.run());
+
                 }
+
+            } else {
+                Alert a = new Alert(AlertType.NONE, errorString, ButtonType.OK);
+                a.setHeaderText("Error Opening");
+                a.setTitle("Error Opening - Settings - Local Node - Ergo Nodes");
+                a.initOwner(m_stage);
+                a.show();
+                Platform.runLater(() -> onFailed.run());
+
             }
+        }
     }
 
-
-    public void updateAppFile(Stage stage, Scene previousScene, Runnable onComplete, Runnable noUpdate){
-            Utils.getUrlJson(GitHub_LATEST_URL, (onSucceeded) -> {
+    public void updateAppFile(Stage stage, Scene previousScene, Runnable onComplete, Runnable noUpdate) {
+        Utils.getUrlJson(GitHub_LATEST_URL, (onSucceeded) -> {
             Object sourceObject = onSucceeded.getSource().getValue();
             SimpleStringProperty errorText = new SimpleStringProperty(null);
-             Rectangle rect =  getErgoNodesList().getErgoNodes().getNetworksData().getMaximumWindowBounds();
+            Rectangle rect = getErgoNodesList().getErgoNodes().getNetworksData().getMaximumWindowBounds();
 
             if (sourceObject != null && sourceObject instanceof JsonObject) {
                 JsonObject gitHubApiJson = (JsonObject) sourceObject;
@@ -2364,12 +2371,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     JsonArray assetsArray = assetsElement.getAsJsonArray();
                     if (assetsArray.size() > 0) {
                         JsonElement primaryAssetElement = assetsArray.get(0);
-                     
+
                         if (primaryAssetElement != null && primaryAssetElement.isJsonObject()) {
                             JsonObject assetObject = primaryAssetElement.getAsJsonObject();
-                            
-                        
-                                
+
                             JsonElement downloadUrlElement = assetObject.get("browser_download_url");
                             JsonElement nameElement = assetObject.get("name");
 
@@ -2377,32 +2382,29 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                 String url = downloadUrlElement.getAsString();
                                 String name = nameElement.getAsString();
 
-                                try{
+                                try {
 
                                     Version newVersion = Utils.getFileNameVersion(name);
                                     Version prevVersion = m_appVersion.get();
                                     File prevAppFile = getAppFile();
 
-                                    
+                                    if (newVersion.compareTo(prevVersion) > 0 || prevAppFile == null) {
 
-                                    if(newVersion.compareTo(prevVersion) > 0 || prevAppFile == null){
-                                    
-                                        if(m_deleteOldFiles){
-                                            if(prevAppFile != null && !prevAppFile.getName().equals(name) && prevAppFile.isFile()){
+                                        if (m_deleteOldFiles) {
+                                            if (prevAppFile != null && !prevAppFile.getName().equals(name) && prevAppFile.isFile()) {
                                                 prevAppFile.delete();
                                             }
                                         }
-                                        
+
                                         File appFile = new File(m_appDir.getAbsolutePath() + "/" + name);
                                         ProgressBar progressBar = new ProgressBar();
-                                        
-                                    
-                                        if(stage != null){
-                                            Scene progressScene = App.getProgressScene(ErgoNodes.getSmallAppIcon(), "Downloading", "Settings - Ergo Local Node - " + ErgoNodes.NAME , new SimpleStringProperty( name), progressBar, stage);
+
+                                        if (stage != null) {
+                                            Scene progressScene = App.getProgressScene(ErgoNodes.getSmallAppIcon(), "Downloading", "Settings - Ergo Local Node - " + ErgoNodes.NAME, new SimpleStringProperty(name), progressBar, stage);
                                             stage.setScene(progressScene);
-                                           
-                                            stage.setX((rect.getWidth() /2) - (stage.getWidth() / 2));
-                                            stage.setY((rect.getHeight()/2) - (stage.getHeight() / 2));
+
+                                            stage.setX((rect.getWidth() / 2) - (stage.getWidth() / 2));
+                                            stage.setY((rect.getHeight() / 2) - (stage.getHeight() / 2));
                                         }
                                         Utils.getUrlFileHash(url, appFile, (onDlSucceeded) -> {
                                             Object dlObject = onDlSucceeded.getSource().getValue();
@@ -2411,14 +2413,14 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                                 m_appFileName = name;
                                                 m_appVersion.set(newVersion);
                                                 lastUpdated().set(LocalDateTime.now());
-                                                if(onComplete != null){
+                                                if (onComplete != null) {
                                                     onComplete.run();
                                                 }
-                                                if(stage != null){ 
-                                                    
+                                                if (stage != null) {
+
                                                     stage.setScene(previousScene);
-                                                    stage.setX((rect.getWidth()/2) - (stage.getWidth() / 2));
-                                                    stage.setY((rect.getHeight()/2) - (stage.getHeight() / 2));
+                                                    stage.setX((rect.getWidth() / 2) - (stage.getWidth() / 2));
+                                                    stage.setY((rect.getHeight() / 2) - (stage.getHeight() / 2));
                                                 }
                                             } else {
                                                 Alert a = new Alert(AlertType.NONE, "The download returned an invalid file.", ButtonType.OK);
@@ -2426,11 +2428,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                                 a.setTitle("Download Failed - Setup - Ergo Nodes");
                                                 a.setHeaderText("Download Failed");
                                                 a.show();
-                                                if(stage != null){
+                                                if (stage != null) {
                                                     stage.setScene(previousScene);
                                                     stage.setScene(previousScene);
-                                                    stage.setX((rect.getWidth()/2) - (stage.getWidth() / 2));
-                                                    stage.setY((rect.getHeight()/2) - (stage.getHeight() / 2));
+                                                    stage.setX((rect.getWidth() / 2) - (stage.getWidth() / 2));
+                                                    stage.setY((rect.getHeight() / 2) - (stage.getHeight() / 2));
                                                 }
                                             }
                                         }, (onDlFailed) -> {
@@ -2441,23 +2443,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                                             a.setTitle("Error - Setup - Ergo Nodes");
                                             a.setHeaderText("Error");
                                             a.show();
-                                            if(stage != null){
+                                            if (stage != null) {
                                                 stage.setScene(previousScene);
                                                 stage.setScene(previousScene);
                                                 stage.setX(rect.getWidth() - (stage.getWidth() / 2));
                                                 stage.setY(rect.getHeight() - (stage.getHeight() / 2));
                                             }
-                                        },stage != null ? progressBar : null);
-                                        
-                                    }else{
-                                        if(noUpdate != null){
+                                        }, stage != null ? progressBar : null);
+
+                                    } else {
+                                        if (noUpdate != null) {
                                             noUpdate.run();
                                         }
                                     }
-                                }catch(Exception e){
+                                } catch (Exception e) {
                                     errorText.set(e.toString());
                                 }
-                                
+
                             } else {
                                 errorText.set("Asset url corrupt (try again ->)");
                             }
@@ -2474,11 +2476,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             } else {
                 errorText.set("Unable to connect to GitHub (try again ->)");
             }
-            if(errorText.get() != null){
+            if (errorText.get() != null) {
                 Alert a = new Alert(AlertType.NONE, "Download manifest corrupt:\n\n" + errorText.get(), ButtonType.OK);
                 a.setHeaderText("Manifest Error");
                 a.setTitle("Manifest Error - Local Node - Ergo Nodes");
-                if(stage != null){
+                if (stage != null) {
                     a.initOwner(stage);
                 }
                 a.show();
@@ -2487,7 +2489,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             Alert a = new Alert(AlertType.NONE, onFailed.getSource().getMessage(), ButtonType.OK);
             a.setHeaderText("Download Error");
             a.setTitle("Download Error - Local Node - Ergo Nodes");
-            if(stage != null){
+            if (stage != null) {
                 a.initOwner(stage);
             }
             a.show();
@@ -2497,22 +2499,27 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     private String m_downArrowUrlString = "/assets/caret-down-15.png";
     private String m_upArrowUrlString = "/assets/caret-up-15.png";
 
-    private Scene settingsScene( Stage stage) {
-        String titleString = "Settings - Local Node - " + ErgoNodes.NAME;
-    
-        stage.setTitle(titleString);
+    private Scene settingsScene(Stage stage, Runnable closeStage) {
+        if(!checkValidSetup())
+        {
+          
+            return null;
+        }
 
+        String titleString = "Settings - Local Node - " + ErgoNodes.NAME;
+
+        stage.setTitle(titleString);
         
         VBox layoutBox = new VBox();
         Scene settingsScene = new Scene(layoutBox, SETTINGS_STAGE_WIDTH, SETTINGS_STAGE_HEIGHT);
 
-        
-
         settingsScene.getStylesheets().add("/css/startWindow.css");
-   
-        ErgoNodeConfig nodeConfig = new ErgoNodeConfig(m_nodeConfigData);
 
-         NamedNodeUrl namedNode = namedNodeUrlProperty().get();
+        try {
+            Files.writeString(new File("configText.txt").toPath(), "\ntext1", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
 
         Image icon = ErgoNodes.getSmallAppIcon();
         double defaultRowHeight = 40;
@@ -2539,85 +2546,79 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         headerBox.setPadding(new Insets(0, 5, 0, 5));
 
-
-        
         Tooltip setupTooltip = new Tooltip("Setup");
         setupTooltip.setShowDelay(new Duration(100));
 
-        BufferedButton setupBtn = new BufferedButton(getInstallImgUrl(), 20);
+        BufferedButton setupBtn = new BufferedButton(getInstallImgUrl(), App.MENU_BAR_IMAGE_WIDTH);
         setupBtn.setTooltip(setupTooltip);
-        setupBtn.setOnAction(e->{
+        setupBtn.setOnAction(e -> {
             closeBtn.fire();
             setup();
         });
         Tooltip deleteTip = new Tooltip("Remove Node");
         deleteTip.setShowDelay(new Duration(100));
 
-        BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png",20);
+        BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
         deleteBtn.setTooltip(deleteTip);
 
-        deleteBtn.setOnAction(e->{
+        deleteBtn.setOnAction(e -> {
             Alert a = new Alert(AlertType.NONE, "Delete all local node files?", ButtonType.YES, ButtonType.NO, ButtonType.CANCEL);
-            a.setTitle("Remove Node - " + namedNode.getName() + " - Ergo Nodes");
+            a.setTitle("Remove Node - " + getNamedNodeUrl().getName() + " - Ergo Nodes");
             a.setHeaderText("Clear Node");
-            a.initOwner(m_stage);
+            a.initOwner(stage);
             Optional<ButtonType> result = a.showAndWait();
 
-            if(result != null && result.isPresent() && result.get() != ButtonType.CANCEL){
+            if (result != null && result.isPresent() && result.get() != ButtonType.CANCEL) {
                 stop();
                 closeBtn.fire();
                 resetToDefault();
 
-                if(result.get() == ButtonType.YES){
-                    
-                    FxTimer.runLater(java.time.Duration.ofMillis(500), ()->{
+                if (result.get() == ButtonType.YES) {
+
+                    FxTimer.runLater(java.time.Duration.ofMillis(500), () -> {
                         try {
                             FileUtils.deleteDirectory(m_appDir);
                         } catch (IOException e1) {
                             Alert a1 = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
                             a1.setTitle("Error");
-                            a1.initOwner(m_stage);
+                            a1.initOwner(stage);
                             a1.setHeaderText("Error");
                             a1.show();
                         }
                     });
-                    
+
                 }
             }
         });
 
-
         TextField appDirField = new TextField(m_appDir.getAbsolutePath());
         appDirField.setId("urlField");
         appDirField.setEditable(false);
-        
-
 
         HBox.setHgrow(appDirField, Priority.ALWAYS);
 
         Tooltip navTooltip = new Tooltip("Open in File Explorer");
-        
+
         BufferedButton navBtn = new BufferedButton("/assets/navigate-outline-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
         navBtn.setText("Location");
         navBtn.setGraphicTextGap(15);
         navBtn.setId("titleBtn");
         navBtn.setContentDisplay(ContentDisplay.RIGHT);
         navBtn.setTooltip(navTooltip);
-        navBtn.setOnAction(e->{
+        navBtn.setOnAction(e -> {
             try {
                 Desktop.getDesktop().open(m_appDir);
             } catch (IOException e1) {
                 Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
                 a.setTitle("Error");
-                a.initOwner(m_stage);
+                a.initOwner(stage);
                 a.setHeaderText("Error");
                 a.show();
             }
         });
 
-        HBox menuBar = new HBox(navBtn, appDirField,setupBtn, deleteBtn);
+        HBox menuBar = new HBox(navBtn, appDirField, setupBtn, deleteBtn);
 
-       
         menuBar.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setId("menuBar");
@@ -2628,15 +2629,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         VBox menuBarBox = new VBox(menubarPaddingBox);
 
-       menuBarBox.setPadding(new Insets(0, 5, 0, 5));
+        menuBarBox.setPadding(new Insets(0, 5, 0, 5));
 
         SimpleDoubleProperty rowHeight = new SimpleDoubleProperty(defaultRowHeight);
 
         Text configText = new Text("Config");
         configText.setFill(App.txtColor);
         configText.setFont(App.txtFont);
-    
-
 
         HBox configBox = new HBox(configText);
         configBox.setAlignment(Pos.CENTER_LEFT);
@@ -2644,8 +2643,131 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         configBox.setId("headingBox");
         configBox.setPadding(new Insets(0, 0, 0, 15));
 
-        SimpleBooleanProperty showConfigFile = new SimpleBooleanProperty(false);
+          try {
+            Files.writeString(new File("configText.txt").toPath(), "\ntext2", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }
+
+        Text apiKeyText = new Text(String.format("%-14s", "API Key"));
+        apiKeyText.setFill(getPrimaryColor());
+        apiKeyText.setFont((App.txtFont));
+
+        TextField apiKeyField = new TextField();
+        apiKeyField.setPromptText("Enter key");
+        apiKeyField.setId("formField");
+        HBox.setHgrow(apiKeyField, Priority.ALWAYS);
+
+        Button showKeyBtn = new Button("(Click to view)");
+        showKeyBtn.setId("rowBtn");
+        showKeyBtn.setPrefWidth(250);
+        showKeyBtn.setPrefHeight(30);
+        showKeyBtn.setAlignment(Pos.CENTER_LEFT);
+
+          try {
+            Files.writeString(new File("configText.txt").toPath(), "\ntext3", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+
+        Runnable updateKey = ()->{
+            String keyString = apiKeyField.getText();
+
+                try {
+                    m_nodeConfigData.setApiKey(keyString);
+                    NamedNodeUrl newNamedNodeUrl = getNamedNodeUrl();
+                    newNamedNodeUrl.setApiKey(keyString);
+                    setNamedNodeUrl(newNamedNodeUrl);
+                    
+                } catch (Exception e1) {
+              
+                }
+                
+               
+   
+
+        };
+
+        Tooltip randomApiKeyTip = new Tooltip("Random API Key");
+
+        BufferedButton hideKeyBtn = new BufferedButton("/assets/eye-off-30.png", App.MENU_BAR_IMAGE_WIDTH);
+        BufferedButton saveKeyBtn = new BufferedButton("/assets/save-30.png", App.MENU_BAR_IMAGE_WIDTH);
+        BufferedButton randomApiKeyBtn = new BufferedButton("/assets/d6-30.png", App.MENU_BAR_IMAGE_WIDTH);
+
+          try {
+            Files.writeString(new File("configText.txt").toPath(), "\ntext4", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+
+        randomApiKeyBtn.setTooltip(randomApiKeyTip);
+        randomApiKeyBtn.setOnAction(e -> {
+            try {
+                int length = Utils.getRandomInt(12, 20);
+                char key[] = new char[length];
+                for (int i = 0; i < length; i++) {
+                    key[i] = (char) Utils.getRandomInt(33, 126);
+                }
+                String keyString = new String(key);
+                apiKeyField.setText(keyString);
+               
+            } catch (NoSuchAlgorithmException e1) {
+                Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CANCEL);
+                a.initOwner(stage);
+                a.setHeaderText("Error");
+                a.setTitle("Error");
+                a.show();
+            }
+        });
+
+        HBox apiKeyBox = new HBox(apiKeyText, showKeyBtn);
+        apiKeyBox.setPadding(new Insets(0));;
+        apiKeyBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(apiKeyBox, Priority.ALWAYS);
+
+             try {
+            Files.writeString(new File("configText.txt").toPath(), "\ntext5", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+   
+        Runnable hideKey = ()->{
+           
+            apiKeyBox.getChildren().removeAll(apiKeyField, hideKeyBtn, randomApiKeyBtn, saveKeyBtn);
+       
+            apiKeyBox.getChildren().add(showKeyBtn);
+        
+        };
+
+        Runnable showKey = ()->{
+            apiKeyField.setText(namedNodeUrlProperty().get().getApiKey());
+            apiKeyBox.getChildren().remove(showKeyBtn);
+            apiKeyBox.getChildren().addAll(apiKeyField, hideKeyBtn, randomApiKeyBtn, saveKeyBtn);
+        };
+
+        hideKeyBtn.setOnAction(e->{
+            hideKey.run();
+        });
+       
+        saveKeyBtn.setOnAction(e->{
+            updateKey.run();
+            hideKey.run();
+        });
+
+        showKeyBtn.setOnAction(e ->{
+            App.verifyAppKey(()->{
+                showKey.run();
+            }, getErgoNodesList().getErgoNodes().getNetworksData().getAppData().getAppKeyBytes());
+            
+        });
+
+        try {
+            Files.writeString(new File("configText.txt").toPath(), "\ntext6", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+
+        }
+
+        SimpleBooleanProperty showConfigFile = new SimpleBooleanProperty(false);
 
         BufferedButton configFileHeadingBtn = new BufferedButton(m_downArrowUrlString, App.MENU_BAR_IMAGE_WIDTH);
         configFileHeadingBtn.setText("File");
@@ -2653,21 +2775,21 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         configFileHeadingBtn.setGraphicTextGap(15);
         configFileHeadingBtn.setPadding(new Insets(0, 0, 0, 0));
         configFileHeadingBtn.setContentDisplay(ContentDisplay.RIGHT);
-        configFileHeadingBtn.setOnAction(e->{
+        configFileHeadingBtn.setOnAction(e -> {
             showConfigFile.set(!showConfigFile.get());
         });
 
         HBox configFileHeadingBox = new HBox(configFileHeadingBtn);
         configFileHeadingBox.setAlignment(Pos.CENTER_LEFT);
         configFileHeadingBox.minHeightProperty().bind(rowHeight);
-    
-        
+
         Text settingsFileNameText = new Text(String.format("%-14s", "Name"));
         settingsFileNameText.setFill(getPrimaryColor());
         settingsFileNameText.setFont(App.txtFont);
-        
 
-        TextField settingsFileNameField = new TextField(nodeConfig.getConfigFile().getName());
+        File configFile = m_nodeConfigData.getConfigFile();
+
+        TextField settingsFileNameField = new TextField(configFile != null ? configFile.getName() : "Unknown");
         settingsFileNameField.setId("formField");
         settingsFileNameField.setEditable(false);
         HBox.setHgrow(settingsFileNameField, Priority.ALWAYS);
@@ -2675,14 +2797,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox settingsFileNameBox = new HBox(settingsFileNameText, settingsFileNameField);
         settingsFileNameBox.setAlignment(Pos.CENTER_LEFT);
         settingsFileNameBox.minHeightProperty().bind(rowHeight);
-        
-     
 
         Text settingsFileText = new Text(String.format("%-14s", "Location"));
         settingsFileText.setFill(getPrimaryColor());
         settingsFileText.setFont(App.txtFont);
 
-        TextField settingsFileField = new TextField(nodeConfig.getConfigFile().getAbsolutePath());
+        TextField settingsFileField = new TextField(configFile != null ? configFile.getAbsolutePath() : "");
         settingsFileField.setId("formField");
         settingsFileField.setEditable(false);
         HBox.setHgrow(settingsFileField, Priority.ALWAYS);
@@ -2695,83 +2815,72 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         settingsFileHashText.setFill(getPrimaryColor());
         settingsFileHashText.setFont(App.txtFont);
 
-        TextField settingsFileHashField = new TextField(nodeConfig.getConfigFileHashData().getHashStringHex());
+        HashData configFileHashData = m_nodeConfigData.getConfigFileHashData();
+
+        TextField settingsFileHashField = new TextField(configFileHashData != null ? configFileHashData.getHashStringHex() : "Unknown");
         settingsFileHashField.setId("formField");
         settingsFileHashField.setEditable(false);
 
-    
         HBox.setHgrow(settingsFileHashField, Priority.ALWAYS);
 
-
-        Text configHashName = new Text("(" + nodeConfig.getConfigFileHashData().getHashName()+")");
+        Text configHashName = new Text(configFileHashData != null ? "(" + configFileHashData.getHashName() + ")" : "");
         configHashName.setFill(getSecondaryColor());
         configHashName.setFont(App.txtFont);
 
         Region configHashSpacer = new Region();
         configHashSpacer.setMinWidth(5);
 
-        HBox settingsFileHashBox = new HBox(settingsFileHashText,configHashSpacer, configHashName, settingsFileHashField);
+        HBox settingsFileHashBox = new HBox(settingsFileHashText, configHashSpacer, configHashName, settingsFileHashField);
         settingsFileHashBox.setAlignment(Pos.CENTER_LEFT);
         settingsFileHashBox.minHeightProperty().bind(rowHeight);
 
         VBox configFileBodyBox = new VBox(settingsFileNameBox, settingsFileHashBox, settingsFileBox);
         configFileBodyBox.setId("bodyBox");
-        configFileBodyBox.setPadding(new Insets(0,0,0, 30));
-        HBox.setHgrow(configFileBodyBox,Priority.ALWAYS);       
+        configFileBodyBox.setPadding(new Insets(0, 0, 0, 30));
+        HBox.setHgrow(configFileBodyBox, Priority.ALWAYS);
 
-
-
-        VBox configBodyBox = new VBox(configFileHeadingBox, configFileBodyBox);
-        configBodyBox.setPadding(new Insets(10, 20,10, 30));
+        VBox configBodyBox = new VBox(apiKeyBox, configFileHeadingBox, configFileBodyBox);
+        configBodyBox.setPadding(new Insets(10, 20, 10, 30));
         configBodyBox.setId("bodyBox");
         HBox.setHgrow(configBodyBox, Priority.ALWAYS);
 
-        Runnable updateConfigFileInfo = () ->{
+        Runnable updateConfigFileInfo = () -> {
             boolean isShowing = showConfigFile.get();
-            if(isShowing){
-                if(!configBodyBox.getChildren().contains(configFileBodyBox)){
+            if (isShowing) {
+                if (!configBodyBox.getChildren().contains(configFileBodyBox)) {
                     int index = configBodyBox.getChildren().indexOf(configFileHeadingBox) + 1;
 
                     configBodyBox.getChildren().add(index, configFileBodyBox);
                 }
                 configFileHeadingBtn.setImage(new Image(m_upArrowUrlString));
-            }else{
-                if(configBodyBox.getChildren().contains(configFileBodyBox)){
+            } else {
+                if (configBodyBox.getChildren().contains(configFileBodyBox)) {
                     configBodyBox.getChildren().remove(configFileBodyBox);
                 }
                 configFileHeadingBtn.setImage(new Image(m_downArrowUrlString));
             }
         };
         updateConfigFileInfo.run();
-        showConfigFile.addListener((obs, oldVal, newVal)->updateConfigFileInfo.run());
-        
+        showConfigFile.addListener((obs, oldVal, newVal) -> updateConfigFileInfo.run());
+
         VBox configVBox = new VBox(configBox, configBodyBox);
         configVBox.setPadding(new Insets(0, 0, 15, 0));
 
         Text appHeadingText = new Text("Application");
         appHeadingText.setFill(App.txtColor);
         appHeadingText.setFont(App.txtFont);
-        
 
-    
-
-
-        HBox appHeadingBox = new HBox(appHeadingText );
+        HBox appHeadingBox = new HBox(appHeadingText);
         appHeadingBox.setAlignment(Pos.CENTER_LEFT);
         appHeadingBox.setMinHeight(40);
         appHeadingBox.setId("headingBox");
         appHeadingBox.setPadding(new Insets(0, 0, 0, 15));
 
-        
-    
-      
-
         Text appNetworkTypeText = new Text(String.format("%-14s", "Network Type"));
         appNetworkTypeText.setFill(getPrimaryColor());
         appNetworkTypeText.setFont(App.txtFont);
 
-
-        TextField appNetworkTypeField = new TextField(namedNode.getNetworkType().toString());
+        TextField appNetworkTypeField = new TextField(getNamedNodeUrl().getNetworkType().toString());
         appNetworkTypeField.setId("formField");
         appNetworkTypeField.setEditable(false);
         HBox.setHgrow(appNetworkTypeField, Priority.ALWAYS);
@@ -2779,25 +2888,23 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox appNetworkTypeBox = new HBox(appNetworkTypeText, appNetworkTypeField);
         appNetworkTypeBox.setAlignment(Pos.CENTER_LEFT);
         appNetworkTypeBox.minHeightProperty().bind(rowHeight);
-        
-       Text appRunOnStartText = new Text(String.format("%-14s", "Autorun"));
+
+        Text appRunOnStartText = new Text(String.format("%-14s", "Autorun"));
         appRunOnStartText.setFill(getPrimaryColor());
         appRunOnStartText.setFont(App.txtFont);
 
-     
-
-        BufferedButton appRunOnStartBtn = new BufferedButton("/assets/checkmark-25.png", 20);
+        BufferedButton appRunOnStartBtn = new BufferedButton("/assets/checkmark-25.png", App.MENU_BAR_IMAGE_WIDTH);
         appRunOnStartBtn.setPrefWidth(30);
         appRunOnStartBtn.setPrefHeight(30);
         appRunOnStartBtn.setId("checkBtn");
-        
-        Runnable updateRunOnStart = ()->{
+
+        Runnable updateRunOnStart = () -> {
             boolean runOnStart = m_runOnStart;
             appRunOnStartBtn.setImage(runOnStart ? new Image("/assets/checkmark-25.png") : null);
         };
         updateRunOnStart.run();
 
-        appRunOnStartBtn.setOnAction(e->{
+        appRunOnStartBtn.setOnAction(e -> {
             m_runOnStart = !m_runOnStart;
             lastUpdated().set(LocalDateTime.now());
             updateRunOnStart.run();
@@ -2809,13 +2916,10 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox appRunOnStartBox = new HBox(appRunOnStartText, appRunOnStartRegion, appRunOnStartBtn);
         appRunOnStartBox.setAlignment(Pos.CENTER_LEFT);
         appRunOnStartBox.minHeightProperty().bind(rowHeight);
-     
 
         Text appNameText = new Text(String.format("%-14s", "Name"));
         appNameText.setFill(getPrimaryColor());
         appNameText.setFont(App.txtFont);
-
-          
 
         TextField appNameField = new TextField();
         appNameField.setId("formField");
@@ -2825,8 +2929,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox appNameBox = new HBox(appNameText, appNameField);
         appNameBox.setAlignment(Pos.CENTER_LEFT);
         appNameBox.minHeightProperty().bind(rowHeight);
-        
-     
 
         Text appFileText = new Text(String.format("%-14s", "Location"));
         appFileText.setFill(getPrimaryColor());
@@ -2841,10 +2943,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appFileBox.setAlignment(Pos.CENTER_LEFT);
         appFileBox.minHeightProperty().bind(rowHeight);
 
-       
-
-
-
         Text appHashText = new Text(String.format("%-14s", "Hash"));
         appHashText.setFill(getPrimaryColor());
         appHashText.setFont(App.txtFont);
@@ -2854,13 +2952,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appHashField.setEditable(false);
         HBox.setHgrow(appHashField, Priority.ALWAYS);
 
-
         Text appHashName = new Text();
         appHashName.setFill(getSecondaryColor());
         appHashName.setFont(App.txtFont);
-
-  
-        
 
         Region appHashSpacer = new Region();
         appHashSpacer.setMinWidth(5);
@@ -2870,55 +2964,47 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appHashBox.minHeightProperty().bind(rowHeight);
         HBox.setHgrow(appHashBox, Priority.ALWAYS);
 
-
         Text appExecText = new Text(String.format("%-14s", "Parameters"));
         appExecText.setFill(getPrimaryColor());
         appExecText.setFont(App.txtFont);
-
 
         MenuButton viewExecutionStringBtn = new MenuButton("(View)");
         viewExecutionStringBtn.setId("menuBtn");
         viewExecutionStringBtn.setPopupSide(Side.TOP);
 
-
-
-        
         TextField appParamsField = new TextField(m_execParams);
         appParamsField.setId("formField");
         appParamsField.setPromptText("Enter additional parameters (Advanced)");
         HBox.setHgrow(appParamsField, Priority.ALWAYS);
 
-        
-        Runnable updateCmdString = ()->{
+        Runnable updateCmdString = () -> {
             File appFile = getAppFile();
-            File configFile = m_nodeConfigData.getConfigFile();
+            File cfgFile = m_nodeConfigData.getConfigFile();
 
-            String cmdString = getExecCmd(appFile, configFile);
-            MenuItem executionStringItem = new MenuItem( "\"" + cmdString + "\"  (Click to copy)");
-            executionStringItem.setOnAction(e->{
+            String cmdString = getExecCmd(appFile, cfgFile);
+            MenuItem executionStringItem = new MenuItem("\"" + cmdString + "\"  (Click to copy)");
+            executionStringItem.setOnAction(e -> {
                 Clipboard clipboard = Clipboard.getSystemClipboard();
                 ClipboardContent content = new ClipboardContent();
                 content.putString(cmdString);
                 clipboard.setContent(content);
-               
+
             });
             viewExecutionStringBtn.getItems().clear();
             viewExecutionStringBtn.getItems().add(executionStringItem);
         };
 
-
-
-        appParamsField.focusedProperty().addListener((obs, oldVal, newVal)->{
-            if(!newVal){
+        appParamsField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) {
                 String prevParams = m_execParams;
                 String newParams = appParamsField.getText();
 
-                if(!prevParams.equals(newParams)){
+                if (!prevParams.equals(newParams)) {
                     m_execParams = appParamsField.getText();
                     lastUpdated().set(LocalDateTime.now());
                     updateCmdString.run();
                 }
-                
+
             }
         });
         updateCmdString.run();
@@ -2926,13 +3012,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox appExecBox = new HBox(appExecText, viewExecutionStringBtn, appParamsField);
         appExecBox.setAlignment(Pos.CENTER_LEFT);
         appExecBox.minHeightProperty().bind(rowHeight);
-
-
- 
-
-
-
-
 
         SimpleBooleanProperty showAppFile = new SimpleBooleanProperty(false);
 
@@ -2942,41 +3021,36 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appFileHeadingBtn.setPadding(new Insets(0, 0, 0, 0));
         appFileHeadingBtn.setGraphicTextGap(15);
         appFileHeadingBtn.setContentDisplay(ContentDisplay.RIGHT);
-        appFileHeadingBtn.setOnAction(e->{
+        appFileHeadingBtn.setOnAction(e -> {
             showAppFile.set(!showAppFile.get());
         });
-         Tooltip openAppBtnTip = new Tooltip("Select new file");
+        Tooltip openAppBtnTip = new Tooltip("Select new file");
         openAppBtnTip.setShowDelay(new Duration(100));
 
-        BufferedButton openAppFileBtn = new BufferedButton(getInstallImgUrl(), 20);
+        BufferedButton openAppFileBtn = new BufferedButton(getInstallImgUrl(), App.MENU_BAR_IMAGE_WIDTH);
         openAppFileBtn.setTooltip(openAppBtnTip);
-      
+
         Tooltip downloadAppBtnTip = new Tooltip("Get latest version");
         downloadAppBtnTip.setShowDelay(new Duration(100));
 
         Text isLatestText = new Text("");
         isLatestText.setFont(App.titleFont);
         isLatestText.setFill(getSecondaryColor());
-        
 
-        BufferedButton downloadAppBtn = new BufferedButton("/assets/cloud-download-30.png", 20);
+        BufferedButton downloadAppBtn = new BufferedButton("/assets/cloud-download-30.png", App.MENU_BAR_IMAGE_WIDTH);
         downloadAppBtn.setTooltip(downloadAppBtnTip);
-        
+
         Region appFileRegion = new Region();
         HBox.setHgrow(appFileRegion, Priority.ALWAYS);
 
-
-        HBox appFileHeadingBox = new HBox( appFileHeadingBtn, appFileRegion,isLatestText,  openAppFileBtn, downloadAppBtn);
+        HBox appFileHeadingBox = new HBox(appFileHeadingBtn, appFileRegion, isLatestText, openAppFileBtn, downloadAppBtn);
 
         appFileHeadingBox.setMinHeight(40);
         appFileHeadingBox.setAlignment(Pos.CENTER_LEFT);
 
-
         Text appFileVersionText = new Text(String.format("%-14s", "Version"));
         appFileVersionText.setFill(getPrimaryColor());
         appFileVersionText.setFont(App.txtFont);
-
-          
 
         TextField appFileVersionField = new TextField();
         appFileVersionField.setId("formField");
@@ -2987,112 +3061,103 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appFileVersionBox.setAlignment(Pos.CENTER_LEFT);
         appFileVersionBox.minHeightProperty().bind(rowHeight);
 
-
-        Runnable updateAppFileText = () ->{
-           // String fileVersion = m_appVersion.get().get();
+        Runnable updateAppFileText = () -> {
+            // String fileVersion = m_appVersion.get().get();
 
             appNameField.setText(m_appFileName);
-            appFileField.setText(getAppFile().getAbsolutePath());  
-            appHashName.setText("(" + m_appFileHashData.getHashName()+")");
+            appFileField.setText(getAppFile().getAbsolutePath());
+            appHashName.setText("(" + m_appFileHashData.getHashName() + ")");
             appHashField.setText(m_appFileHashData.getHashStringHex());
-           
+
         };
 
         appFileVersionField.textProperty().bind(m_appVersion.asString());
 
         updateAppFileText.run();
 
-        openAppFileBtn.setOnAction(e->{
-            openAppFile(stage, updateAppFileText, ()->{});
+        openAppFileBtn.setOnAction(e -> {
+            openAppFile(stage, updateAppFileText, () -> {
+            });
         });
 
-
-        downloadAppBtn.setOnAction(e->{
-            updateAppFile(stage, settingsScene, ()->{
+        downloadAppBtn.setOnAction(e -> {
+            updateAppFile(stage, settingsScene, () -> {
                 isLatestText.setText("Updated: " + m_appVersion.get().get());
                 updateAppFileText.run();
-            }, ()->{
+            }, () -> {
                 isLatestText.setText("Already latest: " + m_appVersion.get().get());
             });
         });
 
-        VBox appFileBodyVBox = new VBox(appNameBox, appFileVersionBox,  appHashBox, appFileBox);
+        VBox appFileBodyVBox = new VBox(appNameBox, appFileVersionBox, appHashBox, appFileBox);
         appFileBodyVBox.setId("bodyBox");
         appFileBodyVBox.setPadding(new Insets(0, 0, 0, 30));
-        HBox.setHgrow(appFileBodyVBox,Priority.ALWAYS);
+        HBox.setHgrow(appFileBodyVBox, Priority.ALWAYS);
 
-         VBox appBodyBox = new VBox(appNetworkTypeBox, appRunOnStartBox,  appExecBox, appFileHeadingBox  );
-        appBodyBox.setPadding(new Insets(10, 20,10, 30));
+        VBox appBodyBox = new VBox(appNetworkTypeBox, appRunOnStartBox, appExecBox, appFileHeadingBox);
+        appBodyBox.setPadding(new Insets(10, 20, 10, 30));
         appBodyBox.setId("bodyBox");
         HBox.setHgrow(appBodyBox, Priority.ALWAYS);
 
-        Runnable updateAppFileInfo = () ->{
+        Runnable updateAppFileInfo = () -> {
             boolean isShowing = showAppFile.get();
-            if(isShowing){
-                if(!appBodyBox.getChildren().contains( appFileBodyVBox)){
+            if (isShowing) {
+                if (!appBodyBox.getChildren().contains(appFileBodyVBox)) {
                     int index = appBodyBox.getChildren().indexOf(appFileHeadingBox) + 1;
                     appBodyBox.getChildren().add(index, appFileBodyVBox);
                 }
                 appFileHeadingBtn.setImage(new Image(m_upArrowUrlString));
-            }else{
-                if(appBodyBox.getChildren().contains( appFileBodyVBox)){
+            } else {
+                if (appBodyBox.getChildren().contains(appFileBodyVBox)) {
                     appBodyBox.getChildren().remove(appFileBodyVBox);
                 }
                 appFileHeadingBtn.setImage(new Image(m_downArrowUrlString));
             }
         };
         updateAppFileInfo.run();
-        showAppFile.addListener((obs, oldVal, newVal)->updateAppFileInfo.run());
-
-
+        showAppFile.addListener((obs, oldVal, newVal) -> updateAppFileInfo.run());
 
         VBox appVBox = new VBox(appHeadingBox, appBodyBox);
         appVBox.setPadding(new Insets(0, 0, 15, 0));
-   
 
-        VBox bodyBox = new VBox( appVBox, configVBox);
+        VBox bodyBox = new VBox(appVBox, configVBox);
         bodyBox.setId("bodyBox");
         bodyBox.setPadding(new Insets(15));
 
         VBox bodyPaddingBox = new VBox(bodyBox);
         bodyPaddingBox.setPadding(new Insets(5, 5, 5, 5));
-        
+
         Region footerSpacer = new Region();
         footerSpacer.setMinHeight(5);
 
         VBox footerBox = new VBox();
-        
+
         ScrollPane bodyScroll = new ScrollPane(bodyPaddingBox);
-        bodyScroll.prefViewportWidthProperty().bind(stage.widthProperty());
+        bodyScroll.prefViewportWidthProperty().bind(settingsScene.widthProperty());
         bodyScroll.setPadding(new Insets(0));
         layoutBox.getChildren().addAll(titleBox, headerBox, menuBarBox, bodyScroll, footerBox);
         settingsScene.getStylesheets().add("/css/startWindow.css");
 
         SimpleDoubleProperty scrollBarWidth = new SimpleDoubleProperty(0);
 
-        bodyPaddingBox.prefWidthProperty().bind(stage.widthProperty().subtract(scrollBarWidth).subtract(5));
-
-        Runnable closeStage = () -> {
-            stage.close();
-            m_stage = null;
-        };
+        bodyPaddingBox.prefWidthProperty().bind(settingsScene.widthProperty().subtract(scrollBarWidth).subtract(5));
 
         Rectangle screenRectangle = getErgoNodesList().getErgoNodes().getNetworksData().getMaximumWindowBounds();
 
-        Runnable updateBodySize = () ->{
+        Runnable updateBodySize = () -> {
             //
             double screenHeight = screenRectangle.getHeight();
             double bodyHeight = bodyPaddingBox.heightProperty().get() + 5;
-            double restOfStageHeight = titleBox.heightProperty().doubleValue() +  headerBox.heightProperty().get() + menuBarBox.heightProperty().get() + footerBox.heightProperty().get();
+            double restOfStageHeight = titleBox.heightProperty().doubleValue() + headerBox.heightProperty().get() + menuBarBox.heightProperty().get() + footerBox.heightProperty().get();
             double totalHeight = bodyHeight + restOfStageHeight;
-            
-            if(totalHeight <= screenHeight){
+
+            if (totalHeight <= screenHeight) {
                 stage.setHeight(totalHeight);
                 bodyScroll.setPrefViewportHeight(bodyHeight);
-                if(stage.getY() + totalHeight > screenHeight){
+                if (stage.getY() + totalHeight > screenHeight) {
                     stage.setY(screenHeight - totalHeight);
                 }
-            }else{
+            } else {
                 scrollBarWidth.set(20);
                 stage.setHeight(screenHeight);
                 bodyScroll.setPrefViewportHeight(screenHeight - restOfStageHeight);
@@ -3100,43 +3165,68 @@ public class ErgoNodeLocalData extends ErgoNodeData {
             }
         };
 
-        bodyPaddingBox.heightProperty().addListener((obs, oldVal, newVal)->updateBodySize.run());
+        bodyPaddingBox.heightProperty().addListener((obs, oldVal, newVal) -> updateBodySize.run());
 
-        stage.sceneProperty().addListener((obs, oldval, newval)->updateBodySize.run());
+        stage.sceneProperty().addListener((obs, oldval, newval) -> updateBodySize.run());
 
         closeBtn.setOnAction(e -> closeStage.run());
-        m_stage.setOnCloseRequest(e -> closeStage.run());
+
         return settingsScene;
     }
 
     @Override
     public void openSettings() {
         if (checkValidSetup()) {
-            if (m_stage == null) {
-                
-              
+            if (m_settingsStage == null) {
 
-                m_stage = new Stage();
-                m_stage.getIcons().add(getIcon());
-                m_stage.setResizable(false);
-                m_stage.initStyle(StageStyle.UNDECORATED);
+                checkDrive(m_appDir, (onSuccess)->{
+                    Object sourceValue = onSuccess.getSource().getValue();
 
-              
-                m_stage.setScene(settingsScene(m_stage));
+                    if(sourceValue != null && sourceValue instanceof Boolean && (Boolean) sourceValue){
+    
+                        m_settingsStage = new Stage();
+                        Runnable close = () -> {
+                            m_settingsStage.close();
+                            m_settingsStage = null;
+                        };
+                        m_settingsStage.getIcons().add(getIcon());
+                        m_settingsStage.setResizable(false);
+                        m_settingsStage.initStyle(StageStyle.UNDECORATED);
+                        Scene scene = settingsScene(m_settingsStage, close);
 
-                m_stage.show();
+                        if(scene != null){
+                            m_settingsStage.setScene(scene);
+                            m_settingsStage.setOnCloseRequest(e -> close.run());
+                            m_settingsStage.show();
+                        }else{
+                            m_settingsStage = null;
+                        }
+                        
+                    }else{
+                        Alert a = new Alert(AlertType.WARNING, "Drive may be removed. Would you like to reset the node?", ButtonType.YES, ButtonType.NO);
+                        a.setTitle("Not Found");
+                        a.setHeaderText("Not Found");
+                        Optional<ButtonType> result = a.showAndWait();
+                        if(result != null && result.isPresent() && result.get() == ButtonType.YES){
+                            isSetupProperty().set(false);
+                            setup();
+                        }
+                    }
 
-          
+                }, (onFailed)->{
+                    isSetupProperty().set(false);
+                });
 
+           
             } else {
-                if (m_stage.isIconified()) {
-                    m_stage.setIconified(false);
+                if (m_settingsStage.isIconified()) {
+                    m_settingsStage.setIconified(false);
                 }
-                m_stage.show();
-                m_stage.toFront();
+                m_settingsStage.show();
+                m_settingsStage.toFront();
             }
         } else {
-     
+
             setup();
         }
 
@@ -3146,15 +3236,15 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public HBox getMenuBar() {
         Tooltip settingsTip = new Tooltip("Settings");
         settingsTip.setShowDelay(new Duration(100));
-        BufferedButton settingsBtn = new BufferedButton("/assets/settings-outline-white-120.png", 20);
+        BufferedButton settingsBtn = new BufferedButton("/assets/settings-outline-white-120.png", App.MENU_BAR_IMAGE_WIDTH);
         settingsBtn.setTooltip(settingsTip);
 
         Tooltip installTooltip = new Tooltip("Setup");
         installTooltip.setShowDelay(new Duration(100));
 
-        BufferedButton installBtn = new BufferedButton(getInstallImgUrl(), 20);
+        BufferedButton installBtn = new BufferedButton(getInstallImgUrl(), App.MENU_BAR_IMAGE_WIDTH);
         installBtn.setTooltip(installTooltip);
-        installBtn.setOnAction(e->{
+        installBtn.setOnAction(e -> {
             setup();
         });
 
@@ -3165,33 +3255,33 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         HBox.setHgrow(menuBar, Priority.ALWAYS);
         menuBar.setAlignment(Pos.CENTER_LEFT);
 
-        Runnable checkInstalled = () ->{
+        Runnable checkInstalled = () -> {
             boolean isSetup = m_isSetupProperty.get();
 
-            if(isSetup){
-                if(!menuBar.getChildren().contains(settingsBtn)){
+            if (isSetup) {
+                if (!menuBar.getChildren().contains(settingsBtn)) {
                     menuBar.getChildren().add(settingsBtn);
                 }
-                if(menuBar.getChildren().contains(installBtn)){
+                if (menuBar.getChildren().contains(installBtn)) {
                     menuBar.getChildren().remove(installBtn);
                 }
-            }else{
-                if(menuBar.getChildren().contains(settingsBtn)){
+            } else {
+                if (menuBar.getChildren().contains(settingsBtn)) {
                     menuBar.getChildren().remove(settingsBtn);
                 }
-                if(!menuBar.getChildren().contains(installBtn)){
+                if (!menuBar.getChildren().contains(installBtn)) {
                     menuBar.getChildren().add(installBtn);
                 }
             }
         };
 
-        m_isSetupProperty.addListener((obs,oldval,newval)->checkInstalled.run());
+        m_isSetupProperty.addListener((obs, oldval, newval) -> checkInstalled.run());
         checkInstalled.run();
         settingsBtn.setOnAction(e -> openSettings());
         return menuBar;
     }
 
-    public void remove(){
+    public void remove() {
         removeUpdateListener();
     }
 }

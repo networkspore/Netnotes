@@ -40,7 +40,7 @@ public class ErgoExplorerData {
   //   private File logFile = new File("netnotes-log.txt");
 
    
-     public final SimpleObjectProperty< ErgoNetworkUrl> ergoNetworkUrlProperty = new SimpleObjectProperty<>();
+     public final SimpleObjectProperty< ErgoNetworkUrl> m_ergoNetworkUrlProperty = new SimpleObjectProperty<>();
      private ErgoExplorerList m_explorerList = null;
 
      private String m_radioOffUrl = "/assets/radio-button-off-30.png";
@@ -66,7 +66,7 @@ public class ErgoExplorerData {
 
      public ErgoExplorerData(String id, ErgoExplorerList explorerList){
        
-          ergoNetworkUrlProperty.set(new ErgoNetworkUrl(id,"Ergo Platform", "https", "api.ergoplatform.com",443, NetworkType.MAINNET ));
+          m_ergoNetworkUrlProperty.set(new ErgoNetworkUrl(id,"Ergo Platform", "https", "api.ergoplatform.com",443, NetworkType.MAINNET ));
           m_explorerList = explorerList;
           
      }
@@ -79,14 +79,14 @@ public class ErgoExplorerData {
      public void openJson(JsonObject json) throws Exception{
           JsonElement ergoNetworkUrl = json.get("ergoNetworkUrl");
           if(ergoNetworkUrl != null && ergoNetworkUrl.isJsonObject()){
-               ergoNetworkUrlProperty.set( new ErgoNetworkUrl(ergoNetworkUrl.getAsJsonObject()) );          
+               m_ergoNetworkUrlProperty.set( new ErgoNetworkUrl(ergoNetworkUrl.getAsJsonObject()) );          
           }else{
                throw new Exception("Insuffient data");
           }
      }
   
      public void getLatestBlocks(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        ErgoNetworkUrl namedUrl =  ergoNetworkUrlProperty.get();
+        ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
 
         String urlString = namedUrl.getUrlString() + "/api/v1/blocks/";
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
@@ -94,7 +94,7 @@ public class ErgoExplorerData {
 
 
     public void getTokenInfo(String tokenId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        ErgoNetworkUrl namedUrl =  ergoNetworkUrlProperty.get();
+        ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
 
         String urlString = namedUrl.getUrlString() + "/api/v1/tokens/" + tokenId;
         Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
@@ -102,23 +102,27 @@ public class ErgoExplorerData {
 
      public void getBalance(String address, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
-          ErgoNetworkUrl namedUrl =  ergoNetworkUrlProperty.get();
+          ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
 
           String urlString = namedUrl.getUrlString() + "/api/v1/addresses/" + address + "/balance/total";
    
           Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
      }
 
+     public SimpleObjectProperty<ErgoNetworkUrl> ergoNetworkUrlProperty(){
+          return m_ergoNetworkUrlProperty;
+     }
+
      public String getId(){
-          return ergoNetworkUrlProperty.get().getId();
+          return m_ergoNetworkUrlProperty.get().getId();
      }
 
      public String getName() {
-          return ergoNetworkUrlProperty.get() == null ? "INVALID" : ergoNetworkUrlProperty.get().getName();
+          return m_ergoNetworkUrlProperty.get() == null ? "INVALID" : m_ergoNetworkUrlProperty.get().getName();
      }
 
      public NetworkType getNetworkType() {
-        return ergoNetworkUrlProperty.get() == null ? null : ergoNetworkUrlProperty.get().getNetworkType();
+        return m_ergoNetworkUrlProperty.get() == null ? null : m_ergoNetworkUrlProperty.get().getNetworkType();
     }
 
 
@@ -146,7 +150,7 @@ public class ErgoExplorerData {
                }
           });
 
-          Text topInfoStringText = new Text((ergoNetworkUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
+          Text topInfoStringText = new Text((m_ergoNetworkUrlProperty.get() != null ? (getName() == null ? "INVALID" : getName()) : "INVALID"));
           topInfoStringText.setFont(m_font);
           topInfoStringText.setFill(m_primaryColor);
 
@@ -234,7 +238,7 @@ public class ErgoExplorerData {
           HBox topBox = new HBox(topInfoStringText, topMiddleRegion, topRightText);
           topBox.setId("darkBox");
 
-          Text urlText = new Text(ergoNetworkUrlProperty.get() != null ? (ergoNetworkUrlProperty.get().getUrlString() == null ? "INVALID" : ergoNetworkUrlProperty.get().getUrlString()) : "Configure url");
+          Text urlText = new Text(m_ergoNetworkUrlProperty.get() != null ? (m_ergoNetworkUrlProperty.get().getUrlString() == null ? "INVALID" : m_ergoNetworkUrlProperty.get().getUrlString()) : "Configure url");
           urlText.setFill(m_primaryColor);
           urlText.setFont(m_smallFont);
 
@@ -295,7 +299,7 @@ public class ErgoExplorerData {
 
                                         if(minerRewardElement != null && minerRewardElement.isJsonPrimitive()){
                                              long minerReward = minerRewardElement.getAsLong();
-                                             ErgoAmount ergoAmount = new ErgoAmount(minerReward, ergoNetworkUrlProperty.get().getNetworkType());
+                                             ErgoAmount ergoAmount = new ErgoAmount(minerReward, m_ergoNetworkUrlProperty.get().getNetworkType());
 
                                              displayText += (displayText.equals("") ? "" : " - ") + "Reward: " + ergoAmount;
                                         }
@@ -353,7 +357,7 @@ public class ErgoExplorerData {
 
           JsonObject json = new JsonObject();
           
-          json.add("ergoNetworkUrl", ergoNetworkUrlProperty.get().getJsonObject());
+          json.add("ergoNetworkUrl", m_ergoNetworkUrlProperty.get().getJsonObject());
           return json;
     }
 

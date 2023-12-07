@@ -295,6 +295,7 @@ public class AmountSendBox extends AmountBox {
 
   
         updateBufferedImage();
+        
     }
 
     public SimpleObjectProperty<PriceAmount> balanceAmountProperty(){

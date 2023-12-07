@@ -661,7 +661,7 @@ public class App extends Application {
         VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox, clickRegion);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 320);
+        Scene passwordScene = new Scene(layoutVBox, 600, 290);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
@@ -2002,21 +2002,21 @@ public class App extends Application {
         return imageView;
     }
 
-    public static String confirmPassword(String topTitle, String windowSubTitle, String information) {
+    public static String confirmPassword(String topTitle,Image windowLogo, Image smallLogo, String windowSubTitle, String information) {
 
-        Image windowLogo = ergoLogo;
+        
 
         Stage passwordStage = new Stage();
 
         passwordStage.setTitle(topTitle);
 
-        passwordStage.getIcons().add(logo);
+        passwordStage.getIcons().add(windowLogo);
         passwordStage.setResizable(false);
         passwordStage.initStyle(StageStyle.UNDECORATED);
 
         Button closeBtn = new Button();
 
-        HBox titleBox = createTopBar(icon, topTitle, closeBtn, passwordStage);
+        HBox titleBox = createTopBar(smallLogo, topTitle, closeBtn, passwordStage);
 
         Button imageButton = createImageButton(windowLogo, windowSubTitle);
 
@@ -2051,8 +2051,9 @@ public class App extends Application {
         VBox.setVgrow(bodyBox, Priority.ALWAYS);
 
         VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
+        
 
-        Scene passwordScene = new Scene(layoutVBox, 600, 330);
+        Scene passwordScene = new Scene(layoutVBox, 600, 290);
 
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);

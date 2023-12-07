@@ -5,32 +5,39 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 
+import org.apache.commons.math3.exception.NullArgumentException;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.utils.Utils;
 
 public class PriceAmount {
 
     private BigDecimal m_amount;
     private PriceCurrency m_currency;
-    private LocalDateTime m_created;
+    private long m_created = System.currentTimeMillis();
     private boolean m_valid = true;
 
     public PriceAmount(long amount, PriceCurrency currency) {
         m_currency = currency;
         setLongAmount(amount);
-        m_created = LocalDateTime.now();
+   
     }
 
     public PriceAmount(BigDecimal amount, PriceCurrency currency){
         m_currency = currency;
         setBigDecimalAmount(amount);
-        m_created = LocalDateTime.now();
+       
 
     }
+
+ 
 
     public PriceAmount(double amount, PriceCurrency currency) {
         
         m_currency = currency;
         setDoubleAmount(amount);
-        m_created = LocalDateTime.now();
+      
     }
 
     public PriceAmount(long amount, PriceCurrency currency, boolean amountValid){
@@ -38,8 +45,33 @@ public class PriceAmount {
         m_currency = currency;
         setLongAmount(amount);
         m_valid = amountValid;
-        m_created = LocalDateTime.now();
+  
     }
+
+    public PriceAmount(JsonObject json) throws Exception{
+        JsonElement amountElement = json.get("amount");
+        JsonElement timeStampElement = json.get("timeStamp");
+        JsonElement validElement = json.get("valid");
+        JsonElement currencyObjectElement = json.get("currency");
+
+        if(amountElement == null || timeStampElement == null || validElement == null || currencyObjectElement == null){
+            throw new Exception("Null argument");
+        }
+
+        JsonObject currencyObject = currencyObjectElement.getAsJsonObject();
+        m_currency = new PriceCurrency(currencyObject);
+        setLongAmount(amountElement.getAsLong());
+        m_created = timeStampElement.getAsLong() ;
+        m_valid = validElement.getAsBoolean();
+        
+
+       
+    }
+  
+    
+  
+      
+    
 
     public void setBigDecimalAmount(BigDecimal amount) {
         m_amount = amount;
@@ -94,7 +126,7 @@ public class PriceAmount {
     }
 
     public LocalDateTime getCreatedTime() {
-        return m_created;
+        return Utils.milliToLocalTime(m_created);
     }
 
     public String getAmountString(){
@@ -127,5 +159,12 @@ public class PriceAmount {
         return amount;
     }
 
-
+    public JsonObject getJsonObject(){
+        JsonObject json = new JsonObject();
+        json.addProperty("amount", getLongAmount());
+        json.addProperty("timeStamp", m_created);
+        json.addProperty("valid", m_valid);
+        json.add("currency", m_currency.getJsonObject());
+        return json;
+    }
 }

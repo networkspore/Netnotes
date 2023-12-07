@@ -284,4 +284,16 @@ public final class Wallet {
             throw new RuntimeException(e);
         }
     }
+
+  
+
+    public String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
+       
+	
+		return ergoClient.execute(ctx -> {
+			String quoted = ctx.sendTransaction(signedTx);
+			return quoted.substring(1, quoted.length() - 1);
+		});
+	}
+
 }

@@ -1,110 +1,90 @@
 package com.netnotes;
 
-import org.ergoplatform.appkit.ErgoClient;
-import org.ergoplatform.appkit.ErgoToken;
-import org.ergoplatform.appkit.InputBoxesSelectionException;
 import org.ergoplatform.appkit.NetworkType;
-import org.ergoplatform.appkit.RestApiErgoClient;
-import org.ergoplatform.appkit.SignedTransaction;
-import org.ergoplatform.appkit.UnsignedTransaction;
 
-import com.satergo.Wallet;
-import com.satergo.WalletKey;
-import com.satergo.ergo.ErgoInterface;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 
 public class ErgoTransaction {
 
+    public final static PriceAmount UNKNOWN_PRICE_AMOUNT = new PriceAmount(0, new PriceCurrency("unknown","unknown","unknown",0,"unknown","unknown",null,"unknown",""));
+
+    private AddressInformation m_senderAddress;
+    private AddressInformation m_receipientAddress;
     private String m_txId = null;
-    private String m_insuffientFunds = null;
-    private String m_keyException = null;
-    private String m_explorerUrl;
+    private String m_explorerUrl = null;
     private String m_nodeUrl;
     private NetworkType m_networkType;
-    private long m_nanoErg;
-    private AddressInformation m_receipientAddress;
-    private String m_senderAddress;
-    private long m_fee;
+    private PriceAmount m_ergoAmount;
+    private PriceAmount m_feeAmount;
     private long m_created;
-    private AmountConfirmBox[] m_ergoTokens;
+    private PriceAmount[] m_tokens;
 
-    
-    public static String transact(ErgoClient ergoClient, SignedTransaction signedTx) {
-        return ergoClient.execute(ctx -> {
-            String quoted = ctx.sendTransaction(signedTx);
-            return quoted.substring(1, quoted.length() - 1);
-        });
-    }
- 
 
-    public ErgoTransaction(AddressData addressData, Wallet wallet, long nanoErg, AddressInformation receipientAddress, String nodeApiAddress, String apiKey, String explorerUrl, long fee, AmountBox[] tokenBoxes){
-        m_explorerUrl = explorerUrl;
-        m_nodeUrl = nodeApiAddress;
-        m_nanoErg = nanoErg;
+    public ErgoTransaction(String txId, AddressInformation senderAddress, AddressInformation receipientAddress, PriceAmount ergoAmount,PriceAmount feeAmount, PriceAmount[] tokens, String nodeUrl,  String explorerUrl) throws NullPointerException{
+        
+        m_txId = txId;
+        m_senderAddress = senderAddress;
+        m_ergoAmount = ergoAmount;
         m_receipientAddress = receipientAddress;
-        m_senderAddress = addressData.getAddress().toString();
-        m_networkType = addressData.getNetworkType();
-        
-        int amountOfTokens = tokenBoxes != null && tokenBoxes.length > 0 ? tokenBoxes.length : 0;
-        ErgoToken[] tokenArray = new ErgoToken[amountOfTokens] ;
-        m_ergoTokens = new AmountConfirmBox[amountOfTokens];                        
-        
-        if(amountOfTokens > 0 && tokenBoxes != null && tokenArray != null){
-            for(int i = 0; i < amountOfTokens ; i++){
-                AmountBox box = tokenBoxes[i];
-                if(box != null && box instanceof AmountConfirmBox){
-                    AmountConfirmBox confirmBox = (AmountConfirmBox) box;
-                    m_ergoTokens[i] = confirmBox;
-                        
-                        tokenArray[i] = confirmBox.getErgoToken();
-                    
-                }
-            }
-                
-        }
+        m_feeAmount = feeAmount;
+        m_tokens = tokens; 
+        m_nodeUrl = nodeUrl;
 
-        
-        m_fee = fee;
-
-        try {
-            ErgoClient ergoClient = RestApiErgoClient.create(m_nodeUrl, m_networkType, apiKey, m_explorerUrl);
-
-            UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(ergoClient,
-                        wallet.addressStream(m_networkType).toList(),
-                    receipientAddress.getAddress(), m_nanoErg, m_fee, addressData.getAddress(), tokenArray);
-
-            String txId = transact(ergoClient, ergoClient.execute(ctx -> {
-                try {
-                    return wallet.key().sign(ctx, unsignedTx, wallet.myAddresses.keySet());
-                } catch (WalletKey.Failure ex) {
-                    setKeyException(ex.toString());
-                    return null;
-                }
-            }));
-            
-            setTxtId(txId);
-            
-        } catch (InputBoxesSelectionException ibsEx) {
-            setInsuffientFunds(ibsEx.toString());
-            
-        }
-           
         m_created = System.currentTimeMillis();
+
+    }
+
+    public ErgoTransaction(JsonObject json) throws Exception{
+        JsonElement txIdElement = json.get("txId");
+        JsonElement ergoAmountElement = json.get("ergoAmount");
+        JsonElement feeAmountElement = json.get("feeAmount");
+        JsonElement tokensElement = json.get("tokens");
+        JsonElement isExplorerElement = json.get("isExplorer");
+        JsonElement explorerUrlElement = json.get("explorerUrl");
+        JsonElement nodeUrlElement = json.get("nodeUrl");
+
+        if(txIdElement == null || ergoAmountElement == null || feeAmountElement == null){
+            throw new Exception("Invalid arguments");
+        }
+
+        m_txId = txIdElement.getAsString();
+        m_ergoAmount = new PriceAmount(ergoAmountElement.getAsJsonObject());
+        m_feeAmount = new PriceAmount(feeAmountElement.getAsJsonObject());
+        boolean isJsonExplorer = isExplorerElement != null && isExplorerElement.isJsonPrimitive() ? isExplorerElement.getAsBoolean() : false;
+        m_explorerUrl = isJsonExplorer && explorerUrlElement != null && explorerUrlElement.isJsonPrimitive() ? explorerUrlElement.getAsString() : null;
+        m_nodeUrl = nodeUrlElement != null && nodeUrlElement.isJsonPrimitive() ? nodeUrlElement.getAsString() : "";
+        JsonArray tokensArray = tokensElement != null && tokensElement.isJsonArray() ? tokensElement.getAsJsonArray() : new JsonArray();
+        int tokensArrayLength = tokensArray.size();
+
+        PriceAmount[] tokenAmounts = new PriceAmount[tokensArrayLength];
+        for(int i = 0; i < tokensArrayLength ; i ++ ){
+            JsonElement tokenElement = tokensArray.get(i);
+            
+            tokenAmounts[i] = tokenElement != null && tokenElement.isJsonObject() ? new PriceAmount(tokenElement.getAsJsonObject()) : UNKNOWN_PRICE_AMOUNT;
+        }
+        m_tokens = tokenAmounts;
+    }
+
+    public PriceAmount[] getTokens(){
+        return m_tokens;
     }
 
     public long getTimeStamp(){
         return m_created;
     }
 
-    public String getSenderAddress(){
+    public AddressInformation getSenderAddress(){
         return m_senderAddress;
     }
 
-    public long getFee(){
-        return m_fee;
+    public PriceAmount getFeeAmount(){
+        return m_feeAmount;
     }
 
-    public long getNanoErgs(){
-        return m_nanoErg;
+    public PriceAmount getErgoAmount(){
+        return m_ergoAmount;
     }
 
     public AddressInformation getReceipientAddressInfo(){
@@ -127,35 +107,40 @@ public class ErgoTransaction {
         return m_txId;
     }
 
-    private void setTxtId(String txId){
-        m_txId = txId;
-        
-    }
-
     public boolean isSent(){
         return m_txId != null;
     }
 
-    private void setInsuffientFunds(String ibsEx){
-        m_insuffientFunds = ibsEx;
+    public boolean isExplorer(){
+        return m_explorerUrl != null;
     }
 
-    public String getInsuffientFunds(){
-        return m_insuffientFunds;
+
+    public JsonArray getTokenJsonArray(){
+        JsonArray jsonArray = new JsonArray();
+        for(int i = 0; i < m_tokens.length ; i++){
+            jsonArray.add(m_tokens[i].getJsonObject());
+        }
+        return jsonArray;
     }
 
-    private void setKeyException(String keyException){
-        m_keyException = keyException;
-    }
+    public JsonObject getJsonObject(){
+        JsonObject json = new JsonObject();
+      
+        json.addProperty("txtId", m_txId);
+        json.addProperty("isExplorer", isExplorer());
 
-    public boolean isUnauthorized(){
-        return m_keyException != null;
-    }
+        if(isExplorer()){
+            json.addProperty("explorerUrl", m_explorerUrl);
+        }
+       
+        json.addProperty("nodeUrl", m_nodeUrl);
+        json.add("feeAmount", m_feeAmount.getJsonObject());
+        json.add("ergoAmount", m_ergoAmount.getJsonObject());
+        json.add("tokens", getTokenJsonArray());
 
-    public boolean isInsufficientFunds(){
-        return m_insuffientFunds != null;
+        return json;
     }
-
- 
+    
     
 }

@@ -43,14 +43,15 @@ public class ErgoNodeConfig {
     private HashData m_configFileHashData = null;
 
     private String m_configMode = ConfigMode.BASIC;
-    private String m_blockchainMode = BlockchainMode.RECENT_ONLY;
-    private String m_stateMode = DigestAccess.LOCAL;
-    private String m_apiKeyHash = null;
+    private String m_blockchainMode = BlockchainMode.FULL;
+    private String m_stateMode = DigestAccess.ALL;
+    private String m_apiKeyHash = "";
 
     public SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
 
     public double STAGE_MIN_WIDTH = 500;
     public double STAGE_MIN_HEIGHT = 850;
+
     /*private double m_StageWidth = STAGE_MIN_WIDTH;
     private double m_stageHeight = STAGE_MIN_HEIGHT;
     private double m_stagePrevWidth = STAGE_MIN_WIDTH;
@@ -58,7 +59,7 @@ public class ErgoNodeConfig {
     private boolean m_stageMaximized = false;*/
 
     public ErgoNodeConfig(String apiKeyString, File appDir) throws FileNotFoundException, IOException, Exception {
-        this(apiKeyString, ConfigMode.BASIC, DigestAccess.LOCAL, BlockchainMode.RECENT_ONLY, appDir);
+        this(apiKeyString, ConfigMode.BASIC, DigestAccess.ALL, BlockchainMode.FULL, appDir);
     }
 
     public ErgoNodeConfig(String apiKeyString, String configMode, String digestAccess, String blockchainMode, String configFileName, File appDir) throws FileNotFoundException, IOException, Exception {
@@ -112,7 +113,6 @@ public class ErgoNodeConfig {
     }
 
     public void openJson(JsonObject json, File appDir) throws Exception {
-        
 
         if (json != null && appDir != null && appDir.isDirectory()) {
             m_appDir = appDir;
@@ -210,7 +210,7 @@ public class ErgoNodeConfig {
 
             m_apiKeyHash = Hex.encodeHexString(apiHashbytes);
         } else {
-            m_apiKeyHash = null;
+            m_apiKeyHash = "";
         }
 
         updateConfigFile();
@@ -240,9 +240,9 @@ public class ErgoNodeConfig {
         if (m_configMode.equals(ConfigMode.BASIC)) {
             json.add("basicConfig", getBasicConfigJson());
         }
-        if (m_apiKeyHash != null) {
-            json.addProperty("apiKeyHash", m_apiKeyHash);
-        }
+
+        json.addProperty("apiKeyHash", m_apiKeyHash);
+
         if (m_configFileName != null) {
             json.addProperty("configFileName", m_configFileName);
         }
@@ -263,7 +263,7 @@ public class ErgoNodeConfig {
     }
 
     public File getConfigFile() {
-        if (m_appDir != null && m_appDir.isDirectory() && getConfigFileName() != null) {
+        if (m_appDir != null && m_appDir.exists() && m_appDir.isDirectory() && getConfigFileName() != null) {
             return new File(m_appDir.getAbsolutePath() + "/" + getConfigFileName());
 
         } else {
@@ -285,7 +285,7 @@ public class ErgoNodeConfig {
         if (m_configMode.equals(ConfigMode.BASIC)) {
 
             String configFileString = "ergo {";
-         //   configFileString += "\n  directory = ${ergo.directory}\"/.ergo\"";
+            //   configFileString += "\n  directory = ${ergo.directory}\"/.ergo\"";
             configFileString += "\n  node {\n";
             configFileString += "\n    stateType = \"" + (m_stateMode.equals(DigestAccess.LOCAL) ? "digest" : "utxo") + "\"";
             configFileString += "\n    mining = false";
@@ -304,30 +304,17 @@ public class ErgoNodeConfig {
                     configFileString += "\n        nipopowBootstrap = true";
                     configFileString += "\n        p2pNipopows = 2";
                     configFileString += "\n    }\n";
-                    configFileString += "\n  }";
-                    configFileString += "\n}";
+
                     break;
-                case BlockchainMode.FULL:
-                default:
-                    configFileString += "\n    blocksToKeep = -1";
-                    configFileString += "\n    utxo {";
-                    configFileString += "\n        utxoBootstrap = false";
-                    configFileString += "\n        storingUtxoSnapshots = 0";
-                    configFileString += "\n        p2pUtxoSnapshots = 2";
-                    configFileString += "\n    }";
-                    configFileString += "\n";
-                    configFileString += "\n    nipopow {";
-                    configFileString += "\n        nipopowBootstrap = false";
-                    configFileString += "\n        p2pNipopows = 2";
-                    configFileString += "\n    }\n";
-                    configFileString += "\n  }";
-                    configFileString += "\n}";
+
             }
+            configFileString += "\n  }";
+            configFileString += "\n}";
             configFileString += "\n";
             configFileString += "\nscorex {\n";
             configFileString += "\n  restApi {";
             configFileString += "\n    bindAddress = \"0.0.0.0:" + ErgoNodes.MAINNET_PORT + "\"";
-            if (m_apiKeyHash != null) {
+            if (m_apiKeyHash != null && !m_apiKeyHash.equals("")) {
                 configFileString += "\n    apiKeyHash = \"" + m_apiKeyHash + "\"";
             }
             configFileString += "\n  }";
@@ -340,7 +327,6 @@ public class ErgoNodeConfig {
             throw new Exception("Config file not found.");
         }
 
-      
         m_configFileHashData = new HashData(configFile);
 
     }

@@ -5,6 +5,8 @@ import com.utils.Utils;
 
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.image.Image;
+
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 public class PriceCurrency {
@@ -45,6 +47,34 @@ public class PriceCurrency {
         m_networkType = networkType;
     }
 
+    public PriceCurrency(JsonObject json) throws Exception{
+        JsonElement idElement = json.get("id");
+        JsonElement emissionElement = json.get("emissionAmount");
+        JsonElement nameElement = json.get("name");
+        JsonElement descriptionElement = json.get("description");
+        JsonElement decimalsElement = json.get("decimals");
+        JsonElement networkTypeElement = json.get("networkType");
+        JsonElement timeStampElement = json.get("timeStamp");
+        JsonElement networkIdElement = json.get("networkId");
+        JsonElement symbolElement = json.get("symbol");
+        JsonElement fontSymbolElement = json.get("fontSymbol");
+
+        if(idElement == null || decimalsElement == null || symbolElement == null || nameElement == null){
+            throw new Exception("Invalid arguments");
+        }
+        
+        m_tokenId = idElement.getAsString();
+        m_fractionalPrecision = decimalsElement.getAsInt();
+        m_symbol = symbolElement.getAsString();
+        m_name = nameElement.getAsString();
+
+        m_emissionAmount = emissionElement != null && emissionElement.isJsonPrimitive() ? emissionElement.getAsLong() : 0;
+        m_description = descriptionElement != null && descriptionElement.isJsonPrimitive() ? descriptionElement.getAsString(): "";
+        m_networkType = networkTypeElement != null && networkTypeElement.isJsonPrimitive() ? networkTypeElement.getAsString() : "";
+        m_timestamp = timeStampElement != null && timeStampElement.isJsonPrimitive() ? timeStampElement.getAsLong() : 0;
+        m_networkId = networkIdElement != null && networkIdElement.isJsonPrimitive() ? networkIdElement.getAsString() : "";
+        m_fontSymbol = fontSymbolElement != null && fontSymbolElement.isJsonPrimitive() ? fontSymbolElement.getAsString() : "";
+    }
 
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated(){

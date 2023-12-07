@@ -119,35 +119,41 @@ public class ChartView {
 
     }
 
+    private SimpleObjectProperty<Image> m_imageBuffer = new SimpleObjectProperty<>(null);
+
     public HBox getChartBox() {
 
         m_labelFont.addListener((obs, oldVal, newVal) -> {
             updateLabelFont();
             m_lastUpdated.set(LocalDateTime.now());
         });
+        
+        updateBufferedImage();
+        ImageView imgView = new ImageView();
+        imgView.setPreserveRatio(true);
 
-        Image image = SwingFXUtils.toFXImage(getBufferedImage(), null);
-        ImageView imgView = IconButton.getIconView(image, image.getWidth());
+        m_imageBuffer.addListener((obs,oldval,newval)->{
+            if(newval != null){
+                imgView.setImage(newval);
+                imgView.setFitWidth(newval.getWidth());
+            }
+        });
 
-        Runnable updateImage = () -> {
-            Image latestImage = SwingFXUtils.toFXImage(getBufferedImage(), null);
-            imgView.setImage(latestImage);
-            imgView.setFitWidth(latestImage.getWidth());
-        };
 
-        m_chartHeight.addListener((obs, oldVal, newVal) -> updateImage.run());
+
+        m_chartHeight.addListener((obs, oldVal, newVal) -> updateBufferedImage());
 
         //  m_chartWidth.addListener((obs, oldVal, newVal) -> updateImage.run());
-        m_lastUpdated.addListener((obs, oldVal, newVal) -> updateImage.run());
+        m_lastUpdated.addListener((obs, oldVal, newVal) -> updateBufferedImage());
 
         m_chartHbox.getChildren().clear();
         m_chartHbox.getChildren().add(imgView);
 
-        rangeBottomVvalueProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
-        rangeTopVvalueProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
-        isSettingRangeProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
+        rangeBottomVvalueProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
+        rangeTopVvalueProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
+        isSettingRangeProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
 
-        rangeActiveProperty().addListener((obs, oldVal, newVal) -> updateImage.run());
+        rangeActiveProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
 
         return m_chartHbox;
     }
@@ -429,7 +435,7 @@ public class ChartView {
         return m_labelHeight + 7;
     }
 
-    public BufferedImage getBufferedImage() {
+    public void updateBufferedImage() {
         LocalDateTime now = LocalDateTime.now();
         int greenHighlightRGB = 0x504bbd94;
       //  int greenHighlightRGB2 = 0x80028a0f;
@@ -832,7 +838,7 @@ public class ChartView {
         } catch (IOException e) {
 
         } */
-        return img;
+        m_imageBuffer.set( SwingFXUtils.toFXImage(img,null));
     }
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated() {

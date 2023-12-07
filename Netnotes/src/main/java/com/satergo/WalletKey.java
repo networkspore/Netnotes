@@ -1,5 +1,6 @@
 package com.satergo;
 
+import com.netnotes.ErgoWallets;
 import com.satergo.ergo.ErgoInterface;
 import com.satergo.extra.AESEncryption;
 import org.ergoplatform.ErgoAddressEncoder;
@@ -132,7 +133,9 @@ public abstract class WalletKey {
     public void initCaches(ByteBuffer data) {
     }
 
-    public abstract SignedTransaction sign(BlockchainContext ctx, UnsignedTransaction unsignedTx, Collection<Integer> addressIndexes) throws Failure;
+    public abstract SignedTransaction sign( BlockchainContext ctx, UnsignedTransaction unsignedTx, Collection<Integer> addressIndexes) throws Failure;
+
+    public abstract SignedTransaction signWithPassword(String password, BlockchainContext ctx, UnsignedTransaction unsignedTx, Collection<Integer> addressIndexes) throws Failure;
 
     public abstract Address derivePublicAddress(NetworkType networkType, int index) throws Failure;
 
@@ -248,9 +251,41 @@ public abstract class WalletKey {
                 throw new RuntimeException(e);
             }
         }
+        private Mnemonic getMnemonic(String password) throws Failure {
+            SecretKey secretKey;
+            if (cachedKey == null) {
+              
+                if (password == null) {
+                    throw new Failure();
+                }
+                try {
+                    secretKey = AESEncryption.generateSecretKey(password.toCharArray(), copyIv());
+                } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                secretKey = cachedKey;
+            }
+            try {
+                byte[] decrypted = AESEncryption.decryptData(secretKey, ByteBuffer.wrap(encrypted()));
+                ByteBuffer buffer = ByteBuffer.wrap(decrypted).position(3);
+                if (caching != Caching.OFF) {
+                    this.cachedKey = secretKey;
+                    if (caching == Caching.TIMED) {
+                        restartCacheTimeout();
+                    }
+                }
+                return readMnemonic(buffer);
+            } catch (AEADBadTagException e) {
+
+                throw new Failure();
+            } catch (GeneralSecurityException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
         private Mnemonic getMnemonic() throws Failure {
-            return getMnemonic(() -> com.netnotes.App.confirmPassword("Ergo - Wallet password", "Wallet password", null));
+            return getMnemonic(() -> com.netnotes.App.confirmPassword("Ergo - Wallet password",ErgoWallets.getAppIcon(), ErgoWallets.getSmallAppIcon(), "Wallet password", null));
         }
 
         private static Mnemonic readMnemonic(ByteBuffer data) {
@@ -283,6 +318,11 @@ public abstract class WalletKey {
         @Override
         public SignedTransaction sign(BlockchainContext ctx, UnsignedTransaction unsignedTx, Collection<Integer> addressIndexes) throws Failure {
             return ErgoInterface.newWithMnemonicProver(ctx, nonstandard, getMnemonic(), addressIndexes).sign(unsignedTx);
+        }
+
+        @Override
+        public SignedTransaction signWithPassword(String password, BlockchainContext ctx, UnsignedTransaction unsignedTx, Collection<Integer> addressIndexes) throws Failure {
+            return ErgoInterface.newWithMnemonicProver(ctx, nonstandard, getMnemonic(password), addressIndexes).sign(unsignedTx);
         }
 
         @Override

@@ -25,8 +25,8 @@ public class NamedNodeUrl {
     private String m_protocol = "http";
     private String m_ip = "213.239.193.208";
     private NetworkType m_networkType = NetworkType.MAINNET;
-    private String m_apiKey = null;
-    private boolean m_rememberKey = true;
+    private String m_apiKey = "";
+   // private boolean m_rememberKey = true;
 
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>(null);
 
@@ -55,9 +55,9 @@ public class NamedNodeUrl {
             m_name = nameElement != null && idElement != null ? nameElement.getAsString() : m_networkType.toString() + " #" + m_id;
             m_ip = ipElement != null ? ipElement.getAsString() : m_ip;
             m_port = portElement != null ? portElement.getAsInt() : m_port;
-            if (apiKeyElement != null && apiKeyElement.isJsonPrimitive()) {
-
-            }
+            m_apiKey = apiKeyElement != null ? apiKeyElement.getAsString() : "";
+                
+            
 
         }
     }
@@ -151,7 +151,7 @@ public class NamedNodeUrl {
     }
 
     public String getUrlString() {
-        return m_protocol + "://" + m_ip + ":" + m_port;
+        return m_protocol + "://" + m_ip + ":" + m_port ;
     }
 
     public String getRowString() {

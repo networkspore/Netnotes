@@ -13,6 +13,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -27,6 +32,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.utils.Utils;
 
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -673,9 +679,33 @@ public class KucoinExchange extends Network implements NoteInterface {
         }
     }
 
+    private ScheduledFuture<?> m_future = null;
+
+    private ScheduledExecutorService m_pingTimer = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+        public Thread newThread(Runnable r) {
+            Thread t = Executors.defaultThreadFactory().newThread(r);
+            t.setDaemon(true);
+            return t;
+        }
+    });
+
+      public void startPinging(String clientId, long pingInterval) {
+
+            JsonObject pingMessageObj = new JsonObject();
+            pingMessageObj.addProperty("id", clientId);
+            pingMessageObj.addProperty("type", "ping");
+
+            String pingString = pingMessageObj.toString();
+
+
+            
+            m_future = m_pingTimer.schedule(()->m_websocketClient.send(pingString), pingInterval, TimeUnit.MILLISECONDS); //(()-> send(pingString), 0, pingInterval);
+    }
+
     private void openKucoinSocket(String tokenString, String endpointURL, int pingInterval) {
         m_connectionStatus.set(2);
         m_clientId = FriendlyId.createFriendlyId();
+        
         URI uri;
         try {
             uri = new URI(endpointURL + "?token=" + tokenString + "&[connectId=" + m_clientId + "]");
@@ -686,44 +716,19 @@ public class KucoinExchange extends Network implements NoteInterface {
 
         m_websocketClient = new WebSocketClient(uri) {
 
-            private Timer m_pingTimer;
 
             @Override
             public void onOpen(ServerHandshake serverHandshake) {
                 m_connectionStatus.set(3);
             }
 
-            public void startPinging() {
-
-                JsonObject pingMessageObj = new JsonObject();
-                pingMessageObj.addProperty("id", m_clientId);
-                pingMessageObj.addProperty("type", "ping");
-
-                String pingString = pingMessageObj.toString();
-
-                m_pingTimer = new Timer("pingTimer:" + m_clientId, true);
-
-                TimerTask pingTask = new TimerTask() {
-
-                    @Override
-                    public void run() {
-                        //  long sinceLastPong = System.currentTimeMillis() - m_pong;
-                        send(pingString);
-                        /*try {
-                            Files.writeString(logFile.toPath(), "ping: " + System.currentTimeMillis(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e) {
-
-                        }*/
-                       
-                    }
-                };
-                m_pingTimer.schedule(pingTask, 0, pingInterval);
-            }
+          
 
             @Override
             public void close() {
-                m_pingTimer.cancel();
-                m_pingTimer.purge();
+                if(m_future != null){
+                    m_future.cancel(false);
+                }
                 m_openTunnels.clear();
                 super.close();
             }
@@ -752,7 +757,7 @@ public class KucoinExchange extends Network implements NoteInterface {
                                         m_connectionStatus.set(4);
                                         JsonElement idElement = messageObject.get("id");
                                         m_clientId = idElement.getAsString();
-                                        startPinging();
+                                        startPinging(m_clientId, pingInterval);
                                         relayOnReady();
                                         break;
                                     case "pong":
@@ -767,7 +772,7 @@ public class KucoinExchange extends Network implements NoteInterface {
                                             String tunnelId = tunnelIdElement.getAsString();
 
                                         }*/
-                                        relayMessage(messageObject);
+                                        Platform.runLater(()->relayMessage(messageObject));
                                         break;
 
                                 }
@@ -782,7 +787,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             @Override
             public void onClose(int i, String s, boolean b) {
-
+             
                 m_socketMsg.set(Utils.getCmdObject("close"));
                 m_connectionStatus.set(0);
                 /*ArrayList<WebClientListener> listeners = getMessageListeners();

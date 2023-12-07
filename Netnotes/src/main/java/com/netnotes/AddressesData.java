@@ -1,6 +1,5 @@
 package com.netnotes;
 
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,12 +13,18 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 
 import org.ergoplatform.appkit.ErgoToken;
+import org.ergoplatform.appkit.InputBoxesSelectionException;
 import org.ergoplatform.appkit.Address;
+import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.NetworkType;
+import org.ergoplatform.appkit.RestApiErgoClient;
+import org.ergoplatform.appkit.UnsignedTransaction;
 import org.reactfx.util.FxTimer;
 
 import com.satergo.Wallet;
+import com.satergo.WalletKey;
 import com.satergo.WalletKey.Failure;
+import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
@@ -32,6 +37,7 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -69,13 +75,12 @@ import javafx.util.Duration;
 public class AddressesData {
 
     private File logFile = new File("netnotes-log.txt");
-    private NetworkType m_networkType;
+    private final NetworkType m_networkType;
     private VBox m_addressBox;
-    private Wallet m_wallet;
+    private final Wallet m_wallet;
     private ErgoWalletData m_walletData;
     private Stage m_walletStage;
-    
-    
+
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
 
     private SimpleObjectProperty<ErgoAmount> m_totalErgoAmount = new SimpleObjectProperty<>(null);
@@ -84,9 +89,6 @@ public class AddressesData {
     private final SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
 
     private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
-
-
-
 
     private SimpleObjectProperty<ErgoMarketsData> m_selectedMarketData = new SimpleObjectProperty<ErgoMarketsData>(null);
     private SimpleObjectProperty<ErgoNodeData> m_selectedNodeData = new SimpleObjectProperty<ErgoNodeData>(null);
@@ -98,10 +100,8 @@ public class AddressesData {
 
     private Stage m_promptStage = null;
 
-   
-
     public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType, Stage walletStage) {
-     
+
         m_wallet = wallet;
         m_walletData = walletData;
         m_networkType = networkType;
@@ -109,21 +109,20 @@ public class AddressesData {
 
         ErgoNetworkData ergNetData = walletData.getErgoWallets().getErgoNetworkData();
 
-
         ErgoNodes ergoNodes = (ErgoNodes) ergNetData.getNetwork(ErgoNodes.NETWORK_ID);
         ErgoExplorers ergoExplorer = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
         ErgoTokens ergoTokens = (ErgoTokens) ergNetData.getNetwork(ErgoTokens.NETWORK_ID);
-  
-        if(ergoNodes != null && walletData.getNodesId() != null){
+
+        if (ergoNodes != null && walletData.getNodesId() != null) {
             m_selectedNodeData.set(ergoNodes.getErgoNodesList().getErgoNodeData(walletData.getNodesId()));
         }
-        if(ergoExplorer != null && walletData.getExplorerId() != null){
+        if (ergoExplorer != null && walletData.getExplorerId() != null) {
             String explorerId = walletData.getExplorerId();
             ErgoExplorerData explorerData = ergoExplorer.getErgoExplorersList().getErgoExplorerData(explorerId);
-      
+
             m_selectedExplorerData.set(explorerData);
         }
-        
+
         m_isErgoTokens.set(ergoTokens == null ? false : walletData.isErgoTokens());
 
         m_wallet.myAddresses.forEach((index, name) -> {
@@ -136,9 +135,9 @@ public class AddressesData {
 
             } catch (Failure e) {
                 try {
-                    Files.writeString(logFile.toPath(), "\nAddressesData - address failure: " + e.toString(),StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nAddressesData - address failure: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
-      
+
                 }
             }
 
@@ -146,32 +145,23 @@ public class AddressesData {
         calculateCurrentTotal();
         m_addressBox = new VBox();
 
-        
-    
-    
-       
         updateAddressBox();
         setupTimer();
 
-
-   
-
-        
     }
 
+    public void setupTimer() {
 
-    public void setupTimer(){
-
-        if(m_lastExecution != null){
+        if (m_lastExecution != null) {
             m_lastExecution.cancel(false);
         }
 
-        if(m_timeExecutor != null){
+        if (m_timeExecutor != null) {
             m_timeExecutor.shutdownNow();
             m_timeExecutor = null;
         }
-        
-        if(m_walletData.getCyclePeriod() > 0){
+
+        if (m_walletData.getCyclePeriod() > 0) {
             m_timeExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
                 public Thread newThread(Runnable r) {
                     Thread t = Executors.defaultThreadFactory().newThread(r);
@@ -180,16 +170,15 @@ public class AddressesData {
                 }
             });
 
-            
-            Runnable doUpdate = ()->{
-                Platform.runLater(()->updateTimeCycle());
+            Runnable doUpdate = () -> {
+                Platform.runLater(() -> updateTimeCycle());
             };
 
             m_lastExecution = m_timeExecutor.scheduleAtFixedRate(doUpdate, 0, m_walletData.getCyclePeriod(), m_walletData.getCycleTimeUnit());
         }
     }
 
-    public SimpleObjectProperty<PriceQuote> currentPriceQuoteProperty(){
+    public SimpleObjectProperty<PriceQuote> currentPriceQuoteProperty() {
         return m_currentQuote;
     }
 
@@ -197,11 +186,11 @@ public class AddressesData {
         return m_walletData;
     }
 
-    public void updateTimeCycle(){
+    public void updateTimeCycle() {
         m_timeCycle.set(LocalDateTime.now());
     }
 
-    public SimpleObjectProperty<LocalDateTime> timeCycleProperty(){
+    public SimpleObjectProperty<LocalDateTime> timeCycleProperty() {
         return m_timeCycle;
     }
 
@@ -213,15 +202,13 @@ public class AddressesData {
         return m_selectedMarketData;
     }
 
-    public SimpleObjectProperty<ErgoExplorerData> selectedExplorerData(){
+    public SimpleObjectProperty<ErgoExplorerData> selectedExplorerData() {
         return m_selectedExplorerData;
     }
 
-    public SimpleBooleanProperty isErgoTokensProperty(){
+    public SimpleBooleanProperty isErgoTokensProperty() {
         return m_isErgoTokens;
     }
-
-
 
     public void closeAll() {
         for (int i = 0; i < m_addressDataList.size(); i++) {
@@ -234,26 +221,24 @@ public class AddressesData {
         return m_selectedAddressData;
     }
 
-
-    
     public void addAddress() {
-        
-        if(m_promptStage == null){
-      
+
+        if (m_promptStage == null) {
+
             m_promptStage = new Stage();
             m_promptStage.initStyle(StageStyle.UNDECORATED);
             m_promptStage.getIcons().add(new Image("/assets/git-branch-outline-white-30.png"));
-            m_promptStage.setTitle("Add Address - "+m_walletData.getName() + " - Ergo Wallets");
+            m_promptStage.setTitle("Add Address - " + m_walletData.getName() + " - Ergo Wallets");
 
             TextField textField = new TextField();
             Button closeBtn = new Button();
 
             App.showGetTextInput("Address name", "Add Address", new Image("/assets/git-branch-outline-white-240.png"), textField, closeBtn, m_promptStage);
-            closeBtn.setOnAction(e->{
+            closeBtn.setOnAction(e -> {
                 m_promptStage.close();
                 m_promptStage = null;
             });
-            m_promptStage.setOnCloseRequest(e->{
+            m_promptStage.setOnCloseRequest(e -> {
                 closeBtn.fire();
             });
             textField.setOnKeyPressed(e -> {
@@ -265,46 +250,45 @@ public class AddressesData {
                     if (!addressName.equals("")) {
                         int nextAddressIndex = m_wallet.nextAddressIndex();
                         m_wallet.myAddresses.put(nextAddressIndex, addressName);
-                        
+
                         try {
 
                             Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
                             AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
                             addAddressData(addressData);
-                             updateAddressBox();
+                            updateAddressBox();
                         } catch (Failure e1) {
 
                             Alert a = new Alert(AlertType.ERROR, e1.toString(), ButtonType.OK);
                             a.showAndWait();
                         }
-                  
+
                     }
                     closeBtn.fire();
                 }
             });
-        }else{
-            if(m_promptStage.isIconified()){
+        } else {
+            if (m_promptStage.isIconified()) {
                 m_promptStage.setIconified(false);
-            }else{
+            } else {
                 m_promptStage.show();
-                Platform.runLater(()->m_promptStage.requestFocus());
+                Platform.runLater(() -> m_promptStage.requestFocus());
             }
         }
 
     }
 
-    private void addAddressData(AddressData addressData){
+    private void addAddressData(AddressData addressData) {
         m_addressDataList.add(addressData);
-        addressData.ergoAmountProperty().addListener((obs, oldval, newval) ->{
+        addressData.ergoAmountProperty().addListener((obs, oldval, newval) -> {
             long oldNanoErgs = oldval == null ? 0 : oldval.getLongAmount();
-            
+
             long newNanoErgs = newval == null ? 0 : newval.getLongAmount();
 
-            if(oldNanoErgs != newNanoErgs){
+            if (oldNanoErgs != newNanoErgs) {
                 calculateCurrentTotal();
             }
         });
-  
 
     }
 
@@ -333,8 +317,6 @@ public class AddressesData {
         }
     }
 
-
-
     /*public void startBalanceUpdates() {
        
         try {
@@ -359,10 +341,9 @@ public class AddressesData {
         }
    
     }*/
-
     public void stopUpdates() {
         if (m_timeExecutor != null) {
-            if(m_lastExecution != null){
+            if (m_lastExecution != null) {
                 m_lastExecution.cancel(false);
             }
             m_timeExecutor.shutdownNow();
@@ -374,14 +355,12 @@ public class AddressesData {
         stopUpdates();
     }
 
-   
-    public boolean updateSelectedExplorer(ErgoExplorerData ergoExplorerData){
+    public boolean updateSelectedExplorer(ErgoExplorerData ergoExplorerData) {
         ErgoExplorerData previousSelectedExplorerData = m_selectedExplorerData.get();
 
-        if ( ergoExplorerData == null && previousSelectedExplorerData == null) {
+        if (ergoExplorerData == null && previousSelectedExplorerData == null) {
             return false;
         }
-
 
         m_selectedExplorerData.set(ergoExplorerData);
 
@@ -392,10 +371,8 @@ public class AddressesData {
         }
         
         }*/
-
         return true;
     }
-
 
     public boolean updateSelectedMarket(ErgoMarketsData marketsData) {
         ErgoMarketsData previousSelectedMarketsData = m_selectedMarketData.get();
@@ -403,7 +380,6 @@ public class AddressesData {
         if (marketsData == null && previousSelectedMarketsData == null) {
             return false;
         }
-
 
         m_selectedMarketData.set(marketsData);
 
@@ -428,54 +404,51 @@ public class AddressesData {
         // return false;
     }
 
-    
     public void calculateCurrentTotal() {
         SimpleLongProperty totalNanoErgs = new SimpleLongProperty();
         for (int i = 0; i < m_addressDataList.size(); i++) {
             AddressData addressData = m_addressDataList.get(i);
             ErgoAmount ergoAmount = addressData.ergoAmountProperty().get();
-            
-            totalNanoErgs.set( totalNanoErgs.get() + (ergoAmount == null ? 0 : ergoAmount.getLongAmount()));
-            
+
+            totalNanoErgs.set(totalNanoErgs.get() + (ergoAmount == null ? 0 : ergoAmount.getLongAmount()));
+
         }
 
         m_totalErgoAmount.set(new ErgoAmount(totalNanoErgs.get(), m_networkType));
     }
 
-    public SimpleObjectProperty<ErgoAmount> totalErgoAmountProperty(){
+    public SimpleObjectProperty<ErgoAmount> totalErgoAmountProperty() {
         return m_totalErgoAmount;
     }
 
-
-
     public Scene getSendScene(Scene parentScene, Stage parentStage, Button closeBtn) {
-        
-        if(selectedAddressDataProperty().get() == null){
-            if(m_addressDataList.size() == 1){
+
+        if (selectedAddressDataProperty().get() == null) {
+            if (m_addressDataList.size() == 1) {
                 selectedAddressDataProperty().set(m_addressDataList.get(0));
             }
         }
 
-        Runnable requiredErgoNodes = () ->{
+        Runnable requiredErgoNodes = () -> {
             if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) == null) {
                 Alert a = new Alert(AlertType.NONE, "Would you like to install Ergo Nodes?\n\n", ButtonType.YES, ButtonType.NO);
                 a.setTitle("Required: Ergo Nodes");
                 a.setHeaderText("Required: Ergo Nodes");
                 a.initOwner(parentStage);
                 Optional<ButtonType> result = a.showAndWait();
-                if(result != null && result.isPresent() && result.get() == ButtonType.YES){
+                if (result != null && result.isPresent() && result.get() == ButtonType.YES) {
                     m_walletData.getErgoWallets().getErgoNetworkData().installNetwork(ErgoNodes.NETWORK_ID);
-                    if(selectedNodeData().get() == null){
+                    if (selectedNodeData().get() == null) {
                         ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
-                        if(ergoNodes != null && ergoNodes.getErgoNodesList().defaultNodeIdProperty() != null){
+                        if (ergoNodes != null && ergoNodes.getErgoNodesList().defaultNodeIdProperty() != null) {
                             ErgoNodeData ergoNodeData = ergoNodes.getErgoNodesList().getErgoNodeData(ergoNodes.getErgoNodesList().defaultNodeIdProperty().get());
-                            if(ergoNodeData != null){
+                            if (ergoNodeData != null) {
                                 selectedNodeData().set(ergoNodeData);
                             }
                         }
                     }
                 }
-            
+
             }
         };
         requiredErgoNodes.run();
@@ -492,18 +465,17 @@ public class AddressesData {
         Scene sendScene = new Scene(layoutBox, 800, 600);
         sendScene.getStylesheets().add("/css/startWindow.css");
 
-    
         Button maximizeBtn = new Button();
 
         HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), stageName, maximizeBtn, closeBtn, parentStage);
-        maximizeBtn.setOnAction(e->{
+        maximizeBtn.setOnAction(e -> {
             parentStage.setMaximized(!parentStage.isMaximized());
         });
         Tooltip backTip = new Tooltip("Back");
         backTip.setShowDelay(new javafx.util.Duration(100));
         backTip.setFont(App.txtFont);
 
-        BufferedButton backButton = new BufferedButton("/assets/return-back-up-30.png",App.MENU_BAR_IMAGE_WIDTH) ;
+        BufferedButton backButton = new BufferedButton("/assets/return-back-up-30.png", App.MENU_BAR_IMAGE_WIDTH);
         backButton.setId("menuBtn");
         backButton.setTooltip(backTip);
         backButton.setOnAction(e -> {
@@ -514,66 +486,58 @@ public class AddressesData {
 
         double imageWidth = App.MENU_BAR_IMAGE_WIDTH;
 
-        
         Tooltip nodesTip = new Tooltip("Select node");
         nodesTip.setShowDelay(new javafx.util.Duration(50));
         nodesTip.setFont(App.txtFont);
-
 
         BufferedMenuButton nodesBtn = new BufferedMenuButton("/assets/ergoNodes-30.png", imageWidth);
         nodesBtn.setPadding(new Insets(2, 0, 0, 0));
         nodesBtn.setTooltip(nodesTip);
 
-
-        
         Tooltip explorerTip = new Tooltip("Select explorer");
         explorerTip.setShowDelay(new javafx.util.Duration(50));
         explorerTip.setFont(App.txtFont);
-
-
 
         BufferedMenuButton explorerBtn = new BufferedMenuButton("/assets/ergo-explorer-30.png", imageWidth);
         explorerBtn.setPadding(new Insets(2, 0, 0, 2));
         explorerBtn.setTooltip(explorerTip);
 
-        SimpleObjectProperty<ErgoExplorerData> ergoExplorerProperty = new SimpleObjectProperty<>(selectedExplorerData().get()); 
+        SimpleObjectProperty<ErgoExplorerData> ergoExplorerProperty = new SimpleObjectProperty<>(selectedExplorerData().get());
 
-        Runnable updateExplorerBtn = () ->{
+        Runnable updateExplorerBtn = () -> {
             ErgoExplorers ergoExplorers = (ErgoExplorers) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
 
             ErgoExplorerData explorerData = ergoExplorerProperty.get();
-           
-           
-            if(explorerData != null && ergoExplorers != null){
-            
-                explorerTip.setText("Ergo Explorer: " + explorerData.getName());
-                
 
-            }else{
-                 
-                if(ergoExplorers == null){
+            if (explorerData != null && ergoExplorers != null) {
+
+                explorerTip.setText("Ergo Explorer: " + explorerData.getName());
+
+            } else {
+
+                if (ergoExplorers == null) {
                     explorerTip.setText("(install 'Ergo Explorer')");
-                }else{
+                } else {
                     explorerTip.setText("Select Explorer...");
                 }
             }
-            
+
         };
-        Runnable getAvailableExplorerMenu = () ->{
-        
+        Runnable getAvailableExplorerMenu = () -> {
+
             ErgoExplorers ergoExplorers = (ErgoExplorers) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
-            if(ergoExplorers != null){
+            if (ergoExplorers != null) {
                 explorerBtn.setId("menuBtn");
                 ergoExplorers.getErgoExplorersList().getMenu(explorerBtn, ergoExplorerProperty);
-            }else{
-                 explorerBtn.getItems().clear();
-                 explorerBtn.setId("menuBtnDisabled");
-               
+            } else {
+                explorerBtn.getItems().clear();
+                explorerBtn.setId("menuBtnDisabled");
+
             }
             updateExplorerBtn.run();
-        };    
+        };
 
-        ergoExplorerProperty.addListener((obs, oldval, newval)->{
+        ergoExplorerProperty.addListener((obs, oldval, newval) -> {
             m_walletData.setExplorer(newval == null ? null : newval.getId());
             updateSelectedExplorer(newval);
             updateExplorerBtn.run();
@@ -586,108 +550,94 @@ public class AddressesData {
         BufferedMenuButton marketsBtn = new BufferedMenuButton("/assets/ergoChart-30.png", imageWidth);
         marketsBtn.setPadding(new Insets(2, 0, 0, 0));
         marketsBtn.setTooltip(marketsTip);
-        
-        SimpleObjectProperty<ErgoMarketsData> ergoMarketsData = new SimpleObjectProperty<>(selectedMarketData().get());
-        
-   
 
-      
-  
-         Runnable updateMarketsBtn = () ->{
+        SimpleObjectProperty<ErgoMarketsData> ergoMarketsData = new SimpleObjectProperty<>(selectedMarketData().get());
+
+        Runnable updateMarketsBtn = () -> {
             ErgoMarketsData marketsData = ergoMarketsData.get();
             ErgoMarkets ergoMarkets = (ErgoMarkets) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
-      
-          
-            if(marketsData != null && ergoMarkets != null){
-                
+
+            if (marketsData != null && ergoMarkets != null) {
+
                 marketsTip.setText("Ergo Markets: " + marketsData.getName());
                 updateSelectedMarket(marketsData);
-           
-            }else{
-               
-                if(ergoMarkets == null){
+
+            } else {
+
+                if (ergoMarkets == null) {
                     marketsTip.setText("(install 'Ergo Markets')");
-                }else{
+                } else {
                     marketsTip.setText("Select market...");
                 }
             }
-          
+
         };
 
-        ergoMarketsData.addListener((obs,oldval,newVal) -> {
+        ergoMarketsData.addListener((obs, oldval, newVal) -> {
             m_walletData.setMarketsId(newVal != null ? newVal.getMarketId() : null);
             updateMarketsBtn.run();
         });
 
-        Runnable getAvailableMarketsMenu = ()->{
+        Runnable getAvailableMarketsMenu = () -> {
             ErgoMarkets ergoMarkets = (ErgoMarkets) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
-            if(ergoMarkets != null){
-                 marketsBtn.setId("menuBtn");
-                
+            if (ergoMarkets != null) {
+                marketsBtn.setId("menuBtn");
+
                 ergoMarkets.getErgoMarketsList().getMenu(marketsBtn, ergoMarketsData);
-            }else{
+            } else {
                 marketsBtn.getItems().clear();
                 marketsBtn.setId("menuBtnDisabled");
             }
             updateMarketsBtn.run();
         };
 
-        
-       
-
         Tooltip tokensTip = new Tooltip("Ergo Tokens");
         tokensTip.setShowDelay(new javafx.util.Duration(50));
         tokensTip.setFont(App.mainFont);
 
-
         BufferedMenuButton tokensBtn = new BufferedMenuButton("/assets/diamond-30.png", imageWidth);
         tokensBtn.setPadding(new Insets(2, 0, 0, 0));
-      
-        
 
-        Runnable updateTokensMenu = ()->{
+        Runnable updateTokensMenu = () -> {
             tokensBtn.getItems().clear();
-            ErgoTokens ergoTokens = (ErgoTokens) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID);  
+            ErgoTokens ergoTokens = (ErgoTokens) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID);
             boolean isEnabled = isErgoTokensProperty().get();
 
-            if(ergoTokens != null){
+            if (ergoTokens != null) {
                 tokensBtn.setId("menuBtn");
                 MenuItem tokensEnabledItem = new MenuItem("Enabled" + (isEnabled ? " (selected)" : ""));
-                tokensEnabledItem.setOnAction(e->{
+                tokensEnabledItem.setOnAction(e -> {
                     isErgoTokensProperty().set(true);
                 });
-                
 
                 MenuItem tokensDisabledItem = new MenuItem("Disabled" + (isEnabled ? "" : " (selected)"));
-                tokensDisabledItem.setOnAction(e->{
+                tokensDisabledItem.setOnAction(e -> {
                     isErgoTokensProperty().set(false);
                 });
 
-                if(isEnabled){
+                if (isEnabled) {
                     tokensTip.setText("Ergo Tokens: Enabled");
                     tokensEnabledItem.setId("selectedMenuItem");
-                }else{
+                } else {
                     tokensTip.setText("Ergo Tokens: Disabled");
                     tokensDisabledItem.setId("selectedMenuItem");
                 }
                 tokensBtn.getItems().addAll(tokensEnabledItem, tokensDisabledItem);
-            }else{
+            } else {
                 tokensBtn.setId("menuBtnDisabled");
                 MenuItem tokensInstallItem = new MenuItem("(install 'Ergo Tokens')");
-                tokensInstallItem.setOnAction(e->{
+                tokensInstallItem.setOnAction(e -> {
                     m_walletData.getErgoWallets().getErgoNetworkData().showwManageStage();
                 });
                 tokensTip.setText("(install 'Ergo Tokens')");
             }
-           
+
         };
-   
-        isErgoTokensProperty().addListener((obs,oldval,newval)->{
+
+        isErgoTokensProperty().addListener((obs, oldval, newval) -> {
             m_walletData.setIsErgoTokens(newval);
             updateTokensMenu.run();
         });
-
-      
 
         Region seperator1 = new Region();
         seperator1.setMinWidth(1);
@@ -722,21 +672,12 @@ public class AddressesData {
         headingText.setFont(App.txtFont);
         headingText.setFill(Color.WHITE);
 
-
-
-        
-        
-
-
-
         HBox headingBox = new HBox(headingText);
         headingBox.prefHeight(40);
         headingBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(headingBox, Priority.ALWAYS);
         headingBox.setPadding(new Insets(10, 15, 10, 15));
         headingBox.setId("headingBox");
-
-        
 
         Text fromText = new Text("From   ");
         fromText.setFont(App.txtFont);
@@ -750,7 +691,7 @@ public class AddressesData {
         fromAddressBtn.setContentDisplay(ContentDisplay.LEFT);
         fromAddressBtn.setAlignment(Pos.CENTER_LEFT);
 
-        Runnable updateAvaliableAddresses = ()->{
+        Runnable updateAvaliableAddresses = () -> {
             fromAddressBtn.getItems().clear();
             for (AddressData addressItem : m_addressDataList) {
 
@@ -760,7 +701,7 @@ public class AddressesData {
                 addressMenuItem.setGraphic(IconButton.getIconView(addressImage, addressImage.getWidth()));
 
                 addressItem.getImageProperty().addListener((obs, oldVal, newVal) -> {
-                    if(newVal != null){
+                    if (newVal != null) {
                         addressMenuItem.setGraphic(IconButton.getIconView(newVal, newVal.getWidth()));
                     }
                 });
@@ -773,133 +714,123 @@ public class AddressesData {
             }
         };
         updateAvaliableAddresses.run();
-        
-        SimpleObjectProperty<Image> addressImageProperty = new SimpleObjectProperty<>(new Image(nullAddressImageString));
-        
-        // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
-        Runnable updateAddressBtn = () ->{
-            AddressData addressData = selectedAddressDataProperty().get() ;
-            
 
-            if(addressData != null){
+        SimpleObjectProperty<Image> addressImageProperty = new SimpleObjectProperty<>(new Image(nullAddressImageString));
+
+        // fromAddressBtn.setPadding(new Insets(2, 5, 2, 0));
+        Runnable updateAddressBtn = () -> {
+            AddressData addressData = selectedAddressDataProperty().get();
+
+            if (addressData != null) {
                 addressImageProperty.bind(addressData.getImageProperty());
                 fromAddressBtn.setText(addressData.getButtonText());
-            }else{
+            } else {
                 addressImageProperty.unbind();
                 addressImageProperty.set(nullAddressImg);
-                
+
             }
 
-          
         };
 
-       
-
-      
-        addressImageProperty.addListener((obs,oldval,newval)->{
-            ImageView imgView = newval != null ? IconButton.getIconView(newval, newval.getWidth()): IconButton.getIconView(nullAddressImg, nullAddressImg.getWidth());
+        addressImageProperty.addListener((obs, oldval, newval) -> {
+            ImageView imgView = newval != null ? IconButton.getIconView(newval, newval.getWidth()) : IconButton.getIconView(nullAddressImg, nullAddressImg.getWidth());
             fromAddressBtn.setGraphic(imgView);
         });
 
-  
         updateAddressBtn.run();
 
         Text toText = new Text("To     ");
         toText.setFont(App.txtFont);
         toText.setFill(App.txtColor);
 
-
-        AddressBox toAddressEnterBox = new AddressBox(new AddressInformation(""), sendScene, m_networkType );
+        AddressBox toAddressEnterBox = new AddressBox(new AddressInformation(""), sendScene, m_networkType);
         toAddressEnterBox.setId("bodyRowBox");
         toAddressEnterBox.setMinHeight(50);
-     
+
         HBox.setHgrow(toAddressEnterBox, Priority.ALWAYS);
 
         HBox toAddressBox = new HBox(toText, toAddressEnterBox);
         toAddressBox.setPadding(new Insets(0, 15, 10, 30));
         toAddressBox.setAlignment(Pos.CENTER_LEFT);
-     
+
         HBox fromRowBox = new HBox(fromAddressBtn);
         HBox.setHgrow(fromRowBox, Priority.ALWAYS);
         fromRowBox.setAlignment(Pos.CENTER_LEFT);
         fromRowBox.setId("bodyRowBox");
         fromRowBox.setPadding(new Insets(0));
 
-        HBox fromAddressBox = new HBox(fromText,fromRowBox);
+        HBox fromAddressBox = new HBox(fromText, fromRowBox);
         fromAddressBox.setPadding(new Insets(3, 15, 8, 30));
-   
+
         HBox.setHgrow(fromAddressBox, Priority.ALWAYS);
         fromAddressBox.setAlignment(Pos.CENTER_LEFT);
 
-          
         Button statusBoxBtn = new Button();
         statusBoxBtn.setId("bodyRowBox");
         statusBoxBtn.setPrefHeight(50);
         statusBoxBtn.setFont(App.txtFont);
         statusBoxBtn.setAlignment(Pos.CENTER_LEFT);
         statusBoxBtn.setPadding(new Insets(0));
-        statusBoxBtn.setOnAction(e->{
+        statusBoxBtn.setOnAction(e -> {
             nodesBtn.show();
         });
 
-        
         HBox nodeStatusBox = new HBox();
         nodeStatusBox.setId("bodyRowBox");
-        nodeStatusBox.setPadding(new Insets(0,0,0,0));
+        nodeStatusBox.setPadding(new Insets(0, 0, 0, 0));
         nodeStatusBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(nodeStatusBox, Priority.ALWAYS);
         nodeStatusBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
             nodesBtn.show();
         });
 
-        Runnable updateNodeBtn = () ->{
+        Runnable updateNodeBtn = () -> {
             ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
             ErgoNodeData nodeData = selectedNodeData().get();
             nodeStatusBox.getChildren().clear();
 
-            if(nodeData != null && ergoNodes != null){
+            if (nodeData != null && ergoNodes != null) {
                 nodesTip.setText(nodeData.getName());
-                HBox statusBox =  nodeData.getStatusBox();
-               
+                HBox statusBox = nodeData.getStatusBox();
+
                 nodeStatusBox.getChildren().add(statusBox);
-               
+
                 nodeStatusBox.setId("tokenBtn");
-            }else{
+            } else {
                 nodeStatusBox.setId(null);
                 nodeStatusBox.getChildren().add(statusBoxBtn);
                 statusBoxBtn.prefWidthProperty().bind(fromAddressBtn.widthProperty());
-                if(ergoNodes == null){
+                if (ergoNodes == null) {
                     String statusBtnText = "Install Ergo Nodes";
                     nodesTip.setText(statusBtnText);
                     statusBoxBtn.setGraphic(IconButton.getIconView(new Image("/assets/selectNode.png"), 164));
-                }else{
+                } else {
                     String statusBtnText = "Select node";
                     nodesTip.setText(statusBtnText);
                     statusBoxBtn.setGraphic(IconButton.getIconView(new Image("/assets/selectNode.png"), 164));
                 }
             }
-          
-            
+
         };
-        
-        Runnable getAvailableNodeMenu = () ->{
+
+        Runnable getAvailableNodeMenu = () -> {
             ErgoNodes ergoNodes = (ErgoNodes) m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID);
-            if(ergoNodes != null){
+            if (ergoNodes != null) {
                 ergoNodes.getErgoNodesList().getMenu(nodesBtn, selectedNodeData());
                 nodesBtn.setId("menuBtn");
-            }else{
+            } else {
                 nodesBtn.getItems().clear();
                 nodesBtn.setId("menuBtnDisabled");
-               
+
             }
             updateNodeBtn.run();
         };
 
-        selectedNodeData().addListener((obs, oldval, newval)->{
-                updateNodeBtn.run();
-    
+        selectedNodeData().addListener((obs, oldval, newval) -> {
+            updateNodeBtn.run();
+
             m_walletData.setNodesId(newval == null ? null : newval.getId());
-           
+
         });
         m_walletData.getErgoWallets().getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
             getAvailableNodeMenu.run();
@@ -917,122 +848,108 @@ public class AddressesData {
         nodeText.setFont(App.txtFont);
         nodeText.setFill(App.txtColor);
 
-
         HBox nodeRowBox = new HBox(nodeText, nodeStatusBox);
         nodeRowBox.setPadding(new Insets(0, 15, 10, 30));
         nodeRowBox.setMinHeight(60);
         nodeRowBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(nodeRowBox, Priority.ALWAYS);
-     
 
         Text amountText = new Text("Amount ");
         amountText.setFont(App.txtFont);
         amountText.setFill(App.txtColor);
 
-     //   BufferedButton addTokenBtn = new BufferedButton("/assets/add-outline-white-40.png", 15);
-    
+        //   BufferedButton addTokenBtn = new BufferedButton("/assets/add-outline-white-40.png", 15);
         Tooltip addTokenBtnTip = new Tooltip("Add Token");
         addTokenBtnTip.setShowDelay(new Duration(100));
 
-        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png",20);
+        BufferedMenuButton addTokenBtn = new BufferedMenuButton("/assets/add-30.png", 20);
         addTokenBtn.setTooltip(addTokenBtnTip);
-      
 
         Tooltip addAllTokenBtnTip = new Tooltip("Add All Tokens");
         addAllTokenBtnTip.setShowDelay(new Duration(100));
-        
+
         BufferedButton addAllTokenBtn = new BufferedButton("/assets/add-all-30.png", 20);
         addAllTokenBtn.setTooltip(addAllTokenBtnTip);
-
 
         Tooltip removeTokenBtnTip = new Tooltip("Remove Token");
         removeTokenBtnTip.setShowDelay(new Duration(100));
 
-
         BufferedMenuButton removeTokenBtn = new BufferedMenuButton("/assets/remove-30.png", 20);
         removeTokenBtn.setTooltip(removeTokenBtnTip);
 
-   
         Tooltip removeAllTokenBtnTip = new Tooltip("Remove All Tokens");
         removeAllTokenBtnTip.setShowDelay(new Duration(100));
-
 
         BufferedButton removeAllTokenBtn = new BufferedButton("/assets/remove-all-30.png", 20);
         removeAllTokenBtn.setTooltip(removeAllTokenBtnTip);
 
         HBox amountBoxesButtons = new HBox(addTokenBtn, addAllTokenBtn, removeTokenBtn, removeAllTokenBtn);
         amountBoxesButtons.setId("bodyBoxMenu");
-        amountBoxesButtons.setPadding(new Insets(0,5,0,5));
+        amountBoxesButtons.setPadding(new Insets(0, 5, 0, 5));
         amountBoxesButtons.setAlignment(Pos.BOTTOM_CENTER);
 
         VBox amountRightSideBox = new VBox(amountBoxesButtons);
-        amountRightSideBox.setPadding(new Insets(0,3,0,0));
+        amountRightSideBox.setPadding(new Insets(0, 3, 0, 0));
         amountRightSideBox.setAlignment(Pos.BOTTOM_RIGHT);
         VBox.setVgrow(amountRightSideBox, Priority.ALWAYS);
- 
-    //    HBox.setHgrow(amountRightSideBox,Priority.ALWAYS);
 
-
+        //    HBox.setHgrow(amountRightSideBox,Priority.ALWAYS);
         HBox amountTextBox = new HBox(amountText);
         amountTextBox.setAlignment(Pos.CENTER_LEFT);
         amountTextBox.setMinHeight(40);
-        HBox.setHgrow(amountTextBox,Priority.ALWAYS);
+        HBox.setHgrow(amountTextBox, Priority.ALWAYS);
 
         HBox amountBoxRow = new HBox(amountTextBox, amountRightSideBox);
         amountBoxRow.setPadding(new Insets(10, 20, 0, 30));
-     
+
         amountBoxRow.setAlignment(Pos.BOTTOM_LEFT);
-        HBox.setHgrow(amountBoxRow,Priority.ALWAYS);
+        HBox.setHgrow(amountBoxRow, Priority.ALWAYS);
 
         AmountSendBox ergoAmountBox = new AmountSendBox(new ErgoAmount(0, m_networkType), sendScene, true);
         ergoAmountBox.priceQuoteProperty().bind(m_currentQuote);
         ergoAmountBox.isFeeProperty().set(true);
-        
+
         ergoAmountBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
-            if(selectedAddressDataProperty().get() == null){
-         
+            if (selectedAddressDataProperty().get() == null) {
+
                 fromAddressBtn.show();
             }
         });
 
-        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
+        HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
 
-      
-
-       // addTokenBtn.setOnAction(e->addTokenBtn.show());
-
+        // addTokenBtn.setOnAction(e->addTokenBtn.show());
         AmountBoxes amountBoxes = new AmountBoxes();
-        amountBoxes.setPadding(new Insets(10,10,10,0));
+        amountBoxes.setPadding(new Insets(10, 10, 10, 0));
 
         amountBoxes.setAlignment(Pos.TOP_LEFT);
-     //   amountBoxes.setLastRowItem(addTokenBtn, AmountBoxes.ADD_AS_LAST_ROW);
+        //   amountBoxes.setLastRowItem(addTokenBtn, AmountBoxes.ADD_AS_LAST_ROW);
         amountBoxes.setId("bodyBox");
-      //  addTokenBtn.setAmountBoxes(amountBoxes);
+        //  addTokenBtn.setAmountBoxes(amountBoxes);
 
-        addTokenBtn.addEventFilter(MouseEvent.MOUSE_PRESSED, e->{
+        addTokenBtn.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
             addTokenBtn.getItems().clear();
-           //addTokenBtn.getItems().add(new MenuItem("bob"));
-            
+            //addTokenBtn.getItems().add(new MenuItem("bob"));
+
             AddressData addressData = m_selectedAddressData.get();
-            if(addressData != null){
-            
-          
+            if (addressData != null) {
+
                 long balanceTimestamp = System.currentTimeMillis();
                 int size = addressData.getConfirmedTokenList().size();
                 PriceAmount[] tokenArray = size > 0 ? new PriceAmount[size] : null;
                 tokenArray = tokenArray != null ? addressData.getConfirmedTokenList().toArray(tokenArray) : null;
-                if(tokenArray != null){
-                    for(int i = 0; i < size ; i ++){
+                if (tokenArray != null) {
+                    for (int i = 0; i < size; i++) {
                         PriceAmount tokenAmount = tokenArray[i];
                         String tokenId = tokenAmount.getTokenId();
-                        
-                        if(tokenId != null){
+
+                        if (tokenId != null) {
                             AmountBox isBox = amountBoxes.getAmountBox(tokenId);
 
-                            if(isBox == null){
+                            if (isBox == null) {
                                 AmountMenuItem menuItem = new AmountMenuItem(tokenAmount);
                                 addTokenBtn.getItems().add(menuItem);
-                                menuItem.setOnAction(e1->{
+                                menuItem.setOnAction(e1 -> {
                                     PriceAmount menuItemPriceAmount = menuItem.priceAmountProperty().get();
                                     PriceCurrency menuItemPriceCurrency = menuItemPriceAmount.getCurrency();
                                     AmountSendBox newAmountSendBox = new AmountSendBox(new PriceAmount(0, menuItemPriceCurrency), sendScene, true);
@@ -1041,35 +958,35 @@ public class AddressesData {
                                     amountBoxes.add(newAmountSendBox);
                                 });
                             }
-                   
+
                         }
                     }
                 }
             }
-            if(addTokenBtn.getItems().size() == 0){
+            if (addTokenBtn.getItems().size() == 0) {
                 addTokenBtn.getItems().add(new MenuItem("No tokens to add"));
             }
-    
+
         });
 
-        addAllTokenBtn.setOnAction(e->{
+        addAllTokenBtn.setOnAction(e -> {
             AddressData addressData = m_selectedAddressData.get();
-            if(addressData != null){
-            
+            if (addressData != null) {
+
                 ArrayList<PriceAmount> tokenList = addressData.getConfirmedTokenList();
                 long timeStamp = System.currentTimeMillis();
 
-                for(int i = 0; i < tokenList.size() ; i ++){
+                for (int i = 0; i < tokenList.size(); i++) {
                     PriceAmount tokenAmount = tokenList.get(i);
                     String tokenId = tokenAmount.getTokenId();
                     AmountSendBox existingTokenBox = (AmountSendBox) amountBoxes.getAmountBox(tokenId);
-                    if(existingTokenBox == null){
+                    if (existingTokenBox == null) {
                         PriceCurrency tokenCurrency = tokenAmount.getCurrency();
                         AmountSendBox tokenAmountBox = new AmountSendBox(new PriceAmount(0, tokenCurrency), sendScene, true);
                         tokenAmountBox.balanceAmountProperty().set(tokenAmount);
                         tokenAmountBox.setTimeStamp(timeStamp);
                         amountBoxes.add(tokenAmountBox);
-                    }else{
+                    } else {
                         existingTokenBox.setTimeStamp(timeStamp);
                         existingTokenBox.balanceAmountProperty().set(tokenAmount);
                     }
@@ -1077,124 +994,116 @@ public class AddressesData {
             }
         });
 
-        removeTokenBtn.addEventFilter(MouseEvent.MOUSE_PRESSED, e->{
-   
+        removeTokenBtn.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+
             removeTokenBtn.getItems().clear();
             int size = amountBoxes.amountsList().size();
-            if(size > 0){
+            if (size > 0) {
                 AmountBox[] boxArray = new AmountBox[size];
                 boxArray = amountBoxes.amountsList().toArray(boxArray);
-                
-                for(int i = 0; i < size ; i ++){
+
+                for (int i = 0; i < size; i++) {
                     AmountBox tokenBox = boxArray[i];
                     PriceAmount tokenAmount = tokenBox.priceAmountProperty().get();
                     AmountMenuItem removeAmountItem = new AmountMenuItem(tokenAmount);
-                    removeAmountItem.setOnAction(e1->{
+                    removeAmountItem.setOnAction(e1 -> {
                         String tokenId = removeAmountItem.getTokenId();
                         amountBoxes.removeAmountBox(tokenId);
                     });
                     removeTokenBtn.getItems().add(removeAmountItem);
                 }
             }
-            if(removeTokenBtn.getItems().size() == 0){
+            if (removeTokenBtn.getItems().size() == 0) {
                 removeTokenBtn.getItems().add(new MenuItem("No tokens to remove"));
             }
         });
 
-        removeAllTokenBtn.setOnAction(e->{
+        removeAllTokenBtn.setOnAction(e -> {
             amountBoxes.clear();
         });
 
-        Runnable updateErgoMaxBalance = ()->{
+        Runnable updateErgoMaxBalance = () -> {
             AddressData addressData = m_selectedAddressData.get();
-          
-            if(addressData != null){
-              
-                ergoAmountBox.balanceAmountProperty().bind( addressData.ergoAmountProperty());
-                
-            }else{
+
+            if (addressData != null) {
+
+                ergoAmountBox.balanceAmountProperty().bind(addressData.ergoAmountProperty());
+
+            } else {
                 ergoAmountBox.balanceAmountProperty().unbind();
                 ergoAmountBox.balanceAmountProperty().set(null);
             }
         };
         updateErgoMaxBalance.run();
 
-
-        Runnable updateTokensMaxBalance = () ->{
+        Runnable updateTokensMaxBalance = () -> {
             AddressData addressData = m_selectedAddressData.get();
-            if(addressData != null){
-              
-                for(int i = 0; i < amountBoxes.amountsList().size() ; i++ ){
+            if (addressData != null) {
+
+                for (int i = 0; i < amountBoxes.amountsList().size(); i++) {
                     AmountBox amountBox = amountBoxes.amountsList().get(i);
-                    if(amountBox != null && amountBox instanceof AmountSendBox){
+                    if (amountBox != null && amountBox instanceof AmountSendBox) {
                         AmountSendBox amountSendBox = (AmountSendBox) amountBox;
-                        
+
                         PriceAmount tokenAmount = addressData.getConfirmedTokenAmount(amountSendBox.getTokenId());
 
                         amountSendBox.balanceAmountProperty().set(tokenAmount);
 
                     }
-               }
-            }else{
-             
-               for(AmountBox amountBox : amountBoxes.amountsList() ){
-                    if(amountBox != null && amountBox instanceof AmountSendBox){
+                }
+            } else {
+
+                for (AmountBox amountBox : amountBoxes.amountsList()) {
+                    if (amountBox != null && amountBox instanceof AmountSendBox) {
                         AmountSendBox amountSendBox = (AmountSendBox) amountBox;
                         amountSendBox.balanceAmountProperty().set(null);
                     }
-               }
+                }
             }
         };
         updateTokensMaxBalance.run();
 
-        Runnable updateBabbleFees = () ->{
+        Runnable updateBabbleFees = () -> {
             String babbleId = babbleTokenId.get();
 
-            if(babbleId == null){
-                ergoAmountBox.isFeeProperty().set(true);      
+            if (babbleId == null) {
+                ergoAmountBox.isFeeProperty().set(true);
             }
         };
 
         updateBabbleFees.run();
 
-        babbleTokenId.addListener((obs,oldval,newval)->updateBabbleFees.run());
+        babbleTokenId.addListener((obs, oldval, newval) -> updateBabbleFees.run());
 
         ChangeListener<? super LocalDateTime> balanceChangeListener = (obs, oldVal, newVal) -> {
-  
-        
+
             updateTokensMaxBalance.run();
         };
 
-        selectedAddressDataProperty().addListener((obs, oldval, newval) ->{ 
+        selectedAddressDataProperty().addListener((obs, oldval, newval) -> {
             updateAddressBtn.run();
             updateErgoMaxBalance.run();
 
-            if(oldval != null){
+            if (oldval != null) {
                 oldval.getLastUpdated().removeListener(balanceChangeListener);
             }
-            if(newval != null){
-                
+            if (newval != null) {
+
                 newval.getLastUpdated().addListener(balanceChangeListener);
             }
         });
-    
 
-        
-
-      //  addTokenBtn.prefWidthProperty().bind(amountBoxes.widthProperty());
-       
+        //  addTokenBtn.prefWidthProperty().bind(amountBoxes.widthProperty());
         Region sendBoxSpacer = new Region();
         HBox.setHgrow(sendBoxSpacer, Priority.ALWAYS);
 
+        Runnable checkAndSend = () -> {
 
-      
-        Runnable checkAndSend = () ->{
-          
-            AddressData addressData = m_selectedAddressData.get(); 
+            AddressData addressData = m_selectedAddressData.get();
 
-            if(ergoAmountBox.isNotAvailable()){
-                String insufficentErrorString = "Address does not contain: " + ergoAmountBox.priceAmountProperty().get().toString() + ( ergoAmountBox.isFeeProperty().get() ?  ("\nAfter paying the send fee of: " + ergoAmountBox.feeAmountProperty().get().toString()) : "");
-                Alert a = new Alert(AlertType.NONE,  insufficentErrorString, ButtonType.CANCEL);
+            if (ergoAmountBox.isNotAvailable()) {
+                String insufficentErrorString = "Address does not contain: " + ergoAmountBox.priceAmountProperty().get().toString() + (ergoAmountBox.isFeeProperty().get() ? ("\nAfter paying the send fee of: " + ergoAmountBox.feeAmountProperty().get().toString()) : "");
+                Alert a = new Alert(AlertType.NONE, insufficentErrorString, ButtonType.CANCEL);
                 a.setTitle("Insuficient Funds");
                 a.initOwner(parentStage);
                 a.setHeaderText("Insuficient Funds");
@@ -1204,40 +1113,40 @@ public class AddressesData {
 
             AddressInformation addressInformation = toAddressEnterBox.addressInformationProperty().get();
 
-            if(addressInformation != null && addressInformation.getAddress() != null){
+            if (addressInformation != null && addressInformation.getAddress() != null) {
                 ErgoNodeData ergoNodeData = selectedNodeData().get();
                 ErgoExplorerData ergoExplorerData = selectedExplorerData().get();
                 AmountBox[] amountBoxArray = amountBoxes.getAmountBoxArray();
                 int amountOfTokens = amountBoxArray != null && amountBoxArray.length > 0 ? amountBoxArray.length : 0;
                 AmountSendBox[] tokenArray = amountOfTokens > 0 ? new AmountSendBox[amountOfTokens] : null;
-                
-                if(amountOfTokens > 0 && amountBoxArray != null && tokenArray != null){
-                    for(int i = 0; i < amountOfTokens ; i++){
+
+                if (amountOfTokens > 0 && amountBoxArray != null && tokenArray != null) {
+                    for (int i = 0; i < amountOfTokens; i++) {
                         AmountBox box = amountBoxArray[i];
-                        if(box != null && box instanceof AmountSendBox){
+                        if (box != null && box instanceof AmountSendBox) {
                             AmountSendBox sendBox = (AmountSendBox) box;
-                            if(sendBox.isNotAvailable()){
+                            if (sendBox.isNotAvailable()) {
                                 Alert a = new Alert(AlertType.NONE, "Address does not contain: " + sendBox.priceAmountProperty().get().toString(), ButtonType.CANCEL);
                                 a.setTitle("Insuficient Funds");
                                 a.initOwner(parentStage);
                                 a.setHeaderText("Insuficient Funds");
                                 a.show();
                                 return;
-                            }else{
-                                
+                            } else {
+
                                 tokenArray[i] = sendBox;
                             }
                         }
                     }
-                        
+
                 }
-              //  String babbleId = babbleTokenId.get();
-                
-              //  AmountSendBox feeSendBox = ergoAmountBox;
+                //  String babbleId = babbleTokenId.get();
+
+                //  AmountSendBox feeSendBox = ergoAmountBox;
                 PriceAmount feeAmount = ergoAmountBox.priceAmountProperty().get();
 
-                showTxConfirmScene(addressData, addressInformation, ergoNodeData, ergoExplorerData, ergoAmountBox, tokenArray, feeAmount, sendScene, parentStage, ()-> closeBtn.fire());
-            }else{
+                showTxConfirmScene(addressData, addressInformation, ergoNodeData, ergoExplorerData, ergoAmountBox, tokenArray, feeAmount, sendScene, parentStage, () -> closeBtn.fire(), () -> backButton.fire());
+            } else {
                 Alert a = new Alert(AlertType.NONE, "Enter a valid address.", ButtonType.CANCEL);
                 a.setTitle("Invalid Receiver Address");
                 a.initOwner(parentStage);
@@ -1245,11 +1154,6 @@ public class AddressesData {
                 a.show();
                 return;
             }
-
-            
-           
-          
-            
 
         };
 
@@ -1261,64 +1165,68 @@ public class AddressesData {
         sendBtn.setPadding(new Insets(5, 10, 3, 5));
         sendBtn.setOnAction(e -> {
             requiredErgoNodes.run();
-            if(m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) != null){
+            if (m_walletData.getErgoWallets().getErgoNetworkData().getNetwork(ErgoNodes.NETWORK_ID) != null) {
                 ErgoNodeData ergoNodeData = selectedNodeData().get();
-                if(ergoNodeData != null){
-                    if(ergoNodeData instanceof ErgoNodeLocalData){
+                if (ergoNodeData != null) {
+                    if (ergoNodeData instanceof ErgoNodeLocalData) {
                         ErgoNodeLocalData localErgoNode = (ErgoNodeLocalData) ergoNodeData;
-                        if(localErgoNode.isSetupProperty().get()){
-                            checkAndSend.run();
-                        }else{
+                        if (localErgoNode.isSetupProperty().get()) {
+                            if (localErgoNode.syncedProperty().get()) {
+                                checkAndSend.run();
+                            } else {
+                                long nodeBlockHeight = localErgoNode.nodeBlockHeightProperty().get();
+                                long networkBlockHeight = localErgoNode.networkBlockHeightProperty().get();
+                                double percentage = nodeBlockHeight != -1 && networkBlockHeight != -1 ? (nodeBlockHeight / networkBlockHeight) * 100 : -1;
+                                String msgPercent = percentage != -1 ? String.format("%.2f", percentage) + "%" : "Starting";
+
+                                Alert a = new Alert(AlertType.NONE, "Sync status: " + msgPercent, ButtonType.CANCEL);
+                                a.setTitle("Node Sync Required");
+                                a.initOwner(parentStage);
+                                a.setHeaderText("Node Sync Required");
+                                a.show();
+                            }
+                        } else {
                             localErgoNode.setup();
                         }
-                    }else{
-                        checkAndSend.run();  
+                    } else {
+                        checkAndSend.run();
                     }
-                }else{
-                    nodesBtn.show();      
+                } else {
+                    nodesBtn.show();
                 }
             }
         });
 
-
         HBox sendBox = new HBox(sendBtn);
         VBox.setVgrow(sendBox, Priority.ALWAYS);
-        sendBox.setPadding(new Insets(0,0,8,15));
+        sendBox.setPadding(new Insets(0, 0, 8, 15));
         sendBox.setAlignment(Pos.CENTER_RIGHT);
 
         HBox ergoAmountPaddingBox = new HBox(ergoAmountBox);
         ergoAmountPaddingBox.setId("bodyBox");
-        ergoAmountPaddingBox.setPadding(new Insets(10,10,0,10));
-
-
-  
-
+        ergoAmountPaddingBox.setPadding(new Insets(10, 10, 0, 10));
 
         VBox scrollPaneContentVBox = new VBox(ergoAmountPaddingBox, amountBoxes);
 
-        
-
         ScrollPane scrollPane = new ScrollPane(scrollPaneContentVBox);
-        scrollPane.setPadding(new Insets(0,0,0, 20));
+        scrollPane.setPadding(new Insets(0, 0, 0, 20));
 
         VBox scrollPaddingBox = new VBox(scrollPane);
-        HBox.setHgrow(scrollPaddingBox,Priority.ALWAYS);
-        scrollPaddingBox.setPadding(new Insets(0,5,0,5));
+        HBox.setHgrow(scrollPaddingBox, Priority.ALWAYS);
+        scrollPaddingBox.setPadding(new Insets(0, 5, 0, 5));
 
-        VBox bodyBox = new VBox( fromAddressBox, toAddressBox, nodeRowBox, amountBoxRow, scrollPaddingBox);
-        VBox.setVgrow(bodyBox,Priority.ALWAYS);
+        VBox bodyBox = new VBox(fromAddressBox, toAddressBox, nodeRowBox, amountBoxRow, scrollPaddingBox);
+        VBox.setVgrow(bodyBox, Priority.ALWAYS);
         bodyBox.setId("bodyBox");
-        bodyBox.setPadding(new Insets(15,0,0,0));
+        bodyBox.setPadding(new Insets(15, 0, 0, 0));
 
         VBox bodyLayoutBox = new VBox(headingBox, bodyBox);
-        VBox.setVgrow(bodyLayoutBox,Priority.ALWAYS);
-        bodyLayoutBox.setPadding(new Insets(0, 4, 4,4));
+        VBox.setVgrow(bodyLayoutBox, Priority.ALWAYS);
+        bodyLayoutBox.setPadding(new Insets(0, 4, 4, 4));
 
-        
-       
         HBox footerBox = new HBox(sendBox);
         HBox.setHgrow(footerBox, Priority.ALWAYS);
-        footerBox.setPadding(new Insets(5,30,0,5));
+        footerBox.setPadding(new Insets(5, 30, 0, 5));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
 
         HBox paddingBox = new HBox(menuBar);
@@ -1330,8 +1238,8 @@ public class AddressesData {
         layoutBox.setAlignment(Pos.TOP_LEFT);
 
         fromAddressBtn.prefWidthProperty().bind(fromAddressBox.widthProperty().subtract(fromText.layoutBoundsProperty().getValue().getWidth()).subtract(30));
-        
-        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(20).subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(nodeRowBox.heightProperty()).subtract( amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()).subtract(15));
+
+        scrollPane.prefViewportHeightProperty().bind(layoutBox.heightProperty().subtract(20).subtract(titleBox.heightProperty()).subtract(paddingBox.heightProperty()).subtract(headingBox.heightProperty()).subtract(fromAddressBox.heightProperty()).subtract(toAddressBox.heightProperty()).subtract(nodeRowBox.heightProperty()).subtract(amountBoxRow.heightProperty()).subtract(footerBox.heightProperty()).subtract(15));
         amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(20).subtract(ergoAmountPaddingBox.heightProperty()));
         scrollPane.prefViewportWidthProperty().bind(sendScene.widthProperty().subtract(60));
         amountBoxes.prefWidthProperty().bind(sendScene.widthProperty().subtract(60));
@@ -1340,21 +1248,31 @@ public class AddressesData {
         return sendScene;
     }
 
+    public void showTxConfirmScene(AddressData addressData, AddressInformation receiverAddressInformation, ErgoNodeData nodeData, ErgoExplorerData explorerData, AmountSendBox ergoSendBox, AmountSendBox[] tokenAmounts, PriceAmount feeAmount, Scene parentScene, Stage parentStage, Runnable parentClose, Runnable complete) {
+        if (nodeData == null) {
+            Alert a = new Alert(AlertType.NONE, "Please select a node in order to continue.", ButtonType.CANCEL);
+            a.setTitle("Invalid Node");
+            a.initOwner(parentStage);
+            a.setHeaderText("Invalid Node");
+            a.show();
+            return;
+        }
 
-    
-    public Scene showTxConfirmScene(AddressData addressData,AddressInformation receiverAddress, ErgoNodeData ergoNode, ErgoExplorerData explorerData, AmountSendBox ergoSendBox, AmountSendBox[] tokenAmounts, PriceAmount feeAmount, Scene parentScene, Stage parentStage, Runnable parentClose){
-        
+        final String explorerUrl = explorerData != null ? explorerData.ergoNetworkUrlProperty().get().getUrlString() : null;
+
+        final long feeAmountLong = feeAmount.getLongAmount();
+
         String oldStageName = parentStage.getTitle();
-        String title = "Confirmation - Send - " + getWalletData().getName() + "("+m_networkType.toString() + ")";
+        String title = "Confirmation - Send - " + getWalletData().getName() + "(" + m_networkType.toString() + ")";
         Button maximizeBtn = new Button();
         Button closeBtn = new Button();
 
-        closeBtn.setOnAction(e->{
+        closeBtn.setOnAction(e -> {
             parentClose.run();
         });
 
         HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), maximizeBtn, closeBtn, parentStage);
-        maximizeBtn.setOnAction(e->{
+        maximizeBtn.setOnAction(e -> {
             parentStage.setMaximized(!parentStage.isMaximized());
         });
 
@@ -1362,7 +1280,7 @@ public class AddressesData {
         backTip.setShowDelay(new javafx.util.Duration(100));
         backTip.setFont(App.txtFont);
 
-        BufferedButton backButton = new BufferedButton("/assets/return-back-up-30.png", App.MENU_BAR_IMAGE_WIDTH) ;
+        BufferedButton backButton = new BufferedButton("/assets/return-back-up-30.png", App.MENU_BAR_IMAGE_WIDTH);
         backButton.setId("menuBtn");
         backButton.setTooltip(backTip);
         backButton.setOnAction(e -> {
@@ -1377,21 +1295,19 @@ public class AddressesData {
         menuBar.setPadding(new Insets(1, 0, 1, 5));
 
         VBox menuPaddingBox = new VBox(menuBar);
-        menuPaddingBox.setPadding(new Insets(0,5,0,5));
+        menuPaddingBox.setPadding(new Insets(0, 5, 0, 5));
 
+        final Address address = addressData.getAddress();
+        final String addressName = addressData.getName();
 
-
-        final String addressString = addressData.getAddress().toString();
-
-        
         Text addressText = new Text("From: ");
         addressText.setFill(App.txtColor);
         addressText.setFont(App.txtFont);
 
-        TextField addressField = new TextField("(" + addressData.getName() + ") " + addressString);
+        TextField addressField = new TextField(address.toString() + " (" + addressName + ")");
         addressField.setId("addressField");
         addressField.setEditable(false);
-        HBox.setHgrow(addressField,Priority.ALWAYS);
+        HBox.setHgrow(addressField, Priority.ALWAYS);
 
         HBox addressBox = new HBox(addressText, addressField);
         HBox.setHgrow(addressBox, Priority.ALWAYS);
@@ -1402,9 +1318,8 @@ public class AddressesData {
         receiverText.setFill(App.txtColor);
         receiverText.setFont(App.txtFont);
 
-
-        final String receiverString = receiverAddress.getAddress().toString();
-        TextField receiverField = new TextField(receiverString);
+        final Address receiverAddress = receiverAddressInformation.getAddress();
+        TextField receiverField = new TextField(receiverAddress.toString());
         receiverField.setId("addressField");
         receiverField.setEditable(false);
         HBox.setHgrow(receiverField, Priority.ALWAYS);
@@ -1414,17 +1329,17 @@ public class AddressesData {
         receiverBox.setAlignment(Pos.CENTER_LEFT);
         receiverBox.setPrefHeight(30);
 
-
         Text nodeText = new Text("Node: ");
         nodeText.setFill(App.txtColor);
         nodeText.setFont(App.txtFont);
 
-
-        final String nodeString = ergoNode.getName() + " (" + ergoNode.namedNodeUrlProperty().get().getUrlString() + ")";
-        TextField nodeField = new TextField(nodeString);
+        final NamedNodeUrl namedNodeUrl = nodeData.namedNodeUrlProperty().get();
+        final String nodeUrl = namedNodeUrl.getUrlString();
+        final String nodeApiKey = namedNodeUrl.getApiKey();
+        TextField nodeField = new TextField(namedNodeUrl.getName() + " (" + nodeUrl + ")");
         nodeField.setId("addressField");
         nodeField.setEditable(false);
-        nodeField.setPrefWidth(Utils.measureString(nodeString, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14)) + 30);
+        HBox.setHgrow(nodeField, Priority.ALWAYS);
 
         HBox nodeBox = new HBox(nodeText, nodeField);
         HBox.setHgrow(nodeBox, Priority.ALWAYS);
@@ -1437,32 +1352,27 @@ public class AddressesData {
         parentStage.setScene(confirmTxScene);
         parentStage.setTitle(title);
 
-    
-
         AmountConfirmBox ergoAmountBox = new AmountConfirmBox(ergoSendBox, confirmTxScene);
-        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
+        HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
         ergoAmountBox.priceQuoteProperty().bind(currentPriceQuoteProperty());
 
+        final long ergoAmountLong = ergoAmountBox.getLongAmount();
 
         HBox amountBoxPadding = new HBox(ergoAmountBox);
-        amountBoxPadding.setPadding(new Insets(10,10,0,10));
-
-
-
+        amountBoxPadding.setPadding(new Insets(10, 10, 0, 10));
 
         AmountBoxes amountBoxes = new AmountBoxes();
-        amountBoxes.setPadding(new Insets(5,10,5,0));
+        amountBoxes.setPadding(new Insets(5, 10, 5, 0));
         amountBoxes.setAlignment(Pos.TOP_LEFT);
 
-     
-        Runnable updateTokens = () ->{
-            if(tokenAmounts != null && tokenAmounts.length > 0){
+        Runnable updateTokens = () -> {
+            if (tokenAmounts != null && tokenAmounts.length > 0) {
                 int numTokens = tokenAmounts.length;
-                for(int i = 0; i< numTokens ; i++){
+                for (int i = 0; i < numTokens; i++) {
                     AmountSendBox sendBox = tokenAmounts[i];
-                    if(sendBox.priceAmountProperty().get().getLongAmount() > 0){
+                    if (sendBox.priceAmountProperty().get().getLongAmount() > 0) {
                         AmountConfirmBox confirmBox = new AmountConfirmBox(sendBox, confirmTxScene);
-                        amountBoxes.add(confirmBox);  
+                        amountBoxes.add(confirmBox);
                     }
                 }
             }
@@ -1471,50 +1381,49 @@ public class AddressesData {
 
         VBox infoBox = new VBox(nodeBox, addressBox, receiverBox);
         HBox.setHgrow(infoBox, Priority.ALWAYS);
-        infoBox.setPadding(new Insets(10,15,10,15));
+        infoBox.setPadding(new Insets(10, 15, 10, 15));
 
-        VBox paddingAmountBox = new VBox(amountBoxPadding);        
-        paddingAmountBox.setPadding(new Insets(5,16,0,0));
+        VBox paddingAmountBox = new VBox(amountBoxPadding);
+        paddingAmountBox.setPadding(new Insets(5, 16, 0, 0));
 
         VBox boxesVBox = new VBox(amountBoxPadding, amountBoxes);
         HBox.setHgrow(boxesVBox, Priority.ALWAYS);
 
         ScrollPane scrollPane = new ScrollPane(boxesVBox);
-        scrollPane.setPadding(new Insets(0,0,5, 0));
-        
+        scrollPane.setPadding(new Insets(0, 0, 5, 0));
+
         HBox infoBoxPadding = new HBox(infoBox);
-        HBox.setHgrow(infoBoxPadding,Priority.ALWAYS);
-        infoBoxPadding.setPadding(new Insets(0, 4, 0,4));
+        HBox.setHgrow(infoBoxPadding, Priority.ALWAYS);
+        infoBoxPadding.setPadding(new Insets(0, 4, 0, 4));
 
         VBox bodyBox = new VBox(infoBoxPadding, paddingAmountBox, scrollPane);
-     
-        bodyBox.setPadding(new Insets(0,0,0,15));
-        HBox.setHgrow(bodyBox,Priority.ALWAYS);
 
+        bodyBox.setPadding(new Insets(0, 0, 0, 15));
+        HBox.setHgrow(bodyBox, Priority.ALWAYS);
 
         VBox bodyPaddingBox = new VBox(bodyBox);
-        bodyPaddingBox.setPadding(new Insets(4,4, 0, 4));
-        HBox.setHgrow(bodyPaddingBox,Priority.ALWAYS);
+        bodyPaddingBox.setPadding(new Insets(4, 4, 0, 4));
+        HBox.setHgrow(bodyPaddingBox, Priority.ALWAYS);
 
         Text confirmText = new Text("Notice");
         confirmText.setFill(App.txtColor);
         confirmText.setFont(App.txtFont);
 
         HBox confirmTextBox = new HBox(confirmText);
-        
-        TextArea confirmNotice = new TextArea("All transactions are considered final and cannot be reversed. Please verify the transaction and the reputation of the receiving party.");
+
+        TextArea confirmNotice = new TextArea("All transactions are considered final and cannot be reversed. Please verify the transaction and the receiving party.");
         HBox.setHgrow(confirmNotice, Priority.ALWAYS);
         confirmNotice.setWrapText(true);
         confirmNotice.setPrefRowCount(2);
-        
+
         HBox confirmNoticeBox = new HBox(confirmNotice);
         HBox.setHgrow(confirmNoticeBox, Priority.ALWAYS);
-        confirmNoticeBox.setPadding(new Insets(5,15,0,15));
+        confirmNoticeBox.setPadding(new Insets(5, 15, 0, 15));
 
         VBox confirmTextVBox = new VBox(confirmTextBox, confirmNoticeBox);
-        confirmTextVBox.setPadding(new Insets(0,15,0,15));
+        confirmTextVBox.setPadding(new Insets(0, 15, 0, 15));
 
-        Text passwordTxt = new Text("> Enter Netnotes password to confirm:");
+        Text passwordTxt = new Text("> Enter wallet password:");
         passwordTxt.setFill(App.txtColor);
         passwordTxt.setFont(App.txtFont);
 
@@ -1522,34 +1431,114 @@ public class AddressesData {
         passwordField.setFont(App.txtFont);
         passwordField.setId("passField");
         HBox.setHgrow(passwordField, Priority.ALWAYS);
-        passwordField.setOnAction(e->{
+        passwordField.setOnAction(e -> {
             Stage statusStage = App.getStatusStage("Verifying - Netnotes", "Verifying...");
             if (passwordField.getText().length() < 6) {
                 passwordField.setText("");
             } else {
-                NamedNodeUrl namedNodeUrl = ergoNode.namedNodeUrlProperty().get();
-                String nodeUrlString = namedNodeUrl.getUrlString();
-                String apiString = namedNodeUrl.getApiKey();
-                String ergoExplorerUrl = explorerData != null ? explorerData.ergoNetworkUrlProperty.get().getUrlString() : null;
-                AmountBox[] amountBoxArray = amountBoxes.getAmountBoxArray();
-        
-                statusStage.show();
-                
-                FxTimer.runLater(java.time.Duration.ofMillis(100), () -> {
-                    String password = passwordField.getText();
-                        
-                    Platform.runLater(() -> passwordField.setText(""));
-                    byte[] hashBytes = getWalletData().getErgoWallets().getNetworksData().getAppData().getAppKeyBytes();
-                    BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), hashBytes);
-                    statusStage.close();
-                    if (result.verified) {
-                        
-                   
-                        ErgoTransaction ergoTransaction = new ErgoTransaction(addressData, m_wallet, ergoAmountBox.getLongAmount(), receiverAddress, nodeUrlString, apiString, ergoExplorerUrl, feeAmount.getLongAmount(), amountBoxArray);
 
+                statusStage.show();
+                passwordField.setEditable(false);
+
+                AmountBox[] amountBoxArray = amountBoxes.getAmountBoxArray();
+
+                int amountOfTokens = amountBoxArray != null && amountBoxArray.length > 0 ? amountBoxArray.length : 0;
+                final ErgoToken[] tokenArray = new ErgoToken[amountOfTokens];
+
+                if (amountOfTokens > 0 && amountBoxArray != null && tokenArray != null) {
+                    for (int i = 0; i < amountOfTokens; i++) {
+                        AmountBox box = amountBoxArray[i];
+                        if (box != null && box instanceof AmountConfirmBox) {
+                            AmountConfirmBox confirmBox = (AmountConfirmBox) box;
+
+                            tokenArray[i] = confirmBox.getErgoToken();
+
+                        }
+                    }
+
+                }
+
+                Task<String> task = new Task<String>() {
+                    @Override
+                    public String call() throws Exception {
+
+                        Files.writeString(new File("transactionInfo.txt").toPath(), "\n" + nodeUrl + "\n" + m_networkType + "\n" + nodeApiKey + "\n" + explorerUrl, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        ErgoClient ergoClient = RestApiErgoClient.create(nodeUrl, m_networkType, nodeApiKey, explorerUrl);
+
+                        UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(
+                                ergoClient,
+                                m_wallet.addressStream(m_networkType).toList(),
+                                receiverAddress,
+                                ergoAmountLong,
+                                feeAmountLong,
+                                address,
+                                tokenArray
+                        );
+
+                        String txId = m_wallet.transact(ergoClient, ergoClient.execute(ctx -> {
+                            try {
+                                return m_wallet.key().signWithPassword(passwordField.getText(), ctx, unsignedTx, m_wallet.myAddresses.keySet());
+                            } catch (WalletKey.Failure ex) {
+
+                                return null;
+                            }
+                        }));
+
+                        /* ErgoTransaction ergoTransaction = new ErgoTransaction(addressData, m_wallet, ergoAmountBox.getLongAmount(), receiverAddress, nodeData, explorerData, feeAmount, amountBoxArray);
+                         */
+                        return txId;
+                    }
+                };
+                task.setOnFailed((onFailed) -> {
+                    statusStage.close();
+                    passwordField.setEditable(true);
+                    passwordField.setText("");
+
+                    Throwable throwable = onFailed.getSource().getException();
+
+                    if (throwable instanceof InputBoxesSelectionException) {
+                        Alert a = new Alert(AlertType.NONE, "Insuficient Funds", ButtonType.CANCEL);
+                        a.setTitle("Transaction cancelled.");
+                        a.initOwner(parentStage);
+                        a.setHeaderText("Insuficient Funds");
+                        a.show();
+
+                    } else {
+                        Alert a = new Alert(AlertType.NONE, "Error: " + throwable.toString(), ButtonType.CANCEL);
+                        a.setTitle("Error - Transaction Cancelled");
+                        a.initOwner(parentStage);
+                        a.setHeaderText("Transaction Cancelled");
+                        a.show();
+                    }
+                    backButton.fire();
+                });
+
+                task.setOnSucceeded((onSucceded) -> {
+                    statusStage.close();
+                    passwordField.setEditable(true);
+                    passwordField.setText("");
+
+                    Object sourceValue = onSucceded.getSource().getValue();
+
+                    if (sourceValue != null && sourceValue instanceof String) {
+                        String txId = (String) sourceValue;
+
+                        PriceAmount[] tokens = new PriceAmount[amountOfTokens];
+                        if(amountBoxArray != null){
+                            for(int i = 0; i< amountOfTokens ; i++){
+                                tokens[i] = amountBoxArray[i].priceAmountProperty().get();
+                            }  
+                        }
+                       new ErgoTransaction(txId, new AddressInformation(addressData.getAddress().toString()), receiverAddressInformation, new PriceAmount(ergoAmountLong, new ErgoCurrency(m_networkType) ), feeAmount, tokens, nodeUrl, explorerUrl);
                     }
                 });
+
+                Thread t = new Thread(task);
+                t.setDaemon(true);
+                t.start();
+
             }
+
         });
 
         Platform.runLater(() -> passwordField.requestFocus());
@@ -1557,29 +1546,23 @@ public class AddressesData {
         HBox passwordBox = new HBox(passwordTxt, passwordField);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
         passwordBox.setPadding(new Insets(20, 0, 15, 15));
-   
 
         VBox footerBox = new VBox(confirmTextVBox, passwordBox);
         HBox.setHgrow(footerBox, Priority.ALWAYS);
-        footerBox.setPadding(new Insets(5,15,0,4));
+        footerBox.setPadding(new Insets(5, 15, 0, 4));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
 
-        
-        layoutBox.getChildren().addAll(titleBox,menuPaddingBox,infoBoxPadding, bodyPaddingBox, footerBox);
-        
-        
+        layoutBox.getChildren().addAll(titleBox, menuPaddingBox, infoBoxPadding, bodyPaddingBox, footerBox);
+
         scrollPane.prefViewportWidthProperty().bind(confirmTxScene.widthProperty().subtract(60));
         scrollPane.prefViewportHeightProperty().bind(parentStage.heightProperty().subtract(titleBox.heightProperty()).subtract(menuPaddingBox.heightProperty()).subtract(infoBox.heightProperty()).subtract(footerBox.heightProperty()).subtract(10));
-        amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(50));
+        amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(60));
         amountBoxes.prefWidthProperty().bind(confirmTxScene.widthProperty().subtract(60));
 
         java.awt.Rectangle rect = getWalletData().getNetworksData().getMaximumWindowBounds();
 
         ResizeHelper.addResizeListener(parentStage, 200, 250, rect.getWidth(), rect.getHeight());
 
-    
-
-        return confirmTxScene;
     }
 
 }

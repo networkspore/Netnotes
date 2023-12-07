@@ -497,8 +497,8 @@ public class KucoinMarketItem {
                 }
                 FxTimer.runLater(Duration.ofMillis(200), () -> {
 
-                    Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
-                    Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
+                   chartScroll.setVvalue(chartScrollVvalue);
+                   chartScroll.setHvalue(chartScrollHvalue);
                 });
             });
 
@@ -520,8 +520,8 @@ public class KucoinMarketItem {
                         m_stage.setHeight(rect.getHeight());
                         FxTimer.runLater(Duration.ofMillis(200), () -> {
 
-                            Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
-                            Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
+                           chartScroll.setVvalue(chartScrollVvalue);
+                            chartScroll.setHvalue(chartScrollHvalue);
                         });
                     } else {
                         maximizeBtn.fire();
@@ -583,13 +583,13 @@ public class KucoinMarketItem {
 
                                 chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
 
-                                Platform.runLater(() -> chartScroll.setVvalue(chartScrollVvalue));
-                                Platform.runLater(() -> chartScroll.setHvalue(chartScrollHvalue));
+                                chartScroll.setVvalue(chartScrollVvalue);
+                                 chartScroll.setHvalue(chartScrollHvalue);
 
                                 chartRange.setVisible(true);
 
                                 if (exchange.isClientReady()) {
-                                    Platform.runLater(() -> exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId()));
+                                    exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
                                 }
 
                             } else {
@@ -622,7 +622,7 @@ public class KucoinMarketItem {
             });
 
             startCandles.run();
-            Platform.runLater(() -> chartBox.requestFocus());
+            chartBox.requestFocus();
 
             Runnable increaseChartHeight = () -> {
 
@@ -681,7 +681,7 @@ public class KucoinMarketItem {
             marketScene.focusOwnerProperty().addListener((e) -> {
                 Object focusOwnerObject = marketScene.focusOwnerProperty().get();
                 if (!(focusOwnerObject instanceof MenuButton)) {
-                    Platform.runLater(() -> chartBox.requestFocus());
+                   chartBox.requestFocus();
                 }
             });
 
@@ -696,7 +696,7 @@ public class KucoinMarketItem {
                 menuItm.setUserData(timeSpan);
 
                 menuItm.setOnAction(action -> {
-                    Platform.runLater(() -> chartBox.requestFocus());
+                     chartBox.requestFocus();
                     resetChartHeightOffset.run();
                     Object item = menuItm.getUserData();
 
@@ -715,7 +715,7 @@ public class KucoinMarketItem {
 
         } else {
             m_stage.show();
-            Platform.runLater(() -> m_stage.requestFocus());
+            m_stage.requestFocus();
         }
     }
 

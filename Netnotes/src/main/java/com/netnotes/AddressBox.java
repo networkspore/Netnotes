@@ -50,6 +50,7 @@ public class AddressBox extends HBox {
 //String explorerId, NetworksData networksData
     public AddressBox(AddressInformation addressInformation, Scene scene, NetworkType networkType) {
         super();
+        setFocusTraversable(true);
         m_networkType = networkType;
         m_addressInformation.set(addressInformation);
         
@@ -59,6 +60,8 @@ public class AddressBox extends HBox {
         addressBtn.setAlignment(Pos.CENTER_LEFT);
         addressBtn.setPadding(new Insets(0));
         addressBtn.setMouseTransparent(true);
+        
+        getChildren().add(addressBtn);
 
         addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
             if(getChildren().contains(addressBtn)){
@@ -133,10 +136,14 @@ public class AddressBox extends HBox {
         HBox.setHgrow(addressField, Priority.ALWAYS);
 
         addressBtn.setOnAction(actionEvent -> {
-            getChildren().remove(addressBtn);
+            if(getChildren().contains(addressBtn))
+            {
+                getChildren().remove(addressBtn);
+            } 
           
+            if(!(getChildren().contains(addressField))){
                 getChildren().addAll( addressField, enterButton);
-        
+            }
      
                 Platform.runLater(()-> {
                     addressField.requestFocus();
@@ -146,7 +153,7 @@ public class AddressBox extends HBox {
         });
 
  
-        getChildren().add(addressBtn);
+        
 
        
 
@@ -183,9 +190,9 @@ public class AddressBox extends HBox {
 
             updateBufferedImage();
      
-            if(!newval.toString().equals(addressField.getText())){
+            /*if(!newval.toString().equals(addressField.getText())){
                 addressField.setText(newval.toString());
-            }
+            }*/
         });
       
         updateBufferedImage();
@@ -321,7 +328,7 @@ public class AddressBox extends HBox {
 
    
     
-        final String promptString =(adr != null && adrNetworkType != null && adrNetworkType == m_networkType && adrType != null) ? adrType + " - (" + adrNetworkType.toString() + ")" : "Enter address";
+        final String promptString =(adr != null && adrNetworkType != null && adrNetworkType == m_networkType && adrType != null) ? adrType + " (" + adrNetworkType.toString() + ")" : "Enter address";
 
 
        

@@ -137,7 +137,7 @@ public class ErgoNetworkUrl {
     }
 
     public String getUrlString() {
-        return m_protocol + "://" + m_url + (m_port != 80 && m_port != 443 ? ":" + m_port : "");
+        return m_protocol + "://" + m_url + (m_port != 80 && m_port != 443 ? ":" + m_port : "" );
     }
 
     public String getRowString() {

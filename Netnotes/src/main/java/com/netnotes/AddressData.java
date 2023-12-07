@@ -81,6 +81,7 @@ public class AddressData extends Network {
     private File logFile = new File("netnotes-log.txt");
     private AddressesData m_addressesData;
     private int m_minImgWidth = 250;
+    private int m_apiIndex = 0;
 
     private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
     
@@ -1059,6 +1060,9 @@ public class AddressData extends Network {
         return unconfirmedTokenArray;
     }*/
 
+
+
+
     public JsonObject getJsonObject() {
         JsonObject jsonObj = new JsonObject();
         jsonObj.addProperty("id", m_address.toString());
@@ -1066,14 +1070,15 @@ public class AddressData extends Network {
         jsonObj.addProperty("name", getName());
         jsonObj.addProperty("address", m_address.toString());
         jsonObj.addProperty("networkType", m_address.getNetworkType().toString());
-      //  jsonObj.addProperty("explorerValidated", m_quantityValid);
         jsonObj.addProperty("marketValidated", getValid());
-
+       
         return jsonObj;
 
     }
 
-    private int m_apiIndex = 0;
+
+
+    
 
     public int getApiIndex() {
         return m_apiIndex;

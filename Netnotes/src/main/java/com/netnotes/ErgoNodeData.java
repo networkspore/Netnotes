@@ -99,8 +99,17 @@ public class ErgoNodeData {
     }
 
     public SimpleObjectProperty< NamedNodeUrl> namedNodeUrlProperty(){
-        return m_namedNodeUrlProperty;
+      return m_namedNodeUrlProperty;
     }
+
+   public NamedNodeUrl getNamedNodeUrl(){
+        return m_namedNodeUrlProperty.get();
+   }
+
+   public void setNamedNodeUrl(NamedNodeUrl nodeUrl){
+        m_namedNodeUrlProperty.set(nodeUrl);
+        m_lastUpdated.set(LocalDateTime.now());
+   }
 
     public SimpleStringProperty statusProperty(){
         return m_statusProperty;
