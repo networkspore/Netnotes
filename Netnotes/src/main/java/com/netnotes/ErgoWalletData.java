@@ -24,7 +24,9 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -59,8 +61,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     private File logFile = new File("netnotes-log.txt");
     private File m_walletFile = null;
       
-    private final ArrayList<ErgoTransaction> m_transactions = new ArrayList<>();
-
+    
 
     private NetworkType m_networkType = NetworkType.MAINNET;
 
@@ -164,25 +165,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     }
 
   
-    public void addTransaction(ErgoTransaction transaction){
-        m_transactions.add(transaction);
-        getLastUpdated().set(LocalDateTime.now());
-    }
-
-
-    public JsonArray getTransactionsArray(){
-        int size = m_transactions.size();
-        ErgoTransaction[] ergoTransactions = new ErgoTransaction[size];
-        ergoTransactions = m_transactions.toArray(ergoTransactions);
-
-        JsonArray jsonArray = new JsonArray();
-        for(int i = 0; i < size; i++){
-            JsonObject tokenJson = ergoTransactions[i].getJsonObject();
-            jsonArray.add(tokenJson);
-        }
-        return jsonArray; 
-    }
-
+  
 
     @Override
     public JsonObject getJsonObject() {
@@ -207,7 +190,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             jsonObject.addProperty("marketId", m_marketsId);
         }
         jsonObject.addProperty("isErgoTokens", m_isErgoTokens);
-        jsonObject.add("transactions", getTransactionsArray());
+
         return jsonObject;
     }
 
@@ -641,7 +624,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         VBox menuVBox = new VBox(paddingBox);
 
-        VBox layoutBox = addressesData.getAddressBox();
+      
         //layoutBox.setPadding(SMALL_INSETS);
 
         Font smallerFont = Font.font("OCR A Extended", 10);
@@ -662,7 +645,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         Region spacerRegion = new Region();
         VBox.setVgrow(spacerRegion, Priority.ALWAYS);
 
-        ScrollPane scrollPane = new ScrollPane(layoutBox);
+        ScrollPane scrollPane = new ScrollPane();
         scrollPane.setId("bodyBox");
         TextField totalField = new TextField();
         totalField.setId("priceField");
@@ -673,6 +656,8 @@ public class ErgoWalletData extends Network implements NoteInterface {
         HBox.setHgrow(summaryBox, Priority.ALWAYS);
         summaryBox.setPadding(new Insets(5, 0, 0, 0));
         summaryBox.setAlignment(Pos.CENTER_LEFT);
+
+
         HBox scrollBox = new HBox(scrollPane);
         HBox.setHgrow(scrollBox, Priority.ALWAYS);
         scrollBox.setPadding(new Insets(5, 5, 0, 5));
@@ -680,7 +665,9 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
         Scene openWalletScene = new Scene(bodyVBox, getStageWidth(), getStageHeight());
 
-        layoutBox.prefWidthProperty().bind(openWalletScene.widthProperty().subtract(30));
+        
+        scrollPane.setContent(addressesData.getAddressesBox(openWalletScene));
+      
 
         SimpleDoubleProperty normalHeight = new SimpleDoubleProperty(MIN_HEIGHT);
 
@@ -709,7 +696,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             addressesData.addAddress();
         });
 
-        HBox.setHgrow(layoutBox, Priority.ALWAYS);
+        
 
         scrollPane.prefViewportWidthProperty().bind(openWalletScene.widthProperty().subtract(10));
         scrollPane.prefViewportHeightProperty().bind(openWalletScene.heightProperty().subtract(titleBox.heightProperty()).subtract(menuBar.heightProperty()).subtract(updateBox.heightProperty()).subtract(summaryBox.heightProperty()).subtract(5));

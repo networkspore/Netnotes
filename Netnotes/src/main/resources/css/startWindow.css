@@ -518,7 +518,7 @@
 }
 
 #menuBtn {
-    -fx-padding: 4 3 4 3;
+    -fx-padding: 2 3 2 3;
     -fx-background-color: transparent;
     -fx-opacity: .8;
 }
@@ -546,7 +546,7 @@
 
 
 .menu-button {
-    -fx-padding: 5 2 0 2;
+    -fx-padding: 2 2 0 2;
     -fx-opacity: .8;
     -fx-shape: "...";
     -fx-background-color: transparent;
@@ -739,6 +739,29 @@
     -fx-border-style: solid;
 }
 
+
+
+#tabBtn {
+    -fx-background-color: #05050570;
+   
+   
+    -fx-text-fill: #777777A0;
+    -fx-opacity:.8;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
+}
+#tabBtn:hover{
+    -fx-opacity:1;
+}
+
+#tabBtnSelected {
+    -fx-background-color: #33333350;
+
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-font-family: 'OCR A Extended';
+}
+
 #bodyRight{
     -fx-background-color: #44444420;
 }
@@ -814,8 +837,7 @@
 #urlBtn{
     -fx-cursor: hand;
     -fx-text-fill: #777777;
-    -fx-font-size: 14px;
-    -fx-font-family: 'OCR A Extended';
+    
     -fx-background-color: transparent;
     
 }

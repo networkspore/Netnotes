@@ -149,6 +149,10 @@ public class ErgoWallets extends Network implements NoteInterface {
         return App.ergoWallet;
     }
 
+    public File getAppDir(){
+        return m_appDir;
+    }
+
     public static Image getSmallAppIcon() {
         return new Image("/assets/ergo-wallet-30.png");
     }

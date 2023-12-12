@@ -344,7 +344,11 @@ public class IconButton extends Button {
 
     public void setIcon(Image icon) {
         m_icon = icon;
-        setGraphic(getIconView(icon, m_imageWidth));
+        if(icon != null){
+            setGraphic(getIconView(icon, m_imageWidth));
+        }else{
+            setGraphic(null);
+        }
     }
 
     public double getImageWidth() {
@@ -353,7 +357,9 @@ public class IconButton extends Button {
 
     public void setImageWidth(double imageWidth) {
         m_imageWidth = imageWidth;
-        setGraphic(getIconView(m_icon, m_imageWidth));
+        if(m_icon != null){
+            setGraphic(getIconView(m_icon, m_imageWidth));
+        }
     }
 
     

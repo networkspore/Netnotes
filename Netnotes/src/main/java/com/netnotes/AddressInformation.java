@@ -1,5 +1,8 @@
 package com.netnotes;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
+
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
 
@@ -17,6 +20,36 @@ public class AddressInformation {
        setAddressString(addressString);
 
     }
+
+    public AddressInformation(JsonObject json) throws Exception{
+        if(json != null){
+            JsonElement addressElement = json.get("address");
+
+            if(addressElement != null && addressElement.isJsonPrimitive()){
+                setAddressString(addressElement.getAsString());
+            }else{
+                throw new Exception("Invalid arguments");
+            }
+        }else{
+            throw new Exception("Null Json");
+        }
+    }
+
+    public JsonObject getJsonObject(){
+        if(m_addressString == null){
+            return null;
+        }
+        JsonObject json = new JsonObject();
+        json.addProperty("address",m_addressString);
+        if(m_addressType != null){
+            json.addProperty("addressType", m_addressType);
+        }
+        if(m_networkType != null){
+            json.addProperty("networkType",m_networkType.toString());
+        }
+        return json;
+    }
+
 
     public String getAddressType(){
         return m_addressType;
@@ -152,7 +185,6 @@ public class AddressInformation {
   
     
 
-
-
+    
   
 }

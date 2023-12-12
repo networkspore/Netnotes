@@ -2,11 +2,18 @@ package com.netnotes;
 
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 import javax.imageio.ImageIO;
 
 import org.ergoplatform.appkit.Address;
@@ -15,18 +22,24 @@ import org.ergoplatform.appkit.NetworkType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.netnotes.ErgoTransaction.TransactionType;
 import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -41,6 +54,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -50,7 +64,7 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
+import javafx.util.Duration;
 
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -63,6 +77,11 @@ import java.math.BigDecimal;
 
 public class AddressData extends Network {
 
+    public static class AddressTabs {
+        public final static String TRANSACTIONS = "Transactions";
+        public final static String BALANCE = "Balance";
+    }
+
     public final static long QUOTE_TIMEOUT = 120000;
   
     private int m_index;
@@ -71,6 +90,9 @@ public class AddressData extends Network {
     private final SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty ;
     private final ArrayList<PriceAmount> m_confirmedTokensList = new ArrayList<>();
 
+    private final ObservableList<ErgoTransaction> m_transactions = FXCollections.observableArrayList();
+    private final SimpleObjectProperty<ErgoTransaction> m_selectedTransaction = new SimpleObjectProperty<>(null);
+    private long m_sendMillis = (1000*60*60*24);
 
     private long m_quoteTimeout = QUOTE_TIMEOUT;
     private long m_unconfirmedNanoErgs = 0;
@@ -82,13 +104,14 @@ public class AddressData extends Network {
     private AddressesData m_addressesData;
     private int m_minImgWidth = 250;
     private int m_apiIndex = 0;
-
+    private SimpleStringProperty m_selectedTab = new SimpleStringProperty("Balances");
+    private SimpleObjectProperty<LocalDateTime> m_fieldsUpdated = new SimpleObjectProperty<>();
     private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
     
     public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressesData) {
         super(null, name, address.toString(), addressesData.getWalletData());
         m_ergoAmountProperty = new SimpleObjectProperty<ErgoAmount>(new ErgoAmount(0, networktype));
-
+        
         m_addressesData = addressesData;
         m_index = index;
         m_address = address;
@@ -109,8 +132,8 @@ public class AddressData extends Network {
        
      
         
-       // getQuote();
-
+       
+      
         ChangeListener<? super PriceQuote> quoteChangeListener = (obs, oldVal, newVal) -> updateBufferedImage();
 
         m_addressesData.selectedMarketData().addListener((obs, oldval, newVal) -> {
@@ -129,14 +152,173 @@ public class AddressData extends Network {
         }
 
         m_addressesData.timeCycleProperty().addListener((obs, oldval, newval)->{
-            Platform.runLater(()->updateBalance());
+            updateBalance();
         });
+
+        openTransactionFile();
 
         m_ergoAmountProperty.addListener((obs,oldval,newval)->updateBufferedImage());
         updateBufferedImage();
     }
 
+    public void openTransactionFile(){
+        try {
+            File txFile = getTxFile();
+            if(txFile != null && txFile.isFile()){
+               
+                openJson(Utils.readJsonFile(getSecretKey(), txFile.toPath()));
+              
+            }
+        } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                        | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
+                        | IOException e) {
+            try {
+                Files.writeString(logFile.toPath(), "\nAddress cannot open Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+                
+            }
+        }
 
+
+    }
+
+    public SecretKey getSecretKey(){
+        return m_addressesData.getWalletData().getNetworksData().getAppData().appKeyProperty().get();
+    }
+
+     public File getTxDir() throws IOException{
+        File txDir = new File(m_addressesData.getWalletData().getErgoWallets().getAppDir().getAbsolutePath() + "/tx");
+        if(!txDir.isDirectory()){
+            Files.createDirectory(txDir.toPath());
+        }
+        return txDir;
+    }
+
+    public File getTxFile() throws IOException{
+        File txDir = getTxDir();
+        String adrFileName = m_addressesData.getWalletData().getNetworkId() + m_index;
+        File txFile = new File(txDir.getCanonicalPath() + "/" + adrFileName + ".dat");
+        return txFile;
+    }
+
+    public void openJson(JsonObject json){
+        if(json != null){
+            JsonElement txsElement = json.get("txs");
+
+            if(txsElement != null && txsElement.isJsonArray()){
+                JsonArray txsJsonArray = txsElement.getAsJsonArray();
+
+                int size = txsJsonArray.size();
+
+                for(int i = 0; i<size ; i ++){
+                    JsonElement txElement = txsJsonArray.get(i);
+
+                    if(txElement != null && txElement.isJsonObject()){
+                        JsonObject txJson = txElement.getAsJsonObject();
+                                                    
+                            JsonElement txIdElement = txJson.get("txtId");
+                            JsonElement parentAdrElement = txJson.get("parentAddress");
+                            JsonElement timeStampElement = txJson.get("timeStamp");
+                            JsonElement txTypeElement = txJson.get("txType");
+
+                            if(txIdElement != null && txIdElement.isJsonPrimitive() 
+                                && parentAdrElement != null && parentAdrElement.isJsonPrimitive() 
+                                && timeStampElement != null && timeStampElement.isJsonPrimitive() 
+                                && txTypeElement != null && txTypeElement.isJsonPrimitive()){
+                                String txId = txIdElement.getAsString();
+                                String txType = txTypeElement.getAsString();
+                                String parentAdr = parentAdrElement.getAsString();
+                                if(parentAdr.equals(m_address.toString())){
+                                    switch(txType){
+                                        case TransactionType.SEND:
+                                            try {
+                                                ErgoSimpleSendTx simpleSendTx = new ErgoSimpleSendTx(txId,this, txJson);
+                                                m_transactions.add(simpleSendTx);
+                                            } catch (Exception e) {
+                                                try {
+                                                    Files.writeString(logFile.toPath(), "\nCould not read tx json array: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                } catch (IOException e1) {
+                                                    
+                                                }
+                                            }
+                                            break;
+                                        default:
+                                            ErgoTransaction ergTx = new ErgoTransaction(txId, this);
+                                             m_transactions.add(ergTx);
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    public void saveTxFile() {
+      
+        try {
+            File txFile = getTxFile();
+            JsonObject json = getTxJson();
+            String jsonString = json.toString();
+            Utils.writeEncryptedString(getSecretKey(), txFile, jsonString);
+        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+                | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException | IOException e) {
+            try {
+                Files.writeString(logFile.toPath(), "\nAddress save Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+                
+            }
+        }
+    }
+
+    public JsonObject getTxJson(){
+        JsonObject json = new JsonObject();
+        json.add("txs", getTxJsonArray());
+        return json;
+    }
+
+    public void addTransaction(ErgoTransaction transaction){
+        addTransaction(transaction, true);
+    }
+
+    public void addTransaction(ErgoTransaction transaction, boolean save){
+        m_transactions.add(transaction);
+        m_selectedTab.set(AddressTabs.TRANSACTIONS);
+        if(save){
+            saveTxFile();
+        }
+    }
+
+    public ErgoTransaction[] getTransactionsArray(){
+        int size = m_transactions.size();
+        if(size == 0){
+            return new ErgoTransaction[0];
+        }
+        ErgoTransaction[] ergoTransactions = new ErgoTransaction[size];
+        ergoTransactions = m_transactions.toArray(ergoTransactions);
+
+        return ergoTransactions;
+    }
+
+    public JsonArray getTxJsonArray(){
+        ErgoTransaction[] ergoTransactions = getTransactionsArray();
+
+        JsonArray jsonArray = new JsonArray();
+   
+        for(int i = 0; i < ergoTransactions.length; i++){
+            JsonObject tokenJson = ergoTransactions[i].getJsonObject();
+            jsonArray.add(tokenJson);
+        }
+        return jsonArray; 
+    }
+
+    public ObservableList<ErgoTransaction> transactionsList(){
+        return m_transactions;
+    }
+
+    public SimpleObjectProperty<ErgoTransaction> selectedTransaction(){
+        return m_selectedTransaction;
+    }
 
     public String getButtonText() {
         return "  " + getName() + "\n   " + getAddressString();
@@ -177,6 +359,165 @@ public class AddressData extends Network {
         super.open();
         showAddressStage();
 
+    }
+
+    
+
+    public VBox getBalanceBox(Scene scene){
+        ErgoAmountBox ergoAmountBox = new ErgoAmountBox(ergoAmountProperty().get(), scene, getAddressesData().getWalletData().getErgoWallets().getNetworksData().getHostServices());
+        HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
+        ergoAmountBox.priceQuoteProperty().bind(m_addressesData.currentPriceQuoteProperty());
+        ergoAmountBox.priceAmountProperty().bind(ergoAmountProperty());
+
+        
+
+        HBox amountBoxPadding = new HBox(ergoAmountBox);
+        amountBoxPadding.setPadding(new Insets(10,10,0,10));
+        HBox.setHgrow(amountBoxPadding, Priority.ALWAYS);
+
+        AmountBoxes amountBoxes = new AmountBoxes();
+
+        amountBoxes.setPadding(new Insets(10,10,10,0));
+        amountBoxes.setAlignment(Pos.TOP_LEFT);
+        HBox.setHgrow(amountBoxes, Priority.ALWAYS);
+    
+        
+       
+        Runnable updateAmountBoxes = ()->{
+            long timestamp = System.currentTimeMillis();
+            for(int i = 0; i < m_confirmedTokensList.size() ; i ++){
+                PriceAmount tokenAmount = m_confirmedTokensList.get(i);
+                AmountBox amountBox = amountBoxes.getAmountBox(tokenAmount.getCurrency().getTokenId());
+                if(amountBox == null){
+                    AmountBox newAmountBox = new AmountBox(tokenAmount, scene, m_addressesData.isErgoTokensProperty(), m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData());
+                    newAmountBox.setTimeStamp(timestamp);
+                    amountBoxes.add(newAmountBox);
+                }else{
+                    amountBox.priceAmountProperty().set(tokenAmount);
+                    amountBox.setTimeStamp(timestamp);
+                }
+            }
+
+            amountBoxes.removeOld(timestamp);
+
+            m_fieldsUpdated.set(LocalDateTime.now());
+        };
+
+        updateAmountBoxes.run();
+
+        m_ergoAmountProperty.addListener((obs,oldval,newval)->updateAmountBoxes.run());
+
+
+
+        VBox balanceVBox = new VBox(amountBoxPadding, amountBoxes);
+      
+        return balanceVBox;
+    }
+
+    public ErgoTransaction getTransaction(String txId){
+ 
+        ErgoTransaction[] txArray = getTxArray();
+    
+        for(int i = 0; i < txArray.length ; i++){
+            ErgoTransaction ergTx = txArray[i];
+            if(ergTx.getTxId().equals(txId)){
+                return ergTx;
+            }
+        }
+
+        return null;
+    }
+
+    public ErgoTransaction[] getReverseTxArray(){
+        ArrayList<ErgoTransaction> list = new ArrayList<>(m_transactions);
+        Collections.reverse(list);
+
+        int size = list.size();
+        ErgoTransaction[] txArray = new ErgoTransaction[size];
+        txArray = list.toArray(txArray);
+        return txArray;
+    }
+
+    public ErgoTransaction[] getTxArray(){
+        int size = m_transactions.size();
+        ErgoTransaction[] txArray = new ErgoTransaction[size];
+        txArray = m_transactions.toArray(txArray);
+        return txArray;
+    }
+
+    public void removeTransaction(String txId){
+        removeTransaction(txId, true);
+    }
+
+     public void removeTransaction(String txId, boolean save){
+        
+        ErgoTransaction ergTx = getTransaction(txId);
+        if(ergTx != null){
+            m_transactions.remove(ergTx);
+        }
+        if(save){
+            saveTxFile();
+        }
+    }
+
+    public VBox getTransactionsContent(Scene scene){
+    
+
+        Text sendText = new Text("Sent");
+        sendText.setFont(App.txtFont);
+        sendText.setFill(App.txtColor);
+
+        HBox sendHeadingBox = new HBox(sendText);
+        HBox.setHgrow(sendHeadingBox, Priority.ALWAYS);
+        sendHeadingBox.setId("headingBox");
+        sendHeadingBox.setMinHeight(40);
+        sendHeadingBox.setAlignment(Pos.CENTER_LEFT);
+        sendHeadingBox.setPadding(new Insets(0,15,0,15));
+
+        VBox sendTxsBox = new VBox();
+        HBox.setHgrow(sendTxsBox, Priority.ALWAYS);
+
+        Runnable updateTxList = () ->{
+            
+            ErgoTransaction[] txArray = getReverseTxArray();
+        
+            sendTxsBox.getChildren().clear();
+
+            for(int i = 0; i < txArray.length ; i++){
+                ErgoTransaction ergTx = txArray[i];
+
+                if(ergTx != null && ergTx instanceof ErgoSimpleSendTx){
+                   sendTxsBox.getChildren().add(ergTx.getTxBox());
+                }
+                
+            }
+
+            if(sendTxsBox.getChildren().size() == 0){
+                Text noSavedTxs = new Text("No saved transactions");
+                noSavedTxs.setFill(App.altColor);
+                noSavedTxs.setFont(App.txtFont);
+
+                HBox emptySendBox = new HBox(noSavedTxs);
+                HBox.setHgrow(sendTxsBox, Priority.ALWAYS);
+                emptySendBox.setMinHeight(40);
+                emptySendBox.setAlignment(Pos.CENTER);
+
+                sendTxsBox.getChildren().add(emptySendBox);
+            }
+            
+        };
+
+        updateTxList.run();
+
+        m_transactions.addListener((ListChangeListener.Change<? extends ErgoTransaction> c)->updateTxList.run());
+        
+        VBox contentBox = new VBox(sendHeadingBox, sendTxsBox);
+        contentBox.setPadding(new Insets(10));
+
+        return contentBox;
+    }
+    public AddressesData getAddressesData(){
+        return m_addressesData;
     }
 
     private void showAddressStage() {
@@ -412,6 +753,7 @@ public class AddressData extends Network {
             sendButton.setTooltip(sendTip);
             sendButton.setId("menuBtn");
             sendButton.setUserData("sendButton");
+
     
             HBox menuBar = new HBox(sendButton, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
@@ -426,7 +768,7 @@ public class AddressData extends Network {
             Text addressText = new Text(getName() + ": ");
             addressText.setFont(App.txtFont);
             addressText.setFill(App.txtColor);
-            HBox.setHgrow(addressText,Priority.ALWAYS);
+        
 
             final String addressString = m_address.toString();
    
@@ -436,12 +778,27 @@ public class AddressData extends Network {
             addressField.setEditable(false);
             addressField.setPrefWidth(Utils.measureString(addressString, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14)) + 30);
 
+            Tooltip copiedTooltip = new Tooltip("copied");
+
             BufferedButton copyAddressBtn = new BufferedButton("/assets/copy-30.png", App.MENU_BAR_IMAGE_WIDTH);
             copyAddressBtn.setOnAction(e->{
                 Clipboard clipboard = Clipboard.getSystemClipboard();
                 ClipboardContent content = new ClipboardContent();
                 content.putString(m_address.toString());
                 clipboard.setContent(content);
+
+                Point2D p = copyAddressBtn.localToScene(0.0, 0.0);
+
+                copiedTooltip.show(
+                    copyAddressBtn,  
+                    p.getX() + copyAddressBtn.getScene().getX() + copyAddressBtn.getScene().getWindow().getX(), 
+                    (p.getY()+ copyAddressBtn.getScene().getY() + copyAddressBtn.getScene().getWindow().getY())-copyAddressBtn.getLayoutBounds().getHeight()
+                    );
+                PauseTransition pt = new PauseTransition(Duration.millis(1600));
+                pt.setOnFinished(ptE->{
+                    copiedTooltip.hide();
+                });
+                pt.play();
             });
 
             HBox addressBox = new HBox(addressText, addressField, copyAddressBtn);
@@ -450,79 +807,88 @@ public class AddressData extends Network {
             addressBox.setPadding(new Insets(0,15,0,5));
             addressBox.setMinHeight(40);
 
-            ErgoAmountBox ergoAmountBox = new ErgoAmountBox(ergoAmountProperty().get(), addressScene, m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData());
-            HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
-            ergoAmountBox.priceQuoteProperty().bind(m_addressesData.currentPriceQuoteProperty());
-            ergoAmountBox.priceAmountProperty().bind(ergoAmountProperty());
+            Button balanceBtn = new Button(AddressTabs.BALANCE);
+            balanceBtn.setId("tabBtnSelected");
+            balanceBtn.setOnAction(e->{
+                m_selectedTab.set(AddressTabs.BALANCE);
+            });
 
-         
+            Button transactionsBtn = new Button(AddressTabs.TRANSACTIONS);
+            transactionsBtn.setId("tabBtn");
+            transactionsBtn.setOnAction(e->{
+                m_selectedTab.set(AddressTabs.TRANSACTIONS);
+            });
 
-            HBox amountBoxPadding = new HBox(ergoAmountBox);
-            amountBoxPadding.setPadding(new Insets(10,10,0,10));
-            amountBoxPadding.setId("bodyBox");
+            Region txBtnSpacer = new Region();
+            txBtnSpacer.setMinWidth(5);
 
-            AmountBoxes amountBoxes = new AmountBoxes();
-            amountBoxes.setId("bodyBox");
-            amountBoxes.setPadding(new Insets(10,10,10,0));
-            amountBoxes.setAlignment(Pos.TOP_LEFT);
-            amountBoxes.prefWidthProperty().bind(addressScene.widthProperty().subtract(43));
-       
-            
-            TextField lastUpdatedField = new TextField();
+            HBox addressTabsBox = new HBox(balanceBtn, txBtnSpacer, transactionsBtn);
+            addressTabsBox.setPadding(new Insets(0, 0, 0, 0));
+            addressTabsBox.setId("tabsBox");
 
-            Runnable updateAmountBoxes = ()->{
-                long timestamp = System.currentTimeMillis();
-                for(int i = 0; i < m_confirmedTokensList.size() ; i ++){
-                    PriceAmount tokenAmount = m_confirmedTokensList.get(i);
-                    AmountBox amountBox = amountBoxes.getAmountBox(tokenAmount.getCurrency().getTokenId());
-                    if(amountBox == null){
-                        AmountBox newAmountBox = new AmountBox(tokenAmount, addressScene, m_addressesData.isErgoTokensProperty(), m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData());
-                        newAmountBox.setTimeStamp(timestamp);
-                        amountBoxes.add(newAmountBox);
-                    }else{
-                        amountBox.priceAmountProperty().set(tokenAmount);
-                        amountBox.setTimeStamp(timestamp);
-                    }
+
+        
+
+            ScrollPane scrollPane = new ScrollPane();
+            scrollPane.setId("bodyBox");
+            scrollPane.setPadding(new Insets(5,0,5, 0));
+      
+           
+
+            Runnable updateTab = ()->{
+                String selectedTab = m_selectedTab.get() == null ? AddressTabs.BALANCE : m_selectedTab.get();
+                switch(selectedTab){
+                    case AddressTabs.TRANSACTIONS:
+                        balanceBtn.setId("tabBtn");
+                        transactionsBtn.setId("tabBtnSelected");
+
+                        VBox transactionsContent = getTransactionsContent(addressScene);
+                        transactionsContent.prefWidthProperty().bind(scrollPane.widthProperty());
+
+                        scrollPane.setContent(transactionsContent);
+                    break;
+                    case AddressTabs.BALANCE:
+                    default:
+                        balanceBtn.setId("tabBtnSelected");
+                        transactionsBtn.setId("tabBtn");
+                        VBox balanceContent = getBalanceBox(addressScene);
+                        balanceContent.prefWidthProperty().bind(scrollPane.widthProperty());
+                        scrollPane.setContent(balanceContent);
+                    break;
+                         
                 }
-
-                amountBoxes.removeOld(timestamp);
-
-                lastUpdatedField.setText(Utils.formatDateTimeString(LocalDateTime.now()));                
+                
             };
+        
+            updateTab.run();
 
-            updateAmountBoxes.run();
-
-            m_ergoAmountProperty.addListener((obs,oldval,newval)->updateAmountBoxes.run());
-
-             
-            VBox paddingAmountBox = new VBox(amountBoxPadding);        
-            paddingAmountBox.setPadding(new Insets(5,16,0,0));
-
-            VBox boxesVBox = new VBox(amountBoxPadding, amountBoxes);
-            HBox.setHgrow(boxesVBox, Priority.ALWAYS);
-
-            ScrollPane scrollPane = new ScrollPane(boxesVBox);
-            scrollPane.setPadding(new Insets(0,0,5, 0));
+            m_selectedTab.addListener((obs, oldval, newval)->updateTab.run());
 
             
+
             Text updatedTxt = new Text("Updated:");
             updatedTxt.setFill(App.altColor);
             updatedTxt.setFont(Font.font("OCR A Extended", 10));
 
-          
+            TextField lastUpdatedField = new TextField();
             lastUpdatedField.setPrefWidth(190);
             lastUpdatedField.setId("smallPrimaryColor");
+
+            m_fieldsUpdated.addListener((obs,oldval,newval)->{
+                LocalDateTime time = newval == null ? LocalDateTime.now() : newval;
+                lastUpdatedField.setText(Utils.formatDateTimeString(time));
+            });
 
             HBox updateBox = new HBox(updatedTxt, lastUpdatedField);
             updateBox.setPadding(new Insets(2,2,2,0));
             updateBox.setAlignment(Pos.CENTER_RIGHT);
 
-   
-          
+
+
             
-            VBox bodyBox = new VBox(addressBox, paddingAmountBox, scrollPane);
+            VBox bodyBox = new VBox(addressBox, addressTabsBox, scrollPane);
             bodyBox.setId("bodyBox");
-            bodyBox.setPadding(new Insets(0,0,0,15));
+            bodyBox.setPadding(new Insets(0,15,0,15));
             HBox.setHgrow(bodyBox,Priority.ALWAYS);
 
             VBox menuPaddingBox = new VBox(menuBar);
@@ -541,8 +907,8 @@ public class AddressData extends Network {
             m_addressStage.setScene(addressScene);
             m_addressStage.show();
 
-            scrollPane.prefViewportHeightProperty().bind(layoutVBox.heightProperty().subtract(titleBox.heightProperty()).subtract(amountBoxPadding.heightProperty()).subtract(updateBox.heightProperty()).subtract(addressBox.heightProperty()));
-            amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(50));
+            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(addressTabsBox.heightProperty()).subtract(updateBox.heightProperty()).subtract(addressBox.heightProperty()).subtract(10));
+
    
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 
@@ -766,7 +1132,108 @@ public class AddressData extends Network {
         }
     }
 
-   
+    public HBox getAddressBox(){
+
+        Button addressBtn = new Button();
+        addressBtn.setId("transparentColor");
+        addressBtn.setContentDisplay(ContentDisplay.LEFT);
+        addressBtn.setAlignment(Pos.CENTER_LEFT);
+        addressBtn.setPadding(new Insets(0));
+        addressBtn.setMouseTransparent(true);
+        if(m_imgBuffer.get() != null){
+            Image icon = m_imgBuffer.get();
+            addressBtn.setGraphic(IconButton.getIconView(icon, icon.getWidth()));
+        }
+        m_imgBuffer.addListener((obs, oldval, newval)->{
+            if(newval != null){
+                addressBtn.setGraphic(IconButton.getIconView(newval, newval.getWidth()));
+            }
+        });
+
+        
+        Text addressNameText = new Text(getName());
+        addressNameText.setFill(App.txtColor);
+        addressNameText.setFont(App.txtFont);
+
+        Region topMidSpacer = new Region();
+        HBox.setHgrow(topMidSpacer,Priority.ALWAYS);
+
+        Tooltip copiedTooltip = new Tooltip("copied");
+       
+        BufferedButton openBtn = new BufferedButton("/assets/open-outline-white-20.png", 15);
+        openBtn.setOnAction(e->{
+            open();
+        });
+
+        BufferedButton copyBtn = new BufferedButton("/assets/copy-30.png", 15);
+        copyBtn.setOnAction(e->{
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(m_address.toString());
+            clipboard.setContent(content);
+            copyBtn.setTooltip(copiedTooltip);
+            
+            Point2D p = copyBtn.localToScene(0.0, 0.0);
+
+            copiedTooltip.show(
+                copyBtn,  
+                p.getX() + copyBtn.getScene().getX() + copyBtn.getScene().getWindow().getX(), 
+                (p.getY()+ copyBtn.getScene().getY() + copyBtn.getScene().getWindow().getY())-copyBtn.getLayoutBounds().getHeight()
+                );
+            PauseTransition pt = new PauseTransition(Duration.millis(1600));
+            pt.setOnFinished(ptE->{
+                copiedTooltip.hide();
+            });
+            pt.play();
+        });
+
+
+
+        //copiedTooltip.setOnHidden(e->{
+       //     copyBtn.setTooltip(null);
+       // });
+
+        HBox topInfoBox = new HBox(addressNameText, topMidSpacer, copyBtn, openBtn);
+        HBox.setHgrow(topInfoBox,Priority.ALWAYS);
+        topInfoBox.setAlignment(Pos.CENTER_LEFT);
+
+        TextField addressField = new TextField(m_address.toString());
+        addressField.setEditable(false);
+        addressField.setId("amountField");
+        addressField.setAlignment(Pos.CENTER_LEFT);
+        addressField.setPadding(new Insets(0, 10, 0, 10));
+
+        VBox addressInformationBox = new VBox(topInfoBox, addressField);
+        addressInformationBox.setPadding(new Insets(0,5,0,5));
+        addressInformationBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(addressInformationBox, Priority.ALWAYS);
+
+        HBox addressBox = new HBox(addressBtn, addressInformationBox);
+        addressBox.setId("rowBox");
+        addressBox.setFocusTraversable(true);
+        addressBox.addEventFilter(MouseEvent.MOUSE_CLICKED,e->{
+            m_addressesData.selectedAddressDataProperty().set(this);
+            if(e.getClickCount() == 2){
+                open();
+            }
+        }); 
+        HBox.setHgrow(addressBox, Priority.ALWAYS);
+
+        m_addressesData.selectedAddressDataProperty().addListener((obs,oldval,newval)->{
+            if(newval == null){
+                addressBox.setId("rowBox");
+            }else{
+                String id =  newval.getId();
+                if(id.equals(getId())){
+                    addressBox.setId("bodyRowBox");
+                }else{
+                    addressBox.setId("rowBox");
+                }
+            }
+        });
+
+        return addressBox;
+    }
 
     public void updateBufferedImage() {
         ErgoAmount priceAmount = m_ergoAmountProperty.get();
@@ -902,22 +1369,16 @@ public class AddressData extends Network {
         }*/
         g2d.dispose();
 
-      
+        m_imgBuffer.set(SwingFXUtils.toFXImage(img, null));
 
-        setImageBuffer(SwingFXUtils.toFXImage(img, null));
-
+  
     }
 
     public SimpleObjectProperty<Image> getImageProperty() {
         return m_imgBuffer;
     }
 
-    private void setImageBuffer(Image image) {
-        m_imgBuffer.set(image == null ? null : image);
 
-        setGraphic(m_imgBuffer.get() == null ? null : getIconView(m_imgBuffer.get(), m_imgBuffer.get().getWidth()));
-        getLastUpdated().set(LocalDateTime.now());
-    }
 
     public PriceAmount getConfirmedTokenAmount(String tokenId){
         if(tokenId != null){

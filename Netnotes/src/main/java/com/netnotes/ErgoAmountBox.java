@@ -9,6 +9,7 @@ import java.text.DecimalFormat;
 import com.devskiller.friendly_id.FriendlyId;
 import com.utils.Utils;
 
+import javafx.application.HostServices;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -18,6 +19,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -54,7 +56,7 @@ public class ErgoAmountBox extends HBox {
 
 
 
-    public ErgoAmountBox(PriceAmount priceAmount, Scene scene, ErgoNetworkData ergoNetworkData) {
+    public ErgoAmountBox(PriceAmount priceAmount, Scene scene, HostServices hostServices) {
         super();
         setId("darkRowBox");
         setMinHeight(45);
@@ -207,30 +209,11 @@ public class ErgoAmountBox extends HBox {
         m_priceQuoteProperty.addListener((obs, oldval, newval)->updateBufferedImage());
         updateBufferedImage();
 
-        Text currencyNameText = new Text("test");
-        currencyNameText.setFill(m_primaryColor);
-        currencyNameText.setFont(m_smallFont);
         
-        final String urlString = "https://ergoplatform.org";
-
-         int size = 10 + Utils.measureString(urlString, new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14));
 
 
-        Button currencyUrlBtn = new Button(urlString);
-        currencyUrlBtn.setId("urlBtn");
-        currencyUrlBtn.setPrefWidth(size);
-        currencyUrlBtn.setOnAction(e->{
-            ErgoWallets ergoWallets = (ErgoWallets) ergoNetworkData.getNetwork(ErgoWallets.NETWORK_ID);
-            if(ergoWallets != null){
-                ergoWallets.getNetworksData().getHostServices().showDocument(urlString);
-            }
-        });
 
-        VBox tokenInfoVBox = new VBox(currencyNameText, currencyUrlBtn);
-        tokenInfoVBox.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(tokenInfoVBox, Priority.ALWAYS);
 
-        currencyUrlBtn.prefWidthProperty().bind(tokenInfoVBox.widthProperty());
 
     //    BufferedButton ergoTokensBtn = new BufferedButton();
 
@@ -240,30 +223,32 @@ public class ErgoAmountBox extends HBox {
         BufferedMenuButton menuBtn = new BufferedMenuButton("/assets/menu-outline-30.png", 30);
         menuBtn.setTooltip(menuBtnBtnTip);
         menuBtn.setTextAlignment(TextAlignment.LEFT);
-        
-    
+
+        final String urlString = "https://ergoplatform.org";
+
+        MenuItem urlItem = new MenuItem("Visit Website");
+        urlItem.setOnAction(e->{
+            hostServices.showDocument(urlString);
+        });
 
 
-        getChildren().addAll(menuBtn, amountBtn,tokenInfoVBox);
+
+        menuBtn.getItems().addAll( urlItem);
+
+        getChildren().addAll(menuBtn, amountBtn);
 
         Runnable updates = () ->{
-            
-           
-            
+              
             PriceAmount currentAmount = m_currentAmount.get();
             if(currentAmount != null){
                 String newAmountText = df.format(currentAmount.getDoubleAmount());
                 if(!newAmountText.equals(amountField.getText())){
                     amountField.setText(newAmountText);
                 }
-                PriceCurrency currency = currentAmount.getCurrency();
-                currencyNameText.setText(currency.getName());
-                
             }else{
                 amountField.setText("0");
-                currencyNameText.setText("");
+        
             }
-            
         
         };
 
@@ -273,6 +258,7 @@ public class ErgoAmountBox extends HBox {
         });
         updates.run();
         updateBufferedImage();
+     
     }
 
     public  SimpleObjectProperty<Image> imageBufferProperty(){

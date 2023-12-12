@@ -733,6 +733,10 @@ public class ErgoNetworkData implements InstallerInterface {
         return jsonObject;
     }
 
+    public ErgoNetwork getErgoNetwork(){
+        return m_ergoNetwork;
+    }
+
     public void save() {
         JsonObject fileObject = new JsonObject();
         JsonArray jsonArray = new JsonArray();

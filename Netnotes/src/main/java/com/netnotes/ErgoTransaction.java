@@ -1,146 +1,183 @@
 package com.netnotes;
 
-import org.ergoplatform.appkit.NetworkType;
+import java.time.LocalDateTime;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
+
+import javafx.animation.PauseTransition;
+import javafx.application.HostServices;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
+import javafx.util.Duration;
 
 public class ErgoTransaction {
 
     public final static PriceAmount UNKNOWN_PRICE_AMOUNT = new PriceAmount(0, new PriceCurrency("unknown","unknown","unknown",0,"unknown","unknown",null,"unknown",""));
 
-    private AddressInformation m_senderAddress;
-    private AddressInformation m_receipientAddress;
-    private String m_txId = null;
-    private String m_explorerUrl = null;
-    private String m_nodeUrl;
-    private NetworkType m_networkType;
-    private PriceAmount m_ergoAmount;
-    private PriceAmount m_feeAmount;
-    private long m_created;
-    private PriceAmount[] m_tokens;
+    public static class TransactionType{
+        public final static String SEND = "Send";
+        public final static String ADVANCED = "Advanced";
+    }
 
+    public static class TransactionStatus{
+        public final static String PENDING = "Pending";
+        public final static String CONFIRMED = "Confirmed";
+        public final static String FAILED = "Failed";
+        public final static String UNKNOWN = "Failed";
+    }
 
-    public ErgoTransaction(String txId, AddressInformation senderAddress, AddressInformation receipientAddress, PriceAmount ergoAmount,PriceAmount feeAmount, PriceAmount[] tokens, String nodeUrl,  String explorerUrl) throws NullPointerException{
-        
+    private String m_txId;
+    private AddressData m_parentAddress;
+    private long m_timeStamp = 0;
+    private String m_txType = TransactionType.ADVANCED;
+    private SimpleStringProperty m_status = new SimpleStringProperty(TransactionStatus.UNKNOWN);
+
+    private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
+
+    public ErgoTransaction(String txId, AddressData parentAddress){
         m_txId = txId;
-        m_senderAddress = senderAddress;
-        m_ergoAmount = ergoAmount;
-        m_receipientAddress = receipientAddress;
-        m_feeAmount = feeAmount;
-        m_tokens = tokens; 
-        m_nodeUrl = nodeUrl;
-
-        m_created = System.currentTimeMillis();
-
+        m_parentAddress = parentAddress;
     }
 
-    public ErgoTransaction(JsonObject json) throws Exception{
-        JsonElement txIdElement = json.get("txId");
-        JsonElement ergoAmountElement = json.get("ergoAmount");
-        JsonElement feeAmountElement = json.get("feeAmount");
-        JsonElement tokensElement = json.get("tokens");
-        JsonElement isExplorerElement = json.get("isExplorer");
-        JsonElement explorerUrlElement = json.get("explorerUrl");
-        JsonElement nodeUrlElement = json.get("nodeUrl");
-
-        if(txIdElement == null || ergoAmountElement == null || feeAmountElement == null){
-            throw new Exception("Invalid arguments");
-        }
-
-        m_txId = txIdElement.getAsString();
-        m_ergoAmount = new PriceAmount(ergoAmountElement.getAsJsonObject());
-        m_feeAmount = new PriceAmount(feeAmountElement.getAsJsonObject());
-        boolean isJsonExplorer = isExplorerElement != null && isExplorerElement.isJsonPrimitive() ? isExplorerElement.getAsBoolean() : false;
-        m_explorerUrl = isJsonExplorer && explorerUrlElement != null && explorerUrlElement.isJsonPrimitive() ? explorerUrlElement.getAsString() : null;
-        m_nodeUrl = nodeUrlElement != null && nodeUrlElement.isJsonPrimitive() ? nodeUrlElement.getAsString() : "";
-        JsonArray tokensArray = tokensElement != null && tokensElement.isJsonArray() ? tokensElement.getAsJsonArray() : new JsonArray();
-        int tokensArrayLength = tokensArray.size();
-
-        PriceAmount[] tokenAmounts = new PriceAmount[tokensArrayLength];
-        for(int i = 0; i < tokensArrayLength ; i ++ ){
-            JsonElement tokenElement = tokensArray.get(i);
-            
-            tokenAmounts[i] = tokenElement != null && tokenElement.isJsonObject() ? new PriceAmount(tokenElement.getAsJsonObject()) : UNKNOWN_PRICE_AMOUNT;
-        }
-        m_tokens = tokenAmounts;
+    public String getTxType(){
+        return m_txType;
     }
 
-    public PriceAmount[] getTokens(){
-        return m_tokens;
+    public void setTxType(String type){
+        m_txType = type;
     }
 
-    public long getTimeStamp(){
-        return m_created;
-    }
-
-    public AddressInformation getSenderAddress(){
-        return m_senderAddress;
-    }
-
-    public PriceAmount getFeeAmount(){
-        return m_feeAmount;
-    }
-
-    public PriceAmount getErgoAmount(){
-        return m_ergoAmount;
-    }
-
-    public AddressInformation getReceipientAddressInfo(){
-        return m_receipientAddress;
-    }
-
-    public NetworkType getNetworkType(){
-        return m_networkType;
-    }
-
-    public String getExplorerUrl(){
-        return m_explorerUrl;
-    }
-
-    public String getNodeUrl(){
-        return m_nodeUrl;
-    }
-
-    public String txId(){
+    public String getTxId(){
         return m_txId;
     }
-
-    public boolean isSent(){
-        return m_txId != null;
+    
+    public long getTimeStamp(){
+        return m_timeStamp;
     }
 
-    public boolean isExplorer(){
-        return m_explorerUrl != null;
+    public void setTimeStamp(long timeStamp){
+        m_timeStamp = timeStamp;
+    }    
+
+    public SimpleStringProperty statusProperty(){
+        return m_status;
     }
 
+    public void open(){
+        openLink();
+    }
 
-    public JsonArray getTokenJsonArray(){
-        JsonArray jsonArray = new JsonArray();
-        for(int i = 0; i < m_tokens.length ; i++){
-            jsonArray.add(m_tokens[i].getJsonObject());
-        }
-        return jsonArray;
+    public AddressData getParentAddress(){
+        return m_parentAddress;
+    }
+
+    public boolean isErgoExplorer(){
+        return getExplorerData() != null;
+    }
+
+    public ErgoExplorerData getExplorerData(){
+        return getParentAddress().getAddressesData().selectedExplorerData().get();
+    }
+
+    public HostServices getHostServices(){
+        return getParentAddress().getAddressesData().getWalletData().getErgoWallets().getNetworksData().getHostServices();
+    }
+
+    public void openLink(){
+        String explorerUrlString = getExplorerData().getWebsiteTxLink(getTxId());
+        getHostServices().showDocument(explorerUrlString);
+    }
+
+    public HBox getTxBox(){
+
+        TextField txField = new TextField(m_txId);
+        txField.setId("formField");
+        HBox.setHgrow(txField, Priority.ALWAYS);
+
+        Tooltip copiedTooltip = new Tooltip("copied");
+
+        BufferedButton copyTxBtn = new BufferedButton("/assets/copy-30.png", App.MENU_BAR_IMAGE_WIDTH);
+        copyTxBtn.setOnAction(e->{
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(getTxId());
+            clipboard.setContent(content);
+
+            Point2D p = copyTxBtn.localToScene(0.0, 0.0);
+
+            copiedTooltip.show(
+                copyTxBtn,  
+                p.getX() + copyTxBtn.getScene().getX() + copyTxBtn.getScene().getWindow().getX(), 
+                (p.getY()+ copyTxBtn.getScene().getY() + copyTxBtn.getScene().getWindow().getY())-copyTxBtn.getLayoutBounds().getHeight()
+                );
+            PauseTransition pt = new PauseTransition(Duration.millis(1600));
+            pt.setOnFinished(ptE->{
+                copiedTooltip.hide();
+            });
+            pt.play();
+        });
+
+        BufferedButton openBtn = new BufferedButton("/assets/open-outline-white-20.png", 15);
+        openBtn.setOnAction(e->{
+            open();
+        });
+
+        Tooltip unknownExplorerTip = new Tooltip("Select Explorer");
+
+        BufferedButton linkBtn = new BufferedButton("/assets/link-20.png");
+        linkBtn.setOnAction(e->{
+            if(isErgoExplorer()){
+                    openLink();
+                }else{
+                    Point2D p = linkBtn.localToScene(0.0, 0.0);
+
+                    unknownExplorerTip.show(
+                        linkBtn,  
+                        p.getX() + linkBtn.getScene().getX() + linkBtn.getScene().getWindow().getX(), 
+                        (p.getY()+ linkBtn.getScene().getY() + linkBtn.getScene().getWindow().getY())-linkBtn.getLayoutBounds().getHeight()
+                    );
+
+                    PauseTransition pt = new PauseTransition(Duration.millis(1600));
+                    pt.setOnFinished(ptE->{
+                        unknownExplorerTip.hide();
+                    });
+                    pt.play();
+                }
+        });
+        HBox topRightBox = new HBox( copyTxBtn, linkBtn, openBtn);
+
+        HBox botRightBox = new HBox();
+        botRightBox.setMinHeight(10);
+
+        VBox rightBox = new VBox(topRightBox, botRightBox);
+        rightBox.setAlignment(Pos.CENTER_RIGHT);
+        HBox.setHgrow(rightBox, Priority.ALWAYS);
+
+        return new HBox(txField, rightBox);
+    }
+
+    public SimpleObjectProperty<LocalDateTime> getLastUpdated(){
+        return m_lastUpdated;
     }
 
     public JsonObject getJsonObject(){
         JsonObject json = new JsonObject();
       
         json.addProperty("txtId", m_txId);
-        json.addProperty("isExplorer", isExplorer());
-
-        if(isExplorer()){
-            json.addProperty("explorerUrl", m_explorerUrl);
-        }
-       
-        json.addProperty("nodeUrl", m_nodeUrl);
-        json.add("feeAmount", m_feeAmount.getJsonObject());
-        json.add("ergoAmount", m_ergoAmount.getJsonObject());
-        json.add("tokens", getTokenJsonArray());
-
+        json.addProperty("parentAddress", m_parentAddress.getAddress().toString());
+        json.addProperty("timeStamp", m_timeStamp);
+        json.addProperty("txType", m_txType);
+        json.addProperty("status", m_status.get());
         return json;
-    }
-    
-    
+     }
 }

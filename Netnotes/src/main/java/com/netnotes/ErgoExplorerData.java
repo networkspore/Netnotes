@@ -37,9 +37,9 @@ public class ErgoExplorerData {
      public final static String TESTNET_STRING = NetworkType.TESTNET.toString();
      public final static String MAINNET_STRING = NetworkType.MAINNET.toString();
      
-  //   private File logFile = new File("netnotes-log.txt");
-
-   
+    
+     
+     public final SimpleObjectProperty<ErgoNetworkUrl> m_websiteUrlProperty = new SimpleObjectProperty<>();
      public final SimpleObjectProperty< ErgoNetworkUrl> m_ergoNetworkUrlProperty = new SimpleObjectProperty<>();
      private ErgoExplorerList m_explorerList = null;
 
@@ -66,7 +66,8 @@ public class ErgoExplorerData {
 
      public ErgoExplorerData(String id, ErgoExplorerList explorerList){
        
-          m_ergoNetworkUrlProperty.set(new ErgoNetworkUrl(id,"Ergo Platform", "https", "api.ergoplatform.com",443, NetworkType.MAINNET ));
+          m_ergoNetworkUrlProperty.set(new ErgoNetworkUrl(id,"Ergo Platform API", "https", "api.ergoplatform.com",443, NetworkType.MAINNET ));
+          m_websiteUrlProperty.set( new ErgoNetworkUrl( id, "Explorer Website", "https", "explorer.ergoplatform.com", 443, NetworkType.MAINNET));
           m_explorerList = explorerList;
           
      }
@@ -108,6 +109,29 @@ public class ErgoExplorerData {
    
           Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
      }
+
+     public void getTransaction(String txId, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
+          ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
+
+          String urlString = namedUrl.getUrlString() + "/api/v1/transactions/" + txId;
+   
+          Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
+     }
+
+     public String getWebsiteTxLink(String txId) {
+
+          ErgoNetworkUrl namedUrl = m_websiteUrlProperty.get();
+
+          String urlString = namedUrl.getUrlString() + "/en/transactions/" + txId;
+   
+          return urlString;
+     }
+
+     public SimpleObjectProperty<ErgoNetworkUrl> websiteUrlProperty(){
+          return m_websiteUrlProperty;
+     }
+
 
      public SimpleObjectProperty<ErgoNetworkUrl> ergoNetworkUrlProperty(){
           return m_ergoNetworkUrlProperty;

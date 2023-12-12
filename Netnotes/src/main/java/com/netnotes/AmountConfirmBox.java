@@ -28,9 +28,27 @@ public class AmountConfirmBox extends AmountBox {
         m_feeAmount = amountSendBox.feeAmountProperty().get();
         m_feeAmountLong = m_feeAmount.getLongAmount();
 
-        PriceAmount totalAmount = m_feeAmount == null ? null : new PriceAmount(m_confirmAmountLong + m_feeAmountLong, m_confirmAmount.getCurrency());
+       
+        layoutBox(amountSendBox.isFeeProperty().get(), scene);
 
-        boolean isFeeAmount = amountSendBox.isFeeProperty().get();
+  
+    }
+
+    public AmountConfirmBox(PriceAmount priceAmount, PriceAmount feeAmount, Scene scene) {
+        
+        super();
+        m_confirmAmount = priceAmount;
+        m_confirmAmountLong = m_confirmAmount.getLongAmount();
+        m_feeAmount = feeAmount;
+        m_feeAmountLong = feeAmount == null ? 0 : m_feeAmount.getLongAmount();
+
+        layoutBox(feeAmount != null , scene);
+    }
+
+    private void layoutBox(boolean isFeeAmount, Scene scene ){
+         PriceAmount totalAmount = m_feeAmount == null ? null : new PriceAmount(m_confirmAmountLong + m_feeAmountLong, m_confirmAmount.getCurrency());
+
+
         priceAmountProperty().set(m_confirmAmount);
         setAlignment(Pos.CENTER_LEFT);
         
@@ -75,9 +93,8 @@ public class AmountConfirmBox extends AmountBox {
                 amountField.setText(newval.getAmountString());
             }            
         });
-
-  
     }
+
 
     public ErgoToken getErgoToken(){
         return new ErgoToken(getTokenId(), m_confirmAmountLong);

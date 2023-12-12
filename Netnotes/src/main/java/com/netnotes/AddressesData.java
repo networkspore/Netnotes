@@ -19,16 +19,13 @@ import org.ergoplatform.appkit.ErgoClient;
 import org.ergoplatform.appkit.NetworkType;
 import org.ergoplatform.appkit.RestApiErgoClient;
 import org.ergoplatform.appkit.UnsignedTransaction;
-import org.reactfx.util.FxTimer;
 
+import com.netnotes.ErgoTransaction.TransactionStatus;
 import com.satergo.Wallet;
 import com.satergo.WalletKey;
 import com.satergo.WalletKey.Failure;
 import com.satergo.ergo.ErgoInterface;
-import com.utils.Utils;
 
-import at.favre.lib.crypto.bcrypt.BCrypt;
-import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 
@@ -36,7 +33,9 @@ import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -56,8 +55,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -65,8 +62,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
-import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -76,7 +71,7 @@ public class AddressesData {
 
     private File logFile = new File("netnotes-log.txt");
     private final NetworkType m_networkType;
-    private VBox m_addressBox;
+
     private final Wallet m_wallet;
     private ErgoWalletData m_walletData;
     private Stage m_walletStage;
@@ -88,7 +83,7 @@ public class AddressesData {
     private ScheduledFuture<?> m_lastExecution = null;
     private final SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
 
-    private ArrayList<AddressData> m_addressDataList = new ArrayList<AddressData>();
+    private ObservableList<AddressData> m_addressDataList = FXCollections.observableArrayList();
 
     private SimpleObjectProperty<ErgoMarketsData> m_selectedMarketData = new SimpleObjectProperty<ErgoMarketsData>(null);
     private SimpleObjectProperty<ErgoNodeData> m_selectedNodeData = new SimpleObjectProperty<ErgoNodeData>(null);
@@ -97,6 +92,7 @@ public class AddressesData {
 
     private SimpleObjectProperty<PriceQuote> m_currentQuote = new SimpleObjectProperty<>(null);
     private ScheduledExecutorService m_timeExecutor = null;
+
 
     private Stage m_promptStage = null;
 
@@ -143,9 +139,8 @@ public class AddressesData {
 
         });
         calculateCurrentTotal();
-        m_addressBox = new VBox();
+  
 
-        updateAddressBox();
         setupTimer();
 
     }
@@ -177,6 +172,8 @@ public class AddressesData {
             m_lastExecution = m_timeExecutor.scheduleAtFixedRate(doUpdate, 0, m_walletData.getCyclePeriod(), m_walletData.getCycleTimeUnit());
         }
     }
+
+
 
     public SimpleObjectProperty<PriceQuote> currentPriceQuoteProperty() {
         return m_currentQuote;
@@ -256,7 +253,7 @@ public class AddressesData {
                             Address address = m_wallet.publicAddress(m_networkType, nextAddressIndex);
                             AddressData addressData = new AddressData(addressName, nextAddressIndex, address, m_networkType, this);
                             addAddressData(addressData);
-                            updateAddressBox();
+                          
                         } catch (Failure e1) {
 
                             Alert a = new Alert(AlertType.ERROR, e1.toString(), ButtonType.OK);
@@ -292,21 +289,26 @@ public class AddressesData {
 
     }
 
-    public VBox getAddressBox() {
+    public VBox getAddressesBox(Scene scene) {
 
-        updateAddressBox();
+        VBox addressBox = new VBox();
 
-        return m_addressBox;
-    }
+        Runnable updateAdressBox = () ->{
+            addressBox.getChildren().clear();
+            for (int i = 0; i < m_addressDataList.size(); i++) {
+                AddressData addressData = m_addressDataList.get(i);
 
-    private void updateAddressBox() {
-        m_addressBox.getChildren().clear();
-        for (int i = 0; i < m_addressDataList.size(); i++) {
-            AddressData addressData = m_addressDataList.get(i);
-            addressData.prefWidthProperty().bind(m_addressBox.widthProperty());
+                //addressData.prefWidthProperty().bind(m_addressBox.widthProperty());
+                
+                addressBox.getChildren().add(addressData.getAddressBox());
+            }
+        };
+        updateAdressBox.run();
+        m_addressDataList.addListener((ListChangeListener.Change<? extends AddressData> c) ->updateAdressBox.run());
 
-            m_addressBox.getChildren().add(addressData);
-        }
+        addressBox.prefWidthProperty().bind(scene.widthProperty().subtract(30)); 
+
+        return addressBox;
     }
 
     public void updateBalance() {
@@ -373,6 +375,8 @@ public class AddressesData {
         }*/
         return true;
     }
+
+
 
     public boolean updateSelectedMarket(ErgoMarketsData marketsData) {
         ErgoMarketsData previousSelectedMarketsData = m_selectedMarketData.get();
@@ -1529,7 +1533,21 @@ public class AddressesData {
                                 tokens[i] = amountBoxArray[i].priceAmountProperty().get();
                             }  
                         }
-                       new ErgoTransaction(txId, new AddressInformation(addressData.getAddress().toString()), receiverAddressInformation, new PriceAmount(ergoAmountLong, new ErgoCurrency(m_networkType) ), feeAmount, tokens, nodeUrl, explorerUrl);
+
+                        ErgoSimpleSendTx ergTx = new ErgoSimpleSendTx(txId, addressData, receiverAddressInformation, new PriceAmount(ergoAmountLong, new ErgoCurrency(m_networkType) ), feeAmount, tokens, nodeUrl, explorerUrl,TransactionStatus.PENDING, System.currentTimeMillis());
+                        addressData.addTransaction(ergTx);
+                        complete.run();
+                        addressData.open();
+                        
+
+                    }else{
+                        Alert a = new Alert(AlertType.NONE, "Could not complete transaction.", ButtonType.CANCEL);
+                        a.setTitle("Error - Transaction Cancelled");
+                        a.initOwner(parentStage);
+                        a.setHeaderText("Transaction Cancelled");
+                        a.show();
+
+                        backButton.fire();
                     }
                 });
 
