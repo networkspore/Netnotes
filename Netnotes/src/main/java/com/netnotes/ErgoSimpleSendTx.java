@@ -69,27 +69,20 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
         ErgoExplorerData explorerData = getExplorerData();
         if(explorerData != null){
-            if((m_checkTimes % 5) == 0){
+            //check every 70 seconds
+            int checkInterval = (int)( 70 / getParentAddress().getAddressesData().getWalletData().getCyclePeriod());
+            if((m_checkTimes % checkInterval) == 0){
                 explorerData.getTransaction(getTxId(), (onSucceeded)->{
                     Object sourceValue = onSucceeded.getSource().getValue();
                     if(sourceValue != null && sourceValue instanceof JsonObject){
                         checkForConfirmation((JsonObject) sourceValue);
-                    }else{
-                        if(m_checkTimes > 20){
-                            checkForConfirmation(null);
-                        }
                     }
                 }, (onFailed)->{
-                     m_checkTimes++;
-                    try {
-                        Files.writeString(logFile.toPath(), "\nSendTx - Explorer Error : " + onFailed.getSource().getException().toString() , StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-                    
-                    }
-                    if(m_checkTimes > 3){
+                     
+                     //at ~20min seconds stop checking 
+                     if(m_checkTimes > 20){
                         checkForConfirmation(null);
-                        m_checkTimes = 0;
-                    }
+                     }
                 });
             
             }
@@ -419,7 +412,7 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
         txText.setFill(App.altColor);
 
         TextField txField = new TextField(getTxId());
-        txField.setId("txField");
+        txField.setId("addressField");
         txField.setEditable(false);
         txField.setPrefWidth(Utils.measureString(getTxId(), new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14)) + 30);
 
@@ -453,7 +446,7 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
         Tooltip unknownExplorerTip = new Tooltip("Select Explorer");
 
-        BufferedButton linkBtn = new BufferedButton("/assets/link-20.png");
+        BufferedButton linkBtn = new BufferedButton("/assets/link-20.png", App.MENU_BAR_IMAGE_WIDTH);
         linkBtn.setOnAction(e->{
             if(isErgoExplorer()){
                     openLink();
@@ -490,8 +483,9 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
         HBox txBox = new HBox(leftVBox, txField, rightBox);
         HBox.setHgrow(txBox, Priority.ALWAYS);
         txBox.setAlignment(Pos.CENTER_LEFT);
-        txBox.setPadding(new Insets(0,15,0,5));
+        txBox.setPadding(new Insets(10,15,0,10));
         txBox.setMinHeight(40);
+        txBox.setId("rowBox");
 
         txBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e->{
             getParentAddress().selectedTransaction().set(this);
