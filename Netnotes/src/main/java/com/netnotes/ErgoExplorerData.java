@@ -79,10 +79,17 @@ public class ErgoExplorerData {
 
      public void openJson(JsonObject json) throws Exception{
           JsonElement ergoNetworkUrl = json.get("ergoNetworkUrl");
+          JsonElement webUrlElement = json.get("webUrl");
           if(ergoNetworkUrl != null && ergoNetworkUrl.isJsonObject()){
                m_ergoNetworkUrlProperty.set( new ErgoNetworkUrl(ergoNetworkUrl.getAsJsonObject()) );          
           }else{
                throw new Exception("Insuffient data");
+          }
+          if(webUrlElement != null && webUrlElement.isJsonObject()){
+               m_websiteUrlProperty.set(new ErgoNetworkUrl(webUrlElement.getAsJsonObject()));
+          }else{
+               String id = m_ergoNetworkUrlProperty.get().getId();
+               m_websiteUrlProperty.set(new ErgoNetworkUrl(id, "Explorer Website", "https", "explorer.ergoplatform.com", 443, NetworkType.MAINNET));
           }
      }
   
@@ -382,6 +389,7 @@ public class ErgoExplorerData {
           JsonObject json = new JsonObject();
           
           json.add("ergoNetworkUrl", m_ergoNetworkUrlProperty.get().getJsonObject());
+          json.add("webUrl", m_websiteUrlProperty.get().getJsonObject());
           return json;
     }
 

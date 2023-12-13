@@ -14,6 +14,7 @@ import com.utils.Utils;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
@@ -34,6 +35,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
@@ -43,18 +45,17 @@ import com.google.gson.JsonElement;
 
 public class ErgoSimpleSendTx extends ErgoTransaction  {
 
-    private static File logFile = new File("netnotes-log.txt");
+   // private static File logFile = new File("netnotes-log.txt");
     
     private AddressInformation m_receipientAddress;
-    private final static long NUMBER_OF_CONFIRMATIONS = 1; 
+    private final static long FAILED_MILLIS = (1000*60*35);
 
     private SimpleLongProperty m_numConfirmations = new SimpleLongProperty(0);
-    private String m_explorerUrl = null;
+    private String m_explorerUrl = "";
     private String m_nodeUrl;
-    private NetworkType m_networkType;
-    private PriceAmount m_ergoAmount;
+
+    private ErgoAmount m_ergoAmount;
     private PriceAmount m_feeAmount;
-    
     private PriceAmount[] m_tokens;
    
 
@@ -63,81 +64,97 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
     private Stage m_stage;
 
     private int m_checkTimes = 0;
+    private SimpleBooleanProperty m_updating = new SimpleBooleanProperty(false);
+
 
     private ChangeListener<LocalDateTime> m_updateTimeListener = (obs,oldval,newval)->{
-        m_checkTimes++;
-
+        
+      
         ErgoExplorerData explorerData = getExplorerData();
         if(explorerData != null){
             //check every 70 seconds
-            int checkInterval = (int)( 70 / getParentAddress().getAddressesData().getWalletData().getCyclePeriod());
-            if((m_checkTimes % checkInterval) == 0){
+            
+            if((m_checkTimes % 5) == 0){
                 explorerData.getTransaction(getTxId(), (onSucceeded)->{
                     Object sourceValue = onSucceeded.getSource().getValue();
                     if(sourceValue != null && sourceValue instanceof JsonObject){
                         checkForConfirmation((JsonObject) sourceValue);
+
+                        if(m_numConfirmations.get() >= 20){
+                        
+                            removeListener();
+                        }
                     }
                 }, (onFailed)->{
                      
-                     //at ~20min seconds stop checking 
-                     if(m_checkTimes > 20){
-                        checkForConfirmation(null);
+                    long currentTimeMillis = System.currentTimeMillis();
+                     if( (currentTimeMillis - getTimeStamp()) > FAILED_MILLIS){
+                        statusProperty().set(TransactionStatus.FAILED);
+                        removeListener();
                      }
                 });
             
             }
         }
+        m_checkTimes++;
     };
 
-    public ErgoSimpleSendTx(String txId, AddressData parentAddress, AddressInformation receipientAddress, PriceAmount ergoAmount,PriceAmount feeAmount, PriceAmount[] tokens, String nodeUrl,  String explorerUrl, String status, long created) throws NullPointerException{
+    public ErgoSimpleSendTx(String txId, AddressData parentAddress, AddressInformation receipientAddress, long ergoAmount, PriceAmount feeAmount, PriceAmount[] tokens, String nodeUrl,  String explorerUrl, String status, long created){
         super(txId, parentAddress);
 
        
-        m_networkType = parentAddress.getNetworkType();
-        m_ergoAmount = ergoAmount;
+    
+        m_ergoAmount = new ErgoAmount(ergoAmount, getNetworkType());
         m_receipientAddress = receipientAddress;
         m_feeAmount = feeAmount;
-        m_tokens = tokens; 
+        m_tokens = tokens == null ? new PriceAmount[0] : tokens; 
         m_nodeUrl = nodeUrl;
+        m_explorerUrl = explorerUrl == null ? "" : explorerUrl;
         statusProperty().set(status);
         setTimeStamp(created);
         setTxType(TransactionType.SEND);
      
+        
+        addListener();
+    }
 
-        if(status.equals(TransactionStatus.PENDING)){
-            getParentAddress().getAddressesData().timeCycleProperty().addListener(m_updateTimeListener);
-        }
-
+    public void addListener(){
+        m_updating.set(true);
+        getParentAddress().getAddressesData().timeCycleProperty().addListener(m_updateTimeListener);
     }
 
     public ErgoSimpleSendTx(String txId,AddressData parentAddress, JsonObject json) throws Exception{
         super(txId, parentAddress);
         setTxType(TransactionType.SEND);
 
-        JsonElement ergoAmountElement = json.get("ergoAmount");
+        JsonElement nanoErgsElement = json.get("nanoErgs");
         JsonElement feeAmountElement = json.get("feeAmount");
         JsonElement tokensElement = json.get("tokens");
-        JsonElement isExplorerElement = json.get("isExplorer");
+
         JsonElement explorerUrlElement = json.get("explorerUrl");
         JsonElement nodeUrlElement = json.get("nodeUrl");
         JsonElement statusElement = json.get("status");
         JsonElement timeStampElement = json.get("timeStamp");
+
+
       
 
-        if(ergoAmountElement == null || feeAmountElement == null || parentAddress == null){
+        if(nanoErgsElement == null || feeAmountElement == null || parentAddress == null){
             throw new Exception("Invalid arguments");
         }
 
         if(timeStampElement != null && timeStampElement.isJsonPrimitive()){
             setTimeStamp(timeStampElement.getAsLong());
+        }else{
+            setTimeStamp(System.currentTimeMillis());
         }
 
 
 
-        m_ergoAmount = new PriceAmount(ergoAmountElement.getAsJsonObject());
+        m_ergoAmount = new ErgoAmount(nanoErgsElement.getAsLong(), getParentAddress().getNetworkType());
         m_feeAmount = new PriceAmount(feeAmountElement.getAsJsonObject());
-        boolean isJsonExplorer = isExplorerElement != null && isExplorerElement.isJsonPrimitive() ? isExplorerElement.getAsBoolean() : false;
-        m_explorerUrl = isJsonExplorer && explorerUrlElement != null && explorerUrlElement.isJsonPrimitive() ? explorerUrlElement.getAsString() : null;
+
+        m_explorerUrl = explorerUrlElement != null && explorerUrlElement.isJsonPrimitive() ? explorerUrlElement.getAsString() : "";
         m_nodeUrl = nodeUrlElement != null && nodeUrlElement.isJsonPrimitive() ? nodeUrlElement.getAsString() : "";
         JsonArray tokensArray = tokensElement != null && tokensElement.isJsonArray() ? tokensElement.getAsJsonArray() : new JsonArray();
         int tokensArrayLength = tokensArray.size();
@@ -152,6 +169,11 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
         statusProperty().set(status);
 
         m_tokens = tokenAmounts;
+ 
+        if(status.equals(TransactionStatus.PENDING)){
+            addListener();
+        }
+        
     }
 
     private void checkForConfirmation(JsonObject json){
@@ -164,15 +186,16 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
                 if(numConfirmations > 0){
                     statusProperty().set(TransactionStatus.CONFIRMED);
                     m_numConfirmations.set(numConfirmations);
-                    if(numConfirmations >= 20){
-                        getParentAddress().getAddressesData().timeCycleProperty().removeListener(m_updateTimeListener);
-                    }
+                  
                 }
             }
-        }else{
-            getParentAddress().getAddressesData().timeCycleProperty().removeListener(m_updateTimeListener);
-            statusProperty().set(TransactionStatus.FAILED);
         }
+    }
+
+    public void removeListener(){
+        
+        getParentAddress().getAddressesData().timeCycleProperty().removeListener(m_updateTimeListener);
+        m_updating.set(false);
     }
 
  
@@ -182,11 +205,41 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
     public void showErgoTxStage(){
         if(m_stage == null){
+            Runnable getUpdates = ()->{
+                if(!m_updating.get() && !statusProperty().get().equals(TransactionStatus.FAILED)){
+                    getParentAddress().getAddressesData().timeCycleProperty().addListener((obs,oldval, newval)->{
+                        ErgoExplorerData explorerData = getExplorerData();
+                        if(explorerData != null){
+                            //check every 70 seconds
+                  
+                            if((m_checkTimes % 5) == 0){
+                                explorerData.getTransaction(getTxId(), (onSucceeded)->{
+                                    Object sourceValue = onSucceeded.getSource().getValue();
+                                    if(sourceValue != null && sourceValue instanceof JsonObject){
+                                        checkForConfirmation((JsonObject) sourceValue);
+                                    }
+                                }, (onFailed)->{
+                                    
+                                    long currentTimeMillis = System.currentTimeMillis();
+                                    if( (currentTimeMillis - getTimeStamp()) > FAILED_MILLIS){
+                                        statusProperty().set(TransactionStatus.FAILED);
+                                    }
+                                });
+                            
+                            }
+
+                        }
+                        m_checkTimes++;
+                    });
+                }
+            };
+            getUpdates.run();
+            m_updating.addListener((obs,oldval,newval)->getUpdates.run());
             VBox layoutVBox = new VBox();
             Scene txScene = new Scene(layoutVBox, m_stageWidth, m_stageHeight);
             txScene.getStylesheets().add("/css/startWindow.css");
 
-            String titleString = "Send - Tx " + getTxId() + " - (" + statusProperty().get() +")";
+            String titleString = "Send - " + statusProperty().get() +": " + m_ergoAmount.toString() + " - " + getTxId();
 
             m_stage = new Stage();
             m_stage.getIcons().add(ErgoWallets.getAppIcon());
@@ -265,7 +318,12 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
             Text txText = new Text();
             txText.setFont(App.txtFont);
             txText.setFill(App.txtColor);
-            txText.textProperty().bind(Bindings.concat("Transaction (", statusProperty().get(), ")"));
+            txText.textProperty().bind(Bindings.concat("Send - ", statusProperty(), Bindings.when(m_numConfirmations.greaterThan(1)).then( Bindings.concat(" (",m_numConfirmations," confirmations)")).otherwise("") ));
+
+            
+            Text txIdText = new Text("Tx:");
+            txIdText.setFont(App.txtFont);
+            txIdText.setFill(App.txtColor);
 
             TextField txField = new TextField(getTxId());
             txField.setId("txField");
@@ -321,13 +379,18 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
                 }
             });
 
-            HBox txBox = new HBox(txText, txField, copyTxBtn, linkBtn);
+            HBox txBox = new HBox(txText);
+            txBox.setId("headingBox");
             HBox.setHgrow(txBox, Priority.ALWAYS);
             txBox.setAlignment(Pos.CENTER_LEFT);
-            txBox.setPadding(new Insets(0,15,0,5));
+            txBox.setPadding(new Insets(0,15,0,15));
             txBox.setMinHeight(40);
 
-
+            HBox txidBox = new HBox( txIdText, txField, copyTxBtn, linkBtn);
+            HBox.setHgrow(txidBox, Priority.ALWAYS);
+            txidBox.setMinHeight(40);
+            txidBox.setPadding(new Insets(0,15,0,10));
+            txidBox.setAlignment(Pos.CENTER_LEFT);
 
             AmountConfirmBox ergoAmountBox = new AmountConfirmBox(m_ergoAmount, m_feeAmount, txScene);
             HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
@@ -360,9 +423,19 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
             ScrollPane scrollPane = new ScrollPane(boxesVBox);
             scrollPane.setPadding(new Insets(0, 0, 5, 0));
+            
 
+            VBox bodyBox = new VBox(txBox, txidBox, scrollPane);
+            bodyBox.setPadding(new Insets(4));
+            bodyBox.setId("bodyBox");
 
-            layoutVBox.getChildren().addAll(titleBox, txBox, scrollPane);
+            Region menuBarRegion = new Region();
+            menuBarRegion.setMinHeight(4);
+
+            VBox bodyPaddingBox = new VBox(menuBar,menuBarRegion,bodyBox);
+            
+            bodyPaddingBox.setPadding(new Insets(0,4,4,4));
+            layoutVBox.getChildren().addAll(titleBox,bodyPaddingBox);
 
             m_stage.setScene(txScene);
             
@@ -375,7 +448,7 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
             
             scrollPane.prefViewportWidthProperty().bind(txScene.widthProperty().subtract(60));
-            scrollPane.prefViewportHeightProperty().bind(m_stage.heightProperty().subtract(titleBox.heightProperty()).subtract(txBox.heightProperty()).subtract(10));
+            scrollPane.prefViewportHeightProperty().bind(txScene.heightProperty().subtract(titleBox.heightProperty()).subtract(txBox.heightProperty()).subtract(10));
             amountBoxes.minHeightProperty().bind(scrollPane.prefViewportHeightProperty().subtract(60));
             amountBoxes.prefWidthProperty().bind(txScene.widthProperty().subtract(60));
 
@@ -384,6 +457,12 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
             ResizeHelper.addResizeListener(m_stage, 200, 250, rect.getWidth(), rect.getHeight());
             
             m_stage.show();
+            closeBtn.setOnAction(e->{
+                m_stage.close();
+                m_stage = null;
+            });
+
+            m_stage.setOnCloseRequest(e->closeBtn.fire());
         }else{
             if(m_stage.isIconified()){
                 m_stage.setIconified(false);
@@ -406,16 +485,27 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
         txStatus.setFill(App.txtColor);
         txStatus.textProperty().bind(statusProperty());
 
+        String tokensString = "";
+        for(int i = 0; i < m_tokens.length ; i ++){
+            tokensString += ", " + m_tokens[i].toString();
+        }
 
-        Text txText = new Text(m_ergoAmount.toString() + (m_tokens != null && m_tokens.length > 0 ? ", " + m_tokens.length + " tokens " : " "));
+        Button txText = new Button(m_ergoAmount.toString() + tokensString);
         txText.setFont(App.txtFont);
-        txText.setFill(App.altColor);
+        txText.setId("formField");
+
+        txText.setMinWidth(100);
+        txText.setTextAlignment(TextAlignment.LEFT);
+        txText.setAlignment(Pos.CENTER_LEFT);
+        txText.setPrefHeight(25);
+
+    
 
         TextField txField = new TextField(getTxId());
         txField.setId("addressField");
         txField.setEditable(false);
         txField.setPrefWidth(Utils.measureString(getTxId(), new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14)) + 30);
-
+        
         Tooltip copiedTooltip = new Tooltip("copied");
 
         BufferedButton copyTxBtn = new BufferedButton("/assets/copy-30.png", App.MENU_BAR_IMAGE_WIDTH);
@@ -528,7 +618,7 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
     }
 
     public NetworkType getNetworkType(){
-        return m_networkType;
+        return getParentAddress().getNetworkType();
     }
 
     public String getExplorerUrl(){
@@ -544,10 +634,6 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
         return getTxId() != null;
     }
 
-    public boolean isExplorer(){
-        return m_explorerUrl != null;
-    }
-
 
     public JsonArray getTokenJsonArray(){
         JsonArray jsonArray = new JsonArray();
@@ -559,20 +645,22 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
     @Override
     public JsonObject getJsonObject(){
-        JsonObject json = super.getJsonObject();
-        json.addProperty("isExplorer", isExplorer());
+        JsonObject json = new JsonObject();
+        json.addProperty("txId",getTxId());
+        json.addProperty("parentAddress",getParentAddress().getAddress().toString());
+        json.addProperty("timeStamp", getTimeStamp());
+        json.addProperty("txType", getTxType());
+        json.addProperty("status", statusProperty().get());
 
-        if(isExplorer()){
-            json.addProperty("explorerUrl", m_explorerUrl);
-        }
-       
+        json.addProperty("explorerUrl", m_explorerUrl);
         json.addProperty("nodeUrl", m_nodeUrl);
         json.add("feeAmount", m_feeAmount.getJsonObject());
-        json.add("ergoAmount", m_ergoAmount.getJsonObject());
+        json.addProperty("nanoErgs", m_ergoAmount.getLongAmount());
         json.add("tokens", getTokenJsonArray());
         json.add("recipientAddress", m_receipientAddress.getJsonObject());
         
         return json;
+
     }
     
     

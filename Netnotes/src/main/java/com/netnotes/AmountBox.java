@@ -429,8 +429,7 @@ public class AmountBox extends HBox {
         BigDecimal decimals = priceAmount != null ? priceAmount.getBigDecimalAmount().subtract(new BigDecimal(integers)) : BigDecimal.ZERO;
         int decimalPlaces = priceAmount != null ? priceAmount.getCurrency().getFractionalPrecision() : 0;
         String currencySymbol = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "UKNOWN";
-        int space = currencySymbol.indexOf(" ");
-        currencySymbol = space != -1 ? currencySymbol.substring(0, space) : currencySymbol;
+       
 
         //String currencyName = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "Token";
 

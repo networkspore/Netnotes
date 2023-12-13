@@ -716,20 +716,16 @@ public class ErgoWalletData extends Network implements NoteInterface {
         updateTokensMenu.run();
 
         sendBtn.setOnAction((actionEvent) -> {
-            Button closeStageBtn = new Button();
-            Scene sendScene = addressesData.getSendScene(openWalletScene, walletStage, closeStageBtn);
-            if (sendScene != null) {
-                walletStage.setScene(sendScene);
-                Rectangle currentRect = getNetworksData().getMaximumWindowBounds();
-                ResizeHelper.addResizeListener(walletStage, MIN_WIDTH, 500, currentRect.getWidth(), currentRect.getHeight());
-                closeStageBtn.setOnAction(e->{
-                    m_walletStage.close();
-                    m_walletStage = null;
-                });
-            }else{
-                Alert b = new Alert(AlertType.ERROR, "Could not create scene. Error Code: 47", ButtonType.OK);
-                b.show();
+           
+            AddressData selectedAdr = addressesData.selectedAddressDataProperty().get();
+
+            if(selectedAdr != null){
+                JsonObject json = new JsonObject();
+                json.addProperty("cmd", AddressData.AddressNotes.SEND_CMD);
+                selectedAdr.open();
+                selectedAdr.sendNote(json, null,null);
             }
+
         });
 
 
@@ -740,7 +736,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
                 addressesData.selectedAddressDataProperty().set(addressData);
                 
-            } else {
+            } /* else {
                 
 
                 if (openWalletScene.focusOwnerProperty().get() instanceof Button) {
@@ -760,7 +756,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
                 } else {
                     addressesData.selectedAddressDataProperty().set(null);
                 }
-            }
+            }*/
         });
 
         Runnable calculateTotal = () ->{

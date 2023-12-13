@@ -77,6 +77,11 @@ import java.math.BigDecimal;
 
 public class AddressData extends Network {
 
+    public static class AddressNotes{
+         public final static String SEND_CMD = "SEND";
+    }
+   
+
     public static class AddressTabs {
         public final static String TRANSACTIONS = "Transactions";
         public final static String BALANCE = "Balance";
@@ -164,8 +169,9 @@ public class AddressData extends Network {
     public void openTransactionFile(){
         try {
             File txFile = getTxFile();
-            if(txFile != null && txFile.isFile()){
-               
+          
+            if(txFile.isFile()){
+              
                 openJson(Utils.readJsonFile(getSecretKey(), txFile.toPath()));
               
             }
@@ -183,7 +189,7 @@ public class AddressData extends Network {
     }
 
     public SecretKey getSecretKey(){
-        return m_addressesData.getWalletData().getNetworksData().getAppData().appKeyProperty().get();
+        return getNetworksData().getAppData().appKeyProperty().get();
     }
 
      public File getTxDir() throws IOException{
@@ -203,6 +209,7 @@ public class AddressData extends Network {
 
     public void openJson(JsonObject json){
         if(json != null){
+         
             JsonElement txsElement = json.get("txs");
 
             if(txsElement != null && txsElement.isJsonArray()){
@@ -216,7 +223,7 @@ public class AddressData extends Network {
                     if(txElement != null && txElement.isJsonObject()){
                         JsonObject txJson = txElement.getAsJsonObject();
                                                     
-                            JsonElement txIdElement = txJson.get("txtId");
+                            JsonElement txIdElement = txJson.get("txId");
                             JsonElement parentAdrElement = txJson.get("parentAddress");
                             JsonElement timeStampElement = txJson.get("timeStamp");
                             JsonElement txTypeElement = txJson.get("txType");
@@ -236,7 +243,7 @@ public class AddressData extends Network {
                                                 m_transactions.add(simpleSendTx);
                                             } catch (Exception e) {
                                                 try {
-                                                    Files.writeString(logFile.toPath(), "\nCould not read tx json array: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                    Files.writeString(logFile.toPath(), "\nCould not read tx json: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                                 } catch (IOException e1) {
                                                     
                                                 }
@@ -283,7 +290,6 @@ public class AddressData extends Network {
 
     public void addTransaction(ErgoTransaction transaction, boolean save){
         m_transactions.add(transaction);
-        m_selectedTab.set(AddressTabs.TRANSACTIONS);
         if(save){
             saveTxFile();
         }
@@ -310,6 +316,10 @@ public class AddressData extends Network {
             jsonArray.add(tokenJson);
         }
         return jsonArray; 
+    }
+
+    public SimpleStringProperty selectedTabProperty(){
+        return m_selectedTab;
     }
 
     public ObservableList<ErgoTransaction> transactionsList(){
@@ -356,15 +366,16 @@ public class AddressData extends Network {
 
     @Override
     public void open() {
-        super.open();
-        showAddressStage();
-
+        
+        boolean open = showAddressStage();
+        
+        setOpen(open);
     }
 
     
 
     public VBox getBalanceBox(Scene scene){
-        ErgoAmountBox ergoAmountBox = new ErgoAmountBox(ergoAmountProperty().get(), scene, getAddressesData().getWalletData().getErgoWallets().getNetworksData().getHostServices());
+        ErgoAmountBox ergoAmountBox = new ErgoAmountBox(ergoAmountProperty().get(), scene, getNetworksData().getHostServices());
         HBox.setHgrow(ergoAmountBox,Priority.ALWAYS);
         ergoAmountBox.priceQuoteProperty().bind(m_addressesData.currentPriceQuoteProperty());
         ergoAmountBox.priceAmountProperty().bind(ergoAmountProperty());
@@ -520,7 +531,7 @@ public class AddressData extends Network {
         return m_addressesData;
     }
 
-    private void showAddressStage() {
+    private boolean showAddressStage() {
         if (m_addressStage == null) {
             String titleString = getName() + " - " + m_address.toString() + " - (" + getNetworkType().toString() + ")";
             m_addressStage = new Stage();
@@ -749,13 +760,13 @@ public class AddressData extends Network {
             Tooltip sendTip = new Tooltip("Send");
             sendTip.setShowDelay(new javafx.util.Duration(100));
 
-            BufferedButton sendButton = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
-            sendButton.setTooltip(sendTip);
-            sendButton.setId("menuBtn");
-            sendButton.setUserData("sendButton");
+            BufferedButton sendBtn = new BufferedButton("/assets/arrow-send-white-30.png", imageWidth);
+            sendBtn.setTooltip(sendTip);
+            sendBtn.setId("menuBtn");
+            sendBtn.setUserData("sendButton");
 
     
-            HBox menuBar = new HBox(sendButton, spacer, rightSideMenu);
+            HBox menuBar = new HBox(sendBtn, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -914,7 +925,7 @@ public class AddressData extends Network {
 
             ResizeHelper.addResizeListener(m_addressStage, 200, 250, rect.getWidth(), rect.getHeight());
 
-            sendButton.setOnAction((actionEvent) -> {
+            sendBtn.setOnAction((actionEvent) -> {
                 Button closeStageBtn = new Button();
                 Scene sendScene = m_addressesData.getSendScene(addressScene, m_addressStage, closeStageBtn);
                 if (sendScene != null) {
@@ -1013,6 +1024,23 @@ public class AddressData extends Network {
 
                 m_addressStage.close();
                 m_addressStage = null;
+                setOpen(false);
+            });
+
+            noteHookProperty().addListener((obs,oldval,newval)->{
+                if(newval != null && newval.getNote() != null){
+                    JsonObject note = newval.getNote();
+                    JsonElement cmdElement = note.get("cmd");
+
+                    if (cmdElement != null) {
+                        String cmd = cmdElement.getAsString();
+                        switch (cmd) {
+                            case AddressNotes.SEND_CMD:
+                                sendBtn.fire();
+                            break;
+                        }
+                    }
+                }
             });
 
             m_addressStage.setOnCloseRequest((closeRequest) -> {
@@ -1027,18 +1055,28 @@ public class AddressData extends Network {
                 m_addressStage.setAlwaysOnTop(true);
             }
         }
+
+        return true;
     }
 
+
+   
+    @Override
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-        /* JsonElement subjectElement = note.get("subject");
-        if (subjectElement != null) {
-            String subject = subjectElement.getAsString();
-            switch (subject) {
-                case "GET_EXPLORER_BALANCE_UPDATE":
-                    return updateBalance();
+        JsonElement cmdElement = note.get("cmd");
+        NoteHook noteHook = null;
+        if (cmdElement != null) {
+            String cmd = cmdElement.getAsString();
+            switch (cmd) {
+                case AddressNotes.SEND_CMD:
+                    noteHook = new NoteHook(note, onSucceeded, onFailed);
+                    noteHookProperty().set(noteHook);
+                return true;
+                
 
             }
-        }*/
+        }
+       
         return false;
     }
 

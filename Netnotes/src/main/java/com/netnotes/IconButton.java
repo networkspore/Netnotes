@@ -167,6 +167,10 @@ public class IconButton extends Button {
         return m_open;
     }
 
+    public void setOpen(boolean open){
+        m_open = open;
+    }
+
     public boolean getMultipleInstances() {
         return m_multipleInstances;
     }

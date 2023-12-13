@@ -187,7 +187,8 @@ public class PriceCurrency {
     }
 
     public String getSymbol() {
-        return m_symbol;
+        int space = m_symbol.indexOf(" ");
+        return  space != -1 ? m_symbol.substring(0, space) : m_symbol;
     }
 
     public void setSymbol(String symbol){

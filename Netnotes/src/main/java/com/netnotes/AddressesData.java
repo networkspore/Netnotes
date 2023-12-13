@@ -138,6 +138,7 @@ public class AddressesData {
             }
 
         });
+        selectedAddressDataProperty().set(m_addressDataList.get(0));
         calculateCurrentTotal();
   
 
@@ -213,6 +214,7 @@ public class AddressesData {
             addressData.close();
         }
     }
+
 
     public SimpleObjectProperty<AddressData> selectedAddressDataProperty() {
         return m_selectedAddressData;
@@ -1147,9 +1149,9 @@ public class AddressesData {
                 //  String babbleId = babbleTokenId.get();
 
                 //  AmountSendBox feeSendBox = ergoAmountBox;
-                PriceAmount feeAmount = ergoAmountBox.priceAmountProperty().get();
+                PriceAmount feeAmount = ergoAmountBox.feeAmountProperty().get();
 
-                showTxConfirmScene(addressData, addressInformation, ergoNodeData, ergoExplorerData, ergoAmountBox, tokenArray, feeAmount, sendScene, parentStage, () -> closeBtn.fire(), () -> backButton.fire());
+                showTxConfirmScene(addressData, addressInformation, ergoNodeData, ergoExplorerData, ergoAmountBox, tokenArray, feeAmount, sendScene, parentStage, () -> closeBtn.fire(), () -> {backButton.fire();});
             } else {
                 Alert a = new Alert(AlertType.NONE, "Enter a valid address.", ButtonType.CANCEL);
                 a.setTitle("Invalid Receiver Address");
@@ -1264,7 +1266,7 @@ public class AddressesData {
 
         final String explorerUrl = explorerData != null ? explorerData.ergoNetworkUrlProperty().get().getUrlString() : null;
 
-        final long feeAmountLong = feeAmount.getLongAmount();
+        
 
         String oldStageName = parentStage.getTitle();
         String title = "Confirmation - Send - " + getWalletData().getName() + "(" + m_networkType.toString() + ")";
@@ -1339,7 +1341,7 @@ public class AddressesData {
 
         final NamedNodeUrl namedNodeUrl = nodeData.namedNodeUrlProperty().get();
         final String nodeUrl = namedNodeUrl.getUrlString();
-        final String nodeApiKey = namedNodeUrl.getApiKey();
+   
         TextField nodeField = new TextField(namedNodeUrl.getName() + " (" + nodeUrl + ")");
         nodeField.setId("addressField");
         nodeField.setEditable(false);
@@ -1356,11 +1358,13 @@ public class AddressesData {
         parentStage.setScene(confirmTxScene);
         parentStage.setTitle(title);
 
-        AmountConfirmBox ergoAmountBox = new AmountConfirmBox(ergoSendBox, confirmTxScene);
+        AmountConfirmBox ergoAmountBox = new AmountConfirmBox(ergoSendBox.priceAmountProperty().get(),ergoSendBox.isFeeProperty().get() ? feeAmount : null, confirmTxScene);
         HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
         ergoAmountBox.priceQuoteProperty().bind(currentPriceQuoteProperty());
 
+        final long feeAmountLong = feeAmount.getLongAmount();
         final long ergoAmountLong = ergoAmountBox.getLongAmount();
+
 
         HBox amountBoxPadding = new HBox(ergoAmountBox);
         amountBoxPadding.setPadding(new Insets(10, 10, 0, 10));
@@ -1369,19 +1373,20 @@ public class AddressesData {
         amountBoxes.setPadding(new Insets(5, 10, 5, 0));
         amountBoxes.setAlignment(Pos.TOP_LEFT);
 
-        Runnable updateTokens = () -> {
-            if (tokenAmounts != null && tokenAmounts.length > 0) {
-                int numTokens = tokenAmounts.length;
-                for (int i = 0; i < numTokens; i++) {
-                    AmountSendBox sendBox = tokenAmounts[i];
-                    if (sendBox.priceAmountProperty().get().getLongAmount() > 0) {
-                        AmountConfirmBox confirmBox = new AmountConfirmBox(sendBox, confirmTxScene);
-                        amountBoxes.add(confirmBox);
-                    }
+
+        if (tokenAmounts != null && tokenAmounts.length > 0) {
+            int numTokens = tokenAmounts.length;
+            for (int i = 0; i < numTokens; i++) {
+                AmountSendBox sendBox = tokenAmounts[i];
+                if (sendBox.priceAmountProperty().get().getLongAmount() > 0) {
+                    PriceAmount sendAmount = sendBox.priceAmountProperty().get();
+                    PriceAmount babbleFeeAmount = feeAmount.getTokenId().equals(sendAmount.getTokenId()) ? feeAmount : null;
+                    AmountConfirmBox confirmBox = new AmountConfirmBox(sendAmount, babbleFeeAmount,  confirmTxScene);
+                    amountBoxes.add(confirmBox);
                 }
             }
-        };
-        updateTokens.run();
+        }
+     
 
         VBox infoBox = new VBox(nodeBox, addressBox, receiverBox);
         HBox.setHgrow(infoBox, Priority.ALWAYS);
@@ -1466,17 +1471,25 @@ public class AddressesData {
                     @Override
                     public String call() throws Exception {
 
-                        Files.writeString(new File("transactionInfo.txt").toPath(), "\n" + nodeUrl + "\n" + m_networkType + "\n" + nodeApiKey + "\n" + explorerUrl, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        ErgoClient ergoClient = RestApiErgoClient.create(nodeUrl, m_networkType, nodeApiKey, explorerUrl);
+                         ErgoClient ergoClient = RestApiErgoClient.create(nodeUrl, m_networkType,  namedNodeUrl.getApiKey(), explorerUrl);
+                        try{
+                         Files.writeString(new File("tx.txt").toPath(), 
+                            "receiverAdr: "+ receiverAddress + 
+                            "\nnanoErgs: " + ergoAmountLong +
+                            "\nfeeNanoErgs: " + feeAmountLong + 
+                            "\nSender: " + address, 
+                            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        }catch(IOException e1){
 
+                        }
                         UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(
-                                ergoClient,
-                                m_wallet.addressStream(m_networkType).toList(),
-                                receiverAddress,
-                                ergoAmountLong,
-                                feeAmountLong,
-                                address,
-                                tokenArray
+                            ergoClient,
+                            m_wallet.addressStream(m_networkType).toList(),
+                            receiverAddress,
+                            ergoAmountLong,
+                            feeAmountLong,
+                            address,
+                            tokenArray
                         );
 
                         String txId = m_wallet.transact(ergoClient, ergoClient.execute(ctx -> {
@@ -1506,7 +1519,6 @@ public class AddressesData {
                         a.initOwner(parentStage);
                         a.setHeaderText("Insuficient Funds");
                         a.show();
-
                     } else {
                         Alert a = new Alert(AlertType.NONE, "Error: " + throwable.toString(), ButtonType.CANCEL);
                         a.setTitle("Error - Transaction Cancelled");
@@ -1534,11 +1546,16 @@ public class AddressesData {
                             }  
                         }
 
-                        ErgoSimpleSendTx ergTx = new ErgoSimpleSendTx(txId, addressData, receiverAddressInformation, new PriceAmount(ergoAmountLong, new ErgoCurrency(m_networkType) ), feeAmount, tokens, nodeUrl, explorerUrl,TransactionStatus.PENDING, System.currentTimeMillis());
-                        addressData.addTransaction(ergTx);
-                        complete.run();
-                        addressData.open();
+                        try{
+                            ErgoSimpleSendTx ergTx = new ErgoSimpleSendTx(txId, addressData, receiverAddressInformation, ergoAmountLong, feeAmount, tokens, nodeUrl, explorerUrl,TransactionStatus.PENDING, System.currentTimeMillis());
+                            addressData.addTransaction(ergTx);
+                            addressData.selectedTabProperty().set(AddressData.AddressTabs.TRANSACTIONS);
+                        }catch(Exception txCreateEx){
+                       
+                           
+                        }
                         
+                        complete.run();
 
                     }else{
                         Alert a = new Alert(AlertType.NONE, "Could not complete transaction.", ButtonType.CANCEL);

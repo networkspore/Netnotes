@@ -20,19 +20,6 @@ public class AmountConfirmBox extends AmountBox {
     private final long m_feeAmountLong;
 
 
-    public AmountConfirmBox(AmountSendBox amountSendBox, Scene scene) {
-        
-        super();
-        m_confirmAmount = amountSendBox.priceAmountProperty().get();
-        m_confirmAmountLong = m_confirmAmount.getLongAmount();
-        m_feeAmount = amountSendBox.feeAmountProperty().get();
-        m_feeAmountLong = m_feeAmount.getLongAmount();
-
-       
-        layoutBox(amountSendBox.isFeeProperty().get(), scene);
-
-  
-    }
 
     public AmountConfirmBox(PriceAmount priceAmount, PriceAmount feeAmount, Scene scene) {
         
@@ -46,7 +33,7 @@ public class AmountConfirmBox extends AmountBox {
     }
 
     private void layoutBox(boolean isFeeAmount, Scene scene ){
-         PriceAmount totalAmount = m_feeAmount == null ? null : new PriceAmount(m_confirmAmountLong + m_feeAmountLong, m_confirmAmount.getCurrency());
+        PriceAmount totalAmount = m_feeAmount != null && isFeeAmount ? new PriceAmount(m_confirmAmountLong + m_feeAmountLong, m_confirmAmount.getCurrency()) : null;
 
 
         priceAmountProperty().set(m_confirmAmount);

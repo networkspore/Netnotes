@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import com.google.gson.JsonObject;
 
 import javafx.animation.PauseTransition;
-import javafx.application.HostServices;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.geometry.Point2D;
@@ -17,7 +16,6 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
 import javafx.util.Duration;
 
 public class ErgoTransaction {
@@ -33,7 +31,7 @@ public class ErgoTransaction {
         public final static String PENDING = "Pending";
         public final static String CONFIRMED = "Confirmed";
         public final static String FAILED = "Failed";
-        public final static String UNKNOWN = "Failed";
+        public final static String UNKNOWN = "Unknown";
     }
 
     private String m_txId;
@@ -89,13 +87,13 @@ public class ErgoTransaction {
         return getParentAddress().getAddressesData().selectedExplorerData().get();
     }
 
-    public HostServices getHostServices(){
-        return getParentAddress().getAddressesData().getWalletData().getErgoWallets().getNetworksData().getHostServices();
-    }
+
 
     public void openLink(){
-        String explorerUrlString = getExplorerData().getWebsiteTxLink(getTxId());
-        getHostServices().showDocument(explorerUrlString);
+        if(getExplorerData() != null){
+            String explorerUrlString = getExplorerData().getWebsiteTxLink(getTxId());
+            getParentAddress().getNetworksData().getHostServices().showDocument(explorerUrlString);
+        }
     }
 
     public HBox getTxBox(){
@@ -173,7 +171,7 @@ public class ErgoTransaction {
     public JsonObject getJsonObject(){
         JsonObject json = new JsonObject();
       
-        json.addProperty("txtId", m_txId);
+        json.addProperty("txId", m_txId);
         json.addProperty("parentAddress", m_parentAddress.getAddress().toString());
         json.addProperty("timeStamp", m_timeStamp);
         json.addProperty("txType", m_txType);

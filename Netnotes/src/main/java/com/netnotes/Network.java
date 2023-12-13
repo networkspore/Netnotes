@@ -20,11 +20,12 @@ public class Network extends IconButton {
     private File logFile = new File("Network-log");
     private String m_networkId;
     private NetworksData m_networksData;
-    private ArrayList<NoteInterface> m_tunnelInterfaceList = new ArrayList<>();
+   // private ArrayList<NoteInterface> m_tunnelInterfaceList = new ArrayList<>();
     private NoteInterface m_parentInterface = null;
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<LocalDateTime>(LocalDateTime.now());
     private ChangeListener<LocalDateTime> m_changeListener = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(null);
+    private SimpleObjectProperty<NoteHook> m_noteHookProperty = new SimpleObjectProperty<>(null);
 
     public final static long EXECUTION_TIME = 500;
 
@@ -58,6 +59,10 @@ public class Network extends IconButton {
     public boolean sendNote(JsonObject note, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
 
         return false;
+    }
+
+    public SimpleObjectProperty<NoteHook> noteHookProperty(){
+        return m_noteHookProperty;
     }
 
     public NoteInterface getParentInterface() {
@@ -145,7 +150,7 @@ public class Network extends IconButton {
     public NetworksData getNetworksData() {
         return m_networksData;
     }
-
+    /* 
     public NoteInterface getTunnelNoteInterface(String networkId) {
 
         for (NoteInterface noteInterface : m_tunnelInterfaceList) {
@@ -176,7 +181,7 @@ public class Network extends IconButton {
             }
 
         }
-    }
+    }*/
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated() {
         return m_lastUpdated;
