@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -77,9 +78,9 @@ public class ErgoTransaction {
     private SimpleObjectProperty<PriceAmount> m_feeAmountProperty = new SimpleObjectProperty<>();
     private SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty = new SimpleObjectProperty<>();
 
-    private ObservableList< PriceAmount> m_tokensList = FXCollections.observableArrayList();
+    private PriceAmount[] m_tokens = new PriceAmount[0];
 
-    private ObservableList<ErgoTransactionPartner> m_txPartnerList = FXCollections.observableArrayList();
+    private ErgoTransactionPartner[] m_txPartners = new ErgoTransactionPartner[0];
 
     private double m_stageWidth = 600;
     private double m_stageHeight = 600;
@@ -101,10 +102,14 @@ public class ErgoTransaction {
         update(json);
     }
 
+
     public ErgoTransactionPartner[] getTxPartnerArray(){
-        int size = m_txPartnerList.size();
-        ErgoTransactionPartner[] txPartners = new ErgoTransactionPartner[size];
-        return m_txPartnerList.toArray(txPartners);
+        return m_txPartners;
+    }
+
+    public void setTxPartnerArray(ErgoTransactionPartner[] partners){
+        m_txPartners = partners;
+     
     }
 
     public ErgoTransactionPartner getTxPartner(String addressString){
@@ -118,6 +123,8 @@ public class ErgoTransaction {
         }
         return null;
     }
+
+
   
 
     public void doUpdate(ErgoExplorerData explorerData, boolean force){
@@ -222,54 +229,14 @@ public class ErgoTransaction {
     }
 
     public void setTokens(PriceAmount[] tokens){
-        m_tokensList.clear();
-        if(tokens != null && tokens.length > 0){
-            for(int i = 0; i < tokens.length ; i++){
-                PriceAmount token = tokens[i];
-                if(token != null){
-                    m_tokensList.add(token);
-                }
-            }
-        }
-    }
-    public void addNanoErgs(long nanoErgs){
-        ErgoAmount ergoAmount = m_ergoAmountProperty.get();
-        if(ergoAmount == null){
-            m_ergoAmountProperty.set(new ErgoAmount(nanoErgs, getParentAddress().getNetworkType()));
-        }else{
-            ergoAmount.addLongAmount(nanoErgs);
-            m_ergoAmountProperty.set(ergoAmount);
-        }
+        m_tokens = tokens;
+   
     }
 
-    public void addTokens(PriceAmount[] tokens){
-        if(tokens != null){
-            for(int i = 0; i < tokens.length ; i++){
-                PriceAmount token = tokens[i];
-                if(token != null){
-                    PriceAmount currentToken = getToken(token.getTokenId());
 
-                    if(currentToken != null){
-                        int index = m_tokensList.indexOf(currentToken);
-                        currentToken.addBigDecimalAmount(token.getBigDecimalAmount());
-                        m_tokensList.set(index, currentToken);
-                    }else{
-                        m_tokensList.add(token);
-                    }
-                }
-            }
-        }
-    }
 
     public PriceAmount[] getTokens(){
-        if(m_tokensList != null){
-            int size = m_tokensList.size();
-            PriceAmount[] tokens = new PriceAmount[size];
-
-            return m_tokensList.toArray(tokens);
-        }else{
-            return new PriceAmount[0];
-        }
+        return m_tokens;
     }
 
     public PriceAmount getToken(String tokenId){
@@ -285,9 +252,6 @@ public class ErgoTransaction {
         return null;
     }
     
-    public ObservableList<PriceAmount> tokensList(){
-        return m_tokensList;
-    }
 
     public JsonArray getTokenJsonArray(){
         JsonArray jsonArray = new JsonArray();
@@ -481,7 +445,7 @@ public class ErgoTransaction {
             fromText.setFill(App.txtColor);
             fromText.setFont(App.txtFont);
 
-            TextField fromField = new TextField( getParentAddress().getAddressString());
+            TextField fromField = new TextField( );
             fromField.setEditable(false);
             fromField.setId("formFieldSmall");
             HBox.setHgrow(fromField, Priority.ALWAYS);
@@ -507,20 +471,35 @@ public class ErgoTransaction {
             Runnable updateReceivers = ()->{
                 ErgoTransactionPartner partnerArray[] = getTxPartnerArray();
                 int size = partnerArray.length;
-
-                String receivers = size > 0 ? partnerArray[0].getParnterAddressString() : "Unavailable";
-
-                for(int i = 1 ; i < size ; i++){
+                toField.setText("");
+                fromField.setText("");
+                for(int i = 0 ; i < size ; i++){
                     ErgoTransactionPartner partner = partnerArray[i];
-                    receivers += ", " + partner.getParnterAddressString();
+
+                    if(partner.getPartnerType().equals(PartnerType.RECEIVER)){
+                        if(toField.getText().length() > 0){
+                            toField.setText(toField.getText() + ", " + partner.getParnterAddressString());
+                        }else{
+                            toField.setText(partner.getParnterAddressString());
+                        }
+                    }else{
+                        if(fromField.getText().length() > 0){
+                            fromField.setText(fromField.getText() + ", " + partner.getParnterAddressString());
+                        }else{
+                            fromField.setText(partner.getParnterAddressString());
+                        }
+                    }
+
                 }
-                toField.setText(receivers);
+                if(partnerTypeProperty().get().equals(PartnerType.SENDER)){
+                    fromField.setText(getParentAddress().getAddressString());
+                }
+                
             };
 
             updateReceivers.run();
 
-            m_txPartnerList.addListener((ListChangeListener.Change<? extends ErgoTransactionPartner> c) ->updateReceivers.run());
-
+          
             HBox toBox = new HBox(toText, toField);
             HBox.setHgrow(toBox, Priority.ALWAYS);
             toBox.setAlignment(Pos.CENTER_LEFT);
@@ -861,7 +840,7 @@ public class ErgoTransaction {
                 JsonElement inputsElement = json.get("inputs");
 
                 SimpleStringProperty simpleSenderAddressString = new SimpleStringProperty(null);
-                SimpleLongProperty simpleErgNanoTotal = new SimpleLongProperty(0);
+
                 SimpleLongProperty simpleErgNanoFeeTotal = new SimpleLongProperty(0);
                 ArrayList<ErgoTransactionPartner> outputTxPartner = new ArrayList<>();
 
@@ -894,10 +873,14 @@ public class ErgoTransaction {
 
                 m_txPartnerTypeProperty.set(isParentSender ? PartnerType.SENDER : PartnerType.RECEIVER);
 
+    
+                ErgoTransactionPartner parentPartner = new ErgoTransactionPartner(getParentAddress().getAddressString(), isParentSender ? PartnerType.SENDER : PartnerType.RECEIVER, new ErgoAmount(0, getParentAddress().getNetworkType()));
+                outputTxPartner.add(parentPartner);
+                ErgoTransactionPartner senderPartner = isParentSender ? parentPartner : new ErgoTransactionPartner(senderAddressString, PartnerType.SENDER,  new ErgoAmount(0, getParentAddress().getNetworkType()));
                 if(!isParentSender){
-                    ErgoTransactionPartner newTxPartner = new ErgoTransactionPartner(senderAddressString, PartnerType.SENDER);
-                    m_txPartnerList.add(newTxPartner);
+                    outputTxPartner.add(senderPartner);
                 }
+                
 
                 if(outputsElement != null && outputsElement.isJsonArray()){
                     JsonArray jsonArray = outputsElement.getAsJsonArray();
@@ -921,69 +904,74 @@ public class ErgoTransaction {
                                 String outputErgoTree = outputItemErgoTree.getAsString();
                                 PriceAmount[] outputTokens = parseAssetsPriceAmount(outputItemAssets.getAsJsonArray());
 
-                                    if(isParentSender){
-                                        if(outputErgoTree.startsWith(FEE_ERGOTREE_START )){
-                                            simpleErgNanoFeeTotal.set(simpleErgNanoFeeTotal.get() + outputNanoErg);
-                                        }else{
-                                            if(!outputAddressString.equals(parentAddressString)){
-                                                simpleErgNanoTotal.set( simpleErgNanoTotal.get() + outputNanoErg);
-                                                SimpleBooleanProperty foundPartner = new SimpleBooleanProperty(false);
-                                                int txPartnersSize = outputTxPartner.size();
-                                                for(int j = 0; j < txPartnersSize ; j++){
-                                                    ErgoTransactionPartner outputPartner = outputTxPartner.get(j);
-                                                    if(outputPartner.getParnterAddressString().equals(outputAddressString)){
-                                                        foundPartner.set(true);       
-                                                        outputPartner.addNanoErgs(outputNanoErg);
-                                                        outputPartner.addTokens(outputTokens);
-                                                        break;
-                                                    }
-                                                }
-                                                if(!foundPartner.get()){
-                                                    ErgoTransactionPartner newTxPartner = new ErgoTransactionPartner(outputAddressString,PartnerType.RECEIVER, new ErgoAmount(outputNanoErg, getParentAddress().getNetworkType()),outputTokens );
-                                                    outputTxPartner.add(newTxPartner);
+                                if(isParentSender){
+                                    if(outputErgoTree.startsWith(FEE_ERGOTREE_START )){
+                                        simpleErgNanoFeeTotal.set(simpleErgNanoFeeTotal.get() + outputNanoErg);
+                                    }else{
+                                        if(!outputAddressString.equals(parentAddressString)){
+                                            parentPartner.addNanoErgs( outputNanoErg);
+                                            parentPartner.addTokens(outputTokens);
+
+                                            SimpleBooleanProperty foundPartner = new SimpleBooleanProperty(false);
+                                            int txPartnersSize = outputTxPartner.size();
+                                            for(int j = 0; j < txPartnersSize ; j++){
+                                                ErgoTransactionPartner outputPartner = outputTxPartner.get(j);
+                                                if(outputPartner.getParnterAddressString().equals(outputAddressString)){
+                                                    foundPartner.set(true);       
+                                                    outputPartner.addNanoErgs(outputNanoErg);
+                                                    outputPartner.addTokens(outputTokens);
+                                                    break;
                                                 }
                                             }
-                                        }
-                                        
-                                    }else{
-                                        if(outputAddressString.equals(parentAddressString)){
-                                            simpleErgNanoTotal.set( simpleErgNanoTotal.get() + outputNanoErg);
-                                            addTokens(outputTokens);
-                                                
-                                        }else{
-                                            if(outputErgoTree.startsWith(FEE_ERGOTREE_START)){
-                                                simpleErgNanoFeeTotal.add(outputNanoErg);
-                                            }else{
-                                                if(!outputAddressString.equals(senderAddressString)){
-                                                
-                                                    SimpleBooleanProperty foundPartner = new SimpleBooleanProperty(false);
-                                                    int txPartnersSize = outputTxPartner.size();
-                                                    for(int j = 0; j < txPartnersSize ; j++){
-                                                        ErgoTransactionPartner outputPartner = outputTxPartner.get(j);
-                                                        if(outputPartner.getParnterAddressString().equals(outputAddressString)){
-                                                            foundPartner.set(true);       
-                                                            outputPartner.addNanoErgs(outputNanoErg);
-                                                            outputPartner.addTokens(outputTokens);
-                                                            break;
-                                                        }
-                                                    }
-                                                    if(!foundPartner.get()){
-                                                        ErgoTransactionPartner newTxPartner = new ErgoTransactionPartner(outputAddressString,PartnerType.RECEIVER, new ErgoAmount(outputNanoErg, getParentAddress().getNetworkType()),outputTokens );
-                                                        outputTxPartner.add(newTxPartner);
-                                                    }
-                                                }
+                                            if(!foundPartner.get()){
+                                                ErgoTransactionPartner newTxPartner = new ErgoTransactionPartner(outputAddressString,PartnerType.RECEIVER, new ErgoAmount(outputNanoErg, getParentAddress().getNetworkType()),outputTokens );
+                                                outputTxPartner.add(newTxPartner);
                                             }
                                         }
                                     }
+                                    
+                                }else{
+                              
+                                    if(outputErgoTree.startsWith(FEE_ERGOTREE_START)){
+                                        simpleErgNanoFeeTotal.add(outputNanoErg);
+                                    }else{
+                                        if(!outputAddressString.equals(senderAddressString)){
+                                            senderPartner.addNanoErgs(outputNanoErg);
+                                            senderPartner.addTokens(outputTokens);
+
+                                            SimpleBooleanProperty foundPartner = new SimpleBooleanProperty(false);
+                                            int txPartnersSize = outputTxPartner.size();
+                                            for(int j = 0; j < txPartnersSize ; j++){
+                                                ErgoTransactionPartner outputPartner = outputTxPartner.get(j);
+                                                if(outputPartner.getParnterAddressString().equals(outputAddressString)){
+                                                    foundPartner.set(true);       
+                                                    outputPartner.addNanoErgs(outputNanoErg);
+                                                    outputPartner.addTokens(outputTokens);
+                                                    break;
+                                                }
+                                            }
+                                            if(!foundPartner.get()){
+                                                ErgoTransactionPartner newTxPartner = new ErgoTransactionPartner(outputAddressString,PartnerType.RECEIVER, new ErgoAmount(outputNanoErg, getParentAddress().getNetworkType()),outputTokens );
+                                                outputTxPartner.add(newTxPartner);
+                                            }
+                                        }
+                                    }
+                                    
+                                }
                                 
 
                             }
                         }
                     }
-              
+
+                    ErgoTransactionPartner[] partnerArray = new ErgoTransactionPartner[outputTxPartner.size()];
+                    partnerArray = outputTxPartner.toArray(partnerArray);
+                    setTxPartnerArray(partnerArray);
+                 
                     setFeeAmount((PriceAmount) new ErgoAmount(simpleErgNanoFeeTotal.get(), getParentAddress().getNetworkType()));
                 
-                    setErgoAmount(new ErgoAmount(simpleErgNanoTotal.get(), getParentAddress().getNetworkType()));
+                    setErgoAmount(parentPartner.ergoAmountProperty().get());
+                    setTokens(parentPartner.getTokensArray());
                 }
             }else{
                 setTxType(TransactionType.LARGE);

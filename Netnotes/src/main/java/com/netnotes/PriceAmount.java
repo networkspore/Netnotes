@@ -78,7 +78,7 @@ public class PriceAmount {
     }
 
     public void addBigDecimalAmount(BigDecimal amount){
-        m_amount.add(amount);
+        m_amount = m_amount.add(amount);
     }
 
     public String getTokenId(){
@@ -120,7 +120,7 @@ public class PriceAmount {
 
     public void addLongAmount(long amount){
         BigDecimal bigAmount = calculateLongToBigDecimal(amount);
-        m_amount.add(bigAmount);
+        m_amount = m_amount.add(bigAmount);
     }
 
     public long getLongAmount() {

@@ -10,39 +10,7 @@ import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonObject;
 import com.netnotes.ErgoTransactionPartner.PartnerType;
-import com.utils.Utils;
 
-import javafx.animation.PauseTransition;
-import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleLongProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.value.ChangeListener;
-import javafx.collections.ListChangeListener;
-import javafx.geometry.Insets;
-import javafx.geometry.Point2D;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
-import javafx.util.Duration;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
@@ -108,9 +76,9 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
             setTimeStamp(System.currentTimeMillis());
         }
 
+        ErgoAmount parentAmount = new ErgoAmount(nanoErgsElement.getAsLong(), getParentAddress().getNetworkType());
 
-
-        setErgoAmount(new ErgoAmount(nanoErgsElement.getAsLong(), getParentAddress().getNetworkType()));
+        setErgoAmount(parentAmount);
         setFeeAmount(new PriceAmount(feeAmountElement.getAsJsonObject()));
 
         m_explorerUrl = explorerUrlElement != null && explorerUrlElement.isJsonPrimitive() ? explorerUrlElement.getAsString() : "";
@@ -131,8 +99,10 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
 
         if(recipientAddressElement != null && recipientAddressElement.isJsonObject()){
             m_receipientAddress = new AddressInformation(recipientAddressElement.getAsJsonObject());
+            setTxPartnerArray( new ErgoTransactionPartner[]{new ErgoTransactionPartner(getParentAddress().getAddressString(), PartnerType.SENDER, parentAmount, tokenAmounts),  new ErgoTransactionPartner(m_receipientAddress.getAddressString(), PartnerType.RECEIVER, parentAmount, tokenAmounts)});
         }else{
-            m_receipientAddress = new AddressInformation("");
+            m_receipientAddress = new AddressInformation("Unknown");
+            setTxPartnerArray( new ErgoTransactionPartner[]{new ErgoTransactionPartner(getParentAddress().getAddressString(), PartnerType.SENDER, parentAmount, tokenAmounts), new ErgoTransactionPartner("Unknown", PartnerType.RECEIVER, new ErgoAmount(0, getNetworkType()))});
         }
         
         if(numConfirmationsElement != null && numConfirmationsElement.isJsonPrimitive()){
@@ -147,7 +117,7 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
     public void open(){
         showErgoTxStage();
     }
-
+    /*
     public void showErgoTxStage(){
         if(getStage() == null){
            
@@ -451,7 +421,7 @@ public class ErgoSimpleSendTx extends ErgoTransaction  {
                 Platform.runLater(()-> stage.requestFocus());
             }
         }
-    }
+    }*/
 
   
    

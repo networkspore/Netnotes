@@ -14,7 +14,7 @@ public class ErgoTransactionPartner {
 
     private String m_partnerAddressString;
     private String m_partnerType;
-    private SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty = new SimpleObjectProperty<>(null);;
+    private SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty = new SimpleObjectProperty<>(null);
     private ObservableList< PriceAmount> m_tokensList = FXCollections.observableArrayList();
 
     public ErgoTransactionPartner(String partnerAddressString, String partnerType, ErgoAmount ergoAmount, PriceAmount[] tokens){
@@ -29,10 +29,10 @@ public class ErgoTransactionPartner {
         }
     }
 
-    public ErgoTransactionPartner(String partnerAddressString, String partnerType){
+    public ErgoTransactionPartner(String partnerAddressString, String partnerType, ErgoAmount ergoAmount){
         m_partnerAddressString = partnerAddressString;
         m_partnerType = partnerType;
-        
+        m_ergoAmountProperty = new SimpleObjectProperty<>(ergoAmount);
     }
 
 
@@ -71,7 +71,7 @@ public class ErgoTransactionPartner {
         return m_partnerType;
     }
 
-    public SimpleObjectProperty< ErgoAmount> getErgoAmountProperty(){
+    public SimpleObjectProperty< ErgoAmount> ergoAmountProperty(){
         return m_ergoAmountProperty;
     }
 
