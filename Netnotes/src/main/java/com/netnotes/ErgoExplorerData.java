@@ -55,12 +55,14 @@ public class ErgoExplorerData {
      private Font m_largeFont = Font.font("OCR A Extended", FontWeight.BOLD, 25);
      private Font m_font = Font.font("OCR A Extended", FontWeight.BOLD, 13);
      private Font m_smallFont = Font.font("OCR A Extended", FontWeight.NORMAL, 10);
+     
 
      public final SimpleStringProperty statusProperty = new SimpleStringProperty(ErgoMarketsData.STOPPED);
      public final SimpleObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<LocalDateTime>(null);
      public final SimpleObjectProperty<LocalDateTime> shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
      public final SimpleStringProperty displayTextProperty = new SimpleStringProperty("");
 
+     
      private ChangeListener<LocalDateTime> m_updateListener = null;
 
 
@@ -122,6 +124,15 @@ public class ErgoExplorerData {
           ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
 
           String urlString = namedUrl.getUrlString() + "/api/v1/transactions/" + txId;
+   
+          Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
+     }
+
+      public void getAddressTransactions(String address,int startIndex, int limit, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+
+          ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
+
+          String urlString = namedUrl.getUrlString() + "/api/v1/addresses/" + address + "/transactions?offset=" + (startIndex < 0 ? 0 : startIndex ) + "&limit=" + (limit < 1 ? 500 : (limit > 500 ? 500 : limit));          
    
           Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
      }

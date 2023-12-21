@@ -80,8 +80,8 @@ public class AddressesData {
 
     private SimpleObjectProperty<ErgoAmount> m_totalErgoAmount = new SimpleObjectProperty<>(null);
 
-    private ScheduledFuture<?> m_lastExecution = null;
-    private final SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
+   
+    
 
     private ObservableList<AddressData> m_addressDataList = FXCollections.observableArrayList();
 
@@ -91,7 +91,7 @@ public class AddressesData {
     private SimpleBooleanProperty m_isErgoTokens = new SimpleBooleanProperty();
 
     private SimpleObjectProperty<PriceQuote> m_currentQuote = new SimpleObjectProperty<>(null);
-    private ScheduledExecutorService m_timeExecutor = null;
+ 
 
 
     private Stage m_promptStage = null;
@@ -142,37 +142,11 @@ public class AddressesData {
         calculateCurrentTotal();
   
 
-        setupTimer();
+        
 
     }
 
-    public void setupTimer() {
-
-        if (m_lastExecution != null) {
-            m_lastExecution.cancel(false);
-        }
-
-        if (m_timeExecutor != null) {
-            m_timeExecutor.shutdownNow();
-            m_timeExecutor = null;
-        }
-
-        if (m_walletData.getCyclePeriod() > 0) {
-            m_timeExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
-                public Thread newThread(Runnable r) {
-                    Thread t = Executors.defaultThreadFactory().newThread(r);
-                    t.setDaemon(true);
-                    return t;
-                }
-            });
-
-            Runnable doUpdate = () -> {
-                Platform.runLater(() -> updateTimeCycle());
-            };
-
-            m_lastExecution = m_timeExecutor.scheduleAtFixedRate(doUpdate, 0, m_walletData.getCyclePeriod(), m_walletData.getCycleTimeUnit());
-        }
-    }
+   
 
 
 
@@ -184,13 +158,6 @@ public class AddressesData {
         return m_walletData;
     }
 
-    public void updateTimeCycle() {
-        m_timeCycle.set(LocalDateTime.now());
-    }
-
-    public SimpleObjectProperty<LocalDateTime> timeCycleProperty() {
-        return m_timeCycle;
-    }
 
     public SimpleObjectProperty<ErgoNodeData> selectedNodeData() {
         return m_selectedNodeData;
@@ -313,13 +280,13 @@ public class AddressesData {
         return addressBox;
     }
 
-    public void updateBalance() {
+    /*public void updateAddress() {
         for (int i = 0; i < m_addressDataList.size(); i++) {
             AddressData addressData = m_addressDataList.get(i);
 
             addressData.updateBalance();
         }
-    }
+    }*/
 
     /*public void startBalanceUpdates() {
        
@@ -345,19 +312,13 @@ public class AddressesData {
         }
    
     }*/
-    public void stopUpdates() {
-        if (m_timeExecutor != null) {
-            if (m_lastExecution != null) {
-                m_lastExecution.cancel(false);
-            }
-            m_timeExecutor.shutdownNow();
-            m_timeExecutor = null;
-        }
-    }
+   
 
     public void shutdown() {
-        stopUpdates();
+      
+       
     }
+
 
     public boolean updateSelectedExplorer(ErgoExplorerData ergoExplorerData) {
         ErgoExplorerData previousSelectedExplorerData = m_selectedExplorerData.get();
@@ -1548,7 +1509,7 @@ public class AddressesData {
 
                         try{
                             ErgoSimpleSendTx ergTx = new ErgoSimpleSendTx(txId, addressData, receiverAddressInformation, ergoAmountLong, feeAmount, tokens, nodeUrl, explorerUrl,TransactionStatus.PENDING, System.currentTimeMillis());
-                            addressData.addTransaction(ergTx);
+                            addressData.addWatchedTransaction(ergTx);
                             addressData.selectedTabProperty().set(AddressData.AddressTabs.TRANSACTIONS);
                         }catch(Exception txCreateEx){
                        

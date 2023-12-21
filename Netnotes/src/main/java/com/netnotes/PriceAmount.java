@@ -77,6 +77,10 @@ public class PriceAmount {
         m_amount = amount;
     }
 
+    public void addBigDecimalAmount(BigDecimal amount){
+        m_amount.add(amount);
+    }
+
     public String getTokenId(){
         return m_currency.getTokenId();
     }
@@ -98,16 +102,25 @@ public class PriceAmount {
         m_valid = valid;
     }
 
-    public void setLongAmount(long amount) {
+    public BigDecimal calculateLongToBigDecimal(long amount){
         int decimals = m_currency.getFractionalPrecision();
         BigDecimal bigAmount = BigDecimal.valueOf(amount);
 
         if(decimals != 0){
             BigDecimal pow = BigDecimal.valueOf(10).pow(decimals);
-            m_amount = bigAmount.divide(pow);
+            return bigAmount.divide(pow);
         }else{
-            m_amount = bigAmount;
+            return bigAmount;
         }
+    }
+
+    public void setLongAmount(long amount) {
+        m_amount = calculateLongToBigDecimal(amount);
+    }
+
+    public void addLongAmount(long amount){
+        BigDecimal bigAmount = calculateLongToBigDecimal(amount);
+        m_amount.add(bigAmount);
     }
 
     public long getLongAmount() {

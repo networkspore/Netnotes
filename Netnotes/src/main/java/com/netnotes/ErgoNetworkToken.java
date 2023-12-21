@@ -46,7 +46,7 @@ public class ErgoNetworkToken extends PriceCurrency {
 
     private File logFile = new File("netnotes-log.txt");
 
-    private HashData m_hashData = null;
+    
 
 
     // private ErgoTokens m_ErgoTokens = null;
@@ -80,14 +80,14 @@ public class ErgoNetworkToken extends PriceCurrency {
         }
 
         if (hashDataElement != null && hashDataElement.isJsonObject()) {
-            m_hashData = new HashData(hashDataElement.getAsJsonObject());
+            setImgHashData(new HashData(hashDataElement.getAsJsonObject()));
         }
 
         if (urlElement != null) {
             m_urlString = urlElement.getAsString();
         }
 
-        if (imageStringElement != null && m_hashData != null) {
+        if (imageStringElement != null && getImgHashData() != null) {
             setImageString(imageStringElement.getAsString());
         }
 
@@ -107,7 +107,7 @@ public class ErgoNetworkToken extends PriceCurrency {
          super(tokenId, name, name, name, 0,  ErgoNetwork.NETWORK_ID, fileString, networkType.toString(),0, 0);
         m_tokensList = tokensList;
         m_urlString = url;
-        m_hashData = hashData;
+      
         setNetworkType(networkType.toString());
 
         updateTokenInfo();
@@ -495,8 +495,8 @@ public class ErgoNetworkToken extends PriceCurrency {
         if(getFontSymbol() != null){
             jsonObject.addProperty("fontSymbol", getFontSymbol());
         }
-        if (m_hashData != null) {
-            jsonObject.add("hashData", m_hashData.getJsonObject());
+        if (getImgHashData() != null) {
+            jsonObject.add("hashData", getImgHashData().getJsonObject());
         }
     
         return jsonObject;
@@ -507,10 +507,6 @@ public class ErgoNetworkToken extends PriceCurrency {
         return m_urlString;
     }
 
-    public HashData getHashData() {
-        return m_hashData;
-    }
-
 
 
     @Override
@@ -518,10 +514,8 @@ public class ErgoNetworkToken extends PriceCurrency {
         return getName();
     }
 
-    @Override
-    public Image getIcon(){
-        return Utils.checkAndLoadImage(getImageString(), m_hashData);
-    }
+
+
 
     public String getNetworkId(){
         return getTokenId();

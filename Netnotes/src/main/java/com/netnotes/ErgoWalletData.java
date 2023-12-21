@@ -71,8 +71,6 @@ public class ErgoWalletData extends Network implements NoteInterface {
     private String m_marketsId;
     private boolean m_isErgoTokens = true;
 
-    private long m_cyclePeriod = 7;
-    private TimeUnit m_cycleTimeUnit = TimeUnit.SECONDS;
 
    // private String m_quoteTransactionCurrency = "USD";
 
@@ -156,15 +154,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
 
     }*/
 
-    public long getCyclePeriod(){
-        return m_cyclePeriod;
-    }
 
-    public TimeUnit getCycleTimeUnit(){
-        return m_cycleTimeUnit;
-    }
-
-  
   
 
     @Override

@@ -14,7 +14,6 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import javax.imageio.ImageIO;
 
 import org.ergoplatform.appkit.Address;
 import org.ergoplatform.appkit.NetworkType;
@@ -22,6 +21,7 @@ import org.ergoplatform.appkit.NetworkType;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
 import com.netnotes.ErgoTransaction.TransactionType;
 import com.satergo.ergo.ErgoInterface;
 import com.utils.Utils;
@@ -29,6 +29,7 @@ import com.utils.Utils;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
@@ -65,6 +66,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import scala.math.BigInt;
 
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -74,6 +76,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 public class AddressData extends Network {
 
@@ -86,7 +89,8 @@ public class AddressData extends Network {
         public final static String TRANSACTIONS = "Transactions";
         public final static String BALANCE = "Balance";
     }
-
+    
+    public final static int UPDATE_LIMIT = 10;
     public final static long QUOTE_TIMEOUT = 120000;
   
     private int m_index;
@@ -95,9 +99,11 @@ public class AddressData extends Network {
     private final SimpleObjectProperty<ErgoAmount> m_ergoAmountProperty ;
     private final ArrayList<PriceAmount> m_confirmedTokensList = new ArrayList<>();
 
-    private final ObservableList<ErgoTransaction> m_transactions = FXCollections.observableArrayList();
+    private final ObservableList<ErgoTransaction> m_watchedTransactions = FXCollections.observableArrayList();
     private final SimpleObjectProperty<ErgoTransaction> m_selectedTransaction = new SimpleObjectProperty<>(null);
-    private long m_sendMillis = (1000*60*60*24);
+    
+    
+
 
     private long m_quoteTimeout = QUOTE_TIMEOUT;
     private long m_unconfirmedNanoErgs = 0;
@@ -112,6 +118,9 @@ public class AddressData extends Network {
     private SimpleStringProperty m_selectedTab = new SimpleStringProperty("Balances");
     private SimpleObjectProperty<LocalDateTime> m_fieldsUpdated = new SimpleObjectProperty<>();
     private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
+    private final String m_addressString;
+    private int m_updateTxOffset = 0;
+   
     
     public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressesData) {
         super(null, name, address.toString(), addressesData.getWalletData());
@@ -120,7 +129,7 @@ public class AddressData extends Network {
         m_addressesData = addressesData;
         m_index = index;
         m_address = address;
-
+        m_addressString = address.toString();
         Tooltip addressTip = new Tooltip(getName());
         addressTip.setShowDelay(new javafx.util.Duration(100));
         addressTip.setFont(App.txtFont);
@@ -155,24 +164,27 @@ public class AddressData extends Network {
         if (m_addressesData.selectedMarketData().get() != null) {
             m_addressesData.selectedMarketData().get().priceQuoteProperty().addListener(quoteChangeListener);
         }
-
-        m_addressesData.timeCycleProperty().addListener((obs, oldval, newval)->{
-            updateBalance();
+        
+        getNetworksData().timeCycleProperty().addListener((obs, oldval, newval)->{
+            update();
         });
 
-        openTransactionFile();
-
+        openAddressFile();
+       
         m_ergoAmountProperty.addListener((obs,oldval,newval)->updateBufferedImage());
         updateBufferedImage();
+
+        update();
     }
 
-    public void openTransactionFile(){
+
+    public void openAddressFile(){
         try {
-            File txFile = getTxFile();
+            File txFile = getAddressFile();
           
             if(txFile.isFile()){
               
-                openJson(Utils.readJsonFile(getSecretKey(), txFile.toPath()));
+                openAddressJson(Utils.readJsonFile(getSecretKey(), txFile.toPath()));
               
             }
         } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
@@ -184,8 +196,53 @@ public class AddressData extends Network {
                 
             }
         }
+    }
 
+    public void update(){
+        ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
+        if( explorerData != null){
+            updateBalance(explorerData);
+            
+      
+         //   updateTransactions(explorerData);
+            
+        }
+        
+    }
 
+ 
+  
+
+    public ErgoTransaction[] getTxArray(JsonObject json){
+        
+        if(json != null){
+            
+            JsonElement itemsElement = json.get("items");
+
+            if(itemsElement != null && itemsElement.isJsonArray()){
+                JsonArray itemsArray = itemsElement.getAsJsonArray();
+                int size = itemsArray.size();
+                ErgoTransaction[] ergTxs = new ErgoTransaction[size];
+
+                for(int i = 0; i < size ; i ++){
+                    JsonElement txElement = itemsArray.get(i);
+                    if(txElement != null && txElement.isJsonObject()){
+                        JsonObject txObject = txElement.getAsJsonObject();
+
+                        JsonElement txIdElement = txObject.get("id");
+                        if(txIdElement != null && txIdElement.isJsonPrimitive()){
+                            String txId = txIdElement.getAsString();
+            
+                            ergTxs[i] = new ErgoTransaction(txId, this, txObject);
+                        }
+                    }
+                }
+                return ergTxs;
+            }
+
+        }
+
+        return new ErgoTransaction[0];
     }
 
     public SecretKey getSecretKey(){
@@ -200,114 +257,118 @@ public class AddressData extends Network {
         return txDir;
     }
 
-    public File getTxFile() throws IOException{
+    public File getAddressFile() throws IOException{
         File txDir = getTxDir();
         String adrFileName = m_addressesData.getWalletData().getNetworkId() + m_index;
         File txFile = new File(txDir.getCanonicalPath() + "/" + adrFileName + ".dat");
         return txFile;
     }
 
-    public void openJson(JsonObject json){
+    public void openAddressJson(JsonObject json){
         if(json != null){
          
             JsonElement txsElement = json.get("txs");
-
+    
             if(txsElement != null && txsElement.isJsonArray()){
-                JsonArray txsJsonArray = txsElement.getAsJsonArray();
+                openWatchedTxs(txsElement.getAsJsonArray());
+            }
+           
+        
+        }
+    }
 
-                int size = txsJsonArray.size();
 
-                for(int i = 0; i<size ; i ++){
-                    JsonElement txElement = txsJsonArray.get(i);
 
-                    if(txElement != null && txElement.isJsonObject()){
-                        JsonObject txJson = txElement.getAsJsonObject();
-                                                    
-                            JsonElement txIdElement = txJson.get("txId");
-                            JsonElement parentAdrElement = txJson.get("parentAddress");
-                            JsonElement timeStampElement = txJson.get("timeStamp");
-                            JsonElement txTypeElement = txJson.get("txType");
 
-                            if(txIdElement != null && txIdElement.isJsonPrimitive() 
-                                && parentAdrElement != null && parentAdrElement.isJsonPrimitive() 
-                                && timeStampElement != null && timeStampElement.isJsonPrimitive() 
-                                && txTypeElement != null && txTypeElement.isJsonPrimitive()){
-                                String txId = txIdElement.getAsString();
-                                String txType = txTypeElement.getAsString();
-                                String parentAdr = parentAdrElement.getAsString();
-                                if(parentAdr.equals(m_address.toString())){
-                                    switch(txType){
-                                        case TransactionType.SEND:
+    public void openWatchedTxs(JsonArray txsJsonArray){
+        if(txsJsonArray != null){
+       
+            int size = txsJsonArray.size();
+
+            for(int i = 0; i<size ; i ++){
+                JsonElement txElement = txsJsonArray.get(i);
+
+                if(txElement != null && txElement.isJsonObject()){
+                    JsonObject txJson = txElement.getAsJsonObject();
+                                                
+                        JsonElement txIdElement = txJson.get("txId");
+                        JsonElement parentAdrElement = txJson.get("parentAddress");
+                        JsonElement timeStampElement = txJson.get("timeStamp");
+                        JsonElement txTypeElement = txJson.get("txType");
+                       // JsonElement nodeUrlElement = txJson.get("nodeUrl");
+
+            
+                        
+                        if(txIdElement != null && txIdElement.isJsonPrimitive() 
+                            && parentAdrElement != null && parentAdrElement.isJsonPrimitive() 
+                            && timeStampElement != null && timeStampElement.isJsonPrimitive() 
+                            && txTypeElement != null && txTypeElement.isJsonPrimitive()){
+
+                            String txId = txIdElement.getAsString();
+                            String txType = txTypeElement.getAsString();
+                            String parentAdr = parentAdrElement.getAsString();
+
+                            
+
+                            if(parentAdr.equals(getAddressString())){
+                                switch(txType){
+                                    case TransactionType.SEND:
+                                        
+                                        try {
+                                            ErgoSimpleSendTx simpleSendTx = new ErgoSimpleSendTx(txId, this, txJson);
+                                            addWatchedTransaction(simpleSendTx, false);
+                                        } catch (Exception e) {
                                             try {
-                                                ErgoSimpleSendTx simpleSendTx = new ErgoSimpleSendTx(txId,this, txJson);
-                                                m_transactions.add(simpleSendTx);
-                                            } catch (Exception e) {
-                                                try {
-                                                    Files.writeString(logFile.toPath(), "\nCould not read tx json: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                                } catch (IOException e1) {
-                                                    
-                                                }
+                                                Files.writeString(logFile.toPath(), "\nCould not read tx json: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                            } catch (IOException e1) {
+                                                
                                             }
-                                            break;
-                                        default:
-                                            ErgoTransaction ergTx = new ErgoTransaction(txId, this);
-                                             m_transactions.add(ergTx);
-                                    }
+                                        }
+                                      
+                                        break;
+                                    default:
+                                        ErgoTransaction ergTx = new ErgoTransaction(txId, this);
+                                        
+                                        addWatchedTransaction(ergTx, false);
                                 }
                             }
+                        }
                     }
                 }
-            }
+            
         }
     }
 
-    public void saveTxFile() {
-      
-        try {
-            File txFile = getTxFile();
-            JsonObject json = getTxJson();
-            String jsonString = json.toString();
-            Utils.writeEncryptedString(getSecretKey(), txFile, jsonString);
-        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException | IOException e) {
-            try {
-                Files.writeString(logFile.toPath(), "\nAddress save Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-                
-            }
-        }
-    }
+    
 
-    public JsonObject getTxJson(){
+    public JsonObject getAddressJson(){
         JsonObject json = new JsonObject();
-        json.add("txs", getTxJsonArray());
+        json.add("txs", getWatchedTxJsonArray());
         return json;
     }
 
-    public void addTransaction(ErgoTransaction transaction){
-        addTransaction(transaction, true);
+
+
+
+    public void addWatchedTransaction(ErgoTransaction transaction){
+        addWatchedTransaction(transaction, true);
     }
 
-    public void addTransaction(ErgoTransaction transaction, boolean save){
-        m_transactions.add(transaction);
+    public void addWatchedTransaction(ErgoTransaction transaction, boolean save){
+        m_watchedTransactions.add(transaction);
+        transaction.addUpdateListener((obs,oldval,newval)->{
+           
+            saveAddressFile();
+        });
         if(save){
-            saveTxFile();
+            saveAddressFile();
         }
     }
 
-    public ErgoTransaction[] getTransactionsArray(){
-        int size = m_transactions.size();
-        if(size == 0){
-            return new ErgoTransaction[0];
-        }
-        ErgoTransaction[] ergoTransactions = new ErgoTransaction[size];
-        ergoTransactions = m_transactions.toArray(ergoTransactions);
+   
 
-        return ergoTransactions;
-    }
-
-    public JsonArray getTxJsonArray(){
-        ErgoTransaction[] ergoTransactions = getTransactionsArray();
+    public JsonArray getWatchedTxJsonArray(){
+        ErgoTransaction[] ergoTransactions =  getWatchedTxArray();
 
         JsonArray jsonArray = new JsonArray();
    
@@ -315,7 +376,22 @@ public class AddressData extends Network {
             JsonObject tokenJson = ergoTransactions[i].getJsonObject();
             jsonArray.add(tokenJson);
         }
+ 
         return jsonArray; 
+    }
+
+    public ErgoTransaction getWatchedTx(String txId){
+        if(txId != null){
+            ErgoTransaction[] txs =  getWatchedTxArray();
+            
+            for(int i = 0; i < txs.length; i++){
+                ErgoTransaction tx = txs[i];
+                if(txId.equals(tx.getTxId())){
+                    return tx;
+                }
+            }
+        }
+        return null;
     }
 
     public SimpleStringProperty selectedTabProperty(){
@@ -323,7 +399,7 @@ public class AddressData extends Network {
     }
 
     public ObservableList<ErgoTransaction> transactionsList(){
-        return m_transactions;
+        return m_watchedTransactions;
     }
 
     public SimpleObjectProperty<ErgoTransaction> selectedTransaction(){
@@ -425,22 +501,9 @@ public class AddressData extends Network {
         return balanceVBox;
     }
 
-    public ErgoTransaction getTransaction(String txId){
- 
-        ErgoTransaction[] txArray = getTxArray();
-    
-        for(int i = 0; i < txArray.length ; i++){
-            ErgoTransaction ergTx = txArray[i];
-            if(ergTx.getTxId().equals(txId)){
-                return ergTx;
-            }
-        }
-
-        return null;
-    }
-
+  
     public ErgoTransaction[] getReverseTxArray(){
-        ArrayList<ErgoTransaction> list = new ArrayList<>(m_transactions);
+        ArrayList<ErgoTransaction> list = new ArrayList<>(m_watchedTransactions);
         Collections.reverse(list);
 
         int size = list.size();
@@ -449,10 +512,10 @@ public class AddressData extends Network {
         return txArray;
     }
 
-    public ErgoTransaction[] getTxArray(){
-        int size = m_transactions.size();
+    public ErgoTransaction[] getWatchedTxArray(){
+        int size = m_watchedTransactions.size();
         ErgoTransaction[] txArray = new ErgoTransaction[size];
-        txArray = m_transactions.toArray(txArray);
+        txArray = m_watchedTransactions.toArray(txArray);
         return txArray;
     }
 
@@ -462,19 +525,18 @@ public class AddressData extends Network {
 
      public void removeTransaction(String txId, boolean save){
         
-        ErgoTransaction ergTx = getTransaction(txId);
+        ErgoTransaction ergTx = getWatchedTx(txId);
         if(ergTx != null){
-            m_transactions.remove(ergTx);
+            m_watchedTransactions.remove(ergTx);
         }
         if(save){
-            saveTxFile();
+            saveAddressFile();
         }
     }
 
     public VBox getTransactionsContent(Scene scene){
     
-
-        Text sendText = new Text("Sent");
+        Text sendText = new Text("Watched");
         sendText.setFont(App.txtFont);
         sendText.setFill(App.txtColor);
 
@@ -488,20 +550,86 @@ public class AddressData extends Network {
         VBox sendTxsBox = new VBox();
         HBox.setHgrow(sendTxsBox, Priority.ALWAYS);
 
+        Text allText = new Text("All");
+        allText.setFont(App.txtFont);
+        allText.setFill(App.txtColor);
+
+        Region spacerRegion = new Region();
+        HBox.setHgrow(spacerRegion, Priority.ALWAYS);
+
+
+        TextField offsetField = new TextField("0");
+        offsetField.setPromptText("Offset");
+        offsetField.setPrefWidth(60);
+        offsetField.setId("numField");
+        offsetField.textProperty().addListener((obs,oldval,newval)->{
+            String numStr = newval.replaceAll("[^0-9]", "");
+            numStr = numStr.equals("") ? "0" : numStr;
+            long longNum = Long.parseLong(numStr);
+            int num = longNum > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) longNum;
+            offsetField.setText(num + "");
+
+        });
+
+        TextField limitField = new TextField("100");
+        limitField.setPrefWidth(60);
+        limitField.setPromptText("Limit");
+        limitField.setId("numField");
+        limitField.textProperty().addListener((obs,oldval,newval)->{
+            String numStr = newval.replaceAll("[^0-9]", "");
+            numStr = numStr.equals("") ? "0" : numStr;
+            int maxInt = Integer.parseInt(numStr);
+            maxInt = maxInt > 500 ? 500 : maxInt;
+            limitField.setText(maxInt + "");
+        });
+
+        Button getTxsBtn = new Button("Get");
+
+        Region fieldSpacer = new Region();
+        fieldSpacer.setMinWidth(5);
+
+        HBox allHeadingBox = new HBox(allText, spacerRegion, offsetField, limitField,fieldSpacer, getTxsBtn);
+        HBox.setHgrow(allHeadingBox, Priority.ALWAYS);
+        allHeadingBox.setId("headingBox");
+        allHeadingBox.setMinHeight(40);
+        allHeadingBox.setAlignment(Pos.CENTER_LEFT);
+        allHeadingBox.setPadding(new Insets(0,15,0,15));
+
+        VBox allTxsBox = new VBox();
+        HBox.setHgrow(allTxsBox, Priority.ALWAYS);
+
+        Runnable updateWatchedTxs = ()->{
+            
+            ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
+            if(explorerData != null){
+                ErgoTransaction[] watchedTxs = getWatchedTxArray();
+                for(int i = 0; i < watchedTxs.length ; i++){
+                    watchedTxs[i].doUpdate(explorerData, false);
+                }
+            }
+        
+        };
+
+        getNetworksData().timeCycleProperty().addListener((obs,oldval,newval)->updateWatchedTxs.run());
+
+        updateWatchedTxs.run();
+
         Runnable updateTxList = () ->{
             
             ErgoTransaction[] txArray = getReverseTxArray();
         
             sendTxsBox.getChildren().clear();
-
+       
             for(int i = 0; i < txArray.length ; i++){
                 ErgoTransaction ergTx = txArray[i];
 
-                if(ergTx != null && ergTx instanceof ErgoSimpleSendTx){
-                   sendTxsBox.getChildren().add(ergTx.getTxBox());
-                }
+                sendTxsBox.getChildren().add(ergTx.getTxBox());
+                
                 
             }
+            
+
+
 
             if(sendTxsBox.getChildren().size() == 0){
                 Text noSavedTxs = new Text("No saved transactions");
@@ -509,22 +637,114 @@ public class AddressData extends Network {
                 noSavedTxs.setFont(App.txtFont);
 
                 HBox emptySendBox = new HBox(noSavedTxs);
-                HBox.setHgrow(sendTxsBox, Priority.ALWAYS);
+                HBox.setHgrow(emptySendBox, Priority.ALWAYS);
                 emptySendBox.setMinHeight(40);
                 emptySendBox.setAlignment(Pos.CENTER);
 
                 sendTxsBox.getChildren().add(emptySendBox);
             }
+
             
         };
 
-        updateTxList.run();
+        updateTxList.run();     
+        /*getNetworksData().timeCycleProperty().addListener((obs,oldval,newVal)->{
+            int watchedTxSize = m_watchedTransactions.size();
+            if(watchedTxSize > 0){
+                ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
+                for(int i = 0; i < watchedTxSize ; i++){
 
-        m_transactions.addListener((ListChangeListener.Change<? extends ErgoTransaction> c)->updateTxList.run());
+                }
+            }
+        }); */
         
-        VBox contentBox = new VBox(sendHeadingBox, sendTxsBox);
-        contentBox.setPadding(new Insets(10));
 
+        m_watchedTransactions.addListener((ListChangeListener.Change<? extends ErgoTransaction> c)->updateTxList.run());
+        SimpleObjectProperty<ErgoTransaction[]> txsProperty = new SimpleObjectProperty<>(new ErgoTransaction[0]);
+
+        Runnable updateAllTxList = ()->{
+            ErgoTransaction[] txArray = txsProperty.get();
+            
+            allTxsBox.getChildren().clear();
+
+            for(int i = 0; i < txArray.length ; i++){
+                ErgoTransaction ergTx = txArray[i];
+            
+                allTxsBox.getChildren().add(ergTx.getTxBox());
+                
+            }
+            
+            if(allTxsBox.getChildren().size() == 0){
+                Button reGetTxsBtn = new Button("Get transactions");
+                reGetTxsBtn.setId("urlBtn");
+                reGetTxsBtn.setFont(App.txtFont);
+                reGetTxsBtn.setOnAction(e->getTxsBtn.fire());
+
+                HBox reEmptySendBox = new HBox(reGetTxsBtn);
+                HBox.setHgrow(reEmptySendBox, Priority.ALWAYS);
+                reEmptySendBox.setMinHeight(40);
+                reEmptySendBox.setAlignment(Pos.CENTER);
+            }
+        };
+
+        getTxsBtn.setOnAction(e->{
+            ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
+            if(explorerData != null){
+                int offset = Integer.parseInt(offsetField.getText());
+                int limit = Integer.parseInt(limitField.getText());
+
+                explorerData.getAddressTransactions(getAddressString(), offset, limit ,(onSucceeded)->{
+                    Object sourceObject = onSucceeded.getSource().getValue();
+                    if(sourceObject != null && sourceObject instanceof JsonObject){
+                        JsonObject txsJson = (JsonObject) sourceObject;
+
+                        ErgoTransaction[] txArray = getTxArray(txsJson);
+                        Platform.runLater(()-> {
+                            txsProperty.set(txArray);
+                            updateAllTxList.run();
+                        });
+                    }else{
+                        Platform.runLater(()->{
+                            txsProperty.set(new ErgoTransaction[0]);
+                            updateAllTxList.run();
+                        });
+                    }
+                }, (onFailed)->{
+                    Platform.runLater(()->{
+                        txsProperty.set(new ErgoTransaction[0]);
+                        updateAllTxList.run();
+                    });
+                });
+            }else{
+                Alert a = new Alert(AlertType.NONE, "Select an Ergo explorer", ButtonType.OK);
+                a.initOwner(m_addressStage);
+                a.setTitle("Required: Ergo Explorer");
+                a.setHeaderText("Required: Ergo Explorer");
+                a.show();
+            }
+        });
+       
+
+        Button defaultGetTxsBtn = new Button("Get transactions");
+        defaultGetTxsBtn.setId("urlBtn");
+        defaultGetTxsBtn.setFont(App.txtFont);
+        defaultGetTxsBtn.setOnAction(e->getTxsBtn.fire());
+
+        HBox emptySendBox = new HBox(defaultGetTxsBtn);
+        HBox.setHgrow(emptySendBox, Priority.ALWAYS);
+        emptySendBox.setMinHeight(40);
+        emptySendBox.setAlignment(Pos.CENTER);
+
+        allTxsBox.getChildren().add(emptySendBox);
+     
+        Region allSpacer = new Region();
+        allSpacer.setMinHeight(10);
+
+        VBox contentBox = new VBox(sendHeadingBox, sendTxsBox, allSpacer, allHeadingBox, allTxsBox);
+        contentBox.setPadding(new Insets(10));
+        
+        getTxsBtn.fire();
+        
         return contentBox;
     }
     public AddressesData getAddressesData(){
@@ -544,7 +764,8 @@ public class AddressData extends Network {
             Button closeBtn = new Button();
 
             addShutdownListener((obs, oldVal, newVal) -> {
-                Platform.runLater(() -> closeBtn.fire());
+                Platform.runLater(()->closeBtn.fire());
+           
             });
 
             HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), titleString, closeBtn, m_addressStage);
@@ -918,7 +1139,7 @@ public class AddressData extends Network {
             m_addressStage.setScene(addressScene);
             m_addressStage.show();
 
-            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(addressTabsBox.heightProperty()).subtract(updateBox.heightProperty()).subtract(addressBox.heightProperty()).subtract(10));
+            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(addressTabsBox.heightProperty()).subtract(updateBox.heightProperty()).subtract(addressBox.heightProperty()).subtract(50));
 
    
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
@@ -949,8 +1170,10 @@ public class AddressData extends Network {
 
 
              ChangeListener<LocalDateTime> changeListener = (obs, oldval, newval)->{
-             //   amountBoxes.clear();
-                updateBalance();
+                ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
+                if(explorerData != null){
+                    updateBalance(explorerData);
+                }
             };
 
             SimpleBooleanProperty isListeningToTokenList = new SimpleBooleanProperty(false);
@@ -1027,6 +1250,8 @@ public class AddressData extends Network {
                 setOpen(false);
             });
 
+   
+
             noteHookProperty().addListener((obs,oldval,newval)->{
                 if(newval != null && newval.getNote() != null){
                     JsonObject note = newval.getNote();
@@ -1093,7 +1318,7 @@ public class AddressData extends Network {
     }
 
     public String getAddressString() {
-        return m_address.toString();
+        return m_addressString;
     }
 
     public String getAddressMinimal(int show) {
@@ -1430,36 +1655,70 @@ public class AddressData extends Network {
         return null;
     }
 
-    public void updateBalance() {
+    public void updateBalance(ErgoExplorerData explorerData) {
 
-       ErgoExplorerData explorerData =  m_addressesData.selectedExplorerData().get();
    
-        if (explorerData != null) {
-            
-                    explorerData.getBalance(m_address.toString(),
-                    success -> {
-                        Object sourceObject = success.getSource().getValue();
+        explorerData.getBalance(m_address.toString(),
+        success -> {
+            Object sourceObject = success.getSource().getValue();
 
-                        if (sourceObject != null) {
-                            JsonObject jsonObject = (JsonObject) sourceObject;
-                            
-                            Platform.runLater(() ->setBalance(jsonObject));  
-                        }
-                    },
-                    failed -> {
-                          try {
-                                Files.writeString(logFile.toPath(), "\nAddressData, Explorer failed update: " + failed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e) {
-                                
-                              
-                            }
-                   
-                        //update();
+            if (sourceObject != null) {
+                JsonObject jsonObject = (JsonObject) sourceObject;
+                
+                Platform.runLater(() ->setBalance(jsonObject));  
+            }},
+            failed -> {
+                    try {
+                        Files.writeString(logFile.toPath(), "\nAddressData, Explorer failed update: " + failed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+                        
+                        
                     }
-            );
+            
+                //update();
+            }
+        );
       
-        }
+        
     }
+    /*
+    public void updateTransactions(ErgoExplorerData explorerData){
+        
+        try {
+            Files.writeString(logFile.toPath(), "updateTxOffset: " + m_updateTxOffset, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+    
+        }
+
+        explorerData.getAddressTransactions(m_addressString, (m_updateTxOffset * UPDATE_LIMIT), UPDATE_LIMIT,
+            success -> {
+                Object sourceObject = success.getSource().getValue();
+
+                if (sourceObject != null && sourceObject instanceof JsonObject) {
+                    JsonObject jsonObject = (JsonObject) sourceObject;
+                    
+                    Platform.runLater(() ->{
+                        updateWatchedTxs(explorerData, jsonObject);
+                        //  saveAllTxJson(jsonObject);
+                    });  
+                    
+                    
+                }
+            },
+            failed -> {
+                    try {
+                        Files.writeString(logFile.toPath(), "\nAddressData, Explorer failed transaction update: " + failed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e) {
+                        
+                        
+                        }
+                
+                    //update();
+                }
+        );
+        
+        
+    }*/
     
     public void setBalance(JsonObject jsonObject){
         if (jsonObject != null) {
@@ -1541,6 +1800,71 @@ public class AddressData extends Network {
                 }
             } 
         } 
+    }
+
+
+    public void updateWatchedTxs(ErgoExplorerData explorerData, JsonObject json){
+        
+        if(json != null){
+            JsonElement itemsElement = json.get("items");
+
+            if(itemsElement != null && itemsElement.isJsonArray()){
+                JsonArray itemsArray = itemsElement.getAsJsonArray();
+                int size = itemsArray.size();
+
+                SimpleBooleanProperty found = new SimpleBooleanProperty(false);
+
+                for(int i = 0; i < size ; i ++){
+                    JsonElement txElement = itemsArray.get(i);
+                    if(txElement != null && txElement.isJsonObject()){
+                        JsonObject txObject = txElement.getAsJsonObject();
+
+                        JsonElement txIdElement = txObject.get("id");
+                        if(txIdElement != null && txIdElement.isJsonPrimitive()){
+                           
+                            String txId = txIdElement.getAsString();
+                            ErgoTransaction ergTx = getWatchedTx(txId);
+                            if(ergTx != null){
+                                if(!found.get()){
+                                    found.set(true);
+                                }
+                                ergTx.update(txObject);
+                            }
+                        }
+                    }
+                }
+
+                /*if(size >= UPDATE_LIMIT && !found.get()){
+                    m_updateTxOffset++;
+                    
+                    updateTransactions(explorerData);
+                }*/
+               
+            }
+        
+        }
+    }
+
+    /* Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                String prettyString = gson.toJson(json); */
+
+    public void saveAddressFile(){
+       
+        try {
+             File file = getAddressFile();
+            JsonObject json = getAddressJson();    
+            String jsonString = json.toString();
+            Utils.writeEncryptedString(getSecretKey(), file, jsonString);
+        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+                | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException | IOException e) {
+            try {
+                Files.writeString(logFile.toPath(), "\nAddress save All Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+                
+            }
+        }
+        
+        
     }
  
    /* public JsonArray getConfirmedTokenJsonArray() {

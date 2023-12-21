@@ -9,6 +9,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import org.ergoplatform.appkit.ErgoToken;
 
+import com.utils.Utils;
+
 import javafx.scene.layout.VBox;
 
 public class AmountConfirmBox extends AmountBox {
@@ -66,7 +68,7 @@ public class AmountConfirmBox extends AmountBox {
         TextField currencyName = new TextField(m_confirmAmount.getCurrency().getName());
         currencyName.setFont(App.txtFont);
         currencyName.setPadding(new Insets(3, 10, 3, 10));
-        currencyName.prefWidthProperty().bind(scene.widthProperty().multiply(0.3));
+        currencyName.setPrefWidth(Utils.measureString(currencyName.getText(), new java.awt.Font("OCR A Extended",java.awt.Font.PLAIN, 14))+ 30);;
 
 
         

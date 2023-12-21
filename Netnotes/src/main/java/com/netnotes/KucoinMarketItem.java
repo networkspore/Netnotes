@@ -520,8 +520,8 @@ public class KucoinMarketItem {
                         m_stage.setHeight(rect.getHeight());
                         FxTimer.runLater(Duration.ofMillis(200), () -> {
 
-                           chartScroll.setVvalue(chartScrollVvalue);
-                            chartScroll.setHvalue(chartScrollHvalue);
+                           Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
+                           Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
                         });
                     } else {
                         maximizeBtn.fire();

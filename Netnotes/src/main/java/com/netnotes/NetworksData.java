@@ -17,6 +17,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -99,6 +104,12 @@ public class NetworksData implements InstallerInterface {
     private double m_stagePrevHeight = 500;
     private boolean m_stageMaximized = false;
     private AppData m_appData;
+    
+    private ScheduledExecutorService m_timeExecutor = null;
+    private ScheduledFuture<?> m_lastExecution = null;
+    private final SimpleObjectProperty<LocalDateTime> m_timeCycle = new SimpleObjectProperty<>(LocalDateTime.now());
+    private long m_cyclePeriod = 30;
+    private TimeUnit m_cycleTimeUnit = TimeUnit.SECONDS;
 
     public NetworksData(AppData appData,  HostServices hostServices, File networksFile, boolean isFile) {
         m_appData = appData;
@@ -139,6 +150,7 @@ public class NetworksData implements InstallerInterface {
 
         }
 
+        setupTimer();
     }
 
     private void readFile(SecretKey appKey, Path filePath) {
@@ -178,6 +190,52 @@ public class NetworksData implements InstallerInterface {
         }
 
     }
+
+     public void setupTimer() {
+
+        if (m_lastExecution != null) {
+            m_lastExecution.cancel(false);
+        }
+
+        if (m_timeExecutor != null) {
+            m_timeExecutor.shutdownNow();
+            m_timeExecutor = null;
+        }
+
+        if (getCyclePeriod() > 0) {
+            m_timeExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                public Thread newThread(Runnable r) {
+                    Thread t = Executors.defaultThreadFactory().newThread(r);
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+
+            Runnable doUpdate = () -> {
+                 updateTimeCycle();
+            };
+
+            m_lastExecution = m_timeExecutor.scheduleAtFixedRate(doUpdate, 0, getCyclePeriod(), getCycleTimeUnit());
+        }
+    }
+
+    public void updateTimeCycle() {
+        Platform.runLater(() ->m_timeCycle.set(LocalDateTime.now()));
+    }
+
+    public SimpleObjectProperty<LocalDateTime> timeCycleProperty() {
+        return m_timeCycle;
+    }
+
+    public long getCyclePeriod(){
+        return m_cyclePeriod;
+    }
+
+    public TimeUnit getCycleTimeUnit(){
+        return m_cycleTimeUnit;
+    }
+
+  
 
     public AppData getAppData() {
         return m_appData;

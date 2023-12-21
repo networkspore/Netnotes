@@ -62,6 +62,32 @@
     -fx-opacity: 1;
 }
 
+#numField {
+
+    -fx-text-fill: #777777;
+    -fx-background-color: #33333350;
+    -fx-opacity: .9;
+    -fx-font-size: 11px;
+    -fx-font-family: 'OCR A Extended';
+    -fx-padding: 3 10 2 10;
+
+}
+
+#numField:hover {
+    -fx-text-fill: #FFFFFF;
+
+
+}
+
+
+#numField:focused,
+#numField:focused:hover {
+    -fx-text-fill: #FFFFFF;
+    -fx-opacity: 1;
+
+}
+
+
 #urlField {
    
     -fx-text-fill: #777777;

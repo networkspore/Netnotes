@@ -1,5 +1,9 @@
 package com.netnotes;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import com.utils.Utils;
 
@@ -26,6 +30,8 @@ public class PriceCurrency {
     private long m_emissionAmount = 0;
     private String m_tokenType = null;
 
+    private HashData m_hashData = null;
+
     public final SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>(null); 
 
     public PriceCurrency(String token_id, String name, String symbol, String description, int fractionalPrecision, String networkId, String unitImageString, String networkType, long emissionAmount, long timestamp) {
@@ -45,6 +51,19 @@ public class PriceCurrency {
         m_fontSymbol = fontSymbol;
         m_tokenType = tokenType;
         m_networkType = networkType;
+
+        if( m_imageString != null && !m_imageString.startsWith("/assets")){
+            try {
+                m_hashData = new HashData(new File(m_imageString));
+            } catch (IOException e) {
+                try {
+                    Files.writeString(new File("netnotes-log.txt").toPath(), "\nPrice currency " + m_name + " hashdata failed.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+
+                }
+                m_hashData = null;
+            }
+        }
     }
 
     public PriceCurrency(JsonObject json) throws Exception{
@@ -58,6 +77,8 @@ public class PriceCurrency {
         JsonElement networkIdElement = json.get("networkId");
         JsonElement symbolElement = json.get("symbol");
         JsonElement fontSymbolElement = json.get("fontSymbol");
+        JsonElement imageStringElement = json.get("imageString");
+        JsonElement hashDataElement = json.get("hashData");
 
         if(idElement == null || decimalsElement == null || symbolElement == null || nameElement == null){
             throw new Exception("Invalid arguments");
@@ -74,8 +95,23 @@ public class PriceCurrency {
         m_timestamp = timeStampElement != null && timeStampElement.isJsonPrimitive() ? timeStampElement.getAsLong() : 0;
         m_networkId = networkIdElement != null && networkIdElement.isJsonPrimitive() ? networkIdElement.getAsString() : "";
         m_fontSymbol = fontSymbolElement != null && fontSymbolElement.isJsonPrimitive() ? fontSymbolElement.getAsString() : "";
+
+        if (hashDataElement != null && hashDataElement.isJsonObject()) {
+            m_hashData = new HashData(hashDataElement.getAsJsonObject());
+        }
+
+        if (imageStringElement != null && getImgHashData() != null) {
+            setImageString(imageStringElement.getAsString());
+        }
     }
 
+    public HashData getImgHashData(){
+        return m_hashData;
+    }
+
+    public void setImgHashData(HashData hashData){
+        m_hashData = hashData;
+    }
 
     public SimpleObjectProperty<LocalDateTime> getLastUpdated(){
         return m_lastUpdated;
@@ -155,7 +191,12 @@ public class PriceCurrency {
 
     public Image getIcon() {
         if (m_symbol != null && m_name != null && m_imageString != null) {
-            return new Image(m_imageString);
+            if(m_imageString.startsWith("/assets")){
+                return new Image(m_imageString);
+            }else{
+                return Utils.checkAndLoadImage(getImageString(), getImgHashData());
+            }
+
         } else {
             return getUnknownUnitImage();
         }
@@ -234,7 +275,10 @@ public class PriceCurrency {
         if(m_fontSymbol != null){
             json.addProperty("fontSymbol", m_fontSymbol);
         }
-
+        if (getImgHashData() != null) {
+            json.add("hashData", getImgHashData().getJsonObject());
+        }
+    
 
         return json;
     }
