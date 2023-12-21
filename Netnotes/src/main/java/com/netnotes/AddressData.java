@@ -398,7 +398,7 @@ public class AddressData extends Network {
         return m_selectedTab;
     }
 
-    public ObservableList<ErgoTransaction> transactionsList(){
+    public ObservableList<ErgoTransaction> watchedTxList(){
         return m_watchedTransactions;
     }
 

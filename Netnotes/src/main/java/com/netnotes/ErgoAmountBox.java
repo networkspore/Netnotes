@@ -167,8 +167,8 @@ public class ErgoAmountBox extends HBox {
 
         amountBtn.setOnAction(actionEvent -> {
             getChildren().remove(amountBtn);
-            getChildren().add(0, imgPaddingBox);
-            getChildren().add( 1, amountField);
+            getChildren().add(1, imgPaddingBox);
+            getChildren().add( 2, amountField);
 
             Platform.runLater(()-> amountField.requestFocus());
             Platform.runLater(()-> amountField.requestFocus());

@@ -276,7 +276,7 @@ public class ErgoTransaction {
             Scene txScene = new Scene(layoutVBox, m_stageWidth, m_stageHeight);
             txScene.getStylesheets().add("/css/startWindow.css");
 
-            String titleString = partnerTypeProperty().get() + " - " + statusProperty().get() +": " + getErgoAmount().toString() + " - " + getTxId();
+            String titleString = partnerTypeProperty().get() +": " + getErgoAmount().toString() + " - " + statusProperty().get()  + " - " + getTxId();
 
             m_stage = new Stage();
             m_stage.getIcons().add(ErgoWallets.getAppIcon());
@@ -356,17 +356,37 @@ public class ErgoTransaction {
                 closeBtn.fire();
             });
 
-            HBox menuBar = new HBox(deleteBtn, spacer, rightSideMenu);
+            HBox menuBar = new HBox( spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
 
+         
+
+            Runnable updateMenuBar = ()->{
+                ErgoTransaction ergoTx = getParentAddress().getWatchedTx(getTxId());
+
+                if(ergoTx != null){
+                    if(!menuBar.getChildren().contains(deleteBtn)){
+                        menuBar.getChildren().add(0, deleteBtn);     
+                    }
+                }else{
+                    if(menuBar.getChildren().contains(deleteBtn)){
+                        menuBar.getChildren().remove(deleteBtn);     
+                    }
+                }
+            };
+
+            getParentAddress().watchedTxList().addListener((ListChangeListener.Change<? extends ErgoTransaction> c)->{
+                updateMenuBar.run();
+            });            
+            updateMenuBar.run();
 
             Text txText = new Text();
             txText.setFont(App.txtFont);
             txText.setFill(App.txtColor);
-            txText.textProperty().bind(Bindings.concat("Send - ", statusProperty(), Bindings.when(numConfirmationsProperty().greaterThan(1)).then( Bindings.concat(" (",numConfirmationsProperty()," confirmations)")).otherwise("") ));
+            txText.textProperty().bind(Bindings.concat(partnerTypeProperty(), " - ", statusProperty(), Bindings.when(numConfirmationsProperty().greaterThan(1)).then( Bindings.concat(" (",numConfirmationsProperty()," confirmations)")).otherwise("") ));
 
             
             Text txIdText = new Text("Tx:");
@@ -506,7 +526,7 @@ public class ErgoTransaction {
             toBox.setPadding(new Insets(0,15,0,10));
             toBox.setMinHeight(30);
 
-            AmountConfirmBox ergoAmountBox = new AmountConfirmBox(getErgoAmount(), getFeeAmount(), txScene);
+            AmountConfirmBox ergoAmountBox = new AmountConfirmBox(getErgoAmount(),partnerTypeProperty().get().equals(PartnerType.SENDER) ?  getFeeAmount() : null, txScene);
             HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
             ergoAmountBox.priceQuoteProperty().bind(getParentAddress().getAddressesData().currentPriceQuoteProperty());
 
@@ -545,13 +565,13 @@ public class ErgoTransaction {
             detailsBox.setId("darkBox");
             detailsBox.setPadding(new Insets(10,10,0,10));
 
-            VBox bodyDetailsBox = new VBox(txBox, txidBox, detailsBox);
+            VBox bodyDetailsBox = new VBox(txidBox, detailsBox);
             HBox.setHgrow(bodyDetailsBox, Priority.ALWAYS);
             bodyDetailsBox.setId("bodyBox");
             bodyDetailsBox.setPadding(new Insets(0,10,10,10));
 
-            VBox bodyBox = new VBox(bodyDetailsBox);
-            bodyBox.setPadding(new Insets(4));
+            VBox bodyBox = new VBox(txBox, bodyDetailsBox);
+            bodyBox.setPadding(new Insets(0));
             bodyBox.setId("bodyBox");
 
             Region menuBarRegion = new Region();
@@ -713,6 +733,34 @@ public class ErgoTransaction {
 
 
         HBox topRightBox = new HBox( copyTxBtn, linkBtn, openBtn);
+
+        Tooltip deleteTooltip = new Tooltip("Remove from watch list");
+        deleteTooltip.setShowDelay(new Duration(100));
+
+        BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
+        deleteBtn.setTooltip(deleteTooltip);
+        deleteBtn.setOnAction(e->{
+            getParentAddress().removeTransaction(getTxId());
+        });
+
+        Runnable updateMenuBar = ()->{
+            ErgoTransaction ergoTx = getParentAddress().getWatchedTx(getTxId());
+
+            if(ergoTx != null){
+                if(!topRightBox.getChildren().contains(deleteBtn)){
+                    topRightBox.getChildren().add( deleteBtn);     
+                }
+            }else{
+                if(topRightBox.getChildren().contains(deleteBtn)){
+                    topRightBox.getChildren().remove(deleteBtn);     
+                }
+            }
+        };
+
+        getParentAddress().watchedTxList().addListener((ListChangeListener.Change<? extends ErgoTransaction> c)->{
+            updateMenuBar.run();
+        });            
+        updateMenuBar.run();
 
         HBox botRightBox = new HBox();
         botRightBox.setMinHeight(10);
@@ -933,7 +981,7 @@ public class ErgoTransaction {
                                 }else{
                               
                                     if(outputErgoTree.startsWith(FEE_ERGOTREE_START)){
-                                        simpleErgNanoFeeTotal.add(outputNanoErg);
+                                        simpleErgNanoFeeTotal.set(simpleErgNanoFeeTotal.get() + outputNanoErg);
                                     }else{
                                         if(!outputAddressString.equals(senderAddressString)){
                                             senderPartner.addNanoErgs(outputNanoErg);
