@@ -301,7 +301,7 @@ public class Drawing {
         int height = 30;
 
 
-        java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 15);
+        java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.BOLD, 15);
 
         BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();

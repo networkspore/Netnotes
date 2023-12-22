@@ -49,6 +49,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -619,7 +620,7 @@ public class AddressData extends Network {
         limitText.setFont(App.titleFont);
         limitText.setFill(App.altColor);
 
-        TextField limitField = new TextField("100");
+        TextField limitField = new TextField("50");
         limitField.setPrefWidth(60);
         limitField.setPromptText("Limit");
         limitField.setId("numField");
@@ -635,6 +636,33 @@ public class AddressData extends Network {
 
         Region fieldSpacer = new Region();
         fieldSpacer.setMinWidth(5);
+
+        ProgressBar progressBar = new ProgressBar();
+        progressBar.setPrefWidth(200);
+
+        Text progressText = new Text("Getting transactions...");
+        progressText.setFill(App.txtColor);
+        progressText.setFont(App.titleFont);
+
+        HBox progressTextBox = new HBox(progressText);
+        HBox.setHgrow(progressTextBox, Priority.ALWAYS);
+        progressTextBox.setMinHeight(30);
+        progressTextBox.setAlignment(Pos.CENTER);
+
+
+        progressBar.progressProperty().addListener((obs,oldval,newval)->{
+            double value = newval.doubleValue();
+            if(value > 0){
+                progressText.setText("(" + String.format("%.1f", value * 100) + "%)");
+            }else{
+                progressText.setText("Getting Transactions...");
+            }
+        });
+    
+        VBox progressBarBox = new VBox(progressBar, progressTextBox);
+        HBox.setHgrow(progressBarBox, Priority.ALWAYS);
+        progressBarBox.setAlignment(Pos.CENTER);
+        progressBarBox.setMinHeight(150);
 
         HBox allHeadingBox = new HBox(allText, spacerRegion,offsetText, offsetField,limitText, limitField,fieldSpacer, getTxsBtn);
         HBox.setHgrow(allHeadingBox, Priority.ALWAYS);
@@ -734,14 +762,32 @@ public class AddressData extends Network {
 
                 allTxsBox.getChildren().add(emptywatchedBox);
             }
+            if(allTxsBox.getChildren().contains(progressBarBox)){
+                allTxsBox.getChildren().remove(progressBarBox);
+            }
         };
+
+       
+       
+
+    
+     
+        Region allSpacer = new Region();
+        allSpacer.setMinHeight(10);
+
+        VBox contentBox = new VBox(watchedHeadingBox, watchedTxsBox, allSpacer, allHeadingBox, allTxsBox);
+        contentBox.setPadding(new Insets(10));
+       
 
         getTxsBtn.setOnAction(e->{
             ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
             if(explorerData != null){
                 int offset = Integer.parseInt(offsetField.getText());
                 int limit = Integer.parseInt(limitField.getText());
-
+                allTxsBox.getChildren().clear();
+                
+                allTxsBox.getChildren().add(progressBarBox);
+                
                 explorerData.getAddressTransactions(getAddressString(), offset, limit ,(onSucceeded)->{
                     Object sourceObject = onSucceeded.getSource().getValue();
                     if(sourceObject != null && sourceObject instanceof JsonObject){
@@ -763,7 +809,7 @@ public class AddressData extends Network {
                         txsProperty.set(new ErgoTransaction[0]);
                         updateAllTxList.run();
                     });
-                });
+                }, progressBar);
             }else{
                 Alert a = new Alert(AlertType.NONE, "Select an Ergo explorer", ButtonType.OK);
                 a.initOwner(m_addressStage);
@@ -772,25 +818,6 @@ public class AddressData extends Network {
                 a.show();
             }
         });
-       
-
-        Button defaultGetTxsBtn = new Button("Get transactions");
-        defaultGetTxsBtn.setId("urlBtn");
-        defaultGetTxsBtn.setFont(App.txtFont);
-        defaultGetTxsBtn.setOnAction(e->getTxsBtn.fire());
-
-        HBox emptywatchedBox = new HBox(defaultGetTxsBtn);
-        HBox.setHgrow(emptywatchedBox, Priority.ALWAYS);
-        emptywatchedBox.setMinHeight(40);
-        emptywatchedBox.setAlignment(Pos.CENTER);
-
-        allTxsBox.getChildren().add(emptywatchedBox);
-     
-        Region allSpacer = new Region();
-        allSpacer.setMinHeight(10);
-
-        VBox contentBox = new VBox(watchedHeadingBox, watchedTxsBox, allSpacer, allHeadingBox, allTxsBox);
-        contentBox.setPadding(new Insets(10));
         
         getTxsBtn.fire();
         
@@ -1165,21 +1192,24 @@ public class AddressData extends Network {
             updateBox.setAlignment(Pos.CENTER_RIGHT);
 
 
-
+            Region botSpacer = new Region();
+            botSpacer.setMinHeight(5);
             
-            VBox bodyBox = new VBox(addressBox, addressTabsBox, scrollPane);
+            VBox bodyBox = new VBox(addressBox, addressTabsBox, scrollPane, botSpacer);
             bodyBox.setId("bodyBox");
-            bodyBox.setPadding(new Insets(0,15,0,15));
+            bodyBox.setPadding(new Insets(0,15,5,15));
             HBox.setHgrow(bodyBox,Priority.ALWAYS);
 
             VBox menuPaddingBox = new VBox(menuBar);
             menuPaddingBox.setPadding(new Insets(0,0,4,0));
 
+
             VBox bodyPaddingBox = new VBox(menuPaddingBox, bodyBox);
             bodyPaddingBox.setPadding(new Insets(0,4, 0, 4));
             HBox.setHgrow(bodyPaddingBox,Priority.ALWAYS);
 
-            layoutVBox.getChildren().addAll(titleBox, bodyPaddingBox, updateBox);
+     
+            layoutVBox.getChildren().addAll(titleBox, bodyPaddingBox,  updateBox);
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
    
 
@@ -1188,8 +1218,8 @@ public class AddressData extends Network {
             m_addressStage.setScene(addressScene);
             m_addressStage.show();
 
-            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(addressTabsBox.heightProperty()).subtract(updateBox.heightProperty()).subtract(addressBox.heightProperty()).subtract(50));
-
+            scrollPane.prefViewportHeightProperty().bind(addressScene.heightProperty().subtract(titleBox.heightProperty()).subtract(addressTabsBox.heightProperty()).subtract(updateBox.heightProperty()).subtract(addressBox.heightProperty()));
+         
    
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
 

@@ -20,6 +20,7 @@ import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
@@ -128,13 +129,13 @@ public class ErgoExplorerData {
           Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
      }
 
-      public void getAddressTransactions(String address,int startIndex, int limit, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
-
+      public void getAddressTransactions(String address,int startIndex, int limit,  EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+         
           ErgoNetworkUrl namedUrl =  m_ergoNetworkUrlProperty.get();
 
           String urlString = namedUrl.getUrlString() + "/api/v1/addresses/" + address + "/transactions?offset=" + (startIndex < 0 ? 0 : startIndex ) + "&limit=" + (limit < 1 ? 500 : (limit > 500 ? 500 : limit));          
    
-          Utils.getUrlJson(urlString, onSucceeded, onFailed, null);
+          Utils.getUrlJson(urlString, onSucceeded, onFailed, progressIndicator);
      }
 
      public String getWebsiteTxLink(String txId) {

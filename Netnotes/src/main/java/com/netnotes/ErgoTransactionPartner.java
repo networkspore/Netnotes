@@ -9,6 +9,7 @@ public class ErgoTransactionPartner {
         public final static String RECEIVER = "Received";
         public final static String SENDER = "Sent";
         public final static String UNKNOWN = "Unknown";
+
     }
 
 

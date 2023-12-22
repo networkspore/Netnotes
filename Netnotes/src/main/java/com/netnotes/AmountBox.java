@@ -202,7 +202,7 @@ public class AmountBox extends HBox {
             }
 
             if (!(getChildren().contains(amountBtn))) {
-                getChildren().add(0, amountBtn);
+                getChildren().add(1, amountBtn);
             }
 
             

@@ -369,7 +369,15 @@ public class ErgoTransaction {
                 closeBtn.fire();
             });
 
-            HBox menuBar = new HBox( spacer, rightSideMenu);
+            BufferedButton refreshBtn = new BufferedButton("/assets/refresh-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            refreshBtn.setOnAction(e->{
+                ErgoExplorerData explorerData = getParentAddress().getAddressesData().selectedExplorerData().get();
+                if(explorerData != null){
+                    doUpdate(explorerData, true);
+                }
+            });
+
+            HBox menuBar = new HBox(refreshBtn, spacer, rightSideMenu);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -401,7 +409,7 @@ public class ErgoTransaction {
                         menuBar.getChildren().remove(deleteBtn);     
                     }
                     if(!menuBar.getChildren().contains(watchTxBtn)){
-                        menuBar.getChildren().add(watchTxBtn);     
+                        menuBar.getChildren().add(0, watchTxBtn);     
                     }
                 }
             };
@@ -554,10 +562,10 @@ public class ErgoTransaction {
             toBox.setPadding(new Insets(0,15,0,10));
             toBox.setMinHeight(30);
 
-            AmountConfirmBox ergoAmountBox = new AmountConfirmBox(getErgoAmount(),partnerTypeProperty().get().equals(PartnerType.SENDER) ?  getFeeAmount() : null, txScene);
+            ErgoAmountBox ergoAmountBox = new ErgoAmountBox(getErgoAmount(), txScene, getParentAddress().getNetworksData().getHostServices());
             HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
             ergoAmountBox.priceQuoteProperty().bind(getParentAddress().getAddressesData().currentPriceQuoteProperty());
-
+            ergoAmountBox.priceAmountProperty().bind(ergoAmountProperty());
 
             HBox amountBoxPadding = new HBox(ergoAmountBox);
             amountBoxPadding.setPadding(new Insets(10, 10, 0, 10));
@@ -566,27 +574,33 @@ public class ErgoTransaction {
             amountBoxes.setPadding(new Insets(5, 10, 5, 0));
             amountBoxes.setAlignment(Pos.TOP_LEFT);
 
-    
-            if (getTokens() != null && getTokens().length > 0) {
-                PriceAmount[] tokens = getTokens();
-                int numTokens = tokens.length;
-                for (int i = 0; i < numTokens; i++) {
-                    PriceAmount tokenAmount = tokens[i];
+            Runnable updateTokens = ()->{
+                amountBoxes.clear();
+                if (getTokens() != null && getTokens().length > 0) {
+                    PriceAmount[] tokens = getTokens();
+                    int numTokens = tokens.length;
+                    for (int i = 0; i < numTokens; i++) {
+                        PriceAmount tokenAmount = tokens[i];
 
-                    AmountConfirmBox confirmBox = new AmountConfirmBox(tokenAmount,null, txScene);
-                    amountBoxes.add(confirmBox);
-                    
+                        AmountBox amountBox = new AmountBox(tokenAmount,txScene, getParentAddress().getAddressesData().isErgoTokensProperty(), getParentAddress().getAddressesData().getWalletData().getErgoWallets().getErgoNetworkData());
+                        amountBoxes.add(amountBox);
+                        
+                    }
                 }
-            }
+            };
             
-  
+            updateTokens.run();
+
+            getLastUpdated().addListener((obs,oldval,newval)->{
+                updateTokens.run();
+            });
             
             VBox boxesVBox = new VBox(amountBoxPadding, amountBoxes);
             HBox.setHgrow(boxesVBox, Priority.ALWAYS);
 
             ScrollPane scrollPane = new ScrollPane(boxesVBox);
             scrollPane.setPadding(new Insets(10, 0, 5, 0));
-     
+            scrollPane.setId("bodyBox");
 
             VBox detailsBox = new VBox(fromBox, toBox, scrollPane);
             HBox.setHgrow(detailsBox, Priority.ALWAYS);
@@ -734,7 +748,8 @@ public class ErgoTransaction {
         txField.setId("addressField");
         txField.setEditable(false);
         txField.setPrefWidth(Utils.measureString(getTxId(), new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 14)) + 30);
-        
+        HBox.setHgrow(txField,Priority.SOMETIMES);
+
         Tooltip copiedTooltip = new Tooltip("copied");
 
         Tooltip copyTooltip = new Tooltip("Copy Id");
@@ -851,6 +866,7 @@ public class ErgoTransaction {
 
         VBox rightBox = new VBox(menuBar, botRightBox);
         rightBox.setAlignment(Pos.CENTER_RIGHT);
+        rightBox.setPadding(new Insets(0,0,0,10));
         HBox.setHgrow(rightBox, Priority.ALWAYS);
 
 
@@ -862,6 +878,7 @@ public class ErgoTransaction {
         VBox midBox = new VBox(txStatus, txField);
         midBox.setAlignment(Pos.CENTER_LEFT);
         midBox.setPadding(new Insets(0));
+       
 
         HBox txBox = new HBox(leftVBox, midBox, rightBox);
         HBox.setHgrow(txBox, Priority.ALWAYS);
@@ -943,6 +960,7 @@ public class ErgoTransaction {
         return new PriceAmount[0];
     }
 
+
     public void update(JsonObject json){
         if(json != null){
             JsonElement numConfirmationsElement = json.get("numConfirmations");
@@ -966,7 +984,7 @@ public class ErgoTransaction {
 
             m_timeStamp = timeStampElement != null && timeStampElement.isJsonPrimitive() ? timeStampElement.getAsLong() : m_timeStamp;
             
-            if(txSize < 5000){
+         
                           
                 JsonElement outputsElement = json.get("outputs");
                 JsonElement inputsElement = json.get("inputs");
@@ -1018,7 +1036,7 @@ public class ErgoTransaction {
 
                 if(outputsElement != null && outputsElement.isJsonArray()){
                     JsonArray jsonArray = outputsElement.getAsJsonArray();
-                    int size = jsonArray.size() > 50 ? 50 : jsonArray.size();
+                    int size =  jsonArray.size();
 
                     for(int i = 0; i < size ; i++){
                         JsonElement outputItemElement = jsonArray.get(i);
@@ -1113,9 +1131,7 @@ public class ErgoTransaction {
                     setErgoAmount(parentPartner.ergoAmountProperty().get());
                     setTokens(parentPartner.getTokensArray());
                 }
-            }else{
-                setTxType(TransactionType.LARGE);
-            }
+          
         }else{
         
         }

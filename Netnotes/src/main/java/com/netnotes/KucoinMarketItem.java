@@ -316,7 +316,7 @@ public class KucoinMarketItem {
             HBox chartBox = chartView.getChartBox();
 
             ScrollPane chartScroll = new ScrollPane(chartBox);
-            chartScroll.setVvalue(chartScrollVvalue);
+            Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
 
             int symbolLength = getSymbol().length();
 
@@ -497,8 +497,8 @@ public class KucoinMarketItem {
                 }
                 FxTimer.runLater(Duration.ofMillis(200), () -> {
 
-                   chartScroll.setVvalue(chartScrollVvalue);
-                   chartScroll.setHvalue(chartScrollHvalue);
+                   Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
+                   Platform.runLater(()->chartScroll.setHvalue(chartScrollHvalue));
                 });
             });
 
@@ -563,7 +563,7 @@ public class KucoinMarketItem {
 
             Runnable startCandles = () -> {
                 TimeSpan tSpan = m_timeSpan;
-                chartScroll.setHvalue(0);
+                Platform.runLater(()->chartScroll.setHvalue(0));
                 exchange.getCandlesDataset(m_symbol, tSpan.getId(), onSuccess -> {
                     WorkerStateEvent worker = onSuccess;
                     Object sourceObject = worker.getSource().getValue();
@@ -583,8 +583,8 @@ public class KucoinMarketItem {
 
                                 chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
 
-                                chartScroll.setVvalue(chartScrollVvalue);
-                                 chartScroll.setHvalue(chartScrollHvalue);
+                               Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
+                                Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
 
                                 chartRange.setVisible(true);
 
@@ -643,7 +643,7 @@ public class KucoinMarketItem {
 
             Runnable resetChartHeightOffset = () -> {
                 chartHeightOffset.set(0);
-                chartScroll.setVvalue(chartScrollVvalue);
+                Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
             };
             EventHandler<javafx.scene.input.KeyEvent> keyEventHandler = (keyEvent) -> {
 

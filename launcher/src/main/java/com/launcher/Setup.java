@@ -3,28 +3,19 @@ package com.launcher;
 import javafx.event.EventHandler;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
+
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.spec.KeySpec;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.PBEKeySpec;
-import javax.crypto.spec.SecretKeySpec;
+
 
 import org.apache.commons.codec.binary.Hex;
 import org.reactfx.util.FxTimer;
@@ -346,7 +337,7 @@ public class Setup extends Application {
                     SimpleObjectProperty<JsonObject> launcherAsset = new SimpleObjectProperty<>(null);
                     SimpleBooleanProperty foundRelease = new SimpleBooleanProperty(false);
                     
-                    while(j > -1 && !foundRelease.get()){
+                    while(j < allReleases.size() && !foundRelease.get()){
                         JsonObject gitHubApiJson = allReleases.get(j).getAsJsonObject();
 
                         JsonElement assetsElement = gitHubApiJson.get("assets");
@@ -399,7 +390,7 @@ public class Setup extends Application {
                                 
                             }
                         }
-                        j--;
+                        j++;
                     }
 
                     if(foundRelease.get()){
@@ -511,14 +502,14 @@ public class Setup extends Application {
             
                     int length = allReleases.size();
               
-                    int j = length -1;
+                    int j = 0;
                     SimpleObjectProperty<JsonObject> releaseInfoObject = new SimpleObjectProperty<>(null);
                     SimpleObjectProperty<JsonObject> appAsset = new SimpleObjectProperty<>(null);
                     SimpleObjectProperty<JsonObject> launcherAsset = new SimpleObjectProperty<>(null);
 
                     SimpleBooleanProperty foundRelease = new SimpleBooleanProperty(false);
                     
-                    while(j > -1 && !foundRelease.get()){
+                    while(j < length && !foundRelease.get()){
                         JsonObject gitHubApiJson = allReleases.get(j).getAsJsonObject();
 
                         JsonElement assetsElement = gitHubApiJson.get("assets");
@@ -560,6 +551,7 @@ public class Setup extends Application {
 
                                     }
                                 }
+                                
                             }
                             
                             if(launcherAsset.get() != null && appAsset.get() != null && releaseInfoObject.get() != null){
@@ -571,7 +563,7 @@ public class Setup extends Application {
                                 
                             }
                         }
-                        j--;
+                        j++;
                     }
 
                     if(foundRelease.get()){
@@ -646,30 +638,36 @@ public class Setup extends Application {
                                                 }
                                             }
                                         };
-
-                                        if(!m_autoUpdate){
-                                            Button closeBtn = new Button();
-                                            TextField promptField = new TextField(); 
-                                            showGetTextInput(appStage, "Update? ("+ (isGetApp ? appAssetName : "") + (isGetApp && isGetLauncher ? ", ":"")+ (isGetLauncher ? launcherName : "") +") (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
-                                            closeBtn.setOnAction(e->{
-                                                complete.run();
-                                            });
-
-                                            promptField.setOnKeyPressed(e1 -> {
-                                                KeyCode keyCode = e1.getCode();
-                                                if(keyCode == KeyCode.ENTER || keyCode == KeyCode.Y){
-                                                    doUpdates.run();
-                                                }else{
-                                                    if(keyCode == KeyCode.N){
+                                        if(isGetApp || isGetLauncher){
+                                            if(!m_autoUpdate){
+                                            
+                                                    Button closeBtn = new Button();
+                                                    TextField promptField = new TextField(); 
+                                                    showGetTextInput(appStage, "Update? ("+ (isGetApp ? appAssetName : "") + (isGetApp && isGetLauncher ? ", ":"")+ (isGetLauncher ? launcherName : "") +") (Y/n)", "Update Available - Netnotes", "Update available...", logo, closeBtn, promptField);
+                                                    closeBtn.setOnAction(e->{
                                                         complete.run();
-                                                    }else{
-                                                        promptField.setText("");
-                                                    }
-                                                }
-                                            });
+                                                    });
+                                                    appStage.setOnCloseRequest(e->complete.run());
 
+                                                    promptField.setOnKeyPressed(e1 -> {
+                                                        KeyCode keyCode = e1.getCode();
+                                                        if(keyCode == KeyCode.ENTER || keyCode == KeyCode.Y){
+                                                            doUpdates.run();
+                                                        }else{
+                                                            if(keyCode == KeyCode.N){
+                                                                complete.run();
+                                                            }else{
+                                                                promptField.setText("");
+                                                            }
+                                                        }
+                                                    });
+                                                
+
+                                            }else{
+                                                doUpdates.run();
+                                            }
                                         }else{
-                                            doUpdates.run();
+                                            complete.run();
                                         }
                                         
 
@@ -1757,7 +1755,7 @@ public class Setup extends Application {
     
     public static void showGetTextInput(Stage appStage, String prompt, String title, String heading, Image img, Button closeBtn,  TextField inputField) {
 
-  
+        appStage.setTitle(title);
         HBox titleBox = createTopBar(icon, title, closeBtn, appStage);
 
         ImageView waitingView = new ImageView(logo);
