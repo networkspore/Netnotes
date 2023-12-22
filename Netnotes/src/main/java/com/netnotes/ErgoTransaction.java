@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
+
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -22,9 +22,7 @@ import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
-import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -33,6 +31,8 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseEvent;
@@ -40,8 +40,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
@@ -56,8 +56,9 @@ public class ErgoTransaction {
     public static class TransactionType{
         public final static String SEND = "Send";
         public final static String HISTORICAL = "Historical";
+        public final static String USER = "User";
         public final static String LARGE = "Large";
-        public final static String UNKNOWN = "Unkown";
+        public final static String UNKNOWN = "Unknown";
     }
 
     public static class TransactionStatus{
@@ -70,7 +71,7 @@ public class ErgoTransaction {
     private String m_txId;
     private AddressData m_parentAddress;
     private long m_timeStamp = 0;
-    private String m_txType = TransactionType.HISTORICAL;
+    private SimpleStringProperty m_txTypeProperty = new SimpleStringProperty( TransactionType.UNKNOWN);
     private SimpleStringProperty m_status = new SimpleStringProperty(TransactionStatus.UNKNOWN);
     private SimpleLongProperty m_numConfirmations = new SimpleLongProperty(0);
     private SimpleObjectProperty<LocalDateTime> m_lastUpdated = new SimpleObjectProperty<>();
@@ -92,16 +93,24 @@ public class ErgoTransaction {
         m_feeAmountProperty.set(new ErgoAmount(0, parentAddress.getNetworkType()));
         m_ergoAmountProperty.set(new ErgoAmount(0, parentAddress.getNetworkType()));
     }
+    
 
     public ErgoTransaction(String txId, AddressData parentAddress, JsonObject json){
         m_txId = txId;
         m_parentAddress = parentAddress;
         m_feeAmountProperty.set(new ErgoAmount(0, parentAddress.getNetworkType()));
         m_ergoAmountProperty.set(new ErgoAmount(0, parentAddress.getNetworkType()));
-
+        m_txTypeProperty.set(TransactionType.HISTORICAL);
         update(json);
     }
 
+    public ErgoTransaction(String txId, AddressData parentAddress, String txType){
+        m_txId = txId;
+        m_parentAddress = parentAddress;
+        m_feeAmountProperty.set(new ErgoAmount(0, parentAddress.getNetworkType()));
+        m_ergoAmountProperty.set(new ErgoAmount(0, parentAddress.getNetworkType()));
+        m_txTypeProperty.set(txType);
+    }
 
     public ErgoTransactionPartner[] getTxPartnerArray(){
         return m_txPartners;
@@ -177,11 +186,15 @@ public class ErgoTransaction {
 
 
     public String getTxType(){
-        return m_txType;
+        return m_txTypeProperty.get();
     }
 
     public void setTxType(String type){
-        m_txType = type;
+        m_txTypeProperty.set(type);;
+    }
+
+    public SimpleStringProperty txTypeProperty(){
+        return m_txTypeProperty;
     }
 
     public String getTxId(){
@@ -349,7 +362,7 @@ public class ErgoTransaction {
             deleteTooltip.setShowDelay(new Duration(100));
 
 
-            BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            BufferedButton deleteBtn = new BufferedButton("/assets/star-30.png", App.MENU_BAR_IMAGE_WIDTH);
             deleteBtn.setTooltip(deleteTooltip);
             deleteBtn.setOnAction(e->{
                 getParentAddress().removeTransaction(getTxId());
@@ -362,18 +375,33 @@ public class ErgoTransaction {
             menuBar.setId("menuBar");
             menuBar.setPadding(new Insets(1, 0, 1, 5));
 
-         
+            Tooltip watchTooltip = new Tooltip("Add to watch list");
+            watchTooltip.setShowDelay(new Duration(100));
+
+            BufferedButton watchTxBtn = new BufferedButton("/assets/star-outline-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            watchTxBtn.setTooltip(watchTooltip);
+
+            watchTxBtn.setOnAction(e->{
+                getParentAddress().addWatchedTransaction(this);
+            });
 
             Runnable updateMenuBar = ()->{
                 ErgoTransaction ergoTx = getParentAddress().getWatchedTx(getTxId());
 
                 if(ergoTx != null){
+                    if(menuBar.getChildren().contains(watchTxBtn)){
+                        menuBar.getChildren().remove(watchTxBtn);     
+                    }
                     if(!menuBar.getChildren().contains(deleteBtn)){
                         menuBar.getChildren().add(0, deleteBtn);     
                     }
+                    
                 }else{
                     if(menuBar.getChildren().contains(deleteBtn)){
                         menuBar.getChildren().remove(deleteBtn);     
+                    }
+                    if(!menuBar.getChildren().contains(watchTxBtn)){
+                        menuBar.getChildren().add(watchTxBtn);     
                     }
                 }
             };
@@ -646,13 +674,40 @@ public class ErgoTransaction {
     }
 
     public HBox getTxBox(){
-        Text txPartnerTypeText = new Text();
-        txPartnerTypeText.setFont(App.txtFont);
-        txPartnerTypeText.setFill(App.txtColor);
-        txPartnerTypeText.textProperty().bind(partnerTypeProperty());
+        ImageView txPartnerTypeText = new ImageView();
+        txPartnerTypeText.setPreserveRatio(true);
+    
 
- 
+        Runnable updateTextColor = () ->{
+            String partnerType = partnerTypeProperty().get();
+            if(partnerType == null){
+               
+               Image img = Drawing.getPosNegText(PartnerType.UNKNOWN, false, true);
+               txPartnerTypeText.setImage(img);
+               txPartnerTypeText.setFitWidth(img.getWidth());
 
+            }else{
+                switch(partnerType){
+                    case PartnerType.RECEIVER:
+                        Image img = Drawing.getPosNegText(partnerType, true, false);
+                        txPartnerTypeText.setImage(img);
+                        txPartnerTypeText.setFitWidth(img.getWidth());
+                    break;
+                    case PartnerType.SENDER:
+                        Image img1 = Drawing.getPosNegText(partnerType, false, false);
+                        txPartnerTypeText.setImage(img1);
+                        txPartnerTypeText.setFitWidth(img1.getWidth());
+                    break;
+                    default:
+                        Image img2 = Drawing.getPosNegText(partnerType, false, true);
+                        txPartnerTypeText.setImage(img2);
+                        txPartnerTypeText.setFitWidth(img2.getWidth());
+                }
+              
+            }
+        };
+        updateTextColor.run();
+        partnerTypeProperty().addListener((obs,oldval,newval)->updateTextColor.run());
        
         String ergAmountText = ergoAmountProperty().get().toString();
 
@@ -682,7 +737,11 @@ public class ErgoTransaction {
         
         Tooltip copiedTooltip = new Tooltip("copied");
 
+        Tooltip copyTooltip = new Tooltip("Copy Id");
+        copyTooltip.setShowDelay(new Duration(100));
+
         BufferedButton copyTxBtn = new BufferedButton("/assets/copy-30.png", App.MENU_BAR_IMAGE_WIDTH);
+        copyTxBtn.setTooltip(copyTooltip);
         copyTxBtn.setOnAction(e->{
             Clipboard clipboard = Clipboard.getSystemClipboard();
             ClipboardContent content = new ClipboardContent();
@@ -703,14 +762,22 @@ public class ErgoTransaction {
             pt.play();
         });
 
+        Tooltip openTooltip = new Tooltip("Open");
+        openTooltip.setShowDelay(new Duration(100));
+
         BufferedButton openBtn = new BufferedButton("/assets/open-outline-white-20.png", 15);
+        openBtn.setTooltip(openTooltip);
         openBtn.setOnAction(e->{
             open();
         });
 
         Tooltip unknownExplorerTip = new Tooltip("Select Explorer");
 
+        Tooltip linkTooltip = new Tooltip("Open in browser");
+        linkTooltip.setShowDelay(new Duration(100));
+
         BufferedButton linkBtn = new BufferedButton("/assets/link-20.png", App.MENU_BAR_IMAGE_WIDTH);
+        linkBtn.setTooltip(linkTooltip);
         linkBtn.setOnAction(e->{
             if(isErgoExplorer()){
                     openLink();
@@ -732,30 +799,47 @@ public class ErgoTransaction {
         });
 
 
-        HBox topRightBox = new HBox( copyTxBtn, linkBtn, openBtn);
+        HBox menuBar = new HBox( copyTxBtn, linkBtn, openBtn);
 
         Tooltip deleteTooltip = new Tooltip("Remove from watch list");
         deleteTooltip.setShowDelay(new Duration(100));
 
-        BufferedButton deleteBtn = new BufferedButton("/assets/trash-outline-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
+        BufferedButton deleteBtn = new BufferedButton("/assets/star-30.png", App.MENU_BAR_IMAGE_WIDTH);
         deleteBtn.setTooltip(deleteTooltip);
         deleteBtn.setOnAction(e->{
             getParentAddress().removeTransaction(getTxId());
         });
 
-        Runnable updateMenuBar = ()->{
-            ErgoTransaction ergoTx = getParentAddress().getWatchedTx(getTxId());
+         Tooltip watchTooltip = new Tooltip("Add to watch list");
+            watchTooltip.setShowDelay(new Duration(100));
 
-            if(ergoTx != null){
-                if(!topRightBox.getChildren().contains(deleteBtn)){
-                    topRightBox.getChildren().add( deleteBtn);     
+            BufferedButton watchTxBtn = new BufferedButton("/assets/star-outline-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            watchTxBtn.setTooltip(watchTooltip);
+
+            watchTxBtn.setOnAction(e->{
+                getParentAddress().addWatchedTransaction(this);
+            });
+
+            Runnable updateMenuBar = ()->{
+                ErgoTransaction ergoTx = getParentAddress().getWatchedTx(getTxId());
+
+                if(ergoTx != null){
+                    if(menuBar.getChildren().contains(watchTxBtn)){
+                        menuBar.getChildren().remove(watchTxBtn);     
+                    }
+                    if(!menuBar.getChildren().contains(deleteBtn)){
+                        menuBar.getChildren().add(2, deleteBtn);     
+                    }
+                    
+                }else{
+                    if(menuBar.getChildren().contains(deleteBtn)){
+                        menuBar.getChildren().remove(deleteBtn);     
+                    }
+                    if(!menuBar.getChildren().contains(watchTxBtn)){
+                        menuBar.getChildren().add(2,watchTxBtn);     
+                    }
                 }
-            }else{
-                if(topRightBox.getChildren().contains(deleteBtn)){
-                    topRightBox.getChildren().remove(deleteBtn);     
-                }
-            }
-        };
+            };
 
         getParentAddress().watchedTxList().addListener((ListChangeListener.Change<? extends ErgoTransaction> c)->{
             updateMenuBar.run();
@@ -765,7 +849,7 @@ public class ErgoTransaction {
         HBox botRightBox = new HBox();
         botRightBox.setMinHeight(10);
 
-        VBox rightBox = new VBox(topRightBox, botRightBox);
+        VBox rightBox = new VBox(menuBar, botRightBox);
         rightBox.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(rightBox, Priority.ALWAYS);
 
@@ -919,7 +1003,7 @@ public class ErgoTransaction {
 
                 boolean isParentSender = parentAddressString.equals(senderAddressString);
 
-                m_txPartnerTypeProperty.set(isParentSender ? PartnerType.SENDER : PartnerType.RECEIVER);
+               
 
     
                 ErgoTransactionPartner parentPartner = new ErgoTransactionPartner(getParentAddress().getAddressString(), isParentSender ? PartnerType.SENDER : PartnerType.RECEIVER, new ErgoAmount(0, getParentAddress().getNetworkType()));
@@ -927,6 +1011,8 @@ public class ErgoTransaction {
                 ErgoTransactionPartner senderPartner = isParentSender ? parentPartner : new ErgoTransactionPartner(senderAddressString, PartnerType.SENDER,  new ErgoAmount(0, getParentAddress().getNetworkType()));
                 if(!isParentSender){
                     outputTxPartner.add(senderPartner);
+                }else{
+                    m_txPartnerTypeProperty.set(PartnerType.SENDER);
                 }
                 
 
@@ -1002,6 +1088,9 @@ public class ErgoTransaction {
                                                 ErgoTransactionPartner newTxPartner = new ErgoTransactionPartner(outputAddressString,PartnerType.RECEIVER, new ErgoAmount(outputNanoErg, getParentAddress().getNetworkType()),outputTokens );
                                                 outputTxPartner.add(newTxPartner);
                                             }
+                                            if(outputAddressString.equals(parentAddressString)){
+                                                m_txPartnerTypeProperty.set(PartnerType.RECEIVER);
+                                            }
                                         }
                                     }
                                     
@@ -1010,6 +1099,9 @@ public class ErgoTransaction {
 
                             }
                         }
+                    }
+                    if(parentPartner.ergoAmountProperty().get().getLongAmount() == 0 && parentPartner.getTokensArray().length == 0){
+                        outputTxPartner.remove(parentPartner);
                     }
 
                     ErgoTransactionPartner[] partnerArray = new ErgoTransactionPartner[outputTxPartner.size()];
@@ -1024,6 +1116,8 @@ public class ErgoTransaction {
             }else{
                 setTxType(TransactionType.LARGE);
             }
+        }else{
+        
         }
         m_lastUpdated.set(LocalDateTime.now());
     }
@@ -1053,7 +1147,7 @@ public class ErgoTransaction {
         json.addProperty("txId", m_txId);
         json.addProperty("parentAddress", m_parentAddress.getAddress().toString());
         json.addProperty("timeStamp", m_timeStamp);
-        json.addProperty("txType", m_txType);
+        json.addProperty("txType", m_txTypeProperty.get());
         json.addProperty("status", m_status.get());
         json.addProperty("numConfirmations", m_numConfirmations.getValue());
         return json;

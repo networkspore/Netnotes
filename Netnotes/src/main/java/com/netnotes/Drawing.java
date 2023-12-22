@@ -1,7 +1,12 @@
 package com.netnotes;
 
 import java.awt.Color;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+
+import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.image.Image;
 
 
 public class Drawing {
@@ -289,6 +294,56 @@ public class Drawing {
 
         fillArea(img, RGB, x1, y1, x2, y1 + lineSize);
         fillArea(img, RGB, x1, y2 - lineSize, x1, y2 - lineSize);
+    }
+
+    public static Image getPosNegText(String text, boolean positive, boolean neutral ) {
+     
+        int height = 30;
+
+
+        java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 15);
+
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setFont(font);
+
+        FontMetrics fm = g2d.getFontMetrics();
+
+        int textWidth = fm.stringWidth(text);
+        int fontAscent = fm.getAscent();
+        int fontHeight = fm.getHeight();
+        int stringY = ((height - fontHeight) / 2) + fontAscent;
+
+
+        img = new BufferedImage(textWidth, height, BufferedImage.TYPE_INT_ARGB);
+        g2d = img.createGraphics();
+
+        g2d.setFont(font);
+
+
+        if (neutral) {
+            g2d.setColor(new java.awt.Color(0x777777));
+            g2d.drawString(text, 0, stringY);
+
+        } else {
+            java.awt.Color fillColor = java.awt.Color.BLUE;
+            g2d.setColor(fillColor);
+            g2d.drawString(text, 0, stringY);
+
+            int x1 = 0;
+            int y1 = (height / 2) - (fontHeight / 2);
+            int x2 = textWidth;
+            int y2 = y1 + fontHeight;
+            java.awt.Color color1 = positive ? KucoinExchange.POSITIVE_COLOR : KucoinExchange.NEGATIVE_HIGHLIGHT_COLOR;
+            java.awt.Color color2 = positive ? KucoinExchange.POSITIVE_HIGHLIGHT_COLOR : KucoinExchange.NEGATIVE_COLOR;
+
+            Drawing.drawBarFillColor(positive ? 0 : 1, false, fillColor.getRGB(), color1.getRGB(), color2.getRGB(), img, x1, y1, x2, y2);
+
+        }
+
+        g2d.dispose();
+
+        return SwingFXUtils.toFXImage(img, null);
     }
 
 }

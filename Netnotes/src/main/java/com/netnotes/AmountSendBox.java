@@ -324,7 +324,7 @@ public class AmountSendBox extends AmountBox {
         
 
        
-        PriceAmount maxAmount = m_maxAmount.get() != null ? m_maxAmount.get() : new PriceAmount(0, (priceAmountProperty().get() != null ? priceAmountProperty().get().getCurrency() : new PriceCurrency("", "unknonw", "unknown", 0, "","unknowmn", "/assets/unknown-unit.png", "unkown", "")));
+        PriceAmount maxAmount = m_maxAmount.get() != null ? m_maxAmount.get() : new PriceAmount(0, (priceAmountProperty().get() != null ? priceAmountProperty().get().getCurrency() : new PriceCurrency("", "unknonw", "unknown", 0, "","unknown", "/assets/unknown-unit.png", "unknown", "")));
         boolean quantityValid = maxAmount != null && maxAmount.getAmountValid();
         
     

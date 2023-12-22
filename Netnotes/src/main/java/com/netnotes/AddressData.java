@@ -53,6 +53,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseEvent;
@@ -327,7 +328,7 @@ public class AddressData extends Network {
                                       
                                         break;
                                     default:
-                                        ErgoTransaction ergTx = new ErgoTransaction(txId, this);
+                                        ErgoTransaction ergTx = new ErgoTransaction(txId, this, txType);
                                         
                                         addWatchedTransaction(ergTx, false);
                                 }
@@ -355,13 +356,15 @@ public class AddressData extends Network {
     }
 
     public void addWatchedTransaction(ErgoTransaction transaction, boolean save){
-        m_watchedTransactions.add(transaction);
-        transaction.addUpdateListener((obs,oldval,newval)->{
-           
-            saveAddressFile();
-        });
-        if(save){
-            saveAddressFile();
+        if(getWatchedTx(transaction.getTxId()) == null){
+            m_watchedTransactions.add(transaction);
+            transaction.addUpdateListener((obs,oldval,newval)->{
+            
+                saveAddressFile();
+            });
+            if(save){
+                saveAddressFile();
+            }
         }
     }
 
@@ -534,21 +537,59 @@ public class AddressData extends Network {
         }
     }
 
+    
+
     public VBox getTransactionsContent(Scene scene){
     
-        Text sendText = new Text("Watched");
-        sendText.setFont(App.txtFont);
-        sendText.setFill(App.txtColor);
+        ImageView watchedIcon = IconButton.getIconView(new Image("/assets/star-30.png"), 30);
+        
+        Text watchedText = new Text("Watched");
+        watchedText.setFont(App.txtFont);
+        watchedText.setFill(App.txtColor);
 
-        HBox sendHeadingBox = new HBox(sendText);
-        HBox.setHgrow(sendHeadingBox, Priority.ALWAYS);
-        sendHeadingBox.setId("headingBox");
-        sendHeadingBox.setMinHeight(40);
-        sendHeadingBox.setAlignment(Pos.CENTER_LEFT);
-        sendHeadingBox.setPadding(new Insets(0,15,0,15));
+        TextField newTxIdField = new TextField();
+        newTxIdField.setPromptText("Add Transaction Id");
+        newTxIdField.setPrefWidth(200);
+        newTxIdField.setId("numField");
+       
+        Button addTxId = new Button("Add");
+        addTxId.setOnAction(e->{
+            String newTxId = newTxIdField.getText();
+            String hexString =  newTxId.replaceAll("[^0-9a-fA-F]", "");
 
-        VBox sendTxsBox = new VBox();
-        HBox.setHgrow(sendTxsBox, Priority.ALWAYS);
+            if(newTxId.length() == 64 && hexString.equals(newTxId)){
+                ErgoExplorerData explorerData = m_addressesData.selectedExplorerData().get();
+
+                ErgoTransaction userTx = new ErgoTransaction(newTxIdField.getText(),this,TransactionType.USER);
+                if(explorerData != null){
+                    userTx.doUpdate(explorerData, true);
+                }
+                addWatchedTransaction(userTx);
+                
+            }else{
+                Alert a = new Alert(AlertType.NONE, "Notice: Transaction amounts for transactions which do not involve this address may not be displayed.", ButtonType.OK);
+                a.initOwner(m_addressStage);
+                a.setHeaderText("Invalid Transaction Id");
+                a.setTitle("Invalid Transaction Id");
+                a.show();
+            }
+            newTxIdField.setText("");
+        });
+        newTxIdField.setOnAction(e->addTxId.fire());
+      
+
+        Region watchedSpacerRegion = new Region();
+        HBox.setHgrow(watchedSpacerRegion, Priority.ALWAYS);
+
+        HBox watchedHeadingBox = new HBox(watchedIcon, watchedText,watchedSpacerRegion, newTxIdField, addTxId);
+        HBox.setHgrow(watchedHeadingBox, Priority.ALWAYS);
+        watchedHeadingBox.setId("headingBox");
+        watchedHeadingBox.setMinHeight(40);
+        watchedHeadingBox.setAlignment(Pos.CENTER_LEFT);
+        watchedHeadingBox.setPadding(new Insets(0,15,0,5));
+
+        VBox watchedTxsBox = new VBox();
+        HBox.setHgrow(watchedTxsBox, Priority.ALWAYS);
 
         Text allText = new Text("All");
         allText.setFont(App.txtFont);
@@ -557,7 +598,10 @@ public class AddressData extends Network {
         Region spacerRegion = new Region();
         HBox.setHgrow(spacerRegion, Priority.ALWAYS);
 
-
+        Text offsetText = new Text("Start at: ");
+        offsetText.setFont(App.titleFont);
+        offsetText.setFill(App.altColor);
+        
         TextField offsetField = new TextField("0");
         offsetField.setPromptText("Offset");
         offsetField.setPrefWidth(60);
@@ -570,6 +614,10 @@ public class AddressData extends Network {
             offsetField.setText(num + "");
 
         });
+
+        Text limitText = new Text("Max: ");
+        limitText.setFont(App.titleFont);
+        limitText.setFill(App.altColor);
 
         TextField limitField = new TextField("100");
         limitField.setPrefWidth(60);
@@ -588,7 +636,7 @@ public class AddressData extends Network {
         Region fieldSpacer = new Region();
         fieldSpacer.setMinWidth(5);
 
-        HBox allHeadingBox = new HBox(allText, spacerRegion, offsetField, limitField,fieldSpacer, getTxsBtn);
+        HBox allHeadingBox = new HBox(allText, spacerRegion,offsetText, offsetField,limitText, limitField,fieldSpacer, getTxsBtn);
         HBox.setHgrow(allHeadingBox, Priority.ALWAYS);
         allHeadingBox.setId("headingBox");
         allHeadingBox.setMinHeight(40);
@@ -618,12 +666,12 @@ public class AddressData extends Network {
             
             ErgoTransaction[] txArray = getReverseTxArray();
         
-            sendTxsBox.getChildren().clear();
+            watchedTxsBox.getChildren().clear();
        
             for(int i = 0; i < txArray.length ; i++){
                 ErgoTransaction ergTx = txArray[i];
 
-                sendTxsBox.getChildren().add(ergTx.getTxBox());
+                watchedTxsBox.getChildren().add(ergTx.getTxBox());
                 
                 
             }
@@ -631,17 +679,17 @@ public class AddressData extends Network {
 
 
 
-            if(sendTxsBox.getChildren().size() == 0){
+            if(watchedTxsBox.getChildren().size() == 0){
                 Text noSavedTxs = new Text("No saved transactions");
                 noSavedTxs.setFill(App.altColor);
                 noSavedTxs.setFont(App.txtFont);
 
-                HBox emptySendBox = new HBox(noSavedTxs);
-                HBox.setHgrow(emptySendBox, Priority.ALWAYS);
-                emptySendBox.setMinHeight(40);
-                emptySendBox.setAlignment(Pos.CENTER);
+                HBox emptywatchedBox = new HBox(noSavedTxs);
+                HBox.setHgrow(emptywatchedBox, Priority.ALWAYS);
+                emptywatchedBox.setMinHeight(40);
+                emptywatchedBox.setAlignment(Pos.CENTER);
 
-                sendTxsBox.getChildren().add(emptySendBox);
+                watchedTxsBox.getChildren().add(emptywatchedBox);
             }
 
             
@@ -675,15 +723,16 @@ public class AddressData extends Network {
             }
             
             if(allTxsBox.getChildren().size() == 0){
-                Button reGetTxsBtn = new Button("Get transactions");
-                reGetTxsBtn.setId("urlBtn");
-                reGetTxsBtn.setFont(App.txtFont);
-                reGetTxsBtn.setOnAction(e->getTxsBtn.fire());
+                Text noSavedTxs = new Text("No transactions available");
+                noSavedTxs.setFill(App.altColor);
+                noSavedTxs.setFont(App.txtFont);
 
-                HBox reEmptySendBox = new HBox(reGetTxsBtn);
-                HBox.setHgrow(reEmptySendBox, Priority.ALWAYS);
-                reEmptySendBox.setMinHeight(40);
-                reEmptySendBox.setAlignment(Pos.CENTER);
+                HBox emptywatchedBox = new HBox(noSavedTxs);
+                HBox.setHgrow(emptywatchedBox, Priority.ALWAYS);
+                emptywatchedBox.setMinHeight(40);
+                emptywatchedBox.setAlignment(Pos.CENTER);
+
+                allTxsBox.getChildren().add(emptywatchedBox);
             }
         };
 
@@ -730,17 +779,17 @@ public class AddressData extends Network {
         defaultGetTxsBtn.setFont(App.txtFont);
         defaultGetTxsBtn.setOnAction(e->getTxsBtn.fire());
 
-        HBox emptySendBox = new HBox(defaultGetTxsBtn);
-        HBox.setHgrow(emptySendBox, Priority.ALWAYS);
-        emptySendBox.setMinHeight(40);
-        emptySendBox.setAlignment(Pos.CENTER);
+        HBox emptywatchedBox = new HBox(defaultGetTxsBtn);
+        HBox.setHgrow(emptywatchedBox, Priority.ALWAYS);
+        emptywatchedBox.setMinHeight(40);
+        emptywatchedBox.setAlignment(Pos.CENTER);
 
-        allTxsBox.getChildren().add(emptySendBox);
+        allTxsBox.getChildren().add(emptywatchedBox);
      
         Region allSpacer = new Region();
         allSpacer.setMinHeight(10);
 
-        VBox contentBox = new VBox(sendHeadingBox, sendTxsBox, allSpacer, allHeadingBox, allTxsBox);
+        VBox contentBox = new VBox(watchedHeadingBox, watchedTxsBox, allSpacer, allHeadingBox, allTxsBox);
         contentBox.setPadding(new Insets(10));
         
         getTxsBtn.fire();
