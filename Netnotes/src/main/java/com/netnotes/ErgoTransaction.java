@@ -812,7 +812,7 @@ public class ErgoTransaction {
                     pt.play();
                 }
         });
-
+ 
 
         HBox menuBar = new HBox( copyTxBtn, linkBtn, openBtn);
 
@@ -843,7 +843,7 @@ public class ErgoTransaction {
                         menuBar.getChildren().remove(watchTxBtn);     
                     }
                     if(!menuBar.getChildren().contains(deleteBtn)){
-                        menuBar.getChildren().add(2, deleteBtn);     
+                        menuBar.getChildren().add(3, deleteBtn);     
                     }
                     
                 }else{
@@ -851,7 +851,7 @@ public class ErgoTransaction {
                         menuBar.getChildren().remove(deleteBtn);     
                     }
                     if(!menuBar.getChildren().contains(watchTxBtn)){
-                        menuBar.getChildren().add(2,watchTxBtn);     
+                        menuBar.getChildren().add(3,watchTxBtn);     
                     }
                 }
             };
@@ -867,7 +867,7 @@ public class ErgoTransaction {
         VBox rightBox = new VBox(menuBar, botRightBox);
         rightBox.setAlignment(Pos.CENTER_RIGHT);
         rightBox.setPadding(new Insets(0,0,0,10));
-        HBox.setHgrow(rightBox, Priority.ALWAYS);
+ 
 
 
 
@@ -878,7 +878,7 @@ public class ErgoTransaction {
         VBox midBox = new VBox(txStatus, txField);
         midBox.setAlignment(Pos.CENTER_LEFT);
         midBox.setPadding(new Insets(0));
-       
+        HBox.setHgrow(midBox, Priority.ALWAYS);
 
         HBox txBox = new HBox(leftVBox, midBox, rightBox);
         HBox.setHgrow(txBox, Priority.ALWAYS);

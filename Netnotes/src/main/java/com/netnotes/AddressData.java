@@ -9,6 +9,11 @@ import java.time.LocalDateTime;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -29,7 +34,6 @@ import com.utils.Utils;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
@@ -68,7 +72,6 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-import scala.math.BigInt;
 
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -78,7 +81,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
+
 
 public class AddressData extends Network {
 
@@ -121,7 +124,7 @@ public class AddressData extends Network {
     private SimpleObjectProperty<LocalDateTime> m_fieldsUpdated = new SimpleObjectProperty<>();
     private SimpleObjectProperty<Image> m_imgBuffer = new SimpleObjectProperty<Image>(null);
     private final String m_addressString;
-    private int m_updateTxOffset = 0;
+    private ScheduledFuture<?> m_lastExecution = null;
    
     
     public AddressData(String name, int index, Address address, NetworkType networktype, AddressesData addressesData) {
@@ -270,12 +273,42 @@ public class AddressData extends Network {
         if(json != null){
          
             JsonElement txsElement = json.get("txs");
-    
+            JsonElement stageElement = json.get("stage");
+            
             if(txsElement != null && txsElement.isJsonArray()){
                 openWatchedTxs(txsElement.getAsJsonArray());
             }
            
-        
+            if (stageElement != null && stageElement.isJsonObject()) {
+
+                JsonObject stageObject = stageElement.getAsJsonObject();
+                JsonElement stageWidthElement = stageObject.get("width");
+                JsonElement stageHeightElement = stageObject.get("height");
+                JsonElement stagePrevWidthElement = stageObject.get("prevWidth");
+                JsonElement stagePrevHeightElement = stageObject.get("prevHeight");
+
+                JsonElement iconStyleElement = stageObject.get("iconStyle");
+                JsonElement stageMaximizedElement = stageObject.get("maximized");
+
+                boolean maximized = stageMaximizedElement == null ? false : stageMaximizedElement.getAsBoolean();
+
+                setStageIconStyle(iconStyleElement.getAsString());
+                setStagePrevWidth(DEFAULT_STAGE_WIDTH);
+                setStagePrevHeight(DEFAULT_STAGE_HEIGHT);
+                if (!maximized) {
+
+                    setStageWidth(stageWidthElement.getAsDouble());
+                    setStageHeight(stageHeightElement.getAsDouble());
+                } else {
+                    double prevWidth = stagePrevWidthElement != null && stagePrevWidthElement.isJsonPrimitive() ? stagePrevWidthElement.getAsDouble() : DEFAULT_STAGE_WIDTH;
+                    double prevHeight = stagePrevHeightElement != null && stagePrevHeightElement.isJsonPrimitive() ? stagePrevHeightElement.getAsDouble() : DEFAULT_STAGE_HEIGHT;
+                    setStageWidth(prevWidth);
+                    setStageHeight(prevHeight);
+                    setStagePrevWidth(prevWidth);
+                    setStagePrevHeight(prevHeight);
+                }
+                setStageMaximized(maximized);
+            }
         }
     }
 
@@ -346,6 +379,7 @@ public class AddressData extends Network {
     public JsonObject getAddressJson(){
         JsonObject json = new JsonObject();
         json.add("txs", getWatchedTxJsonArray());
+        json.add("stage", getStageJson());
         return json;
     }
 
@@ -744,9 +778,8 @@ public class AddressData extends Network {
             allTxsBox.getChildren().clear();
 
             for(int i = 0; i < txArray.length ; i++){
-                ErgoTransaction ergTx = txArray[i];
-            
-                allTxsBox.getChildren().add(ergTx.getTxBox());
+               
+                allTxsBox.getChildren().add(txArray[i].getTxBox());
                 
             }
             
@@ -834,7 +867,7 @@ public class AddressData extends Network {
             m_addressStage.getIcons().add(ErgoWallets.getAppIcon());
             m_addressStage.setResizable(false);
             m_addressStage.initStyle(StageStyle.UNDECORATED);
-            m_addressStage.setTitle(titleString);
+            
 
     
             Button closeBtn = new Button();
@@ -844,9 +877,11 @@ public class AddressData extends Network {
            
             });
 
-            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), titleString, closeBtn, m_addressStage);
+            Button maximizeBtn = new Button();
+
+            HBox titleBox = App.createTopBar(ErgoWallets.getSmallAppIcon(), maximizeBtn,  closeBtn, m_addressStage);
  
-        
+            m_addressStage.setTitle(titleString);
 
             double imageWidth = App.MENU_BAR_IMAGE_WIDTH;
 
@@ -1070,8 +1105,11 @@ public class AddressData extends Network {
             menuBar.setPadding(new Insets(1, 0, 1, 5));
 
             VBox layoutVBox = new VBox();
+
+            double stageWidth = getStageMaximized() ? getStagePrevWidth() : getStageWidth();
+            double stageHeight = getStageMaximized() ? getStagePrevHeight() : getStageHeight();
             
-            Scene addressScene = new Scene(layoutVBox, getStageWidth(), getStageHeight());
+            Scene addressScene = new Scene(layoutVBox, stageWidth, stageHeight);
 
             Text addressText = new Text(getName() + ": ");
             addressText.setFont(App.txtFont);
@@ -1225,6 +1263,49 @@ public class AddressData extends Network {
 
             ResizeHelper.addResizeListener(m_addressStage, 200, 250, rect.getWidth(), rect.getHeight());
 
+            maximizeBtn.setOnAction(maxEvent -> {
+                boolean maximized = m_addressStage.isMaximized();
+                if (!maximized) {
+                    setStagePrevWidth(m_addressStage.getWidth());
+                    setStagePrevHeight(m_addressStage.getHeight());
+                }
+                setStageMaximized(!maximized);
+                m_addressStage.setMaximized(!maximized);
+            
+            });
+
+            ScheduledExecutorService executor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+                public Thread newThread(Runnable r) {
+                    Thread t = Executors.defaultThreadFactory().newThread(r);
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+
+             Runnable setUpdated = () -> {
+                saveAddressFile();
+            };
+
+            m_addressStage.widthProperty().addListener((obs, oldVal, newVal) -> {
+                setStageWidth(newVal.doubleValue());
+
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
+                }
+
+                m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
+            });
+
+            m_addressStage.heightProperty().addListener((obs, oldVal, newVal) -> {
+                setStageHeight(newVal.doubleValue());
+
+                if (m_lastExecution != null && !(m_lastExecution.isDone())) {
+                    m_lastExecution.cancel(false);
+                }
+
+                m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
+            });
+
             sendBtn.setOnAction((actionEvent) -> {
                 Button closeStageBtn = new Button();
                 Scene sendScene = m_addressesData.getSendScene(addressScene, m_addressStage, closeStageBtn);
@@ -1346,6 +1427,11 @@ public class AddressData extends Network {
                     }
                 }
             });
+
+            if (getStageMaximized()) {
+
+                m_addressStage.setMaximized(true);
+            }
 
             m_addressStage.setOnCloseRequest((closeRequest) -> {
 
@@ -1622,8 +1708,12 @@ public class AddressData extends Network {
         g2d.setFont(smallFont);
 
         fm = g2d.getFontMetrics();
+        
         int priceWidth = fm.stringWidth(totalPrice);
         int currencyWidth = fm.stringWidth(currencyPrice);
+        int decsWidth = fm.stringWidth(decs);
+
+
         int priceLength = (priceWidth > currencyWidth ? priceWidth : currencyWidth);
 
         //  int priceAscent = fm.getAscent();
@@ -1632,13 +1722,11 @@ public class AddressData extends Network {
         int decimalsX = integersX + stringWidth + 1;
 
        // int cryptoNameStringWidth = fm.stringWidth(cryptoName);
-        int decsWidth = fm.stringWidth(decs);
+       
 
-        int width = decimalsX + stringWidth + decsWidth + (padding * 2);
-        int widthIncrease = width;
+        int width = decimalsX + decsWidth + (padding * 2);
+   
         width = width < m_minImgWidth ? m_minImgWidth : width;
-
-        widthIncrease = width - widthIncrease;
 
         int cryptoNameStringX = decimalsX + 2;
 

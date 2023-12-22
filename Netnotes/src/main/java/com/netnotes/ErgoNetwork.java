@@ -29,7 +29,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-
+import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -217,7 +217,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
 
             m_stage.show();
             Runnable setUpdated = () -> {
-                getLastUpdated().set(LocalDateTime.now());
+                Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
 
             };
 
