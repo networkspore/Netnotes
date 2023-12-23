@@ -1,8 +1,10 @@
 # Netnotes.io
 ----
+Windows desktop ergo applicaiton hub.
 
-Installation Instructions
+Installation Instructions 
 ---
+
 Download the exe and jar file (https://github.com/networkspore/Netnotes/releases)
 
 Select the desired options, and create a password. 
