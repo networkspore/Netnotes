@@ -5,7 +5,7 @@ Installation Instructions
 ---
 Download the exe and jar file (https://github.com/networkspore/Netnotes/releases)
 
-Select the desired options, and create a password. (If updates are enabled you could also just download the exe).
+Select the desired options, and create a password. 
 
 Select the components that you would like to enable - currently KuCoin and the Ergo Network are supported.
 
