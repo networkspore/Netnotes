@@ -1,10 +1,6 @@
 # Netnotes.io
 ----
 
-Ergo Network application platform for Windows. 
----
-
-
 Installation Instructions
 ---
 Download the exe and jar file -  select the desired options, and create a password. (If updates are enabled you could also just download the exe).
