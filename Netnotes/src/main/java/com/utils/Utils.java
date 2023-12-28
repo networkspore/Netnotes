@@ -2,7 +2,6 @@ package com.utils;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -12,7 +11,6 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,17 +20,13 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -71,8 +65,6 @@ import javafx.stage.Stage;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FilenameUtils;
-import org.ergoplatform.appkit.ErgoClient;
-import org.ergoplatform.appkit.NetworkType;
 
 import java.io.FilenameFilter;
 import at.favre.lib.crypto.bcrypt.BCrypt;
@@ -83,16 +75,15 @@ import mslinks.ShellLinkHelper;
 import ove.crypto.digest.Blake2b;
 import scala.util.Try;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.netnotes.App;
 import com.netnotes.HashData;
-import com.netnotes.Main;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
-import com.satergo.ergo.ErgoInterface;
 import com.satergo.extra.AESEncryption;
 
 public class Utils {
@@ -1108,6 +1099,65 @@ public class Utils {
                 outputStream.close();
 
                 return contentLength == copied ? hashData : null;
+
+            }
+
+        };
+
+        if (progressIndicator != null) {
+            progressIndicator.progressProperty().bind(task.progressProperty());
+        }
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+    }
+    
+    public static void getUrlJsonArray(String urlString, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+
+        Task<JsonArray> task = new Task<JsonArray>() {
+            @Override
+            public JsonArray call() throws JsonParseException, MalformedURLException, IOException {
+                InputStream inputStream = null;
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                String outputString = null;
+
+                URL url = new URL(urlString);
+
+                URLConnection con = url.openConnection();
+
+                con.setRequestProperty("User-Agent", USER_AGENT);
+
+                long contentLength = con.getContentLengthLong();
+                inputStream = con.getInputStream();
+
+                byte[] buffer = new byte[2048];
+
+                int length;
+                long downloaded = 0;
+
+                while ((length = inputStream.read(buffer)) != -1) {
+
+                    outputStream.write(buffer, 0, length);
+
+                    if (progressIndicator != null) {
+                        downloaded += (long) length;
+                        updateProgress(downloaded, contentLength);
+                    }
+                }
+
+                outputStream.close();
+                outputString = outputStream.toString();
+
+                JsonElement jsonElement = new JsonParser().parse(outputString);
+
+                JsonArray jsonArray = jsonElement != null && jsonElement.isJsonArray() ? jsonElement.getAsJsonArray() : null;
+
+                return jsonArray == null ? null : jsonArray;
 
             }
 

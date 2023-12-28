@@ -330,14 +330,14 @@ public class Setup extends Application {
                    
                     int length = allReleases.size();
               
-                    int j = length -1;
+                    int j = 0;
 
                     SimpleObjectProperty<JsonObject> releaseInfoObject = new SimpleObjectProperty<>(null);
                     SimpleObjectProperty<JsonObject> appAsset = new SimpleObjectProperty<>(null);
                     SimpleObjectProperty<JsonObject> launcherAsset = new SimpleObjectProperty<>(null);
                     SimpleBooleanProperty foundRelease = new SimpleBooleanProperty(false);
                     
-                    while(j < allReleases.size() && !foundRelease.get()){
+                    while(j < length && !foundRelease.get()){
                         JsonObject gitHubApiJson = allReleases.get(j).getAsJsonObject();
 
                         JsonElement assetsElement = gitHubApiJson.get("assets");

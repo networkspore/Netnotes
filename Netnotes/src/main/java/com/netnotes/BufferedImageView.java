@@ -45,13 +45,13 @@ public class BufferedImageView extends ImageView {
 
     public void setDefaultImage(Image img) {
         m_img = img;
-        setImage(m_img);
+   
         updateImage();
     }
 
     public void setDefaultImage(Image img, double fitWidth) {
         m_img = img;
-        setImage(m_img);
+     
         updateImage();
         setFitWidth(fitWidth);
     }

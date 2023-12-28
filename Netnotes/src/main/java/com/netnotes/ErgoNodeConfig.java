@@ -21,8 +21,8 @@ public class ErgoNodeConfig {
 
     public static class ConfigMode {
 
-        public final static String ADVANCED = "Advanced";
-        public final static String BASIC = "Basic";
+        public final static String ADVANCED = "Existing";
+        public final static String BASIC = "New";
     }
 
     public static class DigestAccess {
