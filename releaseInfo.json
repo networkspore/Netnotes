@@ -1,22 +1,22 @@
 {
   "launcher": {
     "hashData": {
-      "id": "3bZFF91VBpifWABYofRurf",
+      "id": "59VFkrESSNVhGP3HkVPFtZ",
       "name": "Blake2b-256",
-      "hash": "6d91b697bf6592b3b2ce39ac4fda7c8435e6280630fc8282144e2b09d93cd802"
+      "hash": "fe9acb16d532e590a22fbd0077d222426db49cbd13c696fcef1bb2ea288b4363"
     },
-    "name": "netnotes-0.1.0.exe",
-    "version": "0.1.0",
+    "name": "netnotes-0.1.1.exe",
+    "version": "0.1.1",
     "tag": "devBetaRelease"
   },
   "application": {
     "hashData": {
-      "id": "6gkymtP9KZmm3y3NyMlBKI",
+      "id": "5P2JlZvUDFY6qVmKSz7oKU",
       "name": "Blake2b-256",
-      "hash": "fb2d67b2f3198e35228420efddf020ab559d9658c515770d88cfdf2cde8db37e"
+      "hash": "003ad21d2f0745c8386e81cfcdb31de1cf02f4ff641a9e0809b9cce63e15afe4"
     },
-    "name": "netnotes-0.1.0.jar",
-    "version": "0.1.0",
+    "name": "netnotes-0.1.1.jar",
+    "version": "0.1.1",
     "tag": "devBetaRelease"
   }
 }
