@@ -26,6 +26,7 @@ import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
 import com.utils.Utils;
 
+import io.circe.Json;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -182,9 +183,9 @@ public class ErgoWallets extends Network implements NoteInterface {
         return dataFile;
     }
 
-    public void saveAddressInfo(String id, JsonObject json) throws IOException{
+    public void saveAddressInfo(String id, String id2, JsonObject json) throws IOException{
         if(id != null && json != null){
-            File dataFile = getIdDataFile(id);
+            File dataFile = getIdDataFile(id, id2);
 
             try {
                 Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
@@ -201,8 +202,8 @@ public class ErgoWallets extends Network implements NoteInterface {
         }
     }
 
-    public JsonObject getAddressInfo(String id) throws IOException{
-        File dataFile = getIdDataFile(id);
+    public JsonObject getAddressInfo(String id, String id2) throws IOException{
+        File dataFile = getIdDataFile(id, id2);
         if(dataFile.isFile()){
             try {
                 return Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), dataFile.toPath());
@@ -219,41 +220,65 @@ public class ErgoWallets extends Network implements NoteInterface {
     }
 
 
-    public File getIdDataFile(String id) throws IOException{
+    public File getIdDataFile(String id, String id2) throws IOException{
         
         File dataFile = getDataFile();
     
         try {
            
-            
             if(dataFile.isFile()){
               
                 JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), dataFile.toPath());
-                JsonElement dataFilesElement = json.get("dataFiles");
-                json.remove("dataFiles");
-                if(dataFilesElement != null && dataFilesElement.isJsonArray()){
-                    JsonArray dataFilesArray = dataFilesElement.getAsJsonArray();
+                JsonElement idsElement = json.get("ids");
+                json.remove("ids");
+                if(idsElement != null && idsElement.isJsonArray()){
+                    JsonArray idsArray = idsElement.getAsJsonArray();
            
-                    for(int i = 0; i < dataFilesArray.size(); i ++){
-                        JsonElement dataFileElement = dataFilesArray.get(i);
+                    for(int i = 0; i < idsArray.size(); i ++){
+                        JsonElement dataFileElement = idsArray.get(i);
                         if(dataFileElement != null && dataFileElement.isJsonObject()){
                             JsonObject fileObject = dataFileElement.getAsJsonObject();
-                            JsonElement idElement = fileObject.get("id");
-                            if(idElement != null && idElement.isJsonPrimitive()){
-                                String fileIdString = idElement.getAsString();
-                                if(fileIdString.equals(id)){
-                                    JsonElement fileElement = fileObject.get("file");
+                            JsonElement dataIdElement = fileObject.get("id");
 
-                                    if(fileElement != null && fileElement.isJsonPrimitive()){
-                                        return new File(fileElement.getAsString());
-                                    }else{
+                            if(dataIdElement != null && dataIdElement.isJsonPrimitive()){
+                                String fileId2String = dataIdElement.getAsString();
+                                if(fileId2String.equals(id2)){
+                                    JsonElement dataElement = fileObject.get("data");
+
+                                    if(dataElement != null && dataElement.isJsonArray()){
+                                        JsonArray dataIdArray = dataElement.getAsJsonArray();
+                                        fileObject.remove("data");
+                                        for(int j =0; j< dataIdArray.size() ; j++){
+                                            JsonElement dataIdArrayElement = dataIdArray.get(j);
+                                            if(dataIdArrayElement != null && dataIdArrayElement.isJsonObject()){
+                                                JsonObject fileIdObject = dataIdArrayElement.getAsJsonObject();
+                                                JsonElement idElement = fileIdObject.get("id");
+                                                if(idElement != null && idElement.isJsonPrimitive()){
+                                                    String fileIdString = idElement.getAsString();
+                                                    if(fileIdString.equals(id)){
+                                                        
+                                                        JsonElement fileElement = fileIdObject.get("file");
+
+                                                        if(fileElement != null && fileElement.isJsonPrimitive()){
+                                                            return new File(fileElement.getAsString());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         File newFile = createNewDataFile();
                                         JsonObject fileJson = new JsonObject();
                                         fileJson.addProperty("id", id);
                                         fileJson.addProperty("file", newFile.getCanonicalPath());
-                                        dataFilesArray.set(i, fileJson);
+
+                                        dataIdArray.add( fileJson);
                                         
-                                        json.add("dataFiles", dataFilesArray);
+                                        fileObject.add("data", dataIdArray);
+
+                                        idsArray.set(i, fileObject);
+
+                                        json.add("ids", idsArray);
 
                                         try {
                                             Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
@@ -263,7 +288,9 @@ public class ErgoWallets extends Network implements NoteInterface {
                                     
                                         }
                                         return newFile;
+
                                     }
+
                                 }
                             }
                         }
@@ -274,8 +301,17 @@ public class ErgoWallets extends Network implements NoteInterface {
                     JsonObject fileJson = new JsonObject();
                     fileJson.addProperty("id", id);
                     fileJson.addProperty("file", newFile.getCanonicalPath());
-                    dataFilesArray.add(fileJson);
-                    json.add("dataFiles", dataFilesArray);
+
+                    JsonArray dataIdArray = new JsonArray();
+                    dataIdArray.add(fileJson);
+
+                    JsonObject fileObject = new JsonObject();
+                    fileObject.addProperty("id", id2);
+                    fileObject.add("data", dataIdArray);
+
+                    idsArray.add(fileObject);
+                    
+                    json.add("ids", idsArray);
                     try {
                         Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
                        
@@ -306,11 +342,18 @@ public class ErgoWallets extends Network implements NoteInterface {
         fileJson.addProperty("id", id);
         fileJson.addProperty("file", newFile.getCanonicalPath());
 
-        JsonArray fileArray = new JsonArray();
-        fileArray.add(fileJson);
+        JsonArray dataIdArray = new JsonArray();
+        dataIdArray.add(fileJson);
+
+        JsonObject fileObject = new JsonObject();
+        fileObject.addProperty("id", id2);
+        fileObject.add("data", dataIdArray);
+        
+        JsonArray idsArray = new JsonArray();
+        idsArray.add(fileObject);
 
         JsonObject json = new JsonObject();
-        json.add("dataFiles", fileArray);
+        json.add("ids", idsArray);
 
         try {
             Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
@@ -598,22 +641,35 @@ public class ErgoWallets extends Network implements NoteInterface {
                         JsonObject dataFileJson = Utils.readJsonFile(oldval, dataFile.toPath());
                         Utils.saveJson(newval, dataFileJson, dataFile);
 
-                        JsonElement dataFilesElement = dataFileJson.get("dataFiles");
-                        if(dataFilesElement != null && dataFilesElement.isJsonArray()){
-                            JsonArray dataFilesArray = dataFilesElement.getAsJsonArray();
+                        JsonElement idsArrayElement = dataFileJson.get("ids");
+                        if(idsArrayElement != null && idsArrayElement.isJsonArray()){
+                            JsonArray idsArray = idsArrayElement.getAsJsonArray();
 
-                            for(int i = 0; i < dataFilesArray.size() ; i++){
-                                JsonElement dataFileElement = dataFilesArray.get(i);
+                            for(int i = 0; i < idsArray.size() ; i++){
+                                JsonElement idFileObjectElement = idsArray.get(i);
 
-                                if(dataFileElement != null && dataFileElement.isJsonObject()){
-                                    JsonObject dataFileObject = dataFileElement.getAsJsonObject();
+                                if(idFileObjectElement != null && idFileObjectElement.isJsonObject()){
+                                    JsonObject idFileObject = idFileObjectElement.getAsJsonObject();
+                                    JsonElement dataElement = idFileObject.get("data");
 
-                                    JsonElement fileElement = dataFileObject.get("file");
-                                    if(fileElement != null && fileElement.isJsonPrimitive()){
-                                        File file = new File(fileElement.getAsString());
-                                        if(file.isFile()){
-                                            JsonObject fileObject = Utils.readJsonFile(oldval, file.toPath());
-                                            Utils.saveJson(newval, fileObject, file);
+                                    if(dataElement != null && dataElement.isJsonArray()){
+                                        JsonArray dataArray = dataElement.getAsJsonArray();
+
+                                        for(int j = 0; j< dataArray.size(); j++){
+                                            JsonElement dataFileObjectElement = dataArray.get(j);
+
+                                            if(dataFileObjectElement != null && dataFileObjectElement.isJsonObject()){
+                                                JsonObject dataFileObject = dataFileObjectElement.getAsJsonObject();
+
+                                                JsonElement fileElement = dataFileObject.get("file");
+                                                if(fileElement != null && fileElement.isJsonPrimitive()){
+                                                    File file = new File(fileElement.getAsString());
+                                                    if(file.isFile()){
+                                                        JsonObject fileObject = Utils.readJsonFile(oldval, file.toPath());
+                                                        Utils.saveJson(newval, fileObject, file);
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }

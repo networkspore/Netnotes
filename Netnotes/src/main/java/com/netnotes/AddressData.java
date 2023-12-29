@@ -182,7 +182,7 @@ public class AddressData extends Network {
     public void getAddressInfo(){
         
         try {
-            JsonObject json = m_addressesData.getWalletData().getErgoWallets().getAddressInfo(m_addressString);
+            JsonObject json = m_addressesData.getWalletData().getErgoWallets().getAddressInfo(m_addressString, m_addressesData.getWalletData().getId());
           
             if(json != null){
               
@@ -2003,7 +2003,7 @@ public class AddressData extends Network {
         JsonObject json = getAddressJson();    
         
         try {
-            m_addressesData.getWalletData().getErgoWallets().saveAddressInfo(m_addressString, json);
+            m_addressesData.getWalletData().getErgoWallets().saveAddressInfo(m_addressString,m_addressesData.getWalletData().getId(), json);
         } catch (IOException e) {
             try {
                 Files.writeString(logFile.toPath(), "saveAddressInfo failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
