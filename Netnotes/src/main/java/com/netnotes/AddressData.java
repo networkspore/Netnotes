@@ -184,7 +184,7 @@ public class AddressData extends Network {
 
 
     public void openAddressFile(){
-        try {
+        /*try {
             File txFile = getAddressFile();
           
             if(txFile.isFile()){
@@ -200,7 +200,7 @@ public class AddressData extends Network {
             } catch (IOException e1) {
                 
             }
-        }
+        }*/
     }
 
     public void update(){
@@ -254,21 +254,8 @@ public class AddressData extends Network {
         return getNetworksData().getAppData().appKeyProperty().get();
     }
 
-     public File getTxDir() throws IOException{
-        File txDir = new File(m_addressesData.getWalletData().getErgoWallets().getAppDir().getAbsolutePath() + "/tx");
-        if(!txDir.isDirectory()){
-            Files.createDirectory(txDir.toPath());
-        }
-        return txDir;
-    }
 
-    public File getAddressFile() throws IOException{
-        File txDir = getTxDir();
-        String adrFileName = m_addressesData.getWalletData().getNetworkId() + m_index;
-        File txFile = new File(txDir.getCanonicalPath() + "/" + adrFileName + ".dat");
-        return txFile;
-    }
-
+  
     public void openAddressJson(JsonObject json){
         if(json != null){
          
@@ -395,10 +382,10 @@ public class AddressData extends Network {
             m_watchedTransactions.add(transaction);
             transaction.addUpdateListener((obs,oldval,newval)->{
             
-                saveAddressFile();
+                saveAddresInfo();
             });
             if(save){
-                saveAddressFile();
+                saveAddresInfo();
             }
         }
     }
@@ -568,7 +555,7 @@ public class AddressData extends Network {
             m_watchedTransactions.remove(ergTx);
         }
         if(save){
-            saveAddressFile();
+            saveAddresInfo();
         }
     }
 
@@ -1283,7 +1270,7 @@ public class AddressData extends Network {
             });
 
              Runnable setUpdated = () -> {
-                saveAddressFile();
+                saveAddresInfo();
             };
 
             m_addressStage.widthProperty().addListener((obs, oldVal, newVal) -> {
@@ -2015,22 +2002,12 @@ public class AddressData extends Network {
     /* Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 String prettyString = gson.toJson(json); */
 
-    public void saveAddressFile(){
+    public void saveAddresInfo(){
        
-        try {
-             File file = getAddressFile();
-            JsonObject json = getAddressJson();    
-            String jsonString = json.toString();
-            Utils.writeEncryptedString(getSecretKey(), file, jsonString);
-        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException | IOException e) {
-            try {
-                Files.writeString(logFile.toPath(), "\nAddress save All Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-                
-            }
-        }
+
+        JsonObject json = getAddressJson();    
         
+
         
     }
  

@@ -403,11 +403,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     private final void updateCycle() {
         //get Network info
-        try {
-            Files.writeString(logFile.toPath(), "\nUpdate cycle " + LocalDateTime.now().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-      
-        }
+
         final String localApiString = namedNodeUrlProperty().get().getUrlString() + "/info";
         final String prevVersionString = m_appVersion.get() != null ? m_appVersion.get().get() : "0.0.0";
         if (m_isSyncStuck.get() > -1) {
@@ -1272,30 +1268,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         BufferedButton downloadBtn = new BufferedButton("/assets/sync-30.png", 30);
         downloadBtn.setTooltip(downloadBtnTip);
         downloadBtn.setOnAction(e -> getLatestUrl.run());
-        ErgoNodes ergoNodes = getErgoNodesList().getErgoNodes();
-        Runnable downloadBtnEffect = () -> {
-            if (!ergoNodes.getNetworksData().getAppData().getUpdates()) {
-                if (downloadBtn.getBufferedImageView().getEffect("updateEffectId") == null) {
-                    downloadBtn.getBufferedImageView().applyEffect(new InvertEffect("updateEffectId", 0.7));
-                }
-            } else {
-                downloadBtn.getBufferedImageView().removeEffect("updateEffectId");
-            }
-        };
-        /*
-        ergoNodes.getNetworksData().getAppData().updatesProperty().addListener((obs, oldVal, newVal) -> {
-            downloadBtnEffect.run();
-            if (newVal.booleanValue()) {
-                getLatestUrl.run();
-            }
-
-        }); */
-
-        // if (ergoNodes.getNetworksData().getAppData().getUpdates()) {
+   
         getLatestUrl.run();
-        //   }
-
-        downloadBtnEffect.run();
 
         latestJarRadio.setOnAction(e -> {
             getLatestBoolean.set(true);
@@ -1610,7 +1584,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
                 if (!installDir.isDirectory()) {
 
-                    Alert a = new Alert(AlertType.NONE, "This will create the folder: \n" + folderNameField.getText() + "\n(" + dir.getAbsolutePath() +"\\"+ folderNameField.getText() + ")", ButtonType.OK, ButtonType.CANCEL);
+                    Alert a = new Alert(AlertType.NONE, "This will create the '" + folderNameField.getText() + "' folder.\n(" + dir.getAbsolutePath() +"\\"+ folderNameField.getText() + ")", ButtonType.OK, ButtonType.CANCEL);
                     a.initOwner(m_stage);
                     a.setTitle("Create Folder");
                     a.setHeaderText("Create Folder");
@@ -2728,11 +2702,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         settingsScene.getStylesheets().add("/css/startWindow.css");
 
-        try {
-            Files.writeString(new File("configText.txt").toPath(), "\ntext1", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-
-        }
 
         Image icon = ErgoNodes.getSmallAppIcon();
         double defaultRowHeight = 40;

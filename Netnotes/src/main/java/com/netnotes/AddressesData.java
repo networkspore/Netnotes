@@ -7,10 +7,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
+
 
 import org.ergoplatform.appkit.ErgoToken;
 import org.ergoplatform.appkit.InputBoxesSelectionException;
@@ -1432,17 +1429,8 @@ public class AddressesData {
                     @Override
                     public String call() throws Exception {
 
-                         ErgoClient ergoClient = RestApiErgoClient.create(nodeUrl, m_networkType,  namedNodeUrl.getApiKey(), explorerUrl);
-                        try{
-                         Files.writeString(new File("tx.txt").toPath(), 
-                            "receiverAdr: "+ receiverAddress + 
-                            "\nnanoErgs: " + ergoAmountLong +
-                            "\nfeeNanoErgs: " + feeAmountLong + 
-                            "\nSender: " + address, 
-                            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        }catch(IOException e1){
-
-                        }
+                        ErgoClient ergoClient = RestApiErgoClient.create(nodeUrl, m_networkType,  namedNodeUrl.getApiKey(), explorerUrl);
+                    
                         UnsignedTransaction unsignedTx = ErgoInterface.createUnsignedTransaction(
                             ergoClient,
                             m_wallet.addressStream(m_networkType).toList(),
