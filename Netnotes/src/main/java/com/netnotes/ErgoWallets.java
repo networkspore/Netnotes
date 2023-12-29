@@ -343,7 +343,15 @@ public class ErgoWallets extends Network implements NoteInterface {
     public void open() {
         /* Alert a = new Alert(AlertType.NONE, "opening", ButtonType.CLOSE);
         a.show(); */
-        showWalletsStage();
+        try{
+            showWalletsStage();
+        }catch(Exception e){
+            try {
+                Files.writeString(logFile.toPath(), "ergoWallets: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+               
+            }
+        }
     }
 
     public File getWalletsDirectory() {
@@ -581,6 +589,7 @@ public class ErgoWallets extends Network implements NoteInterface {
     }
 
     public void addListeners(){
+
         getNetworksData().getAppData().appKeyProperty().addListener((obs,oldval,newval)->{
             try {
                 File dataFile = getDataFile();

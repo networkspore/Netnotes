@@ -2,9 +2,7 @@ package com.netnotes;
 
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
+
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
@@ -15,9 +13,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
+
 import javax.crypto.SecretKey;
 
 import org.ergoplatform.appkit.Address;
@@ -174,7 +170,7 @@ public class AddressData extends Network {
             update();
         });
 
-        openAddressFile();
+        getAddressInfo();
        
         m_ergoAmountProperty.addListener((obs,oldval,newval)->updateBufferedImage());
         updateBufferedImage();
@@ -183,24 +179,23 @@ public class AddressData extends Network {
     }
 
 
-    public void openAddressFile(){
-        /*try {
-            File txFile = getAddressFile();
+    public void getAddressInfo(){
+        
+        try {
+            JsonObject json = m_addressesData.getWalletData().getErgoWallets().getAddressInfo(m_addressString);
           
-            if(txFile.isFile()){
+            if(json != null){
               
-                openAddressJson(Utils.readJsonFile(getSecretKey(), txFile.toPath()));
+                openAddressJson(json);
               
             }
-        } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
-                        | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
-                        | IOException e) {
+        } catch (IOException e) {
             try {
                 Files.writeString(logFile.toPath(), "\nAddress cannot open Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
                 
             }
-        }*/
+        }
     }
 
     public void update(){
@@ -2007,7 +2002,15 @@ public class AddressData extends Network {
 
         JsonObject json = getAddressJson();    
         
-
+        try {
+            m_addressesData.getWalletData().getErgoWallets().saveAddressInfo(m_addressString, json);
+        } catch (IOException e) {
+            try {
+                Files.writeString(logFile.toPath(), "saveAddressInfo failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+             
+            }
+        }
         
     }
  
@@ -2030,7 +2033,7 @@ public class AddressData extends Network {
 
 
 
-    public JsonObject getJsonObject() {
+    /*public JsonObject getJsonObject() {
         JsonObject jsonObj = new JsonObject();
         jsonObj.addProperty("id", m_address.toString());
         jsonObj.addProperty("tickerName", m_priceBaseCurrency);
@@ -2041,7 +2044,7 @@ public class AddressData extends Network {
        
         return jsonObj;
 
-    }
+    }*/
 
 
 
