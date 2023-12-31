@@ -57,13 +57,14 @@ public class ErgoNodes extends Network implements NoteInterface {
     private File m_appDir = null;
     private File m_dataFile = null;
 
-    private ErgoNodesList m_ergoNodesList = null;
+    private ErgoNodesList m_ergoNodesList;
 
     public ErgoNodes(ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         m_appDir = new File(ergoNetwork.getAppDir() + "/" + NAME);
+        
         m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-
+   
         setStageWidth(750);
         if (!m_appDir.isDirectory()) {
 
@@ -74,19 +75,22 @@ public class ErgoNodes extends Network implements NoteInterface {
                 a.show();
             }
 
-        }
+            
+        
+        m_ergoNodesList = new ErgoNodesList(this);}
         getLastUpdated().set(LocalDateTime.now());
-        addListeners();
-
+      
+      
     }
 
     public ErgoNodes(JsonObject jsonObject, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         m_appDir = new File(ergoNetwork.getAppDir() + "/" + NAME);
         m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-        
+        m_ergoNodesList = new ErgoNodesList(this);
+
         openJson(jsonObject);
-        addListeners();
+
 
     }
 
@@ -106,14 +110,6 @@ public class ErgoNodes extends Network implements NoteInterface {
         return m_appDir;
     }
 
-    public void addListeners() {
-
-        m_ergoNodesList = new ErgoNodesList(getNetworksData().getAppData().appKeyProperty().get(), this);
-
-        getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
-            m_ergoNodesList.save();
-        });
-    }
 
     private void openJson(JsonObject json) {
 

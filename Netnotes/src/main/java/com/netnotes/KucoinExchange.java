@@ -103,13 +103,20 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public KucoinExchange(NetworksData networksData) {
         this(null, networksData);
-
+        addListeners();
     }
 
     public KucoinExchange(JsonObject jsonObject, NetworksData networksData) {
         super(getAppIcon(), NAME, NETWORK_ID, networksData);
 
         setup(jsonObject);
+        addListeners();
+    }
+
+    public void addListeners(){
+        getNetworksData().getAppData().appKeyProperty().addListener((obs,oldval,newval)->{
+            new KuCoinDataList(this, oldval, newval);
+        });
     }
 
     public SimpleObjectProperty<JsonObject> cmdObjectProperty() {

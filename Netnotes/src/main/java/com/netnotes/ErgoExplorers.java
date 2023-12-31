@@ -86,14 +86,8 @@ public class ErgoExplorers extends Network implements NoteInterface {
                 Alert a = new Alert(AlertType.ERROR, e.toString(), ButtonType.CLOSE);
                 a.show();
             }
-
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-            
-
-        } else {
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-            m_explorersList = new ErgoExplorerList(this);
-        }   
+        }  
+        m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
         m_explorersList = new ErgoExplorerList(this);
     }
 

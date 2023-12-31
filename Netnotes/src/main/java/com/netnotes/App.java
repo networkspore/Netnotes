@@ -43,6 +43,7 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
@@ -150,7 +151,8 @@ public class App extends Application {
         appStage.setTitle("Netnotes");
         appStage.getIcons().add(logo);
 
-        showStatusStage(appStage, "Loading - Netnotes", "Loading...");
+        
+      
 
         Parameters params = getParameters();
         List<String> list = params.getRaw();
@@ -169,12 +171,12 @@ public class App extends Application {
                     try {
                         
                         appData.loadAppKey(()->{
-                            appStage.hide();
+                           // appStage.hide();
                             openNetnotes(appData, appStage);
                         }, ()->{
                             
                             createAutorunKeyDialog(appStage, appData.isSetupAutoRun(), ()->{
-                                appStage.hide();
+                              //  appStage.hide();
                                 verifyAppKey(appStage,appData, (onSucceded)->{
                                 
                                     Object sourceObject = onSucceded.getSource().getValue();
@@ -320,10 +322,10 @@ public class App extends Application {
                                 if(!isNetworksFile){
                                     m_networksData.showManageNetworkStage();
                                 }
-                                password = null;
+                               
                             } catch (Exception e1) {
                                 try {
-                                    Files.writeString(logFile.toPath(), "\nApp (run later): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                    Files.writeString(logFile.toPath(), "\nApp  errpr " + e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                 } catch (IOException e2) {
                             
                                 }
@@ -335,19 +337,22 @@ public class App extends Application {
             }
         });
        
-       
-        Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        appStage.setX((screenRect.getWidth()/2) - (passwordScene.getWidth()/2));
-        appStage.setY((screenRect.getHeight()/2) - (passwordScene.getHeight()/2));
+    
 
-        appStage.show();
-       
+ 
+       Platform.runLater(()->passwordField.requestFocus());
       
-        Platform.runLater(()->{
-            passwordField.requestFocus();
-        });
+       
      
-        
+       passwordScene.focusOwnerProperty().addListener((obs, oldval, newval)->{
+            
+            Platform.runLater(()->passwordField.requestFocus());
+            
+        });
+      
+
+           appStage.show();
+      
     }
 
    
@@ -440,8 +445,7 @@ public class App extends Application {
                                         appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
                                         appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
                                         appStage.show();
-                                        appStage.toFront();
-                                        appStage.requestFocus();
+                                      
                                      
                                     } else {
                                         if (appStage.isShowing()) {
@@ -450,7 +454,7 @@ public class App extends Application {
                                             appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
                                             appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
                                             appStage.show();
-                                            appStage.toFront();
+                                       
                                             appStage.requestFocus();
 
                                             if(!networksFile.isFile()){
@@ -809,8 +813,8 @@ public class App extends Application {
                 Platform.runLater(() -> passwordField.requestFocus());
             }
         });
-             passwordStage.show();
-            passwordStage.toFront();
+        passwordStage.show();
+ 
         Platform.runLater(() ->{
        
         
@@ -991,6 +995,7 @@ public class App extends Application {
 
         VBox bodyBox = new VBox(headerBox, bodyVBox);
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
+        VBox.setVgrow(bodyBox,Priority.ALWAYS);
 
         HBox mainHbox = new HBox(menuBox, vBar, bodyBox);
         VBox.setVgrow(mainHbox, Priority.ALWAYS);
@@ -1181,53 +1186,63 @@ public class App extends Application {
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
 
+    
+
         Button passwordBtn = new Button("(click to update)");
         passwordBtn.setFont(txtFont);
         passwordBtn.setId("toolBtn");
         passwordBtn.setOnAction(e -> {
-            Stage passwordStage = new Stage();
+            Button closeBtn = new Button();
+            verifyAppKey(()->{
+                Stage passwordStage = createPassword("Netnotes - Password", logo, logo, closeBtn, (onSuccess) -> {
+                    Object sourceObject = onSuccess.getSource().getValue();
 
-            createPassword("Netnotes - Password", logo, logo, passwordStage, (onSuccess) -> {
-                Object sourceObject = onSuccess.getSource().getValue();
+                    if (sourceObject != null && sourceObject instanceof String) {
+                        String newPassword = (String) sourceObject;
 
-                if (sourceObject != null && sourceObject instanceof String) {
-                    String newPassword = (String) sourceObject;
+                        if (!newPassword.equals("")) {
 
-                    if (!newPassword.equals("")) {
+                            Stage statusStage = getStatusStage("Netnotes - Saving...", "Saving...");
+                            statusStage.show();
+                            FxTimer.runLater(Duration.ofMillis(100), () -> {
+                                String hash = Utils.getBcryptHashString(newPassword);
+                                Platform.runLater(()->{
+                                    try {
 
-                        Stage statusStage = getStatusStage("Netnotes - Saving...", "Saving...");
-                        statusStage.show();
-                        FxTimer.runLater(Duration.ofMillis(100), () -> {
-                            String hash = Utils.getBcryptHashString(newPassword);
+                                        m_networksData.getAppData().setAppKey(hash);
+                                        m_networksData.getAppData().createKey(newPassword);
+                                    } catch ( Exception e1) {
+                                        try {
+                                            Files.writeString(logFile.toPath(), "App createPassword: " +  e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                        } catch (IOException e2) {
+                                        
+                                        }
+                                        Alert a = new Alert(AlertType.NONE, "Error: Password not changed.", ButtonType.CLOSE);
+                                        a.setTitle("Error: Password not changed.");
+                                        a.initOwner(appStage);
+                                        a.show();
+                                    }
+                                });
+                                statusStage.close();
 
-                            try {
-
-                                m_networksData.getAppData().setAppKey(hash);
-                            } catch (IOException e1) {
-                                Alert a = new Alert(AlertType.NONE, "Error: Password not changed.\n\n" + e1.toString(), ButtonType.CLOSE);
-                                a.setTitle("Error: Password not changed.");
-                                a.initOwner(appStage);
-                                a.show();
-                            }
-
-                            statusStage.close();
-
-                        });
-                    } else {
-                        Alert a = new Alert(AlertType.NONE, "Netnotes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
-                        a.setTitle("Netnotes: Password not changed");
-                        a.initOwner(appStage);
-                        a.show();
+                            });
+                        } else {
+                            Alert a = new Alert(AlertType.NONE, "Netnotes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
+                            a.setTitle("Netnotes: Password not changed");
+                            a.initOwner(appStage);
+                            a.show();
+                        }
                     }
-                }
-                passwordStage.close();
+                    closeBtn.fire();
+                });
+                passwordStage.show();
             });
-
         });
 
         HBox passwordBox = new HBox(passwordTxt, passwordBtn);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
         passwordBox.setPadding(new Insets(10, 0, 0, 20));
+        passwordBox.setMinHeight(30);
 
         Text updatesTxt = new Text(String.format("%-12s", "  Updates:"));
         updatesTxt.setFill(txtColor);
@@ -1256,8 +1271,9 @@ public class App extends Application {
         HBox updatesBox = new HBox(updatesTxt, updatesBtn);
         updatesBox.setAlignment(Pos.CENTER_LEFT);
         updatesBox.setPadding(new Insets(0, 0, 0, 20));
+        updatesBox.setMinHeight(30);
 
-        Text autoRunTxt = new Text(String.format("%-12s", "  autoRun:"));
+        Text autoRunTxt = new Text(String.format("%-12s", "  Auto-run:"));
         autoRunTxt.setFill(txtColor);
         autoRunTxt.setFont(txtFont);
 
@@ -1267,11 +1283,7 @@ public class App extends Application {
         
         File autoRunFile = m_networksData.getAppData().getAutoRunFile();
 
-        Button autoRunFileBtn = new Button(autoRunFile != null && autoRunFile.isFile() ? autoRunFile.getAbsolutePath() : "...");
-        autoRunFileBtn.setId("menuBtn");
-        autoRunFileBtn.setFont(txtFont);
-        autoRunFileBtn.setAlignment(Pos.CENTER_LEFT);
-
+ 
         Button autoRunBtn = new Button(m_networksData.getAppData().isStartupShortcut() && autoRunFile != null && autoRunFile.isFile() ? "Enabled" : "Disabled");
         autoRunBtn.setFont(txtFont);
         autoRunBtn.setId("toolBtn");
@@ -1280,6 +1292,7 @@ public class App extends Application {
         HBox autoRunBox = new HBox(autoRunTxt, autoRunBtn);
         autoRunBox.setAlignment(Pos.CENTER_LEFT);
         autoRunBox.setPadding(new Insets(0, 0, 0, 20));
+        autoRunBox.setMinHeight(30);
 
         Runnable setAutoRun = () ->{
             Stage passwordStage = new Stage();
@@ -1290,7 +1303,7 @@ public class App extends Application {
             passwordStage.setResizable(false);
             passwordStage.initStyle(StageStyle.UNDECORATED);
 
-            verifyAppKey(passwordStage,m_networksData.getAppData(), (onSucceded)->{
+            verifyAppKey(passwordStage, m_networksData.getAppData(), (onSucceded)->{
                 Object sourceObject = onSucceded.getSource().getValue();
                 if(sourceObject != null && sourceObject instanceof String){
 
@@ -1303,10 +1316,8 @@ public class App extends Application {
                             m_networksData.getAppData().setAutoRunFile(keyFile);
                              m_networksData.getAppData().enableAutoRun((String) sourceObject);
                              
-                            if(!autoRunBox.getChildren().contains(autoRunFileBtn)){
-                                autoRunBox.getChildren().add(1, autoRunFileBtn);
-                            }
-                            autoRunFileBtn.setText(keyFile.getAbsolutePath());
+                          
+                        
                             autoRunBtn.setText("Enabled");
                            
                         }
@@ -1328,11 +1339,18 @@ public class App extends Application {
 
         autoRunBtn.setOnAction(btnEvent -> {
             if (autoRunBtn.getText().equals("Enabled")) {
-                autoRunBtn.setText("Disabled");
-                if(autoRunBox.getChildren().contains(autoRunFileBtn)){
-                    autoRunBox.getChildren().remove(autoRunFileBtn);
+           
+
+                try {
+                    m_networksData.getAppData().disableAutoRun();
+                } catch (Exception e1) {
+                    Alert a = new Alert(AlertType.NONE, "Error when disabling autorun - unable to access files.", ButtonType.OK);
+                    a.setTitle("Error");
+                    a.setHeaderText("Error");
+                    a.initOwner(appStage);
+                    a.show();
                 }
-                autoRunFileBtn.setText("...");
+                
             } else {
                 
                 Alert a = new Alert(AlertType.NONE, AUTORUN_WARNING, ButtonType.CANCEL, ButtonType.OK);
@@ -1346,9 +1364,16 @@ public class App extends Application {
             }
         });
 
-        autoRunFileBtn.setOnAction(e->setAutoRun.run());
+        
+        
+        VBox settingsVBox = new VBox(passwordBox, updatesBox, autoRunBox);
+        HBox.setHgrow(settingsVBox, Priority.ALWAYS);
 
-        bodyVBox.getChildren().addAll(settingsBtnBox, passwordBox, updatesBox, autoRunBox);
+        settingsVBox.setAlignment(Pos.CENTER_LEFT);
+        settingsVBox.setPadding(new Insets(15,0,15,0));
+
+
+        bodyVBox.getChildren().addAll(settingsBtnBox, settingsVBox);
     }
 
     private VBox createMenu(Button settingsBtn, Button networksBtn) {
@@ -1443,15 +1468,18 @@ public class App extends Application {
         return file;
     }
 
-    public static void createPassword(String topTitle, Image windowLogo, Image mainLogo, Stage passwordStage, EventHandler<WorkerStateEvent> onSucceeded) {
-
+    
+    public static Stage createPassword(String topTitle, Image windowLogo, Image mainLogo, Button closeBtn, EventHandler<WorkerStateEvent> onSucceeded) {
+        Stage passwordStage = new Stage();
+        passwordStage.initStyle(StageStyle.UNDECORATED);
+        passwordStage.setTitle(topTitle);
+        passwordStage.getIcons().add(windowLogo);
         passwordStage.setTitle(topTitle);
 
-        Button closeBtn = new Button();
-
+      
         HBox titleBox = createTopBar(icon, topTitle, closeBtn, passwordStage);
 
-        Button imageBtn = App.createImageButton(mainLogo, "Password");
+        Button imageBtn = App.createImageButton(mainLogo, "Create Password");
         imageBtn.setGraphicTextGap(20);
         HBox imageBox = new HBox(imageBtn);
         imageBox.setAlignment(Pos.CENTER);
@@ -1550,7 +1578,7 @@ public class App extends Application {
 
             }
         });
-
+        return passwordStage;
     }
 
     public String getNowTimeString() {

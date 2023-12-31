@@ -64,8 +64,8 @@ public class AppData {
     private boolean m_isDaemon = false;
     private boolean m_isFirstRun = false;
 
-    private boolean m_updatesProperty = true;
-    private boolean m_autoUpdateProperty = false;
+    private boolean m_updates = true;
+    private boolean m_autoUpdate = false;
     
     private File m_appFile = null;
     
@@ -132,9 +132,23 @@ public class AppData {
         if (appkeyElement != null && appkeyElement.isJsonPrimitive()) {
 
             m_appKey = appkeyElement.getAsString();
-            m_updatesProperty = updates;
-            m_autoUpdateProperty = autoUpdate;
-            m_autoRunFile = autoRunKeyFileElement != null && autoRunKeyFileElement.isJsonPrimitive() ? new File(autoRunKeyFileElement.getAsString()) : null;
+            m_updates = updates;
+            m_autoUpdate = autoUpdate;
+            if(autoRunKeyFileElement != null && autoRunKeyFileElement.isJsonPrimitive()){
+                File autoRunFile = new File(autoRunKeyFileElement.getAsString());
+                if(autoRunFile.isFile()){
+                    m_autoRunFile = autoRunFile;
+                }else{
+                    m_autoRunFile = null;
+                    try{
+                        disableAutoRun();
+                    }catch(Exception e){
+                        Files.writeString(logFile.toPath(), "\nAutorun unavailable during load. Error disabling autorun", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    }
+                }
+            }else{
+                m_autoRunFile = null;
+            }
          
 
         } else {
@@ -590,20 +604,17 @@ public class AppData {
     }
 
     public boolean getUpdates() {
-        return m_updatesProperty;
+        return m_updates;
     }
 
     public void setUpdates(boolean updates) throws IOException {
-        m_updatesProperty = updates;
+        m_updates = updates;
         save();
     }
 
-    public boolean getAutoUpdateProperty(){
-        return m_autoUpdateProperty;
-    }
 
     public void setAutoUpdate(boolean value) throws IOException{
-        m_autoUpdateProperty = value;
+        m_autoUpdate = value;
         save();
     }
 
@@ -630,8 +641,8 @@ public class AppData {
     public JsonObject getJson() {
         JsonObject dataObject = new JsonObject();
         dataObject.addProperty("appKey", m_appKey);
-        dataObject.addProperty("updates", m_updatesProperty);
-        dataObject.addProperty("autoUpdate", m_autoUpdateProperty);
+        dataObject.addProperty("updates", m_updates);
+        dataObject.addProperty("autoUpdate", m_autoUpdate);
 
         if(m_autoRunFile != null){
             dataObject.addProperty("autoRunFile", m_autoRunFile.getAbsolutePath());

@@ -43,7 +43,7 @@ import javafx.scene.paint.Color;
 
 public class KuCoinDataList extends Network implements NoteInterface {
 
-    private File logFile = new File("kucoinChartsList-log.txt");
+    private File logFile = new File("netnotes-log.txt");
     private KucoinExchange m_kucoinExchange;
 
     private VBox m_favoriteGridBox = new VBox();
@@ -59,15 +59,21 @@ public class KuCoinDataList extends Network implements NoteInterface {
     private boolean m_sortDirection = false;
     private String m_searchText = null;
 
-    public KuCoinDataList(KucoinExchange kuCoinCharts) {
-        super(null, "Ergo Charts List", "KUCOIN_CHARTS_LIST", kuCoinCharts);
-        m_kucoinExchange = kuCoinCharts;
+    public KuCoinDataList(KucoinExchange kuCoinExchange) {
+        super(null, "Ergo Charts List", "KUCOIN_CHARTS_LIST", kuCoinExchange);
+        m_kucoinExchange = kuCoinExchange;
 
-        setup();
+        setup(m_kucoinExchange.getNetworksData().getAppData().appKeyProperty().get());
 
     }
+    public KuCoinDataList(KucoinExchange kuCoinExchange, SecretKey oldval, SecretKey newval ) {
+        super(null, "Ergo Charts List", "KUCOIN_CHARTS_LIST", kuCoinExchange);
+        m_kucoinExchange = kuCoinExchange;
 
-    private void setup() {
+        updateFile(oldval, newval);
+    }
+
+    private void setup(SecretKey secretKey) {
         updateGridBox();
 
         m_kucoinExchange.getAllTickers(success -> {
@@ -75,7 +81,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             if (sourceObject != null && sourceObject instanceof JsonObject) {
 
                 readTickers(m_favoritesList, getDataJson((JsonObject) sourceObject), onSuccess -> {
-                    getFile(getNetworksData().getAppData().appKeyProperty().get());
+                    getFile(secretKey);
                     sortByChangeRate(false);
                     sort();
                     updateGridBox();
@@ -87,7 +93,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                     } catch (IOException e) {
 
                     }
-                    getFile(getNetworksData().getAppData().appKeyProperty().get());
+                    getFile(secretKey);
                     m_notConnected = true;
                     m_statusMsg.set("Not connected");
                     updateGridBox();
@@ -100,7 +106,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                 } catch (IOException e) {
 
                 }
-                getFile(getNetworksData().getAppData().appKeyProperty().get());
+                getFile(secretKey);
                 m_notConnected = true;
                 m_statusMsg.set("Not connected");
                 updateGridBox();
@@ -111,15 +117,13 @@ public class KuCoinDataList extends Network implements NoteInterface {
             } catch (IOException e) {
 
             }
-            getFile(getNetworksData().getAppData().appKeyProperty().get());
+            getFile(secretKey);
             m_notConnected = true;
             m_statusMsg.set("Not connected");
             updateGridBox();
         });
 
-        getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
-            save(newVal);
-        });
+      
     }
 
     public void closeAll() {
@@ -156,7 +160,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             updateGridBox();
 
             if (doSave) {
-                save(getNetworksData().getAppData().appKeyProperty().get());
+                save();
             }
         }
     }
@@ -169,7 +173,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
             updateGridBox();
 
             if (doSave) {
-                save(getNetworksData().getAppData().appKeyProperty().get());
+                save();
             }
         }
     }
@@ -321,20 +325,47 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
     }
 
-    private void getFile(SecretKey secretKey) {
-        JsonObject json = null;
-
+    private void updateFile(SecretKey oldKey, SecretKey newKey){
         File dataFile = m_kucoinExchange.getDataFile();
         if (dataFile != null && dataFile.isFile()) {
             try {
-                json = Utils.readJsonFile(secretKey, dataFile.toPath());
-                openJson(json);
+                JsonObject json = Utils.readJsonFile(oldKey, dataFile.toPath());
+               
+                if(json!= null){
+                    Utils.saveJson(newKey, json, dataFile);
+                }
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
                     | IOException e) {
 
                 try {
-                    Files.writeString(logFile.toPath(), "\ngetfile error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    Files.writeString(logFile.toPath(), "\nKuCoin getfile error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+
+                }
+
+            }
+
+        }
+    }
+
+    private void getFile(SecretKey secretKey) {
+
+        File dataFile = m_kucoinExchange.getDataFile();
+        if (dataFile != null && dataFile.isFile()) {
+            try {
+                JsonObject json = Utils.readJsonFile(secretKey, dataFile.toPath());
+               
+                if(json!= null){
+           
+                    openJson(json);
+                }
+            } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                    | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
+                    | IOException e) {
+
+                try {
+                    Files.writeString(logFile.toPath(), "\nKuCoin getfile error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 } catch (IOException e1) {
 
                 }
@@ -628,9 +659,14 @@ public class KuCoinDataList extends Network implements NoteInterface {
         return m_kucoinExchange;
     }
 
-    public void save(SecretKey secretKey) {
+    public void save(){
+        save(getNetworksData().getAppData().appKeyProperty().get());
+    }
 
+    public void save(SecretKey secretKey) {
+  
         try {
+           
             Utils.saveJson(secretKey, getJsonObject(), m_kucoinExchange.getDataFile());
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException

@@ -4,6 +4,7 @@ import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -64,7 +65,7 @@ public class ErgoNodesList {
     public final static String PUBLIC = "PUBLIC";
     public final static String CUSTOM = "CUSTOM";
 
-    private File logFile = new File("ergonotes-log.txt");
+    private File logFile = new File("netnotes-log.txt");
     private SimpleStringProperty m_selectedId = new SimpleStringProperty(null);
     private SimpleStringProperty m_defaultId = new SimpleStringProperty(null);
 
@@ -89,19 +90,23 @@ public class ErgoNodesList {
     private String m_defaultAddType = PUBLIC;
 
     private String m_downloadImgUrl = "/assets/cloud-download-30.png";
+    private ChangeListener<LocalDateTime> m_nodeUpdateListener = (obs, oldval, newVal) -> save();
 
-    public ErgoNodesList(SecretKey secretKey, ErgoNodes ergoNodes) {
+    public ErgoNodesList( ErgoNodes ergoNodes) {
         m_ergoNodes = ergoNodes;
-        getFile(secretKey);
+        getFile();
+        m_ergoNodes.getNetworksData().getAppData().appKeyProperty().addListener((obs,oldval,newval)->save());
     }
 
-    private void getFile(SecretKey secretKey) {
+    private void getFile() {
         File dataFile = m_ergoNodes.getDataFile();
         File appDir = m_ergoNodes.getAppDir();
 
         if (appDir != null && appDir.isDirectory() && dataFile != null && dataFile.isFile()) {
+          
             try {
-                JsonObject json = Utils.readJsonFile(secretKey, m_ergoNodes.getDataFile().toPath());
+   
+                JsonObject json = Utils.readJsonFile(m_ergoNodes.getNetworksData().getAppData().appKeyProperty().get(), m_ergoNodes.getDataFile().toPath());
                 openJson(json);
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
@@ -119,7 +124,7 @@ public class ErgoNodesList {
 
             m_ergoLocalNode.lastUpdated().addListener(m_nodeUpdateListener);
             add(new ErgoNodeData(this, ErgoNodeData.LIGHT_CLIENT, new NamedNodeUrl()), true);
-            save();
+        
         }
 
     }
@@ -278,7 +283,19 @@ public class ErgoNodesList {
         return jsonArray;
     }
 
-    public JsonObject getJsonObject() {
+   
+
+    public JsonObject getAddStageJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("width", m_addStageWidth);
+        json.addProperty("height", m_addStageHeight);
+        json.addProperty("prevWidth", m_prevAddStageWidth);
+        json.addProperty("prevHeight", m_prevAddStageHeight);
+        json.addProperty("maximized", m_addStageMaximized);
+        return json;
+    }
+
+     public JsonObject getJsonObject() {
         JsonObject json = new JsonObject();
 
         json.add("nodes", getNodesJsonArray());
@@ -292,21 +309,10 @@ public class ErgoNodesList {
         return json;
     }
 
-    public JsonObject getAddStageJson() {
-        JsonObject json = new JsonObject();
-        json.addProperty("width", m_addStageWidth);
-        json.addProperty("height", m_addStageHeight);
-        json.addProperty("prevWidth", m_prevAddStageWidth);
-        json.addProperty("prevHeight", m_prevAddStageHeight);
-        json.addProperty("maximized", m_addStageMaximized);
-        return json;
-    }
-
     public void save() {
-        JsonObject fileJson = getJsonObject();
+        
 
-        String jsonString = fileJson.toString();
-
+      
         //  byte[] bytes = jsonString.getBytes(StandardCharsets.UTF_8);
         // String fileHexString = Hex.encodeHexString(bytes);
         File appDir = m_ergoNodes.getAppDir();
@@ -314,7 +320,9 @@ public class ErgoNodesList {
             if (!appDir.isDirectory()) {
                 Files.createDirectory(appDir.toPath());
             }
-            Utils.writeEncryptedString(m_ergoNodes.getNetworksData().getAppData().appKeyProperty().get(), m_ergoNodes.getDataFile(), jsonString);
+            JsonObject fileJson = getJsonObject();
+            Utils.saveJson(m_ergoNodes.getNetworksData().getAppData().appKeyProperty().get(), fileJson, m_ergoNodes.getDataFile());
+         
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException
                 | IOException e) {
@@ -326,7 +334,7 @@ public class ErgoNodesList {
         }
     }
 
-    private ChangeListener<LocalDateTime> m_nodeUpdateListener = (obs, oldval, newVal) -> save();
+  
 
     public VBox getGridBox(SimpleDoubleProperty width, SimpleDoubleProperty scrollWidth) {
         VBox gridBox = new VBox();

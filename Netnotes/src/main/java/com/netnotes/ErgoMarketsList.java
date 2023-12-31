@@ -64,6 +64,7 @@ public class ErgoMarketsList {
         m_ergoMarkets = ergoMarkets;
         SecretKey secretKey = m_ergoMarkets.getNetworksData().getAppData().appKeyProperty().get();
         readFile(secretKey);
+      
     }
 
     public ErgoMarketsData getMarketsData(String id) {

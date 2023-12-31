@@ -168,7 +168,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         super(ergoNodesList, LOCAL_NODE, new NamedNodeUrl(id, "Not Installed", "127.0.0.1", ErgoNodes.MAINNET_PORT, "", NetworkType.MAINNET));
 
         setListeners();
-
+    
     }
 
     public ErgoNodeLocalData(NamedNodeUrl namedNode, JsonObject json, ErgoNodesList ergoNodesList) {
@@ -1688,8 +1688,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             // 
             SimpleBooleanProperty getLatestBoolean = new SimpleBooleanProperty(true);
-            SimpleStringProperty downloadUrl = new SimpleStringProperty("https://github.com/ergoplatform/ergo/releases/download/v5.0.14/ergo-5.0.14.jar");
-            SimpleStringProperty downloadFileName = new SimpleStringProperty("ergo-5.0.14.jar");
+            SimpleStringProperty downloadUrl = new SimpleStringProperty("https://github.com/ergoplatform/ergo/releases/download/v5.0.18/ergo-5.0.18.jar");
+            SimpleStringProperty downloadFileName = new SimpleStringProperty("ergo-5.0.18.jar");
             SimpleObjectProperty<File> jarFile = new SimpleObjectProperty<File>(null);
             SimpleBooleanProperty updateBoolean = new SimpleBooleanProperty(true);
             SimpleBooleanProperty autoUpdateBoolean = new SimpleBooleanProperty(false);
@@ -1700,6 +1700,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
             backBtn.setOnAction(e -> {
                 m_stage.setScene(initialScene);
+                m_stage.setHeight(SETUP_STAGE_HEIGHT);
             });
 
             installBtn.setOnAction(e -> {
@@ -2399,10 +2400,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         if (m_appFileHashData != null) {
             json.add("appFileHashData", m_appFileHashData.getJsonObject());
         }
-        if(m_appVersion != null){
+        if(m_appVersion.get() != null){
             json.addProperty("appVersion", m_appVersion.get().get());
         }
         json.addProperty("appExecParams", m_execParams);
+        
+    
 
         return json;
 

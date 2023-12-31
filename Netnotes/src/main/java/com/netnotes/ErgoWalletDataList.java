@@ -21,6 +21,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 import org.ergoplatform.appkit.Mnemonic;
@@ -94,9 +95,18 @@ public class ErgoWalletDataList {
 
         m_ergoWallet = ergoWallet;
         m_dataFile = dataFile;
-        readFile(m_dataFile);
+        readFile(m_ergoWallet.getNetworksData().getAppData().appKeyProperty().get());
 
         m_iconStyle.addListener((obs, oldval, newval) -> updateGrid());
+    }
+
+     public ErgoWalletDataList(SecretKey secretKey, File dataFile, ErgoWallets ergoWallet) {
+      
+    
+        m_ergoWallet = ergoWallet;
+        m_dataFile = dataFile;
+        readFile(secretKey);
+        save();
     }
 
     public SimpleDoubleProperty gridWidthProperty() {
@@ -107,11 +117,11 @@ public class ErgoWalletDataList {
         return m_iconStyle;
     }
 
-    public void readFile(File dataFile) {
-        if (dataFile != null && dataFile.isFile()) {
+    public void readFile(SecretKey secretKey) {
+        if (m_dataFile != null && m_dataFile.isFile()) {
             try {
 
-                openJson(Utils.readJsonFile(m_ergoWallet.getNetworksData().getAppData().appKeyProperty().get(), dataFile.toPath()));
+                openJson(Utils.readJsonFile(secretKey, m_dataFile.toPath()));
 
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
@@ -599,7 +609,8 @@ public class ErgoWalletDataList {
         restoreWalletBtn.setOnAction(clickEvent -> {
             String seedPhrase = restoreMnemonicStage();
             if (!seedPhrase.equals("")) {
-                App.createPassword(m_ergoWallet.getName() + " - Restore wallet: Password", m_ergoWallet.getIcon(), ErgoWallets.getAppIcon(), stage, onSuccess -> {
+                Button passBtn = new Button();
+                Stage passwordStage = App.createPassword(m_ergoWallet.getName() + " - Restore wallet: Password", m_ergoWallet.getIcon(), ErgoWallets.getAppIcon(),passBtn, onSuccess -> {
                     Object sourceObject = onSuccess.getSource().getValue();
 
                     if (sourceObject != null && sourceObject instanceof String) {
@@ -633,7 +644,7 @@ public class ErgoWalletDataList {
                                     add(walletData);
                                     save();
 
-                                    closeBtn.fire();
+                                   
                                 } catch (Exception e1) {
                                     Alert a = new Alert(AlertType.NONE, "Wallet creation: Cannot be saved.\n\n" + e1.toString(), ButtonType.OK);
                                     a.initOwner(stage);
@@ -643,10 +654,10 @@ public class ErgoWalletDataList {
 
                         }
                         stage.setScene(walletScene);
-                        closeBtn.fire();
+                        passBtn.fire();
                     }
                 });
-
+                passwordStage.show();
             }
 
         });
@@ -826,8 +837,8 @@ public class ErgoWalletDataList {
             nextAlert.setTitle("Notice - Mnemonic phrase - Add wallet");
             Optional<ButtonType> result = nextAlert.showAndWait();
             if (result.isPresent() && result.get() == ButtonType.OK) {
-
-                App.createPassword("Wallet password - " + ErgoWallets.NAME, ErgoWallets.getSmallAppIcon(), ErgoWallets.getAppIcon(), stage, onSuccess -> {
+                 Button passBtn = new Button();
+                Stage passwordStage = App.createPassword("Wallet password - " + ErgoWallets.NAME, ErgoWallets.getSmallAppIcon(), ErgoWallets.getAppIcon(), passBtn, onSuccess -> {
                     Object sourceObject = onSuccess.getSource().getValue();
 
                     if (sourceObject != null && sourceObject instanceof String) {
@@ -851,16 +862,16 @@ public class ErgoWalletDataList {
                                 ErgoWalletData walletData = new ErgoWalletData(id, name, walletFile, nodeId, explorerId, marketsId, ergoTokensEnabled, networkType, m_ergoWallet);
                                 add(walletData);
                                 save();
-                                closeBtn.fire();
+                              
                             }
 
                         }
 
                     }
                     stage.setScene(mnemonicScene);
-                    closeBtn.fire();
+                    passBtn.fire();
                 });
-
+                passwordStage.show();
             }
         });
 
@@ -1133,61 +1144,9 @@ public class ErgoWalletDataList {
         fileObject.add("stage", getStageJson());
         fileObject.add("wallets", getWalletsJsonArray());
 
-        String jsonString = fileObject.toString();
-
-        //  byte[] bytes = jsonString.getBytes(StandardCharsets.UTF_8);
-        // String fileHexString = Hex.encodeHexString(bytes);
-        try {
-
-            SecureRandom secureRandom = SecureRandom.getInstanceStrong();
-            byte[] iV = new byte[12];
-            secureRandom.nextBytes(iV);
-
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iV);
-
-            cipher.init(Cipher.ENCRYPT_MODE, m_ergoWallet.getNetworksData().getAppData().appKeyProperty().get(), parameterSpec);
-
-            byte[] encryptedData = cipher.doFinal(jsonString.getBytes());
-
-            try {
-
-                if (m_dataFile.isFile()) {
-                    Files.delete(m_dataFile.toPath());
-                }
-
-                FileOutputStream outputStream = new FileOutputStream(m_dataFile);
-                FileChannel fc = outputStream.getChannel();
-
-                ByteBuffer byteBuffer = ByteBuffer.wrap(iV);
-
-                fc.write(byteBuffer);
-
-                int written = 0;
-                int bufferLength = 1024 * 8;
-
-                while (written < encryptedData.length) {
-
-                    if (written + bufferLength > encryptedData.length) {
-                        byteBuffer = ByteBuffer.wrap(encryptedData, written, encryptedData.length - written);
-                    } else {
-                        byteBuffer = ByteBuffer.wrap(encryptedData, written, bufferLength);
-                    }
-
-                    written += fc.write(byteBuffer);
-                }
-
-                outputStream.close();
-
-            } catch (IOException e) {
-                try {
-                    Files.writeString(logFile.toPath(), "\nIO exception:" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e1) {
-
-                }
-            }
-
-        } catch (NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
+        try{
+            Utils.saveJson(m_ergoWallet.getNetworksData().getAppData().appKeyProperty().get(), fileObject, m_dataFile);
+        } catch (NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException | IOException e) {
             try {
                 Files.writeString(logFile.toPath(), "\nKey error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {

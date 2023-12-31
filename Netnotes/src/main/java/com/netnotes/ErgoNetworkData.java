@@ -121,6 +121,7 @@ public class ErgoNetworkData implements InstallerInterface {
                 updateGrid();
             }
         });
+        m_ergoNetwork.getNetworksData().getAppData().appKeyProperty().addListener((obs,oldval,newval)->save());
     }
 
     public boolean isEmpty() {

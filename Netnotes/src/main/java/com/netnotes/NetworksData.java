@@ -151,6 +151,7 @@ public class NetworksData implements InstallerInterface {
         }
 
         setupTimer();
+        m_appData.appKeyProperty().addListener((obs,oldval,newval)->save());
     }
 
     private void readFile(SecretKey appKey, Path filePath) {

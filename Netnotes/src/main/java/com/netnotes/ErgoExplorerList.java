@@ -46,7 +46,7 @@ public class ErgoExplorerList {
         m_ergoExplorer = ergoExplorer;
        
         readFile();
-        ergoExplorer.getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> save());
+        m_ergoExplorer.getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> save());
     }
 
     private void readFile(){

@@ -269,11 +269,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
                     } catch (Exception e1) {
 
                         passwordField.setText("");
-                        try {
-                            Files.writeString(logFile.toPath(), e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e2) {
-
-                        }
+                        e1.printStackTrace();
                     }
 
                 }

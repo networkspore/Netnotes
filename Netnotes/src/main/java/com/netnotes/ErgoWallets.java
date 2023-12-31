@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -51,7 +52,7 @@ import javafx.util.Duration;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
-
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
 
@@ -169,26 +170,26 @@ public class ErgoWallets extends Network implements NoteInterface {
         return dataDir;
     }
 
-    public File getDataFile() throws IOException{
+    public File getIdDataFile() throws IOException{
         File dataDir = getDataDir();
 
-        File dataFile = new File(dataDir.getCanonicalPath() + "/data.dat");
-        return dataFile;
+        File idDataFile = new File(dataDir.getCanonicalPath() + "/data.dat");
+        return idDataFile;
     }
 
     public File createNewDataFile() throws IOException{
         File dataDir = getDataDir();
 
-        File dataFile = new File(dataDir.getCanonicalPath() + "/"+FriendlyId.createFriendlyId()+".dat");
-        return dataFile;
+        File idDataFile = new File(dataDir.getCanonicalPath() + "/"+FriendlyId.createFriendlyId()+".dat");
+        return idDataFile;
     }
 
     public void saveAddressInfo(String id, String id2, JsonObject json) throws IOException{
         if(id != null && json != null){
-            File dataFile = getIdDataFile(id, id2);
+            File idDataFile = getIdDataFile(id, id2);
 
             try {
-                Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
+                Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
            
             } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
@@ -201,12 +202,74 @@ public class ErgoWallets extends Network implements NoteInterface {
 
         }
     }
+    public void removeAddressInfo(String id2){
+         
+        try {
+            File idDataFile =  getIdDataFile();
+            if(idDataFile.isFile()){
+              
+                JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
+                JsonElement idsElement = json.get("ids");
+        
+                if(idsElement != null && idsElement.isJsonArray()){
+                    JsonArray idsArray = idsElement.getAsJsonArray();
+                    SimpleIntegerProperty indexProperty = new SimpleIntegerProperty(-1);
+                    for(int i = 0; i < idsArray.size(); i ++){
+                        JsonElement dataFileElement = idsArray.get(i);
+                        if(dataFileElement != null && dataFileElement.isJsonObject()){
+                            JsonObject fileObject = dataFileElement.getAsJsonObject();
+                            JsonElement dataIdElement = fileObject.get("id");
+
+                            if(dataIdElement != null && dataIdElement.isJsonPrimitive()){
+                                String fileId2String = dataIdElement.getAsString();
+                                if(fileId2String.equals(id2)){
+                                    indexProperty.set(i);
+                                    JsonElement dataArrayElement = fileObject.get("data");
+                                    if(dataArrayElement != null && dataArrayElement.isJsonArray()){
+                                        JsonArray dataArray = dataArrayElement.getAsJsonArray();
+                                        for(int j = 0; j< dataArray.size();j++){
+                                            JsonElement fileDataObjectElement = dataArray.get(j);
+                                            if(fileDataObjectElement != null && fileDataObjectElement.isJsonObject()){
+                                                JsonObject fileDataObject = fileDataObjectElement.getAsJsonObject();
+                                                JsonElement fileElement = fileDataObject.get("file");
+                                                if(fileElement != null && fileElement.isJsonPrimitive()){
+                                                    File file = new File(fileElement.getAsString());
+                                                    if(file.isFile()){
+                                                        Files.delete(file.toPath());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    int index = indexProperty.get();
+                    if(index > -1){
+                        idsArray.remove(index);
+                        json.remove("ids");
+                        json.add("ids",idsArray);
+                        Utils.saveJson(null, json, idDataFile);
+                    }
+                }
+            }
+        }catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                    | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException | IOException e) {
+                try {
+                    Files.writeString(logFile.toPath(),"Error reading Wallets data Array(getAddressInfo): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+                
+                }
+            }
+    }
 
     public JsonObject getAddressInfo(String id, String id2) throws IOException{
-        File dataFile = getIdDataFile(id, id2);
-        if(dataFile.isFile()){
+        File idDataFile = getIdDataFile(id, id2);
+        if(idDataFile.isFile()){
             try {
-                return Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), dataFile.toPath());
+                return Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                 try {
@@ -222,13 +285,13 @@ public class ErgoWallets extends Network implements NoteInterface {
 
     public File getIdDataFile(String id, String id2) throws IOException{
         
-        File dataFile = getDataFile();
+        File idDataFile = getIdDataFile();
     
         try {
            
-            if(dataFile.isFile()){
+            if(idDataFile.isFile()){
               
-                JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), dataFile.toPath());
+                JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
                 JsonElement idsElement = json.get("ids");
                 json.remove("ids");
                 if(idsElement != null && idsElement.isJsonArray()){
@@ -281,7 +344,7 @@ public class ErgoWallets extends Network implements NoteInterface {
                                         json.add("ids", idsArray);
 
                                         try {
-                                            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
+                                            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
                                         
                                         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                                                 | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
@@ -313,7 +376,7 @@ public class ErgoWallets extends Network implements NoteInterface {
                     
                     json.add("ids", idsArray);
                     try {
-                        Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
+                        Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
                        
                     } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                             | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
@@ -356,7 +419,7 @@ public class ErgoWallets extends Network implements NoteInterface {
         json.add("ids", idsArray);
 
         try {
-            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, dataFile);
+            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
             return newFile;
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
@@ -386,15 +449,9 @@ public class ErgoWallets extends Network implements NoteInterface {
     public void open() {
         /* Alert a = new Alert(AlertType.NONE, "opening", ButtonType.CLOSE);
         a.show(); */
-        try{
-            showWalletsStage();
-        }catch(Exception e){
-            try {
-                Files.writeString(logFile.toPath(), "ergoWallets: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-               
-            }
-        }
+     
+        showWalletsStage();
+   
     }
 
     public File getWalletsDirectory() {
@@ -462,20 +519,20 @@ public class ErgoWallets extends Network implements NoteInterface {
 
             scrollPane.setId("bodyBox");
 
-            Button addButton = new Button("Add");
-            addButton.setId("menuBarBtn");
-            addButton.setPadding(new Insets(2, 6, 2, 6));
-            addButton.setPrefWidth(getStageWidth() / 2);
-            addButton.setPrefHeight(buttonHeight);
+            Button addBtn = new Button("Add");
+            addBtn.setId("menuBarBtn");
+            addBtn.setPadding(new Insets(2, 6, 2, 6));
+            addBtn.setPrefWidth(getStageWidth() / 2);
+            addBtn.setPrefHeight(buttonHeight);
 
-            Button removeButton = new Button("Remove");
-            removeButton.setId("menuBarBtnDisabled");
-            removeButton.setPadding(new Insets(2, 6, 2, 6));
-            removeButton.setDisable(true);
-            removeButton.setPrefWidth(getStageWidth() / 2);
-            removeButton.setPrefHeight(buttonHeight);
+            Button removeBtn = new Button("Remove");
+            removeBtn.setId("menuBarBtnDisabled");
+            removeBtn.setPadding(new Insets(2, 6, 2, 6));
+            removeBtn.setDisable(true);
+            removeBtn.setPrefWidth(getStageWidth() / 2);
+            removeBtn.setPrefHeight(buttonHeight);
 
-            HBox menuBox = new HBox(addButton, removeButton);
+            HBox menuBox = new HBox(addBtn, removeBtn);
             menuBox.setId("blackMenu");
             menuBox.setAlignment(Pos.CENTER_LEFT);
             menuBox.setPadding(new Insets(5, 5, 5, 5));
@@ -487,7 +544,8 @@ public class ErgoWallets extends Network implements NoteInterface {
 
             Scene walletsScene = new Scene(layoutVBox, getStageWidth(), getStageHeight());
 
-            addButton.setOnAction(event -> {
+            addBtn.setOnAction(event -> {
+              
                 walletsDataList.showAddWalletStage();
             });
 
@@ -503,8 +561,8 @@ public class ErgoWallets extends Network implements NoteInterface {
             scrollPane.setContent(walletsBox);
             scrollPane.setPadding(new Insets(5, 5, 5, 5));
 
-            addButton.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));
-            removeButton.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));
+            addBtn.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));
+            removeBtn.prefWidthProperty().bind(walletsScene.widthProperty().divide(2));
 
             walletsScene.getStylesheets().add("/css/startWindow.css");
             m_walletsStage.setScene(walletsScene);
@@ -553,26 +611,28 @@ public class ErgoWallets extends Network implements NoteInterface {
 
             });
 
+
+
             walletsScene.focusOwnerProperty().addListener((obs, oldval, newval) -> {
 
                 if (walletsScene.focusOwnerProperty().get() instanceof IconButton) {
                     IconButton iconBtn = (IconButton) walletsScene.focusOwnerProperty().get();
 
                     if (iconBtn.getButtonId() != null) {
-                        removeButton.setDisable(false);
-                        removeButton.setId("menuBarBtn");
+                        removeBtn.setDisable(false);
+                        removeBtn.setId("menuBarBtn");
                         walletsScene.setUserData(iconBtn.getButtonId());
                     } else {
-                        removeButton.setDisable(true);
-                        removeButton.setId("menuBarBtnDisabled");
+                        removeBtn.setDisable(true);
+                        removeBtn.setId("menuBarBtnDisabled");
                     }
                 } else {
 
                     if (walletsScene.focusOwnerProperty().get() instanceof Button) {
                         Button btn = (Button) walletsScene.focusOwnerProperty().get();
                         if (!btn.getText().equals("Remove")) {
-                            removeButton.setDisable(true);
-                            removeButton.setId("menuBarBtnDisabled");
+                            removeBtn.setDisable(true);
+                            removeBtn.setId("menuBarBtnDisabled");
                         } else {
 
                             if (oldval instanceof IconButton) {
@@ -586,8 +646,8 @@ public class ErgoWallets extends Network implements NoteInterface {
                             }
                         }
                     } else {
-                        removeButton.setDisable(true);
-                        removeButton.setId("menuBarBtnDisabled");
+                        removeBtn.setDisable(true);
+                        removeBtn.setId("menuBarBtnDisabled");
                     }
                 }
             });
@@ -632,64 +692,10 @@ public class ErgoWallets extends Network implements NoteInterface {
     }
 
     public void addListeners(){
-
+        
         getNetworksData().getAppData().appKeyProperty().addListener((obs,oldval,newval)->{
-            try {
-                File dataFile = getDataFile();
-                if(dataFile.isFile()){
-                    try {
-                        JsonObject dataFileJson = Utils.readJsonFile(oldval, dataFile.toPath());
-                        Utils.saveJson(newval, dataFileJson, dataFile);
-
-                        JsonElement idsArrayElement = dataFileJson.get("ids");
-                        if(idsArrayElement != null && idsArrayElement.isJsonArray()){
-                            JsonArray idsArray = idsArrayElement.getAsJsonArray();
-
-                            for(int i = 0; i < idsArray.size() ; i++){
-                                JsonElement idFileObjectElement = idsArray.get(i);
-
-                                if(idFileObjectElement != null && idFileObjectElement.isJsonObject()){
-                                    JsonObject idFileObject = idFileObjectElement.getAsJsonObject();
-                                    JsonElement dataElement = idFileObject.get("data");
-
-                                    if(dataElement != null && dataElement.isJsonArray()){
-                                        JsonArray dataArray = dataElement.getAsJsonArray();
-
-                                        for(int j = 0; j< dataArray.size(); j++){
-                                            JsonElement dataFileObjectElement = dataArray.get(j);
-
-                                            if(dataFileObjectElement != null && dataFileObjectElement.isJsonObject()){
-                                                JsonObject dataFileObject = dataFileObjectElement.getAsJsonObject();
-
-                                                JsonElement fileElement = dataFileObject.get("file");
-                                                if(fileElement != null && fileElement.isJsonPrimitive()){
-                                                    File file = new File(fileElement.getAsString());
-                                                    if(file.isFile()){
-                                                        JsonObject fileObject = Utils.readJsonFile(oldval, file.toPath());
-                                                        Utils.saveJson(newval, fileObject, file);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
-                            | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
-                        try {
-                            Files.writeString(logFile.toPath(),"Error updating wallets datafile key: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e1) {
-                        
-                        }
-                     
-                    }
-
-                }
-            } catch (IOException e) {
-             
-            }
-            
+            new ErgoWalletDataList(oldval, m_dataFile, this);
+            updateIdDataFile(oldval, newval);
         });
     }
 
@@ -716,5 +722,65 @@ public class ErgoWallets extends Network implements NoteInterface {
         return iconButton;
     }
 
-    
+    private void updateIdDataFile(SecretKey oldval, SecretKey newval){
+          try {
+                File idDataFile = getIdDataFile();
+                if(idDataFile.isFile()){
+                    try {
+                        JsonObject dataFileJson = Utils.readJsonFile(oldval, idDataFile.toPath());
+                        if(dataFileJson != null){
+                            Utils.saveJson(newval, dataFileJson, idDataFile);
+
+                            JsonElement idsArrayElement = dataFileJson.get("ids");
+                            if(idsArrayElement != null && idsArrayElement.isJsonArray()){
+                                JsonArray idsArray = idsArrayElement.getAsJsonArray();
+
+                                for(int i = 0; i < idsArray.size() ; i++){
+                                    JsonElement idFileObjectElement = idsArray.get(i);
+
+                                    if(idFileObjectElement != null && idFileObjectElement.isJsonObject()){
+                                        JsonObject idFileObject = idFileObjectElement.getAsJsonObject();
+                                        JsonElement dataElement = idFileObject.get("data");
+
+                                        if(dataElement != null && dataElement.isJsonArray()){
+                                            JsonArray dataArray = dataElement.getAsJsonArray();
+
+                                            for(int j = 0; j< dataArray.size(); j++){
+                                                JsonElement dataFileObjectElement = dataArray.get(j);
+
+                                                if(dataFileObjectElement != null && dataFileObjectElement.isJsonObject()){
+                                                    JsonObject dataFileObject = dataFileObjectElement.getAsJsonObject();
+
+                                                    JsonElement fileElement = dataFileObject.get("file");
+                                                    if(fileElement != null && fileElement.isJsonPrimitive()){
+                                                        File file = new File(fileElement.getAsString());
+                                                        if(file.isFile()){
+                                                            JsonObject fileObject = Utils.readJsonFile(oldval, file.toPath());
+                                                            if(fileObject != null){
+                                                                Utils.saveJson(newval, fileObject, file);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                            | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
+                        try {
+                            Files.writeString(logFile.toPath(),"Error updating wallets idDataFile key: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e1) {
+                        
+                        }
+                     
+                    }
+
+                }
+            } catch (IOException e) {
+             
+            }
+    }
 }
