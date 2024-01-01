@@ -1343,8 +1343,9 @@ public class App extends Application {
 
                 try {
                     m_networksData.getAppData().disableAutoRun();
+                    autoRunBtn.setText("Disabled");
                 } catch (Exception e1) {
-                    Alert a = new Alert(AlertType.NONE, "Error when disabling autorun - unable to access files.", ButtonType.OK);
+                    Alert a = new Alert(AlertType.NONE, "Unable to access file system.", ButtonType.OK);
                     a.setTitle("Error");
                     a.setHeaderText("Error");
                     a.initOwner(appStage);

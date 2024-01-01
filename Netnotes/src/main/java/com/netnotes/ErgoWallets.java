@@ -177,28 +177,29 @@ public class ErgoWallets extends Network implements NoteInterface {
         return idDataFile;
     }
 
-    public File createNewDataFile() throws IOException{
+    public File createNewDataFile() throws IOException, InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException{
         File dataDir = getDataDir();
+        File idDataFile = getIdDataFile();
+   
+        JsonObject dataFileJson = idDataFile.isFile() ? Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath()) : null;
+            
+        String friendlyId = FriendlyId.createFriendlyId();
 
-        File idDataFile = new File(dataDir.getCanonicalPath() + "/"+FriendlyId.createFriendlyId()+".dat");
-        return idDataFile;
+        while( isFriendlyId(friendlyId, dataFileJson)){
+            friendlyId = FriendlyId.createFriendlyId();
+        }
+        File dataFile = new File(dataDir.getCanonicalPath() + "/" + friendlyId + ".dat");
+        return dataFile;
     }
 
-    public void saveAddressInfo(String id, String id2, JsonObject json) throws IOException{
+    public void saveAddressInfo(String id, String id2, JsonObject json) throws IOException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException{
         if(id != null && json != null){
             File idDataFile = getIdDataFile(id, id2);
 
-            try {
-                Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
+            
+            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
            
-            } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-                    | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
-                try {
-                    Files.writeString(logFile.toPath(),"Error saving Wallets data Array(saveAddressInfo): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e1) {
-                
-                }
-            }
+         
 
         }
     }
@@ -257,15 +258,15 @@ public class ErgoWallets extends Network implements NoteInterface {
             }
         }catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException | IOException e) {
-                try {
-                    Files.writeString(logFile.toPath(),"Error reading Wallets data Array(getAddressInfo): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e1) {
-                
-                }
+            try {
+                Files.writeString(logFile.toPath(),"Error reading Wallets data Array(getAddressInfo): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+            
             }
+        }
     }
 
-    public JsonObject getAddressInfo(String id, String id2) throws IOException{
+    public JsonObject getAddressInfo(String id, String id2) throws IOException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException{
         File idDataFile = getIdDataFile(id, id2);
         if(idDataFile.isFile()){
             try {
@@ -283,11 +284,11 @@ public class ErgoWallets extends Network implements NoteInterface {
     }
 
 
-    public File getIdDataFile(String id, String id2) throws IOException{
+    public File getIdDataFile(String id, String id2) throws IOException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException{
         
         File idDataFile = getIdDataFile();
     
-        try {
+        
            
             if(idDataFile.isFile()){
               
@@ -343,13 +344,10 @@ public class ErgoWallets extends Network implements NoteInterface {
 
                                         json.add("ids", idsArray);
 
-                                        try {
-                                            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
+                                      
+                                        Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
                                         
-                                        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-                                                | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                                     
-                                        }
                                         return newFile;
 
                                     }
@@ -375,30 +373,15 @@ public class ErgoWallets extends Network implements NoteInterface {
                     idsArray.add(fileObject);
                     
                     json.add("ids", idsArray);
-                    try {
-                        Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
+                 
+                    Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
                        
-                    } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-                            | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
-                        try {
-                            Files.writeString(logFile.toPath(),"Error saving Wallets data Array: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                        } catch (IOException e1) {
-                        
-                        }
-                    }
-                     return newFile;
+                    return newFile;
                 }
             }
       
         
-        } catch (IOException | InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
-            try {
-                Files.writeString(logFile.toPath(),"Error saving Wallets data Array: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-             
-            }
-        }
-        
+   
         File newFile = createNewDataFile();
 
         JsonObject fileJson = new JsonObject();
@@ -418,19 +401,10 @@ public class ErgoWallets extends Network implements NoteInterface {
         JsonObject json = new JsonObject();
         json.add("ids", idsArray);
 
-        try {
-            Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
-            return newFile;
-        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
-            try {
-                Files.writeString(logFile.toPath(),"Error saving Wallets data Array: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (IOException e1) {
-            
-            }
-        }
-
-        return null;
+       
+        Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
+        return newFile;
+        
     }
 
     public static Image getAppIcon() {
@@ -782,5 +756,47 @@ public class ErgoWallets extends Network implements NoteInterface {
             } catch (IOException e) {
              
             }
+    }
+
+    
+    private boolean isFriendlyId(String friendlyId, JsonObject dataFileJson) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException{
+        if(dataFileJson != null){
+            
+            friendlyId = friendlyId + ".dat";
+            JsonElement idsArrayElement = dataFileJson.get("ids");
+            if(idsArrayElement != null && idsArrayElement.isJsonArray()){
+                JsonArray idsArray = idsArrayElement.getAsJsonArray();
+
+                for(int i = 0; i < idsArray.size() ; i++){
+                    JsonElement idFileObjectElement = idsArray.get(i);
+
+                    if(idFileObjectElement != null && idFileObjectElement.isJsonObject()){
+                        JsonObject idFileObject = idFileObjectElement.getAsJsonObject();
+                        JsonElement dataElement = idFileObject.get("data");
+
+                        if(dataElement != null && dataElement.isJsonArray()){
+                            JsonArray dataArray = dataElement.getAsJsonArray();
+
+                            for(int j = 0; j< dataArray.size(); j++){
+                                JsonElement dataFileObjectElement = dataArray.get(j);
+
+                                if(dataFileObjectElement != null && dataFileObjectElement.isJsonObject()){
+                                    JsonObject dataFileObject = dataFileObjectElement.getAsJsonObject();
+
+                                    JsonElement fileElement = dataFileObject.get("file");
+                                    if(fileElement != null && fileElement.isJsonPrimitive()){
+                                        if(fileElement.getAsString().equals(friendlyId)){
+                                            return true;
+                                        }
+                                        
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

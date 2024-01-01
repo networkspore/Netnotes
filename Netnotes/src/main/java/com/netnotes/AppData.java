@@ -2,6 +2,7 @@ package com.netnotes;
 
 
 import java.io.File;
+import java.awt.Desktop;
 
 import java.io.IOException;
 import java.net.URL;
@@ -583,7 +584,7 @@ public class AppData {
 
     public void disableAutoRun() throws Exception{
         if(m_autoRunFile != null && m_autoRunFile.isFile()){
-            m_autoRunFile.delete();
+            Desktop.getDesktop().open(m_autoRunFile.getParentFile());
         }
         m_autoRunFile = null;
         removeStartupLink();

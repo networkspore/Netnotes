@@ -2,7 +2,9 @@ package com.netnotes;
 
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
@@ -13,7 +15,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
 import org.ergoplatform.appkit.Address;
@@ -189,7 +193,7 @@ public class AddressData extends Network {
                 openAddressJson(json);
               
             }
-        } catch (IOException e) {
+        } catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
             try {
                 Files.writeString(logFile.toPath(), "\nAddress cannot open Tx file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
@@ -2004,7 +2008,7 @@ public class AddressData extends Network {
         
         try {
             m_addressesData.getWalletData().getErgoWallets().saveAddressInfo(m_addressString,m_addressesData.getWalletData().getId(), json);
-        } catch (IOException e) {
+        } catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
             try {
                 Files.writeString(logFile.toPath(), "saveAddressInfo failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             } catch (IOException e1) {
