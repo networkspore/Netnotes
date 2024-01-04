@@ -86,6 +86,12 @@ public class InstallableIcon extends IconButton {
                 setDescription(KucoinExchange.DESCRIPTION);
                 setSummary(KucoinExchange.SUMMARY);
                 break;
+            case SpectrumFinance.NETWORK_ID:
+                setIcon(m_installed ? SpectrumFinance.getSmallAppIcon() : SpectrumFinance.getAppIcon());
+                setName(SpectrumFinance.NAME);
+                setDescription(SpectrumFinance.DESCRIPTION);
+                setSummary(SpectrumFinance.SUMMARY);
+                break;
 
             case ErgoTokens.NETWORK_ID:
                 setIcon(m_installed ? ErgoTokens.getSmallAppIcon() : ErgoTokens.getAppIcon());
@@ -241,7 +247,7 @@ public class InstallableIcon extends IconButton {
         if (m_stage != null) {
             m_stage.close();
             m_stage = null;
-            super.open();
+            super.close();
         }
 
     }

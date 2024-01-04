@@ -3213,7 +3213,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         appFileVersionText.setFill(getPrimaryColor());
         appFileVersionText.setFont(App.txtFont);
 
-        TextField appFileVersionField = new TextField();
+        TextField appFileVersionField = new TextField(m_appVersion.get() != null ? m_appVersion.get().get() : "");
         appFileVersionField.setId("formField");
         appFileVersionField.setEditable(false);
         HBox.setHgrow(appFileVersionField, Priority.ALWAYS);

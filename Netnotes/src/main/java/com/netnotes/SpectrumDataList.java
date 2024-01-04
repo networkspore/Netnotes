@@ -1,0 +1,669 @@
+package com.netnotes;
+
+import java.io.File;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
+import com.utils.Utils;
+
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.image.Image;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+
+public class SpectrumDataList extends Network implements NoteInterface {
+
+    private File logFile = new File("netnotes-log.txt");
+    private SpectrumFinance m_spectrumFinance;
+
+    private VBox m_favoriteGridBox = new VBox();
+    private VBox m_gridBox = new VBox();
+
+    private List<SpectrumMarketItem> m_marketsList = Collections.synchronizedList(new ArrayList<SpectrumMarketItem>());
+
+
+    private ArrayList<HBox> m_favoritesList = new ArrayList<HBox>();
+
+    private boolean m_notConnected = false;
+    private SimpleStringProperty m_statusMsg = new SimpleStringProperty("Loading...");
+
+    private SpectrumSort m_sortMethod = new SpectrumSort();
+    private String m_searchText = null;
+
+    public SpectrumDataList(SpectrumFinance spectrumFinance) {
+        super(null, "spectrumDataList", "SPECTRUM_DATA_LIST", spectrumFinance);
+        m_spectrumFinance = spectrumFinance;
+
+        setup(m_spectrumFinance.getNetworksData().getAppData().appKeyProperty().get());
+
+    }
+    public SpectrumDataList(SpectrumFinance spectrumFinance, SecretKey oldval, SecretKey newval ) {
+        super(null, "spectrumDataList", "SPECTRUM_DATA_LIST", spectrumFinance);
+        m_spectrumFinance = spectrumFinance;
+
+        updateFile(oldval, newval);
+    }
+
+    private void setup(SecretKey secretKey) {
+       
+        getFile(secretKey);
+      
+        updateMarkets();
+      
+   
+
+    }
+
+    public void closeAll() {
+
+    }
+
+    public HBox getFavoriteBox(String symbol) {
+        for (int i = 0; i < m_favoritesList.size(); i++) {
+            HBox favBox = m_favoritesList.get(i);
+            Object userObject = favBox.getUserData();
+
+            if (userObject != null && userObject instanceof String) {
+                String boxSymbol = (String) userObject;
+
+                if (boxSymbol.equals(symbol)) {
+                    return favBox;
+                }
+            } else {
+                m_favoritesList.remove(favBox);
+            }
+        }
+        return null;
+    }
+
+    public void addFavorite(String id, boolean doSave) {
+        if (getFavoriteBox(id) == null) {
+
+            SpectrumMarketItem item = getMarketItem(id);
+            HBox favoriteBox = item.getRowBox();
+
+            favoriteBox.setUserData(id);
+            m_favoritesList.add(favoriteBox);
+
+            updateGridBox();
+
+            if (doSave) {
+                save();
+            }
+        }
+    }
+
+    public void removeFavorite(String symbol, boolean doSave) {
+        HBox favBox = getFavoriteBox(symbol);
+        if (favBox != null) {
+            m_favoritesList.remove(favBox);
+
+            updateGridBox();
+
+            if (doSave) {
+                save();
+            }
+        }
+    }
+
+    public SimpleStringProperty statusProperty() {
+        return m_statusMsg;
+    }
+
+
+
+    public SpectrumMarketItem getMarketItem(String id) {
+        if (id != null) {
+            synchronized(m_marketsList){
+                for (SpectrumMarketItem item : m_marketsList) {
+                    if (item.getId().equals(id)) {
+                        return item;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void updateMarkets() {
+
+        m_spectrumFinance.getCMCMarkets(success -> {
+            Object sourceObject = success.getSource().getValue();
+            if (sourceObject != null && sourceObject instanceof JsonArray) {
+              //  Runnable runUpdate = () ->{
+            
+           
+                    int i = 0;
+                    boolean init = false;
+                    if (m_marketsList.size() == 0) {
+                        init = true;
+                    }
+                    JsonArray jsonArray = (JsonArray) sourceObject;
+                    synchronized(m_marketsList){
+                        for (i = 0; i < jsonArray.size(); i++) {
+                    
+                            JsonElement marketObjectElement = jsonArray.get(i);
+                            if (marketObjectElement != null && marketObjectElement.isJsonObject()) {
+
+                                JsonObject marketDataJson = marketObjectElement.getAsJsonObject();
+                                
+                                try{
+                                    
+                                    SpectrumMarketData marketData = new SpectrumMarketData(marketDataJson);
+                                    Files.writeString(logFile.toPath(), "\nid: " + marketData.getId() + "\nbase: " + marketData.getBaseSymbol() + "\n" + "quote: " + marketData.getQuoteSymbol() + "\n\n", StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                                    boolean isFavorite = false;
+
+                                    for (HBox favorite : m_favoritesList) {
+                                        Object favoriteUserData = favorite.getUserData();
+                                        if (favoriteUserData instanceof String) {
+                                            if (marketData.getId().equals((String) favoriteUserData)) {
+                                                isFavorite = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (init) {
+                                    
+                                        m_marketsList.add(new SpectrumMarketItem(m_spectrumFinance, isFavorite, marketData, getSpectrumDataList()));
+                                    } else {
+                                        SpectrumMarketItem item = getMarketItem(marketData.getId());
+                                        marketData.setLastPrice(item.getLastPrice());
+
+                                        item.marketDataProperty().set(marketData);
+                                    }
+                                }catch(Exception e){
+                                    try {
+                                        Files.writeString(logFile.toPath(), "\nSpectrumFinance(updateMarkets): " + e.toString() + " " + marketDataJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                    } catch (IOException e1) {
+                                  
+                                    }
+                                }
+                                
+                            }
+
+                        }
+                  
+                        
+                    }
+                    Runnable finish = () ->{
+                        sort();
+                        Platform.runLater(()->m_notConnected = false);
+                        Platform.runLater(()->updateGridBox());
+                        Platform.runLater(()->m_statusMsg.set("Top 100 - " + m_sortMethod.getType() + " " + (m_sortMethod.isAsc() ? "(Low to High)" : "(High to Low)")));
+                        Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
+                    };
+                    if(m_marketsList.size() > 0){
+                        m_spectrumFinance.getTickers((onTickerArray)->{
+                            Object tickerSourceObject = onTickerArray.getSource().getValue();
+                            if (tickerSourceObject != null && tickerSourceObject instanceof JsonArray) {
+                                JsonArray tickerArray = (JsonArray) tickerSourceObject;
+
+                             
+                                synchronized(m_marketsList){
+
+                                    for (int j = 0; j < tickerArray.size(); j++) {
+                                
+                                        JsonElement tickerObjectElement = tickerArray.get(j);
+                                        if (tickerObjectElement != null && tickerObjectElement.isJsonObject()) {
+
+                                            JsonObject tickerDataJson = tickerObjectElement.getAsJsonObject();
+
+                                            JsonElement tickerIdElement = tickerDataJson.get("ticker_id");
+                                            String tickerId = tickerIdElement != null && tickerIdElement.isJsonPrimitive() ? tickerIdElement.getAsString() : null;
+
+                                            if(tickerId != null){
+                                                try {
+                                                    Files.writeString(logFile.toPath(), "\ntickerId: " + tickerId, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                                                } catch (IOException e) {
+                                            
+                                                }
+                                                SpectrumMarketItem spectrumItem = getMarketItem(tickerId);
+
+                                                if(spectrumItem != null){
+                                                    JsonElement lastPriceElement = tickerDataJson.get("last_price");
+                                                    JsonElement liquidityUsdElement = tickerDataJson.get("liquidity_in_usd");
+                                                    JsonElement poolIdElement = tickerDataJson.get("pool_id");
+                                                    if(
+                                                        lastPriceElement != null && lastPriceElement.isJsonPrimitive() &&
+                                                        liquidityUsdElement != null && liquidityUsdElement.isJsonPrimitive() &&
+                                                        poolIdElement != null && poolIdElement.isJsonPrimitive()
+                                                    ){
+                                                        SpectrumMarketData spectrumData = spectrumItem.marketDataProperty().get();
+                                                        spectrumData.setLastPrice(lastPriceElement.getAsBigDecimal());
+                                                        spectrumData.setLiquidityUSD(liquidityUsdElement.getAsBigDecimal());
+                                                        spectrumData.setPoolId(poolIdElement.getAsString());
+                                                    }
+                                                }
+
+                                            }
+                                       
+                                            
+                                        }
+
+                                    }
+                            
+                                    
+                                }
+                                finish.run();
+                            }else{
+                                finish.run();
+                            }
+                        }, (onTickersFailed)->{
+                            finish.run();
+                        });
+                    }else{
+                        Platform.runLater(()->m_notConnected = true);
+                        Platform.runLater(()-> updateGridBox());
+                        Platform.runLater(()->m_statusMsg.set("Not connected"));
+                        Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
+                    }
+            
+               
+               // };
+
+               // Thread updateThread = new Thread(runUpdate);
+              //  updateThread.setDaemon(true);
+              //  updateThread.start();
+            } else {
+                m_notConnected = true;
+                m_statusMsg.set("Not connected");
+                updateGridBox();
+                getLastUpdated().set(LocalDateTime.now());
+            }
+        }, failed -> {
+            m_notConnected = true;
+            m_statusMsg.set("Not connected");
+            updateGridBox();
+            getLastUpdated().set(LocalDateTime.now());
+        });
+    }
+
+    public SpectrumDataList getSpectrumDataList(){
+        return this;
+    }
+
+
+    private void updateFile(SecretKey oldKey, SecretKey newKey){
+        File dataFile = m_spectrumFinance.getDataFile();
+        if (dataFile != null && dataFile.isFile()) {
+            try {
+                JsonObject json = Utils.readJsonFile(oldKey, dataFile.toPath());
+               
+                if(json!= null){
+                    Utils.saveJson(newKey, json, dataFile);
+                }
+            } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                    | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
+                    | IOException e) {
+
+                try {
+                    Files.writeString(logFile.toPath(), "\nSpectrum getfile error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+
+                }
+
+            }
+
+        }
+    }
+
+    private void getFile(SecretKey secretKey) {
+
+        File dataFile = m_spectrumFinance.getDataFile();
+        if (dataFile != null && dataFile.isFile()) {
+            try {
+                JsonObject json = Utils.readJsonFile(secretKey, dataFile.toPath());
+               
+                if(json!= null){
+           
+                    openJson(json);
+                }
+            } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                    | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
+                    | IOException e) {
+
+                try {
+                    Files.writeString(logFile.toPath(), "\nSpectrum Finance getfile error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+
+                }
+
+            }
+
+        }
+
+    }
+
+    /*
+    private void openJson(JsonObject json) {
+        JsonElement dataElement = json.get("data");
+
+        if (dataElement != null && dataElement.isJsonArray()) {
+
+            JsonArray dataArray = dataElement.getAsJsonArray();
+
+            //  if (m_ergoTokens.getNetworkType().toString().equals(networkType)) {
+            for (JsonElement objElement : dataArray) {
+                if (objElement.isJsonObject()) {
+                    JsonObject objJson = objElement.getAsJsonObject();
+                    JsonElement nameElement = objJson.get("name");
+                    JsonElement idElement = objJson.get("id");
+
+                    if (nameElement != null && nameElement.isJsonPrimitive() && idElement != null && idElement.isJsonPrimitive()) {
+
+                        try {
+                            Files.writeString(logFile.toPath(), "\ndataElement: " + objJson.toString());
+                        } catch (IOException e) {
+
+                        }
+                    }
+
+                }
+            }
+            //   }
+        }
+
+        updateGridBox();
+    } */
+    public VBox getGridBox() {
+
+        return m_gridBox;
+    }
+
+    public VBox getFavoriteGridBox() {
+        return m_favoriteGridBox;
+    }
+
+    private void sort() {
+
+        switch (m_sortMethod.getType()) {
+            case SpectrumSort.SortType.LAST_PRICE:
+                if (m_sortMethod.isAsc()) {
+                    Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getLastPrice));
+
+                } else {
+                    Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getLastPrice)));
+                }
+                break;
+            case SpectrumSort.SortType.BASE_VOL:
+                if (m_sortMethod.isAsc()) {
+                    Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getBaseVolume));
+                } else {
+                    Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getBaseVolume)));
+                }
+                break;
+            case SpectrumSort.SortType.QUOTE_VOL:
+                if (m_sortMethod.isAsc()) {
+                    Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getQuoteVolume));
+                } else {
+                    Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getQuoteVolume)));
+                }
+                break;
+           
+
+        }
+       
+
+    }
+/* 
+    public void sortByChangeRate(boolean direction) {
+        m_sortMethod = 0;
+        m_sortDirection = direction;
+        String msg = "Top 100 - 24h Change Rate ";
+        m_statusMsg.set(msg + (direction ? "(Low to High)" : "(High to Low)"));
+    }
+
+    public void sortByChangePrice(boolean direction) {
+        m_sortMethod = 1;
+        m_sortDirection = direction;
+
+        String msg = "Top 100 - 24h Price Change ";
+        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
+    }
+
+    public void sortByHigh(boolean direction) {
+        m_sortMethod = 2;
+        m_sortDirection = direction;
+        String msg = "Top 100 - 24h High Price ";
+        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
+    }
+
+    public void sortByLow(boolean direction) {
+        m_sortMethod = 3;
+        m_sortDirection = direction;
+        String msg = "Top 100 - 24h Low Price ";
+        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
+    }
+
+    public void sortByVolValue(boolean direction) {
+        m_sortMethod = 4;
+        m_sortDirection = direction;
+        String msg = "Top 100 - 24h Volume ";
+        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
+    }
+ */
+    public void setSearchText(String text) {
+        m_searchText = text.equals("") ? null : text;
+
+        updateGridBox();
+
+    }
+
+    public String getSearchText() {
+        return m_searchText;
+    }
+
+    private void doSearch( EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        Task<SpectrumMarketItem[]> task = new Task<SpectrumMarketItem[]>() {
+            @Override
+            public SpectrumMarketItem[] call() {
+                
+                synchronized(m_marketsList){
+                    List<SpectrumMarketItem> searchResultsList = m_marketsList.stream().filter(marketItem -> marketItem.getSymbol().contains(m_searchText.toUpperCase())).collect(Collectors.toList());
+
+                    SpectrumMarketItem[] results = new SpectrumMarketItem[searchResultsList.size()];
+
+                    searchResultsList.toArray(results);
+
+                    return results;
+                }
+            }
+        };
+
+        task.setOnFailed(onFailed);
+
+        task.setOnSucceeded(onSucceeded);
+
+        Thread t = new Thread(task);
+        t.setDaemon(true);
+        t.start();
+    }
+
+    public void updateGridBox() {
+        m_favoriteGridBox.getChildren().clear();
+        m_gridBox.getChildren().clear();
+      
+       
+
+        if (m_marketsList.size() > 0) {
+      
+            int numFavorites = m_favoritesList.size();
+
+            for (int i = 0; i < numFavorites; i++) {
+
+                m_favoriteGridBox.getChildren().add(m_favoritesList.get(i));
+            }
+            if (m_searchText == null) {
+                synchronized(m_marketsList){
+                    int numCells = m_marketsList.size() > 100 ? 100 : m_marketsList.size();
+                    for (int i = 0; i < numCells; i++) {
+                        SpectrumMarketItem marketItem = m_marketsList.get(i);
+
+                        HBox rowBox = marketItem.getRowBox();
+
+                        m_gridBox.getChildren().add(rowBox);
+
+                    }
+                 
+                }
+               
+            } else {
+
+                // List<SpectrumMarketItem> searchResultsList = m_marketsList.stream().filter(marketItem -> marketItem.getSymbol().contains(m_searchText.toUpperCase())).collect(Collectors.toList());
+                doSearch( onSuccess -> {
+                    WorkerStateEvent event = onSuccess;
+                    Object sourceObject = event.getSource().getValue();
+
+                    if (sourceObject instanceof SpectrumMarketItem[]) {
+                        SpectrumMarketItem[] searchResults = (SpectrumMarketItem[]) sourceObject;
+                        int numResults = searchResults.length > 100 ? 100 : searchResults.length;
+
+                        for (int i = 0; i < numResults; i++) {
+                            SpectrumMarketItem marketItem = searchResults[i];
+
+                            HBox rowBox = marketItem.getRowBox();
+
+                            m_gridBox.getChildren().add(rowBox);
+                        }
+                    }
+                }, onFailed -> {
+                });
+
+            }
+        } else {
+            HBox imageBox = new HBox();
+            imageBox.setAlignment(Pos.CENTER);
+            HBox.setHgrow(imageBox, Priority.ALWAYS);
+
+            if (m_notConnected) {
+                Button notConnectedBtn = new Button("No Connection");
+                notConnectedBtn.setFont(App.txtFont);
+                notConnectedBtn.setTextFill(App.txtColor);
+                notConnectedBtn.setId("menuBtn");
+                notConnectedBtn.setGraphicTextGap(15);
+                notConnectedBtn.setGraphic(IconButton.getIconView(new Image("/assets/cloud-offline-150.png"), 150));
+                notConnectedBtn.setContentDisplay(ContentDisplay.TOP);
+                notConnectedBtn.setOnAction(e -> {
+                    updateMarkets();
+                });
+
+            } else {
+                Button loadingBtn = new Button("Loading...");
+                loadingBtn.setFont(App.txtFont);
+                loadingBtn.setTextFill(Color.WHITE);
+                loadingBtn.setId("transparentColor");
+                loadingBtn.setGraphicTextGap(15);
+                loadingBtn.setGraphic(IconButton.getIconView(new Image("/assets/spectrum-150.png"), 150));
+                loadingBtn.setContentDisplay(ContentDisplay.TOP);
+
+                imageBox.getChildren().add(loadingBtn);
+
+            }
+            m_gridBox.getChildren().add(imageBox);
+        }
+        
+    }
+
+    public JsonArray getFavoritesJsonArray() {
+        JsonArray jsonArray = new JsonArray();
+        for (HBox rowBox : m_favoritesList) {
+            Object rowBoxObject = rowBox.getUserData();
+
+            if (rowBoxObject != null && rowBoxObject instanceof String) {
+                jsonArray.add((String) rowBoxObject);
+            }
+        }
+        return jsonArray;
+    }
+
+    @Override
+    public JsonObject getJsonObject() {
+        JsonObject jsonObject = super.getJsonObject();
+
+        jsonObject.add("favorites", getFavoritesJsonArray());
+        jsonObject.add("sortMethod", m_sortMethod.getJsonObject());
+ 
+
+        return jsonObject;
+    }
+
+    private void openJson(JsonObject json) {
+        if (json != null) {
+            JsonElement favoritesElement = json.get("favorites");
+            JsonElement sortMethodElement = json.get("sortMethod");
+  
+
+            if (favoritesElement != null && favoritesElement.isJsonArray()) {
+                JsonArray favoriteJsonArray = favoritesElement.getAsJsonArray();
+
+                for (int i = 0; i < favoriteJsonArray.size(); i++) {
+                    JsonElement favoriteElement = favoriteJsonArray.get(i);
+                    String id = favoriteElement.getAsString();
+                    addFavorite(id, false);
+                    SpectrumMarketItem item = getMarketItem(id);
+                    item.isFavoriteProperty().set(true);
+                }
+            }
+
+            m_sortMethod = sortMethodElement != null && sortMethodElement.isJsonObject() ? new SpectrumSort(sortMethodElement.getAsJsonObject()) : m_sortMethod;
+    
+
+        }
+    }
+
+    public SpectrumFinance getSpectrumFinance() {
+        return m_spectrumFinance;
+    }
+
+    public void save(){
+        save(getNetworksData().getAppData().appKeyProperty().get());
+    }
+
+    public void save(SecretKey secretKey) {
+  
+        try {
+           
+            Utils.saveJson(secretKey, getJsonObject(), m_spectrumFinance.getDataFile());
+        } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+                | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
+                | IOException e) {
+            try {
+                Files.writeString(logFile.toPath(), "\nSpectrumFinance save failed: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+
+            }
+        }
+
+    }
+
+}

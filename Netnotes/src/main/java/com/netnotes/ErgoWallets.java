@@ -177,32 +177,25 @@ public class ErgoWallets extends Network implements NoteInterface {
         return idDataFile;
     }
 
-    public File createNewDataFile() throws IOException, InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException{
-        File dataDir = getDataDir();
-        File idDataFile = getIdDataFile();
-   
-        JsonObject dataFileJson = idDataFile.isFile() ? Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath()) : null;
-            
+    public File createNewDataFile(File dataDir, JsonObject dataFileJson) {
+        
+     
         String friendlyId = FriendlyId.createFriendlyId();
 
-        while( isFriendlyId(friendlyId, dataFileJson)){
+        while(dataFileJson != null && isFriendlyId(friendlyId, dataFileJson)){
             friendlyId = FriendlyId.createFriendlyId();
         }
-        File dataFile = new File(dataDir.getCanonicalPath() + "/" + friendlyId + ".dat");
+        File dataFile = new File(dataDir.getAbsolutePath() + "/" + friendlyId + ".dat");
         return dataFile;
     }
 
     public void saveAddressInfo(String id, String id2, JsonObject json) throws IOException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException{
         if(id != null && json != null){
             File idDataFile = getIdDataFile(id, id2);
-
-            
             Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
-           
-         
-
         }
     }
+    
     public void removeAddressInfo(String id2){
          
         try {
@@ -288,101 +281,101 @@ public class ErgoWallets extends Network implements NoteInterface {
         
         File idDataFile = getIdDataFile();
     
+        File dataDir = idDataFile.getParentFile();
+           
+        if(idDataFile.isFile()){
+            
+            JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
+            JsonElement idsElement = json.get("ids");
+            json.remove("ids");
+            if(idsElement != null && idsElement.isJsonArray()){
+                JsonArray idsArray = idsElement.getAsJsonArray();
         
-           
-            if(idDataFile.isFile()){
-              
-                JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
-                JsonElement idsElement = json.get("ids");
-                json.remove("ids");
-                if(idsElement != null && idsElement.isJsonArray()){
-                    JsonArray idsArray = idsElement.getAsJsonArray();
-           
-                    for(int i = 0; i < idsArray.size(); i ++){
-                        JsonElement dataFileElement = idsArray.get(i);
-                        if(dataFileElement != null && dataFileElement.isJsonObject()){
-                            JsonObject fileObject = dataFileElement.getAsJsonObject();
-                            JsonElement dataIdElement = fileObject.get("id");
+                for(int i = 0; i < idsArray.size(); i ++){
+                    JsonElement dataFileElement = idsArray.get(i);
+                    if(dataFileElement != null && dataFileElement.isJsonObject()){
+                        JsonObject fileObject = dataFileElement.getAsJsonObject();
+                        JsonElement dataIdElement = fileObject.get("id");
 
-                            if(dataIdElement != null && dataIdElement.isJsonPrimitive()){
-                                String fileId2String = dataIdElement.getAsString();
-                                if(fileId2String.equals(id2)){
-                                    JsonElement dataElement = fileObject.get("data");
+                        if(dataIdElement != null && dataIdElement.isJsonPrimitive()){
+                            String fileId2String = dataIdElement.getAsString();
+                            if(fileId2String.equals(id2)){
+                                JsonElement dataElement = fileObject.get("data");
 
-                                    if(dataElement != null && dataElement.isJsonArray()){
-                                        JsonArray dataIdArray = dataElement.getAsJsonArray();
-                                        fileObject.remove("data");
-                                        for(int j =0; j< dataIdArray.size() ; j++){
-                                            JsonElement dataIdArrayElement = dataIdArray.get(j);
-                                            if(dataIdArrayElement != null && dataIdArrayElement.isJsonObject()){
-                                                JsonObject fileIdObject = dataIdArrayElement.getAsJsonObject();
-                                                JsonElement idElement = fileIdObject.get("id");
-                                                if(idElement != null && idElement.isJsonPrimitive()){
-                                                    String fileIdString = idElement.getAsString();
-                                                    if(fileIdString.equals(id)){
-                                                        
-                                                        JsonElement fileElement = fileIdObject.get("file");
+                                if(dataElement != null && dataElement.isJsonArray()){
+                                    JsonArray dataIdArray = dataElement.getAsJsonArray();
+                                    fileObject.remove("data");
+                                    for(int j =0; j< dataIdArray.size() ; j++){
+                                        JsonElement dataIdArrayElement = dataIdArray.get(j);
+                                        if(dataIdArrayElement != null && dataIdArrayElement.isJsonObject()){
+                                            JsonObject fileIdObject = dataIdArrayElement.getAsJsonObject();
+                                            JsonElement idElement = fileIdObject.get("id");
+                                            if(idElement != null && idElement.isJsonPrimitive()){
+                                                String fileIdString = idElement.getAsString();
+                                                if(fileIdString.equals(id)){
+                                                    
+                                                    JsonElement fileElement = fileIdObject.get("file");
 
-                                                        if(fileElement != null && fileElement.isJsonPrimitive()){
-                                                            return new File(fileElement.getAsString());
-                                                        }
+                                                    if(fileElement != null && fileElement.isJsonPrimitive()){
+                                                        return new File(fileElement.getAsString());
                                                     }
                                                 }
                                             }
                                         }
-
-                                        File newFile = createNewDataFile();
-                                        JsonObject fileJson = new JsonObject();
-                                        fileJson.addProperty("id", id);
-                                        fileJson.addProperty("file", newFile.getCanonicalPath());
-
-                                        dataIdArray.add( fileJson);
-                                        
-                                        fileObject.add("data", dataIdArray);
-
-                                        idsArray.set(i, fileObject);
-
-                                        json.add("ids", idsArray);
-
-                                      
-                                        Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
-                                        
-                                    
-                                        return newFile;
-
                                     }
 
+                                    File newFile = createNewDataFile(dataDir, json);
+                                    JsonObject fileJson = new JsonObject();
+                                    fileJson.addProperty("id", id);
+                                    fileJson.addProperty("file", newFile.getCanonicalPath());
+
+                                    dataIdArray.add( fileJson);
+                                    
+                                    fileObject.add("data", dataIdArray);
+
+                                    idsArray.set(i, fileObject);
+
+                                    json.add("ids", idsArray);
+
+                                    
+                                    Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
+                                    
+                                
+                                    return newFile;
+
                                 }
+
                             }
                         }
                     }
-
-                    File newFile = createNewDataFile();
-
-                    JsonObject fileJson = new JsonObject();
-                    fileJson.addProperty("id", id);
-                    fileJson.addProperty("file", newFile.getCanonicalPath());
-
-                    JsonArray dataIdArray = new JsonArray();
-                    dataIdArray.add(fileJson);
-
-                    JsonObject fileObject = new JsonObject();
-                    fileObject.addProperty("id", id2);
-                    fileObject.add("data", dataIdArray);
-
-                    idsArray.add(fileObject);
-                    
-                    json.add("ids", idsArray);
-                 
-                    Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
-                       
-                    return newFile;
                 }
+
+                File newFile = createNewDataFile(dataDir, json);
+
+                JsonObject fileJson = new JsonObject();
+                fileJson.addProperty("id", id);
+                fileJson.addProperty("file", newFile.getCanonicalPath());
+
+                JsonArray dataIdArray = new JsonArray();
+                dataIdArray.add(fileJson);
+
+                JsonObject fileObject = new JsonObject();
+                fileObject.addProperty("id", id2);
+                fileObject.add("data", dataIdArray);
+
+                idsArray.add(fileObject);
+                
+                json.add("ids", idsArray);
+                
+                Utils.saveJson(getNetworksData().getAppData().appKeyProperty().get(), json, idDataFile);
+                    
+                return newFile;
             }
+        }
       
         
    
-        File newFile = createNewDataFile();
+        File newFile = createNewDataFile(dataDir, null);
 
         JsonObject fileJson = new JsonObject();
         fileJson.addProperty("id", id);
@@ -759,10 +752,10 @@ public class ErgoWallets extends Network implements NoteInterface {
     }
 
     
-    private boolean isFriendlyId(String friendlyId, JsonObject dataFileJson) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException{
+    private boolean isFriendlyId(String friendlyId, JsonObject dataFileJson) {
         if(dataFileJson != null){
             
-            friendlyId = friendlyId + ".dat";
+            friendlyId = "/" + friendlyId + ".dat";
             JsonElement idsArrayElement = dataFileJson.get("ids");
             if(idsArrayElement != null && idsArrayElement.isJsonArray()){
                 JsonArray idsArray = idsArrayElement.getAsJsonArray();
@@ -785,7 +778,7 @@ public class ErgoWallets extends Network implements NoteInterface {
 
                                     JsonElement fileElement = dataFileObject.get("file");
                                     if(fileElement != null && fileElement.isJsonPrimitive()){
-                                        if(fileElement.getAsString().equals(friendlyId)){
+                                        if(fileElement.getAsString().endsWith(friendlyId)){
                                             return true;
                                         }
                                         

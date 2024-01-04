@@ -7,6 +7,7 @@ import java.awt.Rectangle;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.math.BigDecimal;
 import java.time.Duration;
 
 import org.reactfx.util.FxTimer;
@@ -53,15 +54,15 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-public class KucoinMarketItem {
+public class SpectrumMarketItem {
 
-    private File logFile;
-    private String m_id;
-    private String m_symbol;
-    private String m_name;
+    private File logFile = new File("netnotes-log.txt");
 
-    private KuCoinDataList m_dataList = null;
-    private SimpleObjectProperty<KucoinTickerData> m_tickerDataProperty = new SimpleObjectProperty<>(null);
+  
+ 
+
+    private SpectrumDataList m_dataList = null;
+    private SimpleObjectProperty<SpectrumMarketData> m_marketDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
     private SimpleBooleanProperty m_isFavorite = new SimpleBooleanProperty(false);
 
@@ -70,17 +71,14 @@ public class KucoinMarketItem {
     private double m_prevX = -1;
     private double m_prevY = -1;
 
-    private TimeSpan m_timeSpan = new TimeSpan("30min");
-
     private NoteInterface m_parentInterface;
 
-    public KucoinMarketItem(NoteInterface parentInterface, String id, String symbol, String name, boolean favorite, KucoinTickerData tickerData, KuCoinDataList dataList) {
+    public SpectrumMarketItem(NoteInterface parentInterface, boolean favorite, SpectrumMarketData marketData, SpectrumDataList dataList) {
         m_parentInterface = parentInterface;
-        m_id = id;
-        m_symbol = symbol;
-        m_name = name;
+      
+       
         m_dataList = dataList;
-        m_tickerDataProperty.set(tickerData);
+        m_marketDataProperty.set(marketData);
         m_isFavorite.set(favorite);
 
     }
@@ -89,25 +87,16 @@ public class KucoinMarketItem {
         return m_isFavorite;
     }
 
-    public String getId() {
-        return m_id;
-    }
 
-    public String getName() {
-        return m_name;
-    }
 
-    public TimeSpan getTimeSpan() {
-        return m_timeSpan;
-    }
 
-    public SimpleObjectProperty<KucoinTickerData> tickerDataProperty() {
-        return m_tickerDataProperty;
+    public SimpleObjectProperty<SpectrumMarketData> marketDataProperty() {
+        return m_marketDataProperty;
     }
 
     public HBox getRowBox() {
 
-        KucoinTickerData data = m_tickerDataProperty.get();
+        SpectrumMarketData data = m_marketDataProperty.get();
 
         Button favoriteBtn = new Button();
         favoriteBtn.setId("menuBtn");
@@ -116,9 +105,9 @@ public class KucoinMarketItem {
             boolean newVal = !m_isFavorite.get();
             m_isFavorite.set(newVal);
             if (newVal) {
-                m_dataList.addFavorite(m_symbol, true);
+                m_dataList.addFavorite(getId(), true);
             } else {
-                m_dataList.removeFavorite(m_symbol, true);
+                m_dataList.removeFavorite(getId(), true);
             }
         });
 
@@ -144,7 +133,7 @@ public class KucoinMarketItem {
 
         rowBox.setAlignment(Pos.CENTER_LEFT);
 
-        m_tickerDataProperty.addListener((obs, oldVal, newVal) -> {
+        m_marketDataProperty.addListener((obs, oldVal, newVal) -> {
             Image img = newVal == null ? null : getButtonImage(newVal);
             rowButton.setGraphic(img == null ? null : IconButton.getIconView(img, img.getWidth()));
         });
@@ -155,17 +144,17 @@ public class KucoinMarketItem {
     public static int FILL_COLOR = 0xffffffff;
     public static java.awt.Color WHITE_COLOR = new java.awt.Color(FILL_COLOR, true);
 
-    private Image getButtonImage(KucoinTickerData data) {
+    private Image getButtonImage(SpectrumMarketData data) {
         if (data == null) {
             return null;
         }
         int height = 30;
 
         String symbolString = String.format("%-18s", data.getSymbol());
-        String lastString = data.getLastString();
+        String lastString = data.getLastPrice().toString();
 
-        boolean positive = data.getChangeRate() > 0;
-        boolean neutral = data.getChangeRate() == 0;
+        boolean positive = false;
+        boolean neutral = true;
 
         java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 15);
 
@@ -189,11 +178,11 @@ public class KucoinMarketItem {
         g2d.setColor(WHITE_COLOR);
         g2d.drawString(symbolString, 0, stringY);
 
-        if (neutral) {
+       // if (neutral) {
 
             g2d.drawString(lastString, symbolWidth + colPadding, stringY);
 
-        } else {
+       /* } else {
 
             g2d.drawString(lastString, symbolWidth + colPadding, stringY);
 
@@ -206,7 +195,7 @@ public class KucoinMarketItem {
 
             Drawing.drawBarFillColor(positive ? 0 : 1, false, FILL_COLOR, color1.getRGB(), color2.getRGB(), img, x1, y1, x2, y2);
 
-        }
+        }*/
 
         g2d.dispose();
 
@@ -219,7 +208,7 @@ public class KucoinMarketItem {
 
     public void showStage() {
         if (m_stage == null) {
-            logFile = new File("marketItem-" + m_symbol + ".txt");
+           
             double sceneWidth = 750;
             double sceneHeight = 800;
             final double chartScrollVvalue = 1;
@@ -233,12 +222,12 @@ public class KucoinMarketItem {
 
             double chartSizeInterval = 25;
 
-            KucoinExchange exchange = m_dataList.getKucoinExchange();
+            SpectrumFinance exchange = m_dataList.getSpectrumFinance();
 
             m_stage = new Stage();
             m_stage.getIcons().add(KucoinExchange.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
-            m_stage.setTitle(exchange.getName() + " - " + m_name + (m_tickerDataProperty.get() != null ? " - " + m_tickerDataProperty.get().getLastString() + "" : ""));
+            m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " + m_marketDataProperty.get().getLastPrice() + "" : ""));
 
             Button maximizeBtn = new Button();
             Button closeBtn = new Button();
@@ -272,9 +261,9 @@ public class KucoinMarketItem {
                 boolean newVal = !m_isFavorite.get();
                 m_isFavorite.set(newVal);
                 if (newVal) {
-                    m_dataList.addFavorite(m_symbol, true);
+                    m_dataList.addFavorite(getId(), true);
                 } else {
-                    m_dataList.removeFavorite(m_symbol, true);
+                    m_dataList.removeFavorite(getId(), true);
                 }
             });
 
@@ -282,31 +271,21 @@ public class KucoinMarketItem {
                 favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
             });
 
-            Text headingText = new Text(m_name + "  - ");
+            Text headingText = new Text(getSymbol());
             headingText.setFont(App.txtFont);
             headingText.setFill(Color.WHITE);
 
             Region headingSpacerL = new Region();
 
-            MenuButton timeSpanBtn = new MenuButton(m_timeSpan.getName());
-            timeSpanBtn.setFont(App.txtFont);
 
-            timeSpanBtn.setContentDisplay(ContentDisplay.LEFT);
-            timeSpanBtn.setAlignment(Pos.CENTER_LEFT);
-
-            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText, timeSpanBtn);
+            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText);
             headingBox.prefHeight(40);
             headingBox.setAlignment(Pos.CENTER_LEFT);
             HBox.setHgrow(headingBox, Priority.ALWAYS);
             headingBox.setPadding(new Insets(5, 5, 5, 5));
             headingBox.setId("headingBox");
 
-            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(timeSpanBtn.widthProperty().divide(2)).subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
-
-            TextArea informationTextArea = new TextArea();
-
-            Label emissionLbl = new Label();
-            TextField emissionAmountField = new TextField();
+            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
 
             ChartView chartView = new ChartView(chartWidth, chartHeight);
 
@@ -314,84 +293,6 @@ public class KucoinMarketItem {
 
             ScrollPane chartScroll = new ScrollPane(chartBox);
             Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
-
-            int symbolLength = getSymbol().length();
-
-            MessageInterface msgInterface = new MessageInterface() {
-                public String getSubject() {
-                    return null;
-                }
-
-                public String getTopic() {
-                    return null;
-                }
-
-                @Override
-                public String getTunnelId() {
-                    return KucoinExchange.NETWORK_ID;
-                }
-
-                @Override
-                public String getId() {
-                    return m_id;
-                }
-
-                @Override
-                public void onMsgChanged(JsonObject newVal) {
-                    if (newVal != null) {
-
-                        JsonElement subjectElement = newVal.get("subject");
-                        JsonElement topicElement = newVal.get("topic");
-                        JsonElement dataElement = newVal.get("data");
-
-                        String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
-                        String topic = topicElement != null && topicElement.isJsonPrimitive() ? topicElement.getAsString() : null;
-
-                        if (subject != null && topic != null) {
-                            switch (subject) {
-                                case "trade.candles.update":
-                                    String topicHeader = "/market/candles:";
-                                    String topicBody = topic.substring(topicHeader.length());
-                                    int indexOfunderscore = topicBody.indexOf("_");
-
-                                    if (topicHeader.equals(topic.substring(0, topicHeader.length())) && symbolLength == indexOfunderscore && getSymbol().equals(topicBody.substring(0, indexOfunderscore))) {
-
-                                        String timeSpanId = topicBody.substring(indexOfunderscore + 1);
-
-                                        if (m_timeSpan.getId().equals(timeSpanId)) {
-                                            JsonObject dataObject = dataElement != null && dataElement.isJsonObject() ? dataElement.getAsJsonObject() : null;
-                                            if (dataObject != null) {
-                                                JsonElement candlesElement = dataObject.get("candles");
-
-                                                JsonArray dataArray = candlesElement != null && candlesElement.isJsonArray() ? candlesElement.getAsJsonArray() : null;
-
-                                                if (dataArray != null) {
-
-                                                    PriceData priceData = new PriceData(dataArray);
-
-                                                    chartView.updateCandleData(priceData, m_timeSpan.getSeconds());
-
-                                                    m_stage.setTitle(exchange.getName() + " - " + m_name + (newVal != null ? " - " + priceData.getCloseString() + "" : ""));
-                                                }
-
-                                            }
-                                        }
-
-                                    }
-                                    break;
-                            }
-                        }
-                    }
-                }
-
-                @Override
-                public void onReady() {
-                    exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
-                }
-
-            };
-
-            exchange.addMsgListener(msgInterface);
 
             Region headingPaddingRegion = new Region();
             headingPaddingRegion.setMinHeight(5);
@@ -411,6 +312,7 @@ public class KucoinMarketItem {
             chartView.rangeTopVvalueProperty().bind(chartRange.topVvalueProperty());
             chartView.rangeBottomVvalueProperty().bind(chartRange.bottomVvalueProperty());
             chartView.isSettingRangeProperty().bind(chartRange.settingRangeProperty());
+            
             HBox bodyBox = new HBox(chartRange, chartScroll);
             bodyBox.setAlignment(Pos.TOP_LEFT);
             HBox bodyPaddingBox = new HBox(bodyBox);
@@ -530,95 +432,29 @@ public class KucoinMarketItem {
             });
 
             // chartHeight.bind(Bindings.add(marketScene.heightProperty(), chartHeightOffset));
-            ChangeListener<KucoinTickerData> tickerListener = (obs, oldVal, newVal) -> {
+            ChangeListener<SpectrumMarketData> tickerListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
 
-                    m_stage.setTitle(exchange.getName() + " - " + m_name + (newVal != null ? " - " + newVal.getLastString() + "" : ""));
+                    m_stage.setTitle(exchange.getName() + " - " + newVal.getSymbol() + (newVal != null ? " - " + newVal.getLastPrice() + "" : ""));
 
                 } else {
 
                 }
             };
 
-            m_tickerDataProperty.addListener(tickerListener);
+            m_marketDataProperty.addListener(tickerListener);
 
-            Runnable closable = () -> {
+        
 
-                exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
-                m_tickerDataProperty.removeListener(tickerListener);
-                exchange.removeMsgListener(msgInterface);
-
-                m_stage = null;
-            };
-
-            m_stage.setOnCloseRequest(e -> closable.run());
+           
 
             closeBtn.setOnAction(e -> {
+                m_marketDataProperty.removeListener(tickerListener);
                 m_stage.close();
-                closable.run();
             });
 
-            Runnable startCandles = () -> {
-                TimeSpan tSpan = m_timeSpan;
-                Platform.runLater(()->chartScroll.setHvalue(0));
-                exchange.getCandlesDataset(m_symbol, tSpan.getId(), onSuccess -> {
-                    WorkerStateEvent worker = onSuccess;
-                    Object sourceObject = worker.getSource().getValue();
+            m_stage.setOnCloseRequest(e -> closeBtn.fire());
 
-                    if (sourceObject != null && sourceObject instanceof JsonObject) {
-
-                        JsonObject sourceJson = (JsonObject) sourceObject;
-
-                        JsonElement msgElement = sourceJson.get("msg");
-                        JsonElement dataElement = sourceJson.get("data");
-
-                        if (msgElement != null && msgElement.isJsonPrimitive()) {
-                            chartView.setMsg(msgElement.toString());
-                        } else {
-                            if (dataElement != null && dataElement.isJsonArray()) {
-                                JsonArray dataElementArray = dataElement.getAsJsonArray();
-
-                                chartView.setPriceDataList(dataElementArray, tSpan.getSeconds());
-
-                               Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
-                                Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
-
-                                chartRange.setVisible(true);
-
-                                if (exchange.isClientReady()) {
-                                    exchange.subscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
-                                }
-
-                            } else {
-
-                            }
-
-                        }
-
-                    }
-                }, onFailed -> {
-                });
-            };
-
-            timeSpanBtn.textProperty().addListener((obs, oldVal, newVal) -> {
-                Object objData = timeSpanBtn.getUserData();
-
-                if (newVal != null && !newVal.equals(m_timeSpan.getName()) && objData != null && objData instanceof TimeSpan) {
-
-                    exchange.unsubscribeToCandles(m_parentInterface.getNetworkId(), m_symbol, m_timeSpan.getId());
-
-                    TimeSpan tSpan = (TimeSpan) objData;
-
-                    m_timeSpan = tSpan;
-
-                    chartRange.setVisible(false);
-                    chartRange.reset();
-                    chartView.reset();
-                    startCandles.run();
-                }
-            });
-
-            startCandles.run();
             chartBox.requestFocus();
 
             Runnable increaseChartHeight = () -> {
@@ -682,32 +518,7 @@ public class KucoinMarketItem {
                 }
             });
 
-            String[] spans = KucoinExchange.AVAILABLE_TIMESPANS;
 
-            for (int i = 0; i < spans.length; i++) {
-
-                String span = spans[i];
-                TimeSpan timeSpan = new TimeSpan(span);
-                MenuItem menuItm = new MenuItem(timeSpan.getName());
-                menuItm.setId("urlMenuItem");
-                menuItm.setUserData(timeSpan);
-
-                menuItm.setOnAction(action -> {
-                     chartBox.requestFocus();
-                    resetChartHeightOffset.run();
-                    Object item = menuItm.getUserData();
-
-                    if (item != null && item instanceof TimeSpan) {
-
-                        timeSpanBtn.setUserData(item);
-                        timeSpanBtn.setText(((TimeSpan) item).getName());
-                    }
-
-                });
-
-                timeSpanBtn.getItems().add(menuItm);
-
-            }
             // chartScroll.setHvalue(1);
 
         } else {
@@ -717,66 +528,22 @@ public class KucoinMarketItem {
     }
 
     public String getSymbol() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getSymbol() : m_symbol;
+        return m_marketDataProperty.get() != null ? m_marketDataProperty.get().getSymbol() : "Unknown";
     }
 
-    public String getSymbolName() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getSymbolName() : m_name;
+    public String getId(){
+        return m_marketDataProperty.get().getId();
     }
 
-    public double getBuy() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getBuy() : Double.NaN;
+
+    public BigDecimal getLastPrice(){
+        return m_marketDataProperty.get().getLastPrice();
+    }
+    public BigDecimal getBaseVolume(){
+        return m_marketDataProperty.get().getBaseVolume();
+    }
+    public BigDecimal getQuoteVolume(){
+        return m_marketDataProperty.get().getQuoteVolume();
     }
 
-    public double getSell() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getSell() : Double.NaN;
-    }
-
-    public double getChangeRate() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getChangeRate() : Double.NaN;
-    }
-
-    public double getChangePrice() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getChangePrice() : Double.NaN;
-    }
-
-    public double getHigh() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getHigh() : Double.NaN;
-    }
-
-    public double getLow() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getLow() : Double.NaN;
-    }
-
-    public double getVol() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getVol() : Double.NaN;
-    }
-
-    public double getVolValue() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getVolValue() : Double.NaN;
-    }
-
-    public double getLast() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getLast() : Double.NaN;
-    }
-
-    public double getAveragePrice() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getAveragePrice() : Double.NaN;
-    }
-
-    public double getTakerFeeRate() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getTakerFeeRate() : Double.NaN;
-    }
-
-    public double getMakerFeeRate() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getMakerFeeRate() : Double.NaN;
-    }
-
-    public double getTakerCoefficient() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getTakerCoefficient() : Double.NaN;
-    }
-
-    public double getMakerCoefficient() {
-        return m_tickerDataProperty.get() != null ? m_tickerDataProperty.get().getMakerCoefficient() : Double.NaN;
-    }
 }

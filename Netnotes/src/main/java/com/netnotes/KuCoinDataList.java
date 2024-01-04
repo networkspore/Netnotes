@@ -48,8 +48,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
     private VBox m_favoriteGridBox = new VBox();
     private VBox m_gridBox = new VBox();
-
-    private ArrayList<KucoinMarketItem> m_marketsList = new ArrayList<KucoinMarketItem>();
+    private List<KucoinMarketItem> m_marketsList = Collections.synchronizedList(new ArrayList<KucoinMarketItem>());
     private ArrayList<HBox> m_favoritesList = new ArrayList<HBox>();
 
     private boolean m_notConnected = false;
@@ -256,50 +255,51 @@ public class KuCoinDataList extends Network implements NoteInterface {
                     if (m_marketsList.size() == 0) {
                         init = true;
                     }
+                    synchronized(m_marketsList){
+                        for (i = 0; i < jsonArray.size(); i++) {
+                            try {
+                                JsonElement tickerObjectElement = jsonArray.get(i);
+                                if (tickerObjectElement != null && tickerObjectElement.isJsonObject()) {
 
-                    for (i = 0; i < jsonArray.size(); i++) {
-                        try {
-                            JsonElement tickerObjectElement = jsonArray.get(i);
-                            if (tickerObjectElement != null && tickerObjectElement.isJsonObject()) {
+                                    JsonObject tickerJson = tickerObjectElement.getAsJsonObject();
+                                    JsonElement symbolElement = tickerJson.get("symbol");
+                                    if (symbolElement != null && symbolElement.isJsonPrimitive()) {
 
-                                JsonObject tickerJson = tickerObjectElement.getAsJsonObject();
-                                JsonElement symbolElement = tickerJson.get("symbol");
-                                if (symbolElement != null && symbolElement.isJsonPrimitive()) {
+                                        String symbolString = symbolElement.getAsString();
 
-                                    String symbolString = symbolElement.getAsString();
+                                        KucoinTickerData tickerData = new KucoinTickerData(symbolString, tickerJson);
 
-                                    KucoinTickerData tickerData = new KucoinTickerData(symbolString, tickerJson);
+                                        boolean isFavorite = false;
 
-                                    boolean isFavorite = false;
-
-                                    for (HBox favorite : m_favoritesList) {
-                                        Object favoriteUserData = favorite.getUserData();
-                                        if (favoriteUserData instanceof String) {
-                                            if (symbolString.equals((String) favoriteUserData)) {
-                                                isFavorite = true;
-                                                break;
+                                        for (HBox favorite : m_favoritesList) {
+                                            Object favoriteUserData = favorite.getUserData();
+                                            if (favoriteUserData instanceof String) {
+                                                if (symbolString.equals((String) favoriteUserData)) {
+                                                    isFavorite = true;
+                                                    break;
+                                                }
                                             }
                                         }
-                                    }
 
-                                    if (init) {
-                                        String id = FriendlyId.createFriendlyId();
-                                        m_marketsList.add(new KucoinMarketItem(m_kucoinExchange, id, symbolString, symbolString, isFavorite, tickerData, getKuCoinDataList()));
-                                    } else {
-                                        KucoinMarketItem item = getMarketItem(symbolString);
-                                        item.tickerDataProperty().set(tickerData);
+                                        if (init) {
+                                            String id = FriendlyId.createFriendlyId();
+                                            m_marketsList.add(new KucoinMarketItem(m_kucoinExchange, id, symbolString, symbolString, isFavorite, tickerData, getKuCoinDataList()));
+                                        } else {
+                                            KucoinMarketItem item = getMarketItem(symbolString);
+                                            item.tickerDataProperty().set(tickerData);
+                                        }
                                     }
+                                }
+
+                            } catch (Exception jsonException) {
+                                try {
+                                    Files.writeString(logFile.toPath(), "\njson error" + jsonException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                } catch (IOException e2) {
+
                                 }
                             }
 
-                        } catch (Exception jsonException) {
-                            try {
-                                Files.writeString(logFile.toPath(), "\njson error" + jsonException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                            } catch (IOException e2) {
-
-                            }
                         }
-
                     }
 
                 } else {
@@ -417,6 +417,8 @@ public class KuCoinDataList extends Network implements NoteInterface {
     }
 
     private void sort() {
+
+        synchronized(m_marketsList){
         switch (m_sortMethod) {
             case 0:
                 if (m_sortDirection) {
@@ -456,6 +458,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                 }
                 break;
 
+        }
         }
 
     }
@@ -507,10 +510,11 @@ public class KuCoinDataList extends Network implements NoteInterface {
         return m_searchText;
     }
 
-    private void doSearch(ArrayList<KucoinMarketItem> marketItems, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+    private void doSearch(List<KucoinMarketItem> marketItems, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
         Task<KucoinMarketItem[]> task = new Task<KucoinMarketItem[]>() {
             @Override
             public KucoinMarketItem[] call() {
+            
                 List<KucoinMarketItem> searchResultsList = marketItems.stream().filter(marketItem -> marketItem.getSymbol().contains(m_searchText.toUpperCase())).collect(Collectors.toList());
 
                 KucoinMarketItem[] results = new KucoinMarketItem[searchResultsList.size()];
@@ -518,6 +522,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
                 searchResultsList.toArray(results);
 
                 return results;
+                
             }
         };
 

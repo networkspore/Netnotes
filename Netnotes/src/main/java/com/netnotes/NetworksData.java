@@ -65,7 +65,9 @@ public class NetworksData implements InstallerInterface {
 
     public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
         ErgoNetwork.NETWORK_ID,
-        KucoinExchange.NETWORK_ID
+        KucoinExchange.NETWORK_ID,
+        SpectrumFinance.NETWORK_ID
+        
     };
 
     private ArrayList<NoteInterface> m_noteInterfaceList = new ArrayList<>();
@@ -257,13 +259,17 @@ public class NetworksData implements InstallerInterface {
                     String networkId = networkIdElement.getAsString();
 
                     switch (networkId) {
-                        case "ERGO_NETWORK":
+                        case ErgoNetwork.NETWORK_ID:
                             addNoteInterface(new ErgoNetwork(jsonObject, this), false);
                             break;
 
-                        case "KUCOIN_EXCHANGE":
+                        case KucoinExchange.NETWORK_ID:
                             addNoteInterface(new KucoinExchange(jsonObject, this), false);
                             break;
+                        case SpectrumFinance.NETWORK_ID:
+                            addNoteInterface(new SpectrumFinance(jsonObject, this), false);
+                            break;
+                        
 
                     }
 
@@ -810,13 +816,15 @@ public class NetworksData implements InstallerInterface {
 
         switch (networkId) {
 
-            case "ERGO_NETWORK":
+            case ErgoNetwork.NETWORK_ID:
                 addNoteInterface(new ErgoNetwork(this));
                 break;
-            case "KUCOIN_EXCHANGE":
+            case KucoinExchange.NETWORK_ID:
                 addNoteInterface(new KucoinExchange(this));
                 break;
-
+            case SpectrumFinance.NETWORK_ID:
+                addNoteInterface(new SpectrumFinance(this));
+                break;
         }
         m_installedVBox.getChildren().clear();
         m_notInstalledVBox.getChildren().clear();

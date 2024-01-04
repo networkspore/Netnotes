@@ -91,7 +91,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     private File m_appDir = null;
     private File m_dataFile = null;
-    private File m_testnetDataFile = null;
+
     private Stage m_appStage = null;
 
     //private static long MIN_QUOTE_MILLIS = 5000;
@@ -103,6 +103,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
     public KucoinExchange(NetworksData networksData) {
         this(null, networksData);
+        setup(null);
         addListeners();
     }
 
@@ -193,22 +194,18 @@ public class KucoinExchange extends Network implements NoteInterface {
         return m_dataFile;
     }
 
-    public File getTestnetDataFile() {
-        return m_testnetDataFile;
-    }
 
     private void setup(JsonObject jsonObject) {
 
-        String testnetFileString = null;
-        String mainnetFileString = null;
+
+        String fileString = null;
         String appDirFileString = null;
         if (jsonObject != null) {
             JsonElement appDirElement = jsonObject.get("appDir");
-            JsonElement testnetFileElement = jsonObject.get("testnetFile");
-            JsonElement mainnetFileElement = jsonObject.get("mainnetFile");
+      
+            JsonElement dataFileElement = jsonObject.get("dataFile");
 
-            testnetFileString = testnetFileElement == null ? null : testnetFileElement.toString();
-            mainnetFileString = mainnetFileElement == null ? null : mainnetFileElement.toString();
+            fileString = dataFileElement == null ? null : dataFileElement.toString();
 
             appDirFileString = appDirElement == null ? null : appDirElement.getAsString();
 
@@ -227,8 +224,8 @@ public class KucoinExchange extends Network implements NoteInterface {
 
         }
 
-        m_testnetDataFile = new File(testnetFileString == null ? m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat" : testnetFileString);
-        m_dataFile = new File(mainnetFileString == null ? m_appDir.getAbsolutePath() + "/" + NAME + ".dat" : mainnetFileString);
+   
+        m_dataFile = new File(fileString == null ? m_appDir.getAbsolutePath() + "/" + NAME + ".dat" : fileString);
 
     }
 
@@ -368,15 +365,14 @@ public class KucoinExchange extends Network implements NoteInterface {
             refreshTip.setShowDelay(new javafx.util.Duration(100));
             refreshTip.setFont(App.txtFont);
 
-            Button refreshButton = new Button();
-            refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
+            BufferedButton refreshButton = new BufferedButton("/assets/refresh-white-30.png",App.MENU_BAR_IMAGE_WIDTH);
+     
             refreshButton.setId("menuBtn");
-            EventHandler<ActionEvent> refreshAction = e -> {
+            refreshButton.setOnAction(refreshAction -> {
                 refreshButton.setDisable(true);
-                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/stop-30.png"), App.MENU_BAR_IMAGE_WIDTH));
+                refreshButton.setImage(new Image("/assets/sync-30.png"));
                 kucoinData.updateTickers();
-            };
-            refreshButton.setOnAction(refreshAction);
+            });
 
             TextField searchField = new TextField();
             searchField.setPromptText("Search");
@@ -494,7 +490,7 @@ public class KucoinExchange extends Network implements NoteInterface {
 
             kucoinData.getLastUpdated().addListener((obs, oldVal, newVal) -> {
                 refreshButton.setDisable(false);
-                refreshButton.setGraphic(IconButton.getIconView(new Image("/assets/refresh-white-30.png"), App.MENU_BAR_IMAGE_WIDTH));
+                refreshButton.setImage(new Image("/assets/refresh-white-30.png"));
                 String dateString = Utils.formatDateTimeString(newVal);
 
                 lastUpdatedField.setText(dateString);
