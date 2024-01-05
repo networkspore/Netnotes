@@ -24,6 +24,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -203,14 +204,100 @@ public class SpectrumFinance extends Network implements NoteInterface {
             refreshTip.setShowDelay(new javafx.util.Duration(100));
             refreshTip.setFont(App.txtFont);
 
-            BufferedButton refreshButton = new BufferedButton("/assets/refresh-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
-            refreshButton.setId("menuBtn");
-            EventHandler<ActionEvent> refreshAction = e -> {
-                refreshButton.setDisable(true);
-                refreshButton.setImage(new Image("/assets/sync-30.png"));
-                spectrumData.updateMarkets();
+         
+
+            BufferedMenuButton sortTypeButton = new BufferedMenuButton("/assets/filter.png", App.MENU_BAR_IMAGE_WIDTH);
+
+            MenuItem sortLiquidityItem = new MenuItem(SpectrumSort.SortType.LIQUIDITY_VOL);
+            MenuItem sortBaseVolItem = new MenuItem(SpectrumSort.SortType.BASE_VOL);
+            MenuItem sortQuoteVolItem = new MenuItem(SpectrumSort.SortType.QUOTE_VOL);
+            MenuItem sortLastPriceItem = new MenuItem(SpectrumSort.SortType.LAST_PRICE);
+          
+            sortTypeButton.getItems().addAll(sortLiquidityItem, sortBaseVolItem, sortQuoteVolItem, sortLastPriceItem);
+
+            Runnable updateSortTypeSelected = () ->{
+                sortLiquidityItem.setId(null);
+                sortBaseVolItem.setId(null);
+                sortQuoteVolItem.setId(null);
+                sortLastPriceItem.setId(null);
+
+                switch(spectrumData.getSortMethod().getType()){
+                    case SpectrumSort.SortType.LIQUIDITY_VOL:
+                        sortLiquidityItem.setId("selectedMenuItem");
+                    break;
+                    case SpectrumSort.SortType.BASE_VOL:
+                        sortBaseVolItem.setId("selectedMenuItem");
+                    break;
+                    case SpectrumSort.SortType.QUOTE_VOL:
+                        sortQuoteVolItem.setId("selectedMenuItem");
+                    break;
+                    case SpectrumSort.SortType.LAST_PRICE:
+                        sortLastPriceItem.setId("selectedMenuItem");
+                    break;
+                }
+
+                spectrumData.sort();
+                spectrumData.updateGridBox();
+                spectrumData.getLastUpdated().set(LocalDateTime.now());
             };
-            refreshButton.setOnAction(refreshAction);
+
+           // updateSortTypeSelected.run();
+
+            sortLiquidityItem.setOnAction(e->{
+                SpectrumSort sortMethod = spectrumData.getSortMethod();
+                sortMethod.setType(sortLiquidityItem.getText());
+                updateSortTypeSelected.run();
+            });
+
+            sortBaseVolItem.setOnAction(e->{
+                SpectrumSort sortMethod = spectrumData.getSortMethod();
+                sortMethod.setType(sortBaseVolItem.getText());
+                updateSortTypeSelected.run();
+            });
+
+            sortQuoteVolItem.setOnAction(e->{
+                SpectrumSort sortMethod = spectrumData.getSortMethod();
+                sortMethod.setType(sortQuoteVolItem.getText());
+                updateSortTypeSelected.run();
+            });
+
+            sortLastPriceItem.setOnAction(e->{
+                SpectrumSort sortMethod = spectrumData.getSortMethod();
+                sortMethod.setType(sortLastPriceItem.getText());
+                updateSortTypeSelected.run();
+            });
+
+
+            BufferedButton sortDirectionButton = new BufferedButton(spectrumData.getSortMethod().isAsc() ? "/assets/sortAsc.png" : "/assets/sortDsc.png", App.MENU_BAR_IMAGE_WIDTH);
+            sortDirectionButton.setOnAction(e->{
+                SpectrumSort sortMethod = spectrumData.getSortMethod();
+                sortMethod.setDirection(sortMethod.isAsc() ? SpectrumSort.SortDirection.DSC : SpectrumSort.SortDirection.ASC);
+                sortDirectionButton.setImage(new Image(sortMethod.isAsc() ? "/assets/sortAsc.png" : "/assets/sortDsc.png"));
+                spectrumData.sort();
+                spectrumData.updateGridBox();
+                spectrumData.getLastUpdated().set(LocalDateTime.now());
+            });
+
+            BufferedButton swapTargetButton = new BufferedButton(spectrumData.getSortMethod().isTargetSwapped()? "/assets/targetSwapped.png" : "/assets/targetStandard.png", App.MENU_BAR_IMAGE_WIDTH);
+            swapTargetButton.setOnAction(e->{
+                SpectrumSort sortMethod = spectrumData.getSortMethod();
+                sortMethod.setSwapTarget(sortMethod.isTargetSwapped() ? SpectrumSort.SwapMarket.STANDARD : SpectrumSort.SwapMarket.SWAPPED);
+                swapTargetButton.setImage(new Image(spectrumData.getSortMethod().isTargetSwapped()? "/assets/targetSwapped.png" : "/assets/targetStandard.png"));
+                spectrumData.sort();
+                spectrumData.updateGridBox();
+                spectrumData.getLastUpdated().set(LocalDateTime.now());
+
+            });
+
+
+            BufferedButton refreshBtn = new BufferedButton("/assets/refresh-white-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            refreshBtn.setId("menuBtn");
+            refreshBtn.setOnAction(e -> {
+                refreshBtn.setDisable(true);
+                refreshBtn.setImage(new Image("/assets/sync-30.png"));
+                spectrumData.updateMarkets();
+            });
+
 
             TextField searchField = new TextField();
             searchField.setPromptText("Search");
@@ -224,7 +311,7 @@ public class SpectrumFinance extends Network implements NoteInterface {
             Region menuBarRegion = new Region();
             HBox.setHgrow(menuBarRegion, Priority.ALWAYS);
 
-            HBox menuBar = new HBox(refreshButton, menuBarRegion, searchField);
+            HBox menuBar = new HBox(sortTypeButton,sortDirectionButton,swapTargetButton, menuBarRegion, searchField, refreshBtn);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -327,8 +414,8 @@ public class SpectrumFinance extends Network implements NoteInterface {
             favoritesVBox.prefWidthProperty().bind(favoriteScroll.prefViewportWidthProperty().subtract(40));
 
             spectrumData.getLastUpdated().addListener((obs, oldVal, newVal) -> {
-                refreshButton.setDisable(false);
-                refreshButton.setImage(new Image("/assets/refresh-white-30.png"));
+                refreshBtn.setDisable(false);
+                refreshBtn.setImage(new Image("/assets/refresh-white-30.png"));
                 String dateString = Utils.formatDateTimeString(newVal);
 
                 lastUpdatedField.setText(dateString);
@@ -370,7 +457,7 @@ public class SpectrumFinance extends Network implements NoteInterface {
                 }
             });
 
-            getNetworksData().timeCycleProperty().addListener((obs,oldval,newval)->refreshButton.fire());
+            getNetworksData().timeCycleProperty().addListener((obs,oldval,newval)->refreshBtn.fire());
 
             m_appStage.setOnCloseRequest(e -> runClose.run());
 

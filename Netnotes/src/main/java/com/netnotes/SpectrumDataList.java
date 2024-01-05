@@ -3,6 +3,7 @@ package com.netnotes;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
@@ -64,6 +65,8 @@ public class SpectrumDataList extends Network implements NoteInterface {
         m_spectrumFinance = spectrumFinance;
 
         setup(m_spectrumFinance.getNetworksData().getAppData().appKeyProperty().get());
+        
+
 
     }
     public SpectrumDataList(SpectrumFinance spectrumFinance, SecretKey oldval, SecretKey newval ) {
@@ -76,10 +79,10 @@ public class SpectrumDataList extends Network implements NoteInterface {
     private void setup(SecretKey secretKey) {
        
         getFile(secretKey);
-      
+        updateGridBox();
         updateMarkets();
       
-   
+        
 
     }
 
@@ -155,21 +158,17 @@ public class SpectrumDataList extends Network implements NoteInterface {
     }
 
     public void updateMarkets() {
-
+        
         m_spectrumFinance.getCMCMarkets(success -> {
+            boolean init = m_marketsList.size() == 0; 
+
             Object sourceObject = success.getSource().getValue();
             if (sourceObject != null && sourceObject instanceof JsonArray) {
-              //  Runnable runUpdate = () ->{
-            
-           
-                    int i = 0;
-                    boolean init = false;
-                    if (m_marketsList.size() == 0) {
-                        init = true;
-                    }
+                Runnable runUpdate = () ->{
+              
                     JsonArray jsonArray = (JsonArray) sourceObject;
                     synchronized(m_marketsList){
-                        for (i = 0; i < jsonArray.size(); i++) {
+                        for (int i = 0; i < jsonArray.size(); i++) {
                     
                             JsonElement marketObjectElement = jsonArray.get(i);
                             if (marketObjectElement != null && marketObjectElement.isJsonObject()) {
@@ -179,7 +178,6 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                 try{
                                     
                                     SpectrumMarketData marketData = new SpectrumMarketData(marketDataJson);
-                                    Files.writeString(logFile.toPath(), "\nid: " + marketData.getId() + "\nbase: " + marketData.getBaseSymbol() + "\n" + "quote: " + marketData.getQuoteSymbol() + "\n\n", StandardOpenOption.CREATE,StandardOpenOption.APPEND);
                                     boolean isFavorite = false;
 
                                     for (HBox favorite : m_favoritesList) {
@@ -193,14 +191,27 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                     }
 
                                     if (init) {
-                                    
+                                        BigDecimal invertedPrice = marketData.getInvertedLastPrice();
+                                        
+                                        try{
+                                            BigDecimal lastPrice = BigDecimal.ONE.divide(invertedPrice, invertedPrice.precision(), RoundingMode.CEILING);
+                                            marketData.setLastPrice(lastPrice);
+                                        }catch(ArithmeticException ae){
+
+                                        }
                                         m_marketsList.add(new SpectrumMarketItem(m_spectrumFinance, isFavorite, marketData, getSpectrumDataList()));
+                                        
+                                        
                                     } else {
                                         SpectrumMarketItem item = getMarketItem(marketData.getId());
-                                        marketData.setLastPrice(item.getLastPrice());
 
+                                        marketData.setLastPrice(item.getLastPrice());
+                                        marketData.setPoolId(item.getPoolId());
+                                        marketData.setLiquidityUSD(item.getLiquidityUSD());
                                         item.marketDataProperty().set(marketData);
                                     }
+
+                                    
                                 }catch(Exception e){
                                     try {
                                         Files.writeString(logFile.toPath(), "\nSpectrumFinance(updateMarkets): " + e.toString() + " " + marketDataJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -219,15 +230,14 @@ public class SpectrumDataList extends Network implements NoteInterface {
                         sort();
                         Platform.runLater(()->m_notConnected = false);
                         Platform.runLater(()->updateGridBox());
-                        Platform.runLater(()->m_statusMsg.set("Top 100 - " + m_sortMethod.getType() + " " + (m_sortMethod.isAsc() ? "(Low to High)" : "(High to Low)")));
                         Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
                     };
-                    if(m_marketsList.size() > 0){
+                    
+                    if(m_marketsList.size() != 0){
                         m_spectrumFinance.getTickers((onTickerArray)->{
                             Object tickerSourceObject = onTickerArray.getSource().getValue();
                             if (tickerSourceObject != null && tickerSourceObject instanceof JsonArray) {
                                 JsonArray tickerArray = (JsonArray) tickerSourceObject;
-
                              
                                 synchronized(m_marketsList){
 
@@ -242,14 +252,19 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                             String tickerId = tickerIdElement != null && tickerIdElement.isJsonPrimitive() ? tickerIdElement.getAsString() : null;
 
                                             if(tickerId != null){
-                                                try {
-                                                    Files.writeString(logFile.toPath(), "\ntickerId: " + tickerId, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
-                                                } catch (IOException e) {
-                                            
-                                                }
+                                        
                                                 SpectrumMarketItem spectrumItem = getMarketItem(tickerId);
+                                                try {
+                                                    Files.writeString(logFile.toPath(), "\ntickerId: " + tickerId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                } catch (IOException e) {
 
+                                                }
                                                 if(spectrumItem != null){
+                                                      try {
+                                                            Files.writeString(logFile.toPath(), "\nitemId: " + spectrumItem.getId(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                        } catch (IOException e) {
+
+                                                        }
                                                     JsonElement lastPriceElement = tickerDataJson.get("last_price");
                                                     JsonElement liquidityUsdElement = tickerDataJson.get("liquidity_in_usd");
                                                     JsonElement poolIdElement = tickerDataJson.get("pool_id");
@@ -261,7 +276,9 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                                         SpectrumMarketData spectrumData = spectrumItem.marketDataProperty().get();
                                                         spectrumData.setLastPrice(lastPriceElement.getAsBigDecimal());
                                                         spectrumData.setLiquidityUSD(liquidityUsdElement.getAsBigDecimal());
-                                                        spectrumData.setPoolId(poolIdElement.getAsString());
+                                                        if(init){
+                                                            spectrumData.setPoolId(poolIdElement.getAsString());
+                                                        }
                                                     }
                                                 }
 
@@ -289,11 +306,11 @@ public class SpectrumDataList extends Network implements NoteInterface {
                     }
             
                
-               // };
+                };
 
-               // Thread updateThread = new Thread(runUpdate);
-              //  updateThread.setDaemon(true);
-              //  updateThread.start();
+                Thread updateThread = new Thread(runUpdate);
+                updateThread.setDaemon(true);
+                updateThread.start();
             } else {
                 m_notConnected = true;
                 m_statusMsg.set("Not connected");
@@ -364,37 +381,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
     }
 
-    /*
-    private void openJson(JsonObject json) {
-        JsonElement dataElement = json.get("data");
 
-        if (dataElement != null && dataElement.isJsonArray()) {
-
-            JsonArray dataArray = dataElement.getAsJsonArray();
-
-            //  if (m_ergoTokens.getNetworkType().toString().equals(networkType)) {
-            for (JsonElement objElement : dataArray) {
-                if (objElement.isJsonObject()) {
-                    JsonObject objJson = objElement.getAsJsonObject();
-                    JsonElement nameElement = objJson.get("name");
-                    JsonElement idElement = objJson.get("id");
-
-                    if (nameElement != null && nameElement.isJsonPrimitive() && idElement != null && idElement.isJsonPrimitive()) {
-
-                        try {
-                            Files.writeString(logFile.toPath(), "\ndataElement: " + objJson.toString());
-                        } catch (IOException e) {
-
-                        }
-                    }
-
-                }
-            }
-            //   }
-        }
-
-        updateGridBox();
-    } */
     public VBox getGridBox() {
 
         return m_gridBox;
@@ -404,74 +391,77 @@ public class SpectrumDataList extends Network implements NoteInterface {
         return m_favoriteGridBox;
     }
 
-    private void sort() {
+    public void sort() {
+        synchronized(m_marketsList){
+            String type = m_sortMethod.getType();
+            boolean isAsc = m_sortMethod.isAsc();
+            boolean swapped = m_sortMethod.isTargetSwapped();
+            switch (type) {
+                case SpectrumSort.SortType.LIQUIDITY_VOL:
+                    if (isAsc) {
+                        Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getLiquidityUSD));
 
-        switch (m_sortMethod.getType()) {
-            case SpectrumSort.SortType.LAST_PRICE:
-                if (m_sortMethod.isAsc()) {
-                    Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getLastPrice));
+                    } else {
+                        Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getLiquidityUSD)));
+                    }
+                    break;
+                case SpectrumSort.SortType.LAST_PRICE:
+                    
+                    if (isAsc) {
+                        Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getLastPrice));
 
-                } else {
-                    Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getLastPrice)));
-                }
-                break;
-            case SpectrumSort.SortType.BASE_VOL:
-                if (m_sortMethod.isAsc()) {
-                    Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getBaseVolume));
-                } else {
-                    Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getBaseVolume)));
-                }
-                break;
-            case SpectrumSort.SortType.QUOTE_VOL:
-                if (m_sortMethod.isAsc()) {
-                    Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getQuoteVolume));
-                } else {
-                    Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getQuoteVolume)));
-                }
-                break;
-           
+                    } else {
+                        Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getLastPrice)));
+                    }
+                    break;
+                case SpectrumSort.SortType.BASE_VOL:
+                    if(!swapped){
+                        if (isAsc) {
+                            Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getBaseVolume));
+                        } else {
+                            Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getBaseVolume)));
+                        }
+                    }else{
+                        if (isAsc) {
+                            Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getQuoteVolume));
+                        } else {
+                            Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getQuoteVolume)));
+                        }
+                    }
+                    break;
+                case SpectrumSort.SortType.QUOTE_VOL:
+                    if(!swapped){
+                        if (isAsc) {
+                            Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getQuoteVolume));
+                        } else {
+                            Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getQuoteVolume)));
+                        }
+                    }else{
+                        if (isAsc) {
+                            Collections.sort(m_marketsList, Comparator.comparing(SpectrumMarketItem::getBaseVolume));
+                        } else {
+                            Collections.sort(m_marketsList, Collections.reverseOrder(Comparator.comparing(SpectrumMarketItem::getBaseVolume)));
+                        }
+                    }
+                    break;
+            
 
+            }
         }
-       
+        int maxItems = m_marketsList.size() > 100 ? 100 : m_marketsList.size();
+        Platform.runLater(()->m_statusMsg.set("Top "+maxItems+" - " + m_sortMethod.getType() + " " + (m_sortMethod.isAsc() ? "(Low to High)" : "(High to Low)")));
 
     }
-/* 
-    public void sortByChangeRate(boolean direction) {
-        m_sortMethod = 0;
-        m_sortDirection = direction;
-        String msg = "Top 100 - 24h Change Rate ";
-        m_statusMsg.set(msg + (direction ? "(Low to High)" : "(High to Low)"));
+
+    public SpectrumSort getSortMethod(){
+        return m_sortMethod;
     }
 
-    public void sortByChangePrice(boolean direction) {
-        m_sortMethod = 1;
-        m_sortDirection = direction;
-
-        String msg = "Top 100 - 24h Price Change ";
-        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
+    public void setSortMethod(SpectrumSort sortMethod){
+        m_sortMethod = sortMethod;
+        sort();
     }
 
-    public void sortByHigh(boolean direction) {
-        m_sortMethod = 2;
-        m_sortDirection = direction;
-        String msg = "Top 100 - 24h High Price ";
-        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
-    }
-
-    public void sortByLow(boolean direction) {
-        m_sortMethod = 3;
-        m_sortDirection = direction;
-        String msg = "Top 100 - 24h Low Price ";
-        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
-    }
-
-    public void sortByVolValue(boolean direction) {
-        m_sortMethod = 4;
-        m_sortDirection = direction;
-        String msg = "Top 100 - 24h Volume ";
-        m_statusMsg.set(msg + (direction ? "(Low to High)" : ("High to Low")));
-    }
- */
     public void setSearchText(String text) {
         m_searchText = text.equals("") ? null : text;
 

@@ -365,12 +365,12 @@ public class KucoinExchange extends Network implements NoteInterface {
             refreshTip.setShowDelay(new javafx.util.Duration(100));
             refreshTip.setFont(App.txtFont);
 
-            BufferedButton refreshButton = new BufferedButton("/assets/refresh-white-30.png",App.MENU_BAR_IMAGE_WIDTH);
+            BufferedButton refreshBtn = new BufferedButton("/assets/refresh-white-30.png",App.MENU_BAR_IMAGE_WIDTH);
      
-            refreshButton.setId("menuBtn");
-            refreshButton.setOnAction(refreshAction -> {
-                refreshButton.setDisable(true);
-                refreshButton.setImage(new Image("/assets/sync-30.png"));
+            refreshBtn.setId("menuBtn");
+            refreshBtn.setOnAction(refreshAction -> {
+                refreshBtn.setDisable(true);
+                refreshBtn.setImage(new Image("/assets/sync-30.png"));
                 kucoinData.updateTickers();
             });
 
@@ -386,7 +386,7 @@ public class KucoinExchange extends Network implements NoteInterface {
             Region menuBarRegion = new Region();
             HBox.setHgrow(menuBarRegion, Priority.ALWAYS);
 
-            HBox menuBar = new HBox(refreshButton, menuBarRegion, searchField);
+            HBox menuBar = new HBox(menuBarRegion, searchField, refreshBtn);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -489,8 +489,8 @@ public class KucoinExchange extends Network implements NoteInterface {
             favoritesVBox.prefWidthProperty().bind(favoriteScroll.prefViewportWidthProperty().subtract(40));
 
             kucoinData.getLastUpdated().addListener((obs, oldVal, newVal) -> {
-                refreshButton.setDisable(false);
-                refreshButton.setImage(new Image("/assets/refresh-white-30.png"));
+                refreshBtn.setDisable(false);
+                refreshBtn.setImage(new Image("/assets/refresh-white-30.png"));
                 String dateString = Utils.formatDateTimeString(newVal);
 
                 lastUpdatedField.setText(dateString);

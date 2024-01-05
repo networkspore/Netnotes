@@ -138,6 +138,12 @@ public class SpectrumMarketItem {
             rowButton.setGraphic(img == null ? null : IconButton.getIconView(img, img.getWidth()));
         });
 
+        
+        m_dataList.getSortMethod().isTargetSwappedProperty().addListener((obs, oldVal, newVal) -> {
+            Image img = getButtonImage(m_marketDataProperty.get());
+            rowButton.setGraphic(img == null ? null : IconButton.getIconView(img, img.getWidth()));
+        });
+
         return rowBox;
     }
 
@@ -150,8 +156,8 @@ public class SpectrumMarketItem {
         }
         int height = 30;
 
-        String symbolString = String.format("%-18s", data.getSymbol());
-        String lastString = data.getLastPrice().toString();
+        String symbolString = String.format("%-18s", m_dataList.getSortMethod().isTargetSwapped() ? (data.getQuoteSymbol() + "-" + data.getBaseSymbol()) : data.getSymbol());
+        String lastString = m_dataList.getSortMethod().isTargetSwapped() ? data.getInvertedLastPrice().toString() : data.getLastPrice().toString();
 
         boolean positive = false;
         boolean neutral = true;
@@ -535,6 +541,13 @@ public class SpectrumMarketItem {
         return m_marketDataProperty.get().getId();
     }
 
+    public String getPoolId(){
+        return m_marketDataProperty.get().getPoolId();
+    }
+
+    public BigDecimal getLiquidityUSD(){
+        return m_marketDataProperty.get().getLiquidityUSD();
+    }
 
     public BigDecimal getLastPrice(){
         return m_marketDataProperty.get().getLastPrice();

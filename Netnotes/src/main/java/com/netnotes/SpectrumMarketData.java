@@ -31,10 +31,10 @@ public class SpectrumMarketData {
 
     public SpectrumMarketData(JsonObject json) throws Exception{
      
-        JsonElement quoteIdElement = json.get("base_id");
-        JsonElement quoteSymbolElement = json.get("base_symbol");
-        JsonElement baseIdElement = json.get("quote_id");
-        JsonElement baseSymbolElement = json.get("quote_symbol");
+        JsonElement baseIdElement = json.get("base_id");
+        JsonElement baseSymbolElement = json.get("base_symbol");
+        JsonElement quoteIdElement = json.get("quote_id");
+        JsonElement quoteSymbolElement = json.get("quote_symbol");
         JsonElement lastPriceElement = json.get("last_price");
         JsonElement quoteVolumeElement = json.get("base_volume");
         JsonElement baseVolumeElement = json.get("quote_volume");
@@ -55,7 +55,7 @@ public class SpectrumMarketData {
             m_quoteId = quoteIdElement.getAsString();
             m_quoteSymbol = quoteSymbolElement.getAsString();
 
-            m_id = m_baseId + "_" + m_quoteId;
+            m_id = m_quoteId + "_" + m_baseId;
 
             m_quoteVolume = quoteVolumeElement.getAsBigDecimal();
             m_baseVolume = baseVolumeElement.getAsBigDecimal();
