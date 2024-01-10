@@ -199,7 +199,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                         }catch(ArithmeticException ae){
 
                                         }
-                                        m_marketsList.add(new SpectrumMarketItem(m_spectrumFinance, isFavorite, marketData, getSpectrumDataList()));
+                                        m_marketsList.add(new SpectrumMarketItem( isFavorite, marketData, getSpectrumDataList()));
                                         
                                         
                                     } else {
@@ -254,17 +254,9 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                             if(tickerId != null){
                                         
                                                 SpectrumMarketItem spectrumItem = getMarketItem(tickerId);
-                                                try {
-                                                    Files.writeString(logFile.toPath(), "\ntickerId: " + tickerId, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                                } catch (IOException e) {
-
-                                                }
+                                            
                                                 if(spectrumItem != null){
-                                                      try {
-                                                            Files.writeString(logFile.toPath(), "\nitemId: " + spectrumItem.getId(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                                        } catch (IOException e) {
-
-                                                        }
+                                                  
                                                     JsonElement lastPriceElement = tickerDataJson.get("last_price");
                                                     JsonElement liquidityUsdElement = tickerDataJson.get("liquidity_in_usd");
                                                     JsonElement poolIdElement = tickerDataJson.get("pool_id");
@@ -276,9 +268,8 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                                         SpectrumMarketData spectrumData = spectrumItem.marketDataProperty().get();
                                                         spectrumData.setLastPrice(lastPriceElement.getAsBigDecimal());
                                                         spectrumData.setLiquidityUSD(liquidityUsdElement.getAsBigDecimal());
-                                                        if(init){
-                                                            spectrumData.setPoolId(poolIdElement.getAsString());
-                                                        }
+                                                        spectrumData.setPoolId(poolIdElement.getAsString());
+                                                        
                                                     }
                                                 }
 

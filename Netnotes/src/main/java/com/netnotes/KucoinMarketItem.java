@@ -55,7 +55,7 @@ import javafx.stage.StageStyle;
 
 public class KucoinMarketItem {
 
-    private File logFile;
+    private File logFile = new File("netnotes-log.txt");
     private String m_id;
     private String m_symbol;
     private String m_name;
@@ -219,7 +219,7 @@ public class KucoinMarketItem {
 
     public void showStage() {
         if (m_stage == null) {
-            logFile = new File("marketItem-" + m_symbol + ".txt");
+          
             double sceneWidth = 750;
             double sceneHeight = 800;
             final double chartScrollVvalue = 1;

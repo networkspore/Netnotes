@@ -7,14 +7,29 @@ import java.awt.Rectangle;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 import org.reactfx.util.FxTimer;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.Gson;
 
 import com.utils.Utils;
 
@@ -32,9 +47,9 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 
 import javafx.scene.Scene;
-
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 
 import javafx.scene.control.Label;
@@ -43,6 +58,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -58,9 +74,6 @@ public class SpectrumMarketItem {
 
     private File logFile = new File("netnotes-log.txt");
 
-  
- 
-
     private SpectrumDataList m_dataList = null;
     private SimpleObjectProperty<SpectrumMarketData> m_marketDataProperty = new SimpleObjectProperty<>(null);
     private Stage m_stage = null;
@@ -70,23 +83,30 @@ public class SpectrumMarketItem {
     private double m_prevHeight = -1;
     private double m_prevX = -1;
     private double m_prevY = -1;
+    private String m_symbol;
 
-    private NoteInterface m_parentInterface;
-
-    public SpectrumMarketItem(NoteInterface parentInterface, boolean favorite, SpectrumMarketData marketData, SpectrumDataList dataList) {
-        m_parentInterface = parentInterface;
-      
-       
+    public SpectrumMarketItem(boolean favorite, SpectrumMarketData marketData, SpectrumDataList dataList) {
+        m_symbol = marketData.getSymbol();
         m_dataList = dataList;
         m_marketDataProperty.set(marketData);
         m_isFavorite.set(favorite);
-
-    }
+       
+    }  
 
     public SimpleBooleanProperty isFavoriteProperty() {
         return m_isFavorite;
     }
 
+    public File getMarketFile() throws IOException{
+    
+        File marketFile = new File(m_dataList.getSpectrumFinance().getDataDir().getAbsolutePath() + "/" + m_symbol + ".json" );
+
+        File parentFile = marketFile.getParentFile();
+        if(!parentFile.isDirectory()){
+            Files.createDirectory(parentFile.toPath());
+        }
+        return marketFile;
+    }
 
 
 
@@ -119,7 +139,15 @@ public class SpectrumMarketItem {
         Button rowButton = new IconButton() {
             @Override
             public void open() {
-                showStage();
+                if(m_marketDataProperty.get().getPoolId() != null){
+                    showStage();
+                }else{
+                    Alert a = new Alert(AlertType.NONE, "Chart currently unavailable.", ButtonType.OK);
+                    a.setTitle("Chart Unavailable - " + SpectrumFinance.NAME);
+                    a.initOwner(m_stage);
+                    a.show();
+                }
+
             }
         };
         rowButton.setContentDisplay(ContentDisplay.LEFT);
@@ -277,25 +305,34 @@ public class SpectrumMarketItem {
                 favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
             });
 
-            Text headingText = new Text(getSymbol());
+            Text headingText = new Text(getSymbol() + "  - ");
             headingText.setFont(App.txtFont);
             headingText.setFill(Color.WHITE);
 
             Region headingSpacerL = new Region();
 
+            SpectrumChartView chartView = new SpectrumChartView(chartWidth, chartHeight, new TimeSpan("1day"));
+            HBox chartBox = chartView.getChartBox();
+            
+            MenuButton timeSpanBtn = new MenuButton(chartView.getTimeSpan().getName());
+            timeSpanBtn.setFont(App.txtFont);
 
-            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText);
+            timeSpanBtn.setContentDisplay(ContentDisplay.LEFT);
+            timeSpanBtn.setAlignment(Pos.CENTER_LEFT);
+
+
+            HBox headingBox = new HBox(favoriteBtn, headingSpacerL, headingText, timeSpanBtn);
             headingBox.prefHeight(40);
             headingBox.setAlignment(Pos.CENTER_LEFT);
             HBox.setHgrow(headingBox, Priority.ALWAYS);
             headingBox.setPadding(new Insets(5, 5, 5, 5));
             headingBox.setId("headingBox");
 
-            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
+            headingSpacerL.prefWidthProperty().bind(headingBox.widthProperty().subtract(timeSpanBtn.widthProperty().divide(2)).subtract(favoriteBtn.widthProperty()).subtract(headingText.layoutBoundsProperty().get().getWidth()).divide(2));
 
-            ChartView chartView = new ChartView(chartWidth, chartHeight);
+            
 
-            HBox chartBox = chartView.getChartBox();
+            
 
             ScrollPane chartScroll = new ScrollPane(chartBox);
             Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
@@ -311,7 +348,7 @@ public class SpectrumMarketItem {
             chartScroll.setPadding(new Insets(0, 0, 0, 15));
 
             RangeBar chartRange = new RangeBar(rangeWidth, rangeHeight);
-            chartRange.setId("menuBtn");
+           // chartRange.setId("menuBtn");
             chartRange.setVisible(false);
 
             chartView.rangeActiveProperty().bind(chartRange.activeProperty());
@@ -320,6 +357,7 @@ public class SpectrumMarketItem {
             chartView.isSettingRangeProperty().bind(chartRange.settingRangeProperty());
             
             HBox bodyBox = new HBox(chartRange, chartScroll);
+            bodyBox.setId("bodyBox");
             bodyBox.setAlignment(Pos.TOP_LEFT);
             HBox bodyPaddingBox = new HBox(bodyBox);
             bodyPaddingBox.setPadding(new Insets(5));
@@ -523,14 +561,131 @@ public class SpectrumMarketItem {
                    chartBox.requestFocus();
                 }
             });
+            chartView.setLastTimeStamp(System.currentTimeMillis());
 
+            Runnable setCandles = () ->{
+                JsonObject existingObj = null;
+                try {
+                    existingObj = getMarketFile().isFile() ? new JsonParser().parse(Files.readString(getMarketFile().toPath())).getAsJsonObject() : null;
+                } catch (IOException | JsonParseException e) {
+                    try {
+                        Files.writeString(logFile.toPath(), "\nSpectrum Market Data (setCandles.run):" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException  e1) {
 
-            // chartScroll.setHvalue(1);
+                    }
+                }
+               
+                JsonElement priceDataElement = existingObj != null ? existingObj.get("priceData") : null;
+                JsonElement lastTimeStampElement = existingObj != null && priceDataElement != null ? existingObj.get("lastTimeStamp") : null; 
+
+                final JsonArray priceDataArray = lastTimeStampElement != null && lastTimeStampElement.isJsonPrimitive() && priceDataElement != null && priceDataElement.isJsonArray() ? priceDataElement.getAsJsonArray() : null;
+                final long lastTimeStamp = lastTimeStampElement != null && priceDataArray != null  ? lastTimeStampElement.getAsLong() : 0;
+                final long currentTime = System.currentTimeMillis();
+
+               
+
+                m_dataList.getSpectrumFinance().getPoolChart(m_marketDataProperty.get().getPoolId(), lastTimeStamp, currentTime,  (onSuccess)->{
+                    Object sourceObject = onSuccess.getSource().getValue();
+                
+                    if (sourceObject != null && sourceObject instanceof JsonArray) {
+                        JsonArray newChartArray = (JsonArray) sourceObject;
+                        
+                        JsonArray chartArray = priceDataArray != null ? priceDataArray : newChartArray;
+
+                        if(priceDataArray != null){
+                            for(int i = 0; i < newChartArray.size() ; i++){
+                                JsonElement newDataElement = newChartArray.get(i);
+                                JsonObject newDataJson = newDataElement != null && newDataElement.isJsonObject() ? newDataElement.getAsJsonObject() : null;
+                                if(newDataJson != null){
+                                    chartArray.add(newDataJson);
+                                }
+                            }
+                        }
+                        
+                        saveNewDataJson(currentTime, chartArray);
+                    
+                        chartView.setPriceDataList(chartArray);
+                        chartView.setLastTimeStamp(currentTime);
+
+                        Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
+                        Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
+
+                        chartRange.setVisible(true);
+                    }else{
+                        closeBtn.fire();
+                    }
+                    
+                }, onFailed->{
+                    closeBtn.fire();
+                });
+            };
+            setCandles.run();
+
+            String[] spans = TimeSpan.AVAILABLE_TIMESPANS;
+
+            for (int i = 0; i < spans.length; i++) {
+
+                String span = spans[i];
+                TimeSpan timeSpan = new TimeSpan(span);
+                MenuItem menuItm = new MenuItem(timeSpan.getName());
+                menuItm.setId("urlMenuItem");
+                menuItm.setUserData(timeSpan);
+
+                menuItm.setOnAction(action -> {
+                    chartBox.requestFocus();
+                    resetChartHeightOffset.run();
+
+                    Object item = menuItm.getUserData();
+
+                    if (item != null && item instanceof TimeSpan) {
+
+                        timeSpanBtn.setUserData(item);
+                        timeSpanBtn.setText(((TimeSpan) item).getName());
+                        
+                    }
+
+                });
+
+                timeSpanBtn.getItems().add(menuItm);
+
+            }
+
+            timeSpanBtn.textProperty().addListener((obs, oldVal, newVal) -> {
+                Object objData = timeSpanBtn.getUserData();
+
+                if (newVal != null && !newVal.equals(chartView.getTimeSpan().getName()) && objData != null && objData instanceof TimeSpan) {
+
+                    chartView.setTimeSpan((TimeSpan) objData);
+
+                    chartRange.setVisible(false);
+                    chartRange.reset();
+                    chartView.reset();
+                    setCandles.run();
+      
+                }
+            });
 
         } else {
             m_stage.show();
             m_stage.requestFocus();
         }
+    }
+
+    public void saveNewDataJson(long lastTimeStamp, JsonArray jsonArray){
+        JsonObject json = new JsonObject();
+        json.addProperty("lastTimeStamp", lastTimeStamp);
+        json.add("priceData", jsonArray);
+
+        try {
+            Files.writeString(getMarketFile().toPath(), json.toString());
+        } catch (IOException e) {
+            try {
+                Files.writeString(logFile.toPath(), "\nSpectrumMarketItem (saveNewDataJson): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND );
+            } catch (IOException e1) {
+
+            }
+        }
+        
     }
 
     public String getSymbol() {

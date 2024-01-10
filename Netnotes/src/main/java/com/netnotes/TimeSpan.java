@@ -6,6 +6,11 @@ public class TimeSpan {
     private String m_name;
     private String m_id;
 
+    public static String[] AVAILABLE_TIMESPANS = new String[]{
+        "1min", "3min", "15min", "30min", "1hour", "2hour", "4hour", "6hour", "8hour", "12hour", "1day", "1week"
+    };
+
+
     public TimeSpan(String id) {
         setup(id);
     }
@@ -22,6 +27,9 @@ public class TimeSpan {
 
     public long getSeconds() {
         return m_seconds;
+    }
+    public long getMillis(){
+        return m_seconds * 1000;
     }
 
     public String getId() {

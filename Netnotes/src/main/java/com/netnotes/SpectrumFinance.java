@@ -14,7 +14,6 @@ import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener.Change;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -60,6 +59,7 @@ public class SpectrumFinance extends Network implements NoteInterface {
     
     private File m_appDir = null;
     private File m_dataFile = null;
+    private File m_dataDir = null;
 
     private Stage m_appStage = null;
 
@@ -71,6 +71,7 @@ public class SpectrumFinance extends Network implements NoteInterface {
 
     public SpectrumFinance(NetworksData networksData) {
         this(null, networksData);
+        setup(null);
         addListeners();
     }
 
@@ -142,7 +143,14 @@ public class SpectrumFinance extends Network implements NoteInterface {
 
    
         m_dataFile = new File(fileString == null ? m_appDir.getAbsolutePath() + "/" + NAME + ".dat" : fileString);
-
+        m_dataDir = new File(m_appDir.getAbsolutePath() + "/data");
+        if(!m_dataDir.isDirectory()){
+            try {
+                Files.createDirectories(m_dataDir.toPath());
+            } catch (IOException e) {
+          
+            }
+        }
     }
 
     public void open() {
@@ -154,7 +162,10 @@ public class SpectrumFinance extends Network implements NoteInterface {
         return m_appStage;
     }
 
-
+    public File getDataDir(){
+        
+        return m_dataDir;
+    }
 
 
 
@@ -498,8 +509,18 @@ public class SpectrumFinance extends Network implements NoteInterface {
 
         return false;
     }
+    //
+    public boolean getPoolChart(String poolId,long from, long to, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed) {
+        String urlString = API_URL + "/v1/amm/pool/" + poolId + "/chart?from="+from+"&to=" + to;
+        /*try {
+            Files.writeString(logFile.toPath(), "\ngetting url: " + urlString, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
 
+        }*/
+        Utils.getUrlJsonArray(urlString, onSucceeded, onFailed, null);
 
+        return false;
+    }
 
     @Override
     public IconButton getButton(String iconStyle) {
