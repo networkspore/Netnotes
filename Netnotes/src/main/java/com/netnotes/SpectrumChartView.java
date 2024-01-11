@@ -295,15 +295,11 @@ public class SpectrumChartView {
               
                 JsonObject oldestObject = oldestElement.getAsJsonObject();
                 JsonObject newestObject = newestElement.getAsJsonObject();
-              //  m_currentPrice = newestObject.get("price").getAsBigDecimal();
+   
                 long oldestTimeStamp = oldestObject.get("timestamp").getAsLong();
                 long newestTimeStamp = newestObject.get("timestamp").getAsLong();
 
-                  try {
-                    Files.writeString(new File("newest.txt").toPath(), newestObject.toString());
-                } catch (IOException e) {
-          
-                }
+        
 
                 int maxElements = (int) Math.ceil(((newestTimeStamp + timeSpanMillis) - oldestTimeStamp) / timeSpanMillis);
 
@@ -326,7 +322,7 @@ public class SpectrumChartView {
                                       
                         if(spectrumPrice.get().getTimeStamp() > startTimeStamp  ){
 
-                            while((epochEnd.get() - timeSpanMillis) < spectrumPrice.get().getTimeStamp() ){
+                            while((epochEnd.get()) < spectrumPrice.get().getTimeStamp() ){
                                 SpectrumPriceData data = new SpectrumPriceData(epochEnd.get(), lastClose.get(), epochEnd.get());
                                 tmpPriceList.add(data);
                                 numberClass.setCount(numberClass.getCount() + 1);

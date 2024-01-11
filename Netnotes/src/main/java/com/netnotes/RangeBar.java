@@ -306,7 +306,7 @@ public class RangeBar extends BufferedImageView {
         boolean settingRange = m_settingRange.get();
 
         if (!settingRange) {
-            Drawing.fillArea(imgBuf, 0x50000000, 0, 0, width, height);
+            Drawing.fillArea(imgBuf, 0x00000000, 0, 0, width, height);
 
             Drawing.drawBar(1, m_bg1, m_bg2, imgBuf, x1, y1, x2, y2);
             Drawing.drawBar(m_barRGB1, m_barRGB2, imgBuf, x1, y1, x2, y2);
