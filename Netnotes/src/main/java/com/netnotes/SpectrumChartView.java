@@ -27,7 +27,8 @@ import com.google.gson.GsonBuilder;
 
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 
@@ -43,7 +44,7 @@ public class SpectrumChartView {
 
    private File logFile = new File("netnotes-log.txt");
 
-   public final static int DECIMAL_PRECISION = 6;
+   public final static int DECIMAL_PRECISION = 4;
 
    private TimeSpan m_timeSpan = new TimeSpan("30min");
 
@@ -213,21 +214,22 @@ public class SpectrumChartView {
         }
 
     } */
-    public static int getDecimals(String string) {
+    public static int getZeros(String string) {
          int indexOfDecimal = string.indexOf(".");
 
         int numZeros = 0;
-        
-        while(indexOfDecimal != -1 && indexOfDecimal < string.length() && string.charAt(indexOfDecimal + 1) == '0'){
+        String strZero = "0";
+        char zero = strZero.charAt(0);
+
+        while(indexOfDecimal != -1 && indexOfDecimal < string.length() && string.charAt(indexOfDecimal + 1) == zero){
             indexOfDecimal ++;
             numZeros++;
         }
+                    
                         
-        int decimals = numZeros == 0 ? 0 : numZeros + DECIMAL_PRECISION;
-                        
-        return decimals;
+        return numZeros;
     }
-
+    /*
     private static SpectrumPriceData getEpochElement(JsonArray array, long epochStart, long longEpochEnd, BigDecimal prevClose) {
         SimpleObjectProperty<SpectrumPriceData> priceData = new SimpleObjectProperty<>(null);
        // SimpleObjectProperty<BigDecimal> prevPrice = new SimpleObjectProperty<>(BigDecimal.ZERO);
@@ -249,7 +251,7 @@ public class SpectrumChartView {
                         if(priceData.get() == null){
                             priceData.set(new SpectrumPriceData(longEpochEnd, price));
                         }
-                        priceData.get().addPrice(price);
+                        priceData.get().addPrice(timestamp, price);
                     }else{
                         if(timestamp > longEpochEnd){
                             if(priceData.get() != null){
@@ -271,10 +273,10 @@ public class SpectrumChartView {
         }else{
             return null;
         }
-    }
+    }*/
     public final static int MAX_BARS = 250;
 
-    public void setPriceDataList(JsonArray jsonArray) {
+    public void setPriceDataList(JsonArray jsonArray, long latestTime) {
         long timeSpanMillis = m_timeSpan.getMillis();
 
         if (jsonArray != null && jsonArray.size() > 0) {
@@ -287,75 +289,128 @@ public class SpectrumChartView {
             JsonElement oldestElement = jsonArray.get(0);
             JsonElement newestElement = jsonArray.get(jsonArray.size() - 1);
 
-            
+          
 
             if (oldestElement != null && oldestElement.isJsonObject() && newestElement != null && newestElement.isJsonObject()) {
               
                 JsonObject oldestObject = oldestElement.getAsJsonObject();
                 JsonObject newestObject = newestElement.getAsJsonObject();
-                m_currentPrice = newestObject.get("price").getAsBigDecimal();
+              //  m_currentPrice = newestObject.get("price").getAsBigDecimal();
                 long oldestTimeStamp = oldestObject.get("timestamp").getAsLong();
                 long newestTimeStamp = newestObject.get("timestamp").getAsLong();
 
-                int elements = (int) Math.ceil(((newestTimeStamp + timeSpanMillis) - oldestTimeStamp) / timeSpanMillis);
-             
-
-                int i = elements > MAX_BARS ? elements - MAX_BARS : 0;
-
-
-                try {
-                    Files.writeString(logFile.toPath(), "oldestObject: " + oldestObject.toString() + "\nnewest Element:" + newestObject.toString() + "\ntimespan: " + timeSpanMillis  + "\nelements: " + elements, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                  try {
+                    Files.writeString(new File("newest.txt").toPath(), newestObject.toString());
                 } catch (IOException e) {
-             
+          
                 }
 
-                while (i < elements) {
-                    long epochStart = (i * timeSpanMillis) + oldestTimeStamp - timeSpanMillis;
-                    long epochEnd = (i * timeSpanMillis) + oldestTimeStamp;
+                int maxElements = (int) Math.ceil(((newestTimeStamp + timeSpanMillis) - oldestTimeStamp) / timeSpanMillis);
 
-                    SimpleObjectProperty<SpectrumPriceData> prevPriceData = new SimpleObjectProperty<>(numberClass.getCount() == 0 ? null : tmpPriceList.get(numberClass.getCount() - 1));
+                int startElement = maxElements > MAX_BARS ? maxElements - MAX_BARS : 0;
 
-                    if(i != 0){
-                        int j = i;
-                        while( j >= 0 && prevPriceData.get() == null){
-                            long prevEpochStart = (j * timeSpanMillis) + oldestTimeStamp - timeSpanMillis;
-                            long prevEpochEnd = (j * timeSpanMillis) + oldestTimeStamp;
-                            prevPriceData.set(getEpochElement(jsonArray, prevEpochStart, prevEpochEnd, null));
-                            j--;
-                        }
-                    }
+                final long startTimeStamp = ((startElement * timeSpanMillis) + oldestTimeStamp )- timeSpanMillis;
 
-                    SpectrumPriceData priceData = getEpochElement(jsonArray, epochStart, epochEnd, prevPriceData.get() != null ? prevPriceData.get().getClose() : BigDecimal.ZERO);
+                SimpleIntegerProperty index = new SimpleIntegerProperty(0);
+                int size = jsonArray.size();
        
+                BigDecimal firstOpen = oldestObject.get("price").getAsBigDecimal();
+                SimpleObjectProperty<BigDecimal> lastClose = new SimpleObjectProperty<>(firstOpen);
+   
+                SimpleLongProperty epochEnd = new SimpleLongProperty(startTimeStamp + timeSpanMillis);
+     
+                while (index.get() < size) {
+                   
+                    try{
+                        SimpleObjectProperty<SpectrumPrice> spectrumPrice = new SimpleObjectProperty<>( new SpectrumPrice( jsonArray.get(index.get()).getAsJsonObject()));
+                                      
+                        if(spectrumPrice.get().getTimeStamp() > startTimeStamp  ){
 
-                    if (numberClass.getLow().equals(BigDecimal.ZERO)) {
-                        numberClass.setLow(priceData.getLow());
+                            while((epochEnd.get() - timeSpanMillis) < spectrumPrice.get().getTimeStamp() ){
+                                SpectrumPriceData data = new SpectrumPriceData(epochEnd.get(), lastClose.get(), epochEnd.get());
+                                tmpPriceList.add(data);
+                                numberClass.setCount(numberClass.getCount() + 1);
+                                epochEnd.set(epochEnd.get() + timeSpanMillis);
+                            }
+
+                                SpectrumPriceData priceData = new SpectrumPriceData(spectrumPrice.get().getTimeStamp(), spectrumPrice.get().getPrice(), epochEnd.get());
+                                priceData.setOpen(lastClose.get());
+                                lastClose.set(spectrumPrice.get().getPrice());
+
+                                if(index.get() + 1 < size){
+                                    
+                                    try{
+                                        SimpleObjectProperty<SpectrumPrice> nextSpectrumPrice = new SimpleObjectProperty<>(new SpectrumPrice(jsonArray.get(index.get() + 1).getAsJsonObject()));
+                            
+                                        while(nextSpectrumPrice.get().getTimeStamp() <= epochEnd.get()){
+                                            priceData.addPrice(nextSpectrumPrice.get().getTimeStamp(), nextSpectrumPrice.get().getPrice());
+                                            lastClose.set(nextSpectrumPrice.get().getPrice());
+                                            index.set(index.get() + 1);
+                                            if(index.get() +1 >= size){
+                                                break;
+                                            }
+                                            try{
+                                                nextSpectrumPrice.set(new SpectrumPrice(jsonArray.get(index.get() + 1).getAsJsonObject()));
+                                            }catch(Exception whileNextException){
+                                                try{
+                                                    Files.writeString(logFile.toPath(), "Spectrum nextPriceException: " + whileNextException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                                }catch(IOException npioe){
+
+                                                }
+                                                    index.set(index.get() + 1);
+                                            
+                                            }
+                                        }
+                                    }catch(Exception nextPriceException){
+                                        try{
+                                            Files.writeString(logFile.toPath(), "Spectrum nextPriceException: " + nextPriceException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                        }catch(IOException npioe){
+
+                                        }
+                                        index.set(index.get() + 1);
+                                    }
+                                }
+
+                                if (numberClass.getLow().equals(BigDecimal.ZERO)) {
+                                    numberClass.setLow(priceData.getLow());
+                                }
+
+                                numberClass.setSum(numberClass.getSum().add(priceData.getClose()));
+                            
+
+                                numberClass.setHigh(priceData.getHigh().max(numberClass.getHigh()));
+
+                                numberClass.setLow(priceData.getLow().equals(BigDecimal.ZERO) ? numberClass.getLow() : priceData.getLow().min(numberClass.getLow()));
+                                
+                                numberClass.setCount(numberClass.getCount() + 1);
+                                tmpPriceList.add(priceData);
+                                m_currentPrice = priceData.getClose();
+                                
+                                
+                                epochEnd.set(epochEnd.get() + timeSpanMillis);
+                                if(index.get() +1 == size){
+                                    try {
+                                        Files.writeString(new File("newest.txt").toPath(), "\n" + priceData.getJsonObject().toString() , StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                    } catch (IOException e) {
+                            
+                                    }
+                                }
+                            
+                        }else{
+                            lastClose.set(spectrumPrice.get().getPrice());
+                        }
+                    }catch(Exception priceException){
+                        
+                        try {
+                            Files.writeString(logFile.toPath(), "\nSpectrum invalid price.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        } catch (IOException e) {
+             
+                        }
+                    
                     }
-
-                    numberClass.setSum(numberClass.getSum().add(priceData.getClose()));
-                
-
-                    numberClass.setHigh(priceData.getHigh().max(numberClass.getHigh()));
-
-                    numberClass.setLow(priceData.getLow().min(numberClass.getLow()));
+                 
+                    index.set(index.get()+1);
                     
-                    String closeString = priceData.getCloseString();
-                    int indexOfDecimal = closeString.indexOf(".");
-
-                    int numZeros = 0;
-                    
-                    while(indexOfDecimal != -1 && indexOfDecimal < closeString.length() && closeString.charAt(indexOfDecimal + 1) == '0'){
-                        indexOfDecimal ++;
-                        numZeros++;
-                    }
-                    
-                    int decimals = numZeros == 0 ? 0 : numZeros + DECIMAL_PRECISION;
-                    
-                    numberClass.setDecimals(Integer.max(decimals, numberClass.getDecimals()));
-                    
-                    numberClass.setCount(numberClass.getCount() + 1);
-                    tmpPriceList.add(priceData);
-                    i++;
                 }
                 
                 
@@ -364,16 +419,17 @@ public class SpectrumChartView {
                 m_valid = 2;
                 m_msg = "Received no data.";
             }
+            BigDecimal min =  numberClass.getLow();
+            
+            
+            int decimals = min.doubleValue() > 0 ? (min.doubleValue() > 100 ? 2 : (min.scale() > DECIMAL_PRECISION ? DECIMAL_PRECISION : min.scale())) : (getZeros(min.toString()) + DECIMAL_PRECISION);
+            
+            numberClass.setDecimals(decimals);
+
+
             m_priceList = tmpPriceList;
             m_numberClass = numberClass;
-            try {
-                
-                Gson gson = new GsonBuilder().setPrettyPrinting().create();
-                String prettyString = gson.toJson(getPriceDataJson());
-                Files.writeString(new File("priceList.json").toPath(), prettyString);
-            } catch (IOException e1) {
-            
-            }
+           
         } else {
             m_valid = 2;
             m_msg = "Received no data.";
@@ -593,7 +649,7 @@ public class SpectrumChartView {
             int numCells = (int) Math.floor((width - m_scaleColWidth) / totalCellWidth);
 
             int i = numCells > priceListSize ? 0 : priceListSize - numCells;
-
+            /*
             SpectrumNumbers nc = new SpectrumNumbers();
 
             for (int j = i; j < priceListSize; j++) {
@@ -615,9 +671,9 @@ public class SpectrumChartView {
                 if (decimals > nc.getDecimals()) {
                     nc.setDecimals(decimals);
                 }
-            }
+            } */
 
-            double scale = (.6d * ((double) chartHeight)) / nc.getHigh().doubleValue();
+            double scale = (.6d * ((double) chartHeight)) / m_numberClass.getHigh().doubleValue();
 
             double topRangePrice = (topVvalue * (Math.floor(chartHeight / getRowHeight()) * getRowHeight())) / scale;
             double botRangePrice = (bottomVvalue * (Math.floor(chartHeight / getRowHeight()) * getRowHeight())) / scale;
@@ -981,6 +1037,30 @@ public class SpectrumChartView {
 
     public void remove() {
         removeUpdateListener();
+    }
+
+    public class SpectrumPrice{
+        private BigDecimal m_price;
+        private long m_timeStamp;
+        public SpectrumPrice(JsonObject json) throws Exception{
+            JsonElement timestampElement = json != null && json.isJsonObject() ? json.get("timestamp") : null;
+            JsonElement priceElement = json != null && json.isJsonObject() ? json.get("price") : null;
+
+            m_price = priceElement != null && priceElement.isJsonPrimitive() ? priceElement.getAsBigDecimal() : null;
+            m_timeStamp = timestampElement != null && timestampElement.isJsonPrimitive() ? timestampElement.getAsLong() : -1;
+
+            if(m_price == null || m_timeStamp == -1){
+                throw new Exception("Invalid Spectrum Price");
+            }
+        }
+
+        public BigDecimal getPrice(){
+            return m_price;
+        }
+
+        public long getTimeStamp(){
+            return m_timeStamp;
+        }
     }
 }
 

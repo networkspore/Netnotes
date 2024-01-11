@@ -3,8 +3,7 @@ package com.netnotes;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
+import com.google.gson.JsonObject;
 
 public class SpectrumNumbers {
 
@@ -72,11 +71,22 @@ public class SpectrumNumbers {
 
     public BigDecimal getAverage() {
         try{
-            return m_count == 0 ? BigDecimal.ZERO : m_sum.divide(new BigDecimal(m_count), m_decimals, RoundingMode.HALF_UP);
+            return m_count == 0 ? BigDecimal.ZERO : m_sum.divide(new BigDecimal(m_count), SpectrumChartView.DECIMAL_PRECISION, RoundingMode.HALF_UP);
         }catch(ArithmeticException e){
             return BigDecimal.ZERO;
         }
     }
 
+    public JsonObject getJsonObject(){
+        JsonObject json = new JsonObject();
+        json.addProperty("avg", getAverage());
+        json.addProperty("count", getCount());
+        json.addProperty("hight", getHigh());
+        json.addProperty("low", getLow());
+        json.addProperty("decimals", getDecimals());
+
+        return json;
+
+    }
 }
 

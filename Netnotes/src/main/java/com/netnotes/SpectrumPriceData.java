@@ -1,15 +1,11 @@
 package com.netnotes;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.concurrent.TimeUnit;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
+import com.netnotes.SpectrumChartView.SpectrumPrice;
 
 public class SpectrumPriceData {
 
@@ -20,12 +16,27 @@ public class SpectrumPriceData {
     private BigDecimal m_low = BigDecimal.ZERO;
 
 
-    public SpectrumPriceData(long timestamp, BigDecimal price) {
+
+    public SpectrumPriceData(SpectrumPrice spectrumPrice, long epochEnd){
+
+        BigDecimal price = spectrumPrice.getPrice();
+
+        m_timestamp = epochEnd;
+        m_open = price;
+        m_low = price;
+        m_high = price;
+        m_close = price;
+
+
+    }
+
+    public SpectrumPriceData(long timestamp, BigDecimal price, long epochEnd) {
         m_timestamp = timestamp;
         m_open = price;
         m_low = price;
         m_high = price;
         m_close = price;
+ 
     }
     public SpectrumPriceData(long timestamp, BigDecimal open, BigDecimal close, BigDecimal high, BigDecimal low) {
         m_timestamp = timestamp;
@@ -33,23 +44,10 @@ public class SpectrumPriceData {
         m_close = close;
         m_high = high;
         m_low = low;
-    }
-
-    public SpectrumPriceData(JsonObject json) throws Exception {
-        JsonElement timestampElement = json.get("timestamp");
-        JsonElement priceElement = json.get("price");
-
-        if(timestampElement != null && timestampElement.isJsonPrimitive() &&
-            priceElement != null && priceElement.isJsonPrimitive() 
-        ){
-            m_timestamp = timestampElement.getAsLong();
-            m_open = priceElement.getAsBigDecimal();
-
-        }else{
-            throw new Exception("Missing arguments");
-        }
 
     }
+
+
 
     public String getCloseString() {
         return m_close.toString();
@@ -59,10 +57,12 @@ public class SpectrumPriceData {
         return m_timestamp;
     }
 
-    public void addPrice(BigDecimal price){
+    public void addPrice(long timestamp, BigDecimal price){
+  
+    
+        m_close = price;
        
         m_low = m_low.min(price);
-        m_close = price;
         m_high = m_high.max(price);
         
     }

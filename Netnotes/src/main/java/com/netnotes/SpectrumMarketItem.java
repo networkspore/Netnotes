@@ -11,14 +11,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
+import java.time.Duration;
 
 import org.reactfx.util.FxTimer;
 
@@ -26,7 +20,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.Gson;
@@ -39,7 +32,6 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
-import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 
 import javafx.event.EventHandler;
@@ -52,12 +44,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
 
-import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
@@ -603,9 +592,10 @@ public class SpectrumMarketItem {
                         }
                         
                         saveNewDataJson(currentTime, chartArray);
-                    
-                        chartView.setPriceDataList(chartArray);
-                        chartView.setLastTimeStamp(currentTime);
+
+                        chartView.setPriceDataList(chartArray, currentTime);
+                        
+                   
 
                         Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
                         Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
