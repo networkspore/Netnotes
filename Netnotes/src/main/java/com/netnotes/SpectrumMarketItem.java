@@ -231,7 +231,9 @@ public class SpectrumMarketItem {
 
     public void showStage() {
         if (m_stage == null) {
-           
+            
+            SimpleBooleanProperty isInvertChart = new SimpleBooleanProperty(m_dataList.getSortMethod().isTargetSwapped());
+
             double sceneWidth = 750;
             double sceneHeight = 800;
             final double chartScrollVvalue = 1;
@@ -250,7 +252,7 @@ public class SpectrumMarketItem {
             m_stage = new Stage();
             m_stage.getIcons().add(SpectrumFinance.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
-            m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " + m_marketDataProperty.get().getLastPrice() + "" : ""));
+            m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " +(m_dataList.getSortMethod().isTargetSwapped() ? m_marketDataProperty.get().getInvertedLastPrice().toString() : m_marketDataProperty.get().getLastPrice()) + "" : ""));
 
             Button maximizeBtn = new Button();
             Button closeBtn = new Button();
@@ -259,8 +261,15 @@ public class SpectrumMarketItem {
             HBox titleBox = App.createTopBar(SpectrumFinance.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
 
             BufferedMenuButton menuButton = new BufferedMenuButton("/assets/menu-outline-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            BufferedButton invertBtn = new BufferedButton(m_dataList.getSortMethod().isTargetSwapped()? "/assets/targetSwapped.png" : "/assets/targetStandard.png", App.MENU_BAR_IMAGE_WIDTH);
+            
+            invertBtn.setOnAction(e->{
+                isInvertChart.set(!isInvertChart.get());
+            });
+            Region menuSpacer = new Region();
+            HBox.setHgrow(menuSpacer, Priority.ALWAYS);
 
-            HBox menuBar = new HBox(menuButton);
+            HBox menuBar = new HBox(menuButton, menuSpacer,  invertBtn);
             HBox.setHgrow(menuBar, Priority.ALWAYS);
             menuBar.setAlignment(Pos.CENTER_LEFT);
             menuBar.setId("menuBar");
@@ -597,9 +606,9 @@ public class SpectrumMarketItem {
                         saveNewDataJson(currentTime, chartArray);
 
                         
-                        boolean inverted = !m_dataList.getSortMethod().isTargetSwapped();
+                       
                         
-                        chartView.setPriceDataList(inverted ? chartArray : invertPrices(chartArray), currentTime);
+                        chartView.setPriceDataList(isInvertChart.get() ? invertPrices(chartArray) : chartArray, currentTime);
                    
                         
                    
@@ -618,7 +627,13 @@ public class SpectrumMarketItem {
             };
             setCandles.run();
 
-            
+            isInvertChart.addListener((obs,oldval,newval)->{
+                chartView.reset();
+                chartRange.reset();
+                setCandles.run();
+                invertBtn.setImage( new Image(newval? "/assets/targetSwapped.png" : "/assets/targetStandard.png"));
+                m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " +(newval ? m_marketDataProperty.get().getInvertedLastPrice().toString() : m_marketDataProperty.get().getLastPrice()) + "" : ""));
+            });
 
             String[] spans = TimeSpan.AVAILABLE_TIMESPANS;
 
