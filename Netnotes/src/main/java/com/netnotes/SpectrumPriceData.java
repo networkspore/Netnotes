@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 import com.google.gson.JsonObject;
 import com.utils.Utils;
-import com.netnotes.SpectrumChartView.SpectrumPrice;
+
 
 public class SpectrumPriceData {
 

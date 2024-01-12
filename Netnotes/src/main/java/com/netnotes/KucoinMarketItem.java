@@ -398,10 +398,10 @@ public class KucoinMarketItem {
             headingPaddingRegion.setPrefHeight(5);
 
             VBox paddingBox = new VBox(menuBar, headingPaddingRegion, headingBox);
-            paddingBox.setPadding(new Insets(0, 5, 5, 5));
+            paddingBox.setPadding(new Insets(0, 5, 0, 5));
 
             VBox headerVBox = new VBox(titleBox, paddingBox);
-            chartScroll.setPadding(new Insets(0, 0, 0, 15));
+            chartScroll.setPadding(new Insets(0));
 
             RangeBar chartRange = new RangeBar(rangeWidth, rangeHeight);
             chartRange.setId("menuBtn");
@@ -413,8 +413,9 @@ public class KucoinMarketItem {
             chartView.isSettingRangeProperty().bind(chartRange.settingRangeProperty());
             HBox bodyBox = new HBox(chartRange, chartScroll);
             bodyBox.setAlignment(Pos.TOP_LEFT);
+            bodyBox.setId("bodyBox");
             HBox bodyPaddingBox = new HBox(bodyBox);
-            bodyPaddingBox.setPadding(new Insets(5));
+            bodyPaddingBox.setPadding(new Insets(0,5,5,5));
 
             VBox layoutBox = new VBox(headerVBox, bodyPaddingBox);
 
@@ -428,7 +429,7 @@ public class KucoinMarketItem {
             chartScroll.prefViewportWidthProperty().bind(marketScene.widthProperty().subtract(45));
             chartScroll.prefViewportHeightProperty().bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(10));
 
-            rangeHeight.bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(25));
+            rangeHeight.bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(50));
 
             marketScene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 chartHeight.set(newVal.doubleValue() - headerVBox.heightProperty().get() - 30 + chartHeightOffset.get());

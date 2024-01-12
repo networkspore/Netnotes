@@ -61,7 +61,7 @@ import javafx.stage.StageStyle;
 
 public class SpectrumMarketItem {
 
-    private File logFile = new File("netnotes-log.txt");
+    private static File logFile = new File("netnotes-log.txt");
 
     private SpectrumDataList m_dataList = null;
     private SimpleObjectProperty<SpectrumMarketData> m_marketDataProperty = new SimpleObjectProperty<>(null);
@@ -248,7 +248,7 @@ public class SpectrumMarketItem {
             SpectrumFinance exchange = m_dataList.getSpectrumFinance();
 
             m_stage = new Stage();
-            m_stage.getIcons().add(KucoinExchange.getSmallAppIcon());
+            m_stage.getIcons().add(SpectrumFinance.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
             m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " + m_marketDataProperty.get().getLastPrice() + "" : ""));
 
@@ -256,7 +256,7 @@ public class SpectrumMarketItem {
             Button closeBtn = new Button();
             Button fillRightBtn = new Button();
 
-            HBox titleBox = App.createTopBar(KucoinExchange.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
+            HBox titleBox = App.createTopBar(SpectrumFinance.getSmallAppIcon(), fillRightBtn, maximizeBtn, closeBtn, m_stage);
 
             BufferedMenuButton menuButton = new BufferedMenuButton("/assets/menu-outline-30.png", App.MENU_BAR_IMAGE_WIDTH);
 
@@ -331,10 +331,10 @@ public class SpectrumMarketItem {
             headingPaddingRegion.setPrefHeight(5);
 
             VBox paddingBox = new VBox(menuBar, headingPaddingRegion, headingBox);
-            paddingBox.setPadding(new Insets(0, 5, 5, 5));
+            paddingBox.setPadding(new Insets(0, 5, 0, 5));
 
             VBox headerVBox = new VBox(titleBox, paddingBox);
-            chartScroll.setPadding(new Insets(0, 0, 0, 15));
+            chartScroll.setPadding(new Insets(0, 0, 0, 0));
 
             RangeBar chartRange = new RangeBar(rangeWidth, rangeHeight);
            // chartRange.setId("menuBtn");
@@ -349,7 +349,7 @@ public class SpectrumMarketItem {
             bodyBox.setId("bodyBox");
             bodyBox.setAlignment(Pos.TOP_LEFT);
             HBox bodyPaddingBox = new HBox(bodyBox);
-            bodyPaddingBox.setPadding(new Insets(5));
+            bodyPaddingBox.setPadding(new Insets(0, 5, 5 ,5));
 
             VBox layoutBox = new VBox(headerVBox, bodyPaddingBox);
 
@@ -363,7 +363,7 @@ public class SpectrumMarketItem {
             chartScroll.prefViewportWidthProperty().bind(marketScene.widthProperty().subtract(45));
             chartScroll.prefViewportHeightProperty().bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(10));
 
-            rangeHeight.bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(25));
+            rangeHeight.bind(marketScene.heightProperty().subtract(headerVBox.heightProperty()).subtract(50));
 
             marketScene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 chartHeight.set(newVal.doubleValue() - headerVBox.heightProperty().get() - 30 + chartHeightOffset.get());
@@ -482,8 +482,11 @@ public class SpectrumMarketItem {
            
 
             closeBtn.setOnAction(e -> {
+       
+   
                 m_marketDataProperty.removeListener(tickerListener);
                 m_stage.close();
+                m_stage = null;
             });
 
             m_stage.setOnCloseRequest(e -> closeBtn.fire());
@@ -590,10 +593,14 @@ public class SpectrumMarketItem {
                                 }
                             }
                         }
-                        
+
                         saveNewDataJson(currentTime, chartArray);
 
-                        chartView.setPriceDataList(chartArray, currentTime);
+                        
+                        boolean inverted = !m_dataList.getSortMethod().isTargetSwapped();
+                        
+                        chartView.setPriceDataList(inverted ? chartArray : invertPrices(chartArray), currentTime);
+                   
                         
                    
 
@@ -610,6 +617,8 @@ public class SpectrumMarketItem {
                 });
             };
             setCandles.run();
+
+            
 
             String[] spans = TimeSpan.AVAILABLE_TIMESPANS;
 
@@ -676,6 +685,24 @@ public class SpectrumMarketItem {
             }
         }
         
+    }
+
+    public static JsonArray invertPrices(JsonArray jsonArray){
+        JsonArray invertedJson = new JsonArray();
+        for(int i = 0; i < jsonArray.size() ; i++){
+            try{
+                SpectrumPrice price = new SpectrumPrice(jsonArray.get(i).getAsJsonObject());
+                invertedJson.add(price.getInvertedJson());
+            }catch(Exception e){
+            
+                try {
+                    Files.writeString(logFile.toPath(), "\nSpectrumMarketItem invertedPrice #" + i + " error: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+         
+                }
+            }
+        }
+        return invertedJson;
     }
 
     public String getSymbol() {
