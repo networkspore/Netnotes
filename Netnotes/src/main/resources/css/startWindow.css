@@ -865,6 +865,12 @@
     -fx-text-fill: white;
 }
 
+#rangeBar{
+    -fx-opacity: .8;
+}
+#rangeBar:hover{
+    -fx-opacity: 1;
+}
 
 #urlBtn{
     -fx-cursor: hand;

@@ -78,6 +78,7 @@ public class RangeBar extends BufferedImageView {
         setOnMouseDragged(mouseEvent -> onMouseMoved(mouseEvent));
         setOnMouseReleased((mouseEvent) -> onMouseReleased(mouseEvent));
 
+        setId("rangeBar");
     }
 
     public SimpleDoubleProperty rangeBarWidthProperty() {
@@ -157,6 +158,11 @@ public class RangeBar extends BufferedImageView {
             updateImage();
 
         }
+    }
+    private boolean m_isMouseEntered = false;
+    public void onMouseEntered(MouseEvent mouseEvent){
+        m_isMouseEntered = true;
+        
     }
 
     public void reset(boolean update) {
@@ -318,8 +324,9 @@ public class RangeBar extends BufferedImageView {
                 Graphics2D g2d = imgBuf.createGraphics();
 
                 BufferedImage moveableImage = SwingFXUtils.fromFXImage(m_collapseImage, null);
-
-                g2d.drawImage(moveableImage, 1, (height / 2) - (26 / 2), 13, 26, null);
+                int mvImgWidth = width - 2;
+                
+                g2d.drawImage(moveableImage, ((width/2) - (mvImgWidth/2)) + 1 , (height / 2) - (26 / 2), mvImgWidth, 26, null);
 
             }
         } else {

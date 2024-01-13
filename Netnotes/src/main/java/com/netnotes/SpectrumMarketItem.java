@@ -167,13 +167,18 @@ public class SpectrumMarketItem {
     public static int FILL_COLOR = 0xffffffff;
     public static java.awt.Color WHITE_COLOR = new java.awt.Color(FILL_COLOR, true);
 
+    public String getCurrentSymbol(boolean swapped){
+        SpectrumMarketData data = m_marketDataProperty.get();
+        return swapped ? (data.getQuoteSymbol() + "-" + data.getBaseSymbol()) : data.getSymbol();
+    }
+
     private Image getButtonImage(SpectrumMarketData data) {
         if (data == null) {
             return null;
         }
         int height = 30;
 
-        String symbolString = String.format("%-18s", m_dataList.getSortMethod().isTargetSwapped() ? (data.getQuoteSymbol() + "-" + data.getBaseSymbol()) : data.getSymbol());
+        String symbolString = String.format("%-18s", getCurrentSymbol(m_dataList.getSortMethod().isTargetSwapped()) );
         String lastString = m_dataList.getSortMethod().isTargetSwapped() ? data.getInvertedLastPrice().toString() : data.getLastPrice().toString();
 
         boolean positive = false;
@@ -242,7 +247,7 @@ public class SpectrumMarketItem {
             SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth - 50);
             SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 170);
             SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
-            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(15);
+            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(20);
             SimpleDoubleProperty rangeHeight = new SimpleDoubleProperty(100);
 
             double chartSizeInterval = 25;
@@ -252,7 +257,7 @@ public class SpectrumMarketItem {
             m_stage = new Stage();
             m_stage.getIcons().add(SpectrumFinance.getSmallAppIcon());
             m_stage.initStyle(StageStyle.UNDECORATED);
-            m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " +(m_dataList.getSortMethod().isTargetSwapped() ? m_marketDataProperty.get().getInvertedLastPrice().toString() : m_marketDataProperty.get().getLastPrice()) + "" : ""));
+            m_stage.setTitle(exchange.getName() + " - " + getCurrentSymbol(isInvertChart.get()) + (m_marketDataProperty.get() != null ? " - " +(isInvertChart.get() ? m_marketDataProperty.get().getInvertedLastPrice().toString() : m_marketDataProperty.get().getLastPrice()) + "" : ""));
 
             Button maximizeBtn = new Button();
             Button closeBtn = new Button();
@@ -303,7 +308,7 @@ public class SpectrumMarketItem {
                 favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
             });
 
-            Text headingText = new Text(getSymbol() + "  - ");
+            Text headingText = new Text(getCurrentSymbol(isInvertChart.get()) + "  - ");
             headingText.setFont(App.txtFont);
             headingText.setFill(Color.WHITE);
 
@@ -477,7 +482,7 @@ public class SpectrumMarketItem {
             ChangeListener<SpectrumMarketData> tickerListener = (obs, oldVal, newVal) -> {
                 if (newVal != null) {
 
-                    m_stage.setTitle(exchange.getName() + " - " + newVal.getSymbol() + (newVal != null ? " - " + newVal.getLastPrice() + "" : ""));
+                    m_stage.setTitle(exchange.getName() + " - " + getCurrentSymbol(isInvertChart.get())+ (newVal != null ? " - " + newVal.getLastPrice() + "" : ""));
 
                 } else {
 
@@ -584,7 +589,6 @@ public class SpectrumMarketItem {
                 final long currentTime = System.currentTimeMillis();
 
                
-
                 m_dataList.getSpectrumFinance().getPoolChart(m_marketDataProperty.get().getPoolId(), lastTimeStamp, currentTime,  (onSuccess)->{
                     Object sourceObject = onSuccess.getSource().getValue();
                 
@@ -605,14 +609,8 @@ public class SpectrumMarketItem {
 
                         saveNewDataJson(currentTime, chartArray);
 
-                        
-                       
-                        
                         chartView.setPriceDataList(isInvertChart.get() ? invertPrices(chartArray) : chartArray, currentTime);
                    
-                        
-                   
-
                         Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
                         Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
 
@@ -625,14 +623,75 @@ public class SpectrumMarketItem {
                     closeBtn.fire();
                 });
             };
+
             setCandles.run();
+
+            Runnable updateCandles = () ->{
+                JsonObject existingObj = null;
+                try {
+                    existingObj = getMarketFile().isFile() ? new JsonParser().parse(Files.readString(getMarketFile().toPath())).getAsJsonObject() : null;
+                } catch (IOException | JsonParseException e) {
+                    try {
+                        Files.writeString(logFile.toPath(), "\nSpectrum Market Data (setCandles.run):" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException  e1) {
+
+                    }
+                }
+               
+                JsonElement priceDataElement = existingObj != null ? existingObj.get("priceData") : null;
+                JsonElement lastTimeStampElement = existingObj != null && priceDataElement != null ? existingObj.get("lastTimeStamp") : null; 
+
+                final JsonArray priceDataArray = lastTimeStampElement != null && lastTimeStampElement.isJsonPrimitive() && priceDataElement != null && priceDataElement.isJsonArray() ? priceDataElement.getAsJsonArray() : null;
+                final long lastTimeStamp = lastTimeStampElement != null && priceDataArray != null && priceDataArray.size() > 0  ? lastTimeStampElement.getAsLong() : 0;
+                final long currentTime = System.currentTimeMillis();
+
+               
+
+                m_dataList.getSpectrumFinance().getPoolChart(m_marketDataProperty.get().getPoolId(), lastTimeStamp, currentTime,  (onSuccess)->{
+                    Object sourceObject = onSuccess.getSource().getValue();
+                
+                    if (sourceObject != null && sourceObject instanceof JsonArray) {
+                        JsonArray newChartArray = (JsonArray) sourceObject;
+                        
+                        JsonArray chartArray = priceDataArray != null ? priceDataArray : newChartArray;
+
+                        if(priceDataArray != null){
+                            for(int i = 0; i < newChartArray.size() ; i++){
+                                JsonElement newDataElement = newChartArray.get(i);
+                                JsonObject newDataJson = newDataElement != null && newDataElement.isJsonObject() ? newDataElement.getAsJsonObject() : null;
+                                if(newDataJson != null){
+                                    chartArray.add(newDataJson);
+                                }
+                            }
+                        }
+                       
+                        saveNewDataJson(currentTime, chartArray);
+             
+                        chartView.updatePriceData(isInvertChart.get() ? invertPrices(newChartArray) : newChartArray, currentTime);                        
+                    }
+                    
+                }, onFailed->{
+                    try {
+                        Files.writeString(logFile.toPath(), "SpectrumMarketItem updateCandles.run failed: " + onFailed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e1) {
+                    
+                    }
+                });
+            };
+
+            m_dataList.getNetworksData().timeCycleProperty().addListener((obs,oldval,newval)->{
+                if(chartView.getLastTimestamp() != 0){
+                    updateCandles.run();
+                }
+            });            
 
             isInvertChart.addListener((obs,oldval,newval)->{
                 chartView.reset();
                 chartRange.reset();
                 setCandles.run();
                 invertBtn.setImage( new Image(newval? "/assets/targetSwapped.png" : "/assets/targetStandard.png"));
-                m_stage.setTitle(exchange.getName() + " - " + getSymbol() + (m_marketDataProperty.get() != null ? " - " +(newval ? m_marketDataProperty.get().getInvertedLastPrice().toString() : m_marketDataProperty.get().getLastPrice()) + "" : ""));
+                m_stage.setTitle(exchange.getName() + " - " +  getCurrentSymbol(newval) + (m_marketDataProperty.get() != null ? " - " +(newval ? m_marketDataProperty.get().getInvertedLastPrice().toString() : m_marketDataProperty.get().getLastPrice()) + "" : ""));
+                headingText.setText(getCurrentSymbol(newval));
             });
 
             String[] spans = TimeSpan.AVAILABLE_TIMESPANS;
@@ -686,19 +745,22 @@ public class SpectrumMarketItem {
     }
 
     public void saveNewDataJson(long lastTimeStamp, JsonArray jsonArray){
-        JsonObject json = new JsonObject();
-        json.addProperty("lastTimeStamp", lastTimeStamp);
-        json.add("priceData", jsonArray);
+      
+     
+            JsonObject json = new JsonObject();
+            json.addProperty("lastTimeStamp", jsonArray.size() > 0 ? lastTimeStamp : 0);
+            json.add("priceData", jsonArray);
 
-        try {
-            Files.writeString(getMarketFile().toPath(), json.toString());
-        } catch (IOException e) {
             try {
-                Files.writeString(logFile.toPath(), "\nSpectrumMarketItem (saveNewDataJson): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND );
-            } catch (IOException e1) {
+                Files.writeString(getMarketFile().toPath(), json.toString());
+            } catch (IOException e) {
+                try {
+                    Files.writeString(logFile.toPath(), "\nSpectrumMarketItem (saveNewDataJson): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND );
+                } catch (IOException e1) {
 
+                }
             }
-        }
+    
         
     }
 

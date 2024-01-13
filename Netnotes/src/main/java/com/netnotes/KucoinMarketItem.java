@@ -228,7 +228,7 @@ public class KucoinMarketItem {
             SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth - 50);
             SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 170);
             SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
-            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(15);
+            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(20);
             SimpleDoubleProperty rangeHeight = new SimpleDoubleProperty(100);
 
             double chartSizeInterval = 25;
