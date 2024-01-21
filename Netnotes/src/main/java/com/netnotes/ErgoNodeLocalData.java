@@ -95,6 +95,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public final static int MAX_INPUT_BUFFER_SIZE = 30;
     public final static int SYNC_TIMEOUT_CYCLE = 15;
 
+
     final private List<ErgoNodeMsg> m_nodeMsgBuffer = Collections.synchronizedList(new ArrayList<ErgoNodeMsg>());
 
     private File logFile = new File("ergoLocalNode-log.txt");
@@ -132,7 +133,6 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     private ExecutorService m_executor = null;
     private Future<?> m_future = null;
     private ScheduledFuture<?> m_scheduledFuture = null;
-    private long m_pid = -1;
     private SimpleStringProperty m_consoleOutputProperty = new SimpleStringProperty("");
 
     private final SimpleBooleanProperty m_isSetupProperty = new SimpleBooleanProperty(false);
@@ -186,6 +186,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         statusProperty().addListener((obs, oldval, newVal) -> {
             if (newVal != null && newVal.equals(ErgoMarketsData.STOPPED)) {
                 Platform.runLater(() -> cmdProperty().set(""));
+                
             }
         });
         Runnable syncUpdate = () -> {
@@ -558,9 +559,9 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         }
 
-        if ((m_future == null || m_future != null && m_future.isDone()) && m_pid == -1) {
+        if ((m_future == null || m_future != null && m_future.isDone()) ) {
 
-            String cmd = "cmd /c " + getExecCmd(appFile, configFile);
+            String cmd = Utils.getShellCmd() + " " + getExecCmd(appFile, configFile);
 
             m_future = m_executor.submit(new Runnable() {
                 Process proc;
@@ -631,7 +632,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                         proc.waitFor();
                         Platform.runLater(() -> {
                             statusProperty().set(ErgoMarketsData.STOPPED);
-                            m_pid = -1;
+                           
                             if (m_scheduledFuture != null) {
                                 m_scheduledFuture.cancel(false);
                             }
@@ -1880,11 +1881,11 @@ public class ErgoNodeLocalData extends ErgoNodeData {
     public void stop() {
 
         if (!statusProperty().get().equals(ErgoMarketsData.STOPPED)) {
-            String[] pids = Utils.pslastPID(m_appFileName);
+            String[] pids = Utils.findPIDs(m_appFileName);
 
             if (pids != null) {
                 for (int i = 0; i < pids.length; i++) {
-                    Utils.psStopProcess(pids[i]);
+                    Utils.sendTermSig(pids[i]);
                 }
             }
             m_networkBlockHeightProperty.set(-1);
@@ -1894,9 +1895,12 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     public void kill() {
         if (!statusProperty().get().equals(ErgoMarketsData.STOPPED)) {
-            Utils.wmicTerminate(m_appFileName);
+            String[] pids = Utils.findPIDs(m_appFileName);
+            
+            for(String pid :pids){
+                Utils.sendKillSig(pid);
+            }
 
-            // statusProperty().set(ErgoMarketsData.STOPPED);
         }
 
     }

@@ -4,3 +4,6 @@ jsoner
 Netnotes/target/
 Netnotes/src/main/java/mslinks/
 Netnotes/dependency-reduced-pom.xml
+*.svn-base
+Netnotes/.svn
+.vscode/settings.json

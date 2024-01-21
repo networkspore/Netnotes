@@ -155,6 +155,7 @@ public class SpectrumFinance extends Network implements NoteInterface {
 
     public void open() {
         super.open();
+      
         showAppStage();
     }
 
@@ -171,9 +172,11 @@ public class SpectrumFinance extends Network implements NoteInterface {
 
     private void showAppStage() {
         if (m_appStage == null) {
+            
 
             SpectrumDataList spectrumData = new SpectrumDataList(this);
 
+    
       
 
             double appStageWidth = 450;

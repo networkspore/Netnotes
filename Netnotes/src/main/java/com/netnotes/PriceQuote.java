@@ -1,7 +1,6 @@
 package com.netnotes;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
 
 import com.google.gson.JsonObject;
 import com.utils.Utils;

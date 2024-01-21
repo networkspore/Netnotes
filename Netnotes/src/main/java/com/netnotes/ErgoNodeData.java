@@ -1,11 +1,10 @@
 package com.netnotes;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 
 import org.ergoplatform.appkit.NetworkType;
@@ -21,7 +20,6 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -81,7 +79,7 @@ public class ErgoNodeData {
 
     private String m_clientType = LIGHT_CLIENT;
 
-    private final SimpleBooleanProperty availableProperty = new SimpleBooleanProperty(false);
+    private final SimpleBooleanProperty m_availableProperty = new SimpleBooleanProperty(false);
 
     public ErgoNodeData(ErgoNodesList nodesList, JsonObject jsonObj) {
         m_ergoNodesList = nodesList;
@@ -100,6 +98,10 @@ public class ErgoNodeData {
 
     public SimpleObjectProperty< NamedNodeUrl> namedNodeUrlProperty(){
       return m_namedNodeUrlProperty;
+    }
+
+    public SimpleBooleanProperty isAvailableProperty(){
+        return m_availableProperty;
     }
 
    public NamedNodeUrl getNamedNodeUrl(){
@@ -514,8 +516,37 @@ public class ErgoNodeData {
         if (namedNodeUrl != null && namedNodeUrl.getIP() != null) {
             Runnable r = () -> {
                 Platform.runLater(() -> m_statusProperty.set(ErgoMarketsData.STARTED));
-                m_statusString.set("Pinging...");
-                pingIP(namedNodeUrl.getIP());
+                Platform.runLater(()->m_statusString.set("Pinging..."));
+                try{
+                    Platform.runLater(()->m_cmdProperty.set("PING"));
+                    Utils.pingIP(namedNodeUrl.getIP(),m_cmdStatusUpdated,  m_statusString, m_availableProperty);
+
+                    if (!m_availableProperty.get()) {
+                        
+                        Platform.runLater(()-> m_statusString.set("Offline"));
+                        Platform.runLater(()-> m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now())));
+                        Platform.runLater(()-> m_cmdProperty.set(""));
+                        Platform.runLater(()-> m_availableProperty.set(false));
+                    
+                    } else {
+                        Platform.runLater(()->m_cmdProperty.set(""));
+                        Platform.runLater(()-> m_availableProperty.set(true));
+                        Thread.sleep(2000);
+                        Platform.runLater(()-> m_statusString.set("Online"));
+            
+        
+                    }
+                } catch (Exception e) {
+                    Platform.runLater(()->m_cmdProperty.set(""));
+                    Platform.runLater(()-> m_statusString.set(e.toString()));
+                    Platform.runLater(()->m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now())));
+                    
+                    try {
+                        Files.writeString(logFile.toPath(), "\nErgoNodeData (ping): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    } catch (IOException e1) {
+                
+                    }
+                }
                 Platform.runLater(() -> m_statusProperty.set(ErgoMarketsData.STOPPED));
             };
             Thread t = new Thread(r);
@@ -568,81 +599,6 @@ public class ErgoNodeData {
         return m_available;
     }
 
-    public void pingIP(String ip) {
-        m_cmdProperty.set("PING");
-        String[] cmd = {"cmd", "/c", "ping", ip};
-
-        try {
-
-            Process proc = Runtime.getRuntime().exec(cmd);
-
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-
-            List<String> javaOutputList = new ArrayList<String>();
-
-            String s = null;
-
-            while ((s = stdInput.readLine()) != null) {
-                javaOutputList.add(s);
-
-                String timeString = "time=";
-                int indexOftimeString = s.indexOf(timeString);
-
-                if (s.indexOf("timed out") > 0) {
-                    availableProperty.set(false);
-                    m_statusString.set("Timed out");
-                    m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-                }
-
-                if (indexOftimeString > 0) {
-                    int lengthOftime = timeString.length();
-
-                    int indexOfms = s.indexOf("ms");
-
-                    availableProperty.set(true);
-
-                    String time = s.substring(indexOftimeString + lengthOftime, indexOfms + 2);
-
-                    m_statusString.set("Ping: " + time);
-                    m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-                }
-
-                String avgString = "Average = ";
-                int indexOfAvgString = s.indexOf(avgString);
-
-                if (indexOfAvgString > 0) {
-                    int lengthOfAvg = avgString.length();
-
-                    String avg = s.substring(indexOfAvgString + lengthOfAvg);
-
-                    m_statusString.set("Average: " + avg);
-
-                    m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-
-                }
-
-            }
-            if (!availableProperty.get()) {
-                m_statusString.set("Offline");
-                m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-                m_cmdProperty.set("");
-                m_available = false;
-            } else {
-                Thread.sleep(1000);
-                m_cmdProperty.set("");
-                m_statusString.set("Online");
-                m_available = true;
-
-            }
-            // String[] splitStr = javaOutputList.get(0).trim().split("\\s+");
-            //Version jV = new Version(splitStr[1].replaceAll("/[^0-9.]/g", ""));
-        } catch (Exception e) {
-            m_cmdProperty.set("");
-            m_cmdStatusUpdated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-
-        }
-
-    }
 
 
   

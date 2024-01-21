@@ -1093,20 +1093,22 @@ public class ErgoWalletDataList {
             int floor = (int) Math.floor(width / cellWidth);
             int numCol = floor == 0 ? 1 : floor;
             // currentNumCols.set(numCol);
-            int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
+            //int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
 
-            HBox[] rowsBoxes = new HBox[numRows];
-            for (int i = 0; i < numRows; i++) {
-                rowsBoxes[i] = new HBox();
-                m_gridBox.getChildren().add(rowsBoxes[i]);
-            }
+            ArrayList<HBox> rowsBoxes = new ArrayList<HBox>();
 
             ItemIterator grid = new ItemIterator();
+            //j = row
+            //i = col
 
             for (NoteInterface noteInterface : m_noteInterfaceList) {
-
-                HBox rowBox = rowsBoxes[grid.getJ()];
-                rowBox.getChildren().add(noteInterface.getButton(IconStyle.ICON));
+                if(rowsBoxes.size() < (grid.getJ() + 1)){
+                    HBox newHBox = new HBox();
+                    rowsBoxes.add(newHBox);
+                    m_gridBox.getChildren().add(newHBox);
+                }
+                HBox rowBox = rowsBoxes.get(grid.getJ());
+                rowBox.getChildren().add(noteInterface.getButton(currentIconStyle));
 
                 if (grid.getI() < numCol) {
                     grid.setI(grid.getI() + 1);

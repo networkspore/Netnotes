@@ -573,12 +573,25 @@ public class ChartView {
 
                 double low = priceData.getOpen() < priceData.getLow() ? priceData.getOpen() : priceData.getLow();
                 double high = priceData.getHigh();
-
+                if(rangeActive){
+                    low = low < botRangePrice ? botRangePrice : low;
+                    low = low > topRangePrice ? topRangePrice : low;
+                    high = high < botRangePrice ? botRangePrice : high;
+                    high = high > topRangePrice ? topRangePrice : high;
+                }
                 double nextOpen = (i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen() : priceData.getClose());
                 double prevClose = i > 0 ? m_priceList.get(i - 1).getClose() : priceData.getOpen();
                 double close = priceData.getClose();
-
                 double open = prevClose;
+                
+                if(rangeActive){
+                    close = close < botRangePrice ? botRangePrice : close;
+                    close = close > topRangePrice ? topRangePrice : close;
+                    open = open < botRangePrice ? botRangePrice : open;
+                    open = open > topRangePrice ? topRangePrice : open;
+                }
+
+            
 
                 int lowY = (int) (low * scale);
                 int highY = (int) (high * scale);
@@ -799,8 +812,11 @@ public class ChartView {
 
                 int topRangeStringX = (chartWidth + (m_scaleColWidth / 2)) - (topRangeStringWidth / 2);
                 int topRangeStringY = (topRangeY - (m_labelHeight / 2)) + m_labelAscent;
+                int fillTopRangeY1 = topRangeY - (m_labelHeight / 2) - 3;
+                int fillTopRangeY2 = topRangeY + (m_labelHeight / 2) + 3;
 
-                Drawing.fillArea(img, 0xffffffff, x1, topRangeY - (m_labelHeight / 2) - 3, x2, topRangeY + (m_labelHeight / 2) + 3);
+
+                Drawing.fillArea(img, 0xffffffff, x1, fillTopRangeY1, x2, fillTopRangeY2);
                 g2d.setColor(blackColor);
                 g2d.drawString(topRangeString, topRangeStringX, topRangeStringY);
 

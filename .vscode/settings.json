@@ -1,5 +1,15 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
     "java.configuration.updateBuildConfiguration": "interactive",
-    "maven.view": "hierarchical"
+    "maven.view": "hierarchical",
+    "terminal.integrated.env.windows": {
+        "GRAALVM_HOME": "c:\\Dev\\graalvm-ce-java17-22.3.3",
+        "PATH": "c:\\Dev\\graalvm-ce-java17-22.3.3\\bin;${env:PATH}",
+        "JAVA_HOME": "c:\\Dev\\graalvm-ce-java17-22.3.3"
+    },
+    "graalvm.home": "c:\\Dev\\graalvm-ce-java17-22.3.3",
+    "graalvm.installations": [
+        "C:\\dev\\graalvm",
+        "c:\\Dev\\graalvm-ce-java17-22.3.3"
+    ]
 }

@@ -42,7 +42,7 @@ import javafx.scene.layout.Priority;
 
 public class SpectrumChartView {
 
-   private File logFile = new File("netnotes-log.txt");
+   private final static File logFile = new File("netnotes-log.txt");
 
    public final static int DECIMAL_PRECISION = 4;
    public final static int MAX_BARS = 250;
@@ -59,7 +59,7 @@ public class SpectrumChartView {
 
     private SimpleDoubleProperty m_topVvalue = new SimpleDoubleProperty(1);
     private SimpleDoubleProperty m_bottomVvalue = new SimpleDoubleProperty(0);
-    private SimpleBooleanProperty m_settingRange = new SimpleBooleanProperty(false);
+    private boolean m_settingRange = false;
     private SimpleBooleanProperty m_active = new SimpleBooleanProperty(false);
 
     private int m_valid = 0;
@@ -89,6 +89,8 @@ public class SpectrumChartView {
     private FontMetrics m_fm = null;
 
     private long m_lastTimeStamp = 0;
+
+    private SimpleIntegerProperty m_isPositive = new SimpleIntegerProperty(0);
 
     public SpectrumChartView(SimpleDoubleProperty width, SimpleDoubleProperty height, TimeSpan timeSpan) {
         HBox.setHgrow(m_chartHbox, Priority.ALWAYS);
@@ -133,8 +135,13 @@ public class SpectrumChartView {
         return m_bottomVvalue;
     }
 
-    public SimpleBooleanProperty isSettingRangeProperty() {
+    public boolean isSettingRange(){
         return m_settingRange;
+    }
+
+    public void setIsSettingRange(boolean isRangeSetting) {
+        m_settingRange = isRangeSetting;
+        updateBufferedImage();
     }
 
     public void updateLabelFont() {
@@ -185,7 +192,7 @@ public class SpectrumChartView {
 
         rangeBottomVvalueProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
         rangeTopVvalueProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
-        isSettingRangeProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
+
 
         rangeActiveProperty().addListener((obs, oldVal, newVal) -> updateBufferedImage());
 
@@ -279,20 +286,21 @@ public class SpectrumChartView {
     }*/
     
     public void setPriceDataList(JsonArray jsonArray, long latestTime) {
-       
+        m_priceList.clear();
+
         if (jsonArray != null && jsonArray.size() > 0) {
             long timeSpanMillis = m_timeSpan.getMillis();
             setLastTimeStamp(latestTime);
-
+           
             m_valid = 1;
             m_msg = "Loading";
             SpectrumNumbers numberClass = new SpectrumNumbers();
 
-            ArrayList<SpectrumPriceData> tmpPriceList = new ArrayList<>();
-
+   
             JsonElement oldestElement = jsonArray.get(0);
             JsonElement newestElement = jsonArray.get(jsonArray.size() - 1);
 
+        
           
 
             if (oldestElement != null && oldestElement.isJsonObject() && newestElement != null && newestElement.isJsonObject()) {
@@ -309,7 +317,7 @@ public class SpectrumChartView {
 
                 int startElement = maxElements > MAX_BARS ? maxElements - MAX_BARS : 0;
 
-                final long startTimeStamp = ((startElement * timeSpanMillis) + oldestTimeStamp )- timeSpanMillis;
+                final long startTimeStamp = ((startElement * timeSpanMillis) + oldestTimeStamp ) + timeSpanMillis;
 
                 SimpleIntegerProperty index = new SimpleIntegerProperty(0);
                 int size = jsonArray.size();
@@ -317,59 +325,40 @@ public class SpectrumChartView {
                 BigDecimal firstOpen = oldestObject.get("price").getAsBigDecimal();
                 SimpleObjectProperty<BigDecimal> lastClose = new SimpleObjectProperty<>(firstOpen);
    
-                SimpleLongProperty epochEnd = new SimpleLongProperty(startTimeStamp + timeSpanMillis);
-     
+                SimpleLongProperty epochEnd = new SimpleLongProperty(startTimeStamp);
+
+                try{
+                    SpectrumPrice lastPrice =  new SpectrumPrice(jsonArray.get(size -1).getAsJsonObject());
+                    BigDecimal secondLastPrice = size > 1 ? new SpectrumPrice(jsonArray.get(size -2).getAsJsonObject()).getPrice() : m_currentPrice;
+                
+                    setIsPositive(lastPrice.getPrice().compareTo(secondLastPrice));
+                }catch(Exception jsonException){
+                    setIsPositive(0);
+                }
+                
                 while (index.get() < size) {
                    
                     try{
                         SimpleObjectProperty<SpectrumPrice> spectrumPrice = new SimpleObjectProperty<>( new SpectrumPrice( jsonArray.get(index.get()).getAsJsonObject()));
                                       
-                        if(spectrumPrice.get().getTimeStamp() > startTimeStamp  ){
+                        if(spectrumPrice.get().getTimeStamp() > startTimeStamp - timeSpanMillis  ){
 
-                            while((epochEnd.get()) < spectrumPrice.get().getTimeStamp() ){
-                                SpectrumPriceData data = new SpectrumPriceData(epochEnd.get(), lastClose.get(), epochEnd.get());
-                                tmpPriceList.add(data);
+                            while(spectrumPrice.get().getTimeStamp() > epochEnd.get()){
+                                long currentTime = System.currentTimeMillis();
+                                long newestEpochTime = epochEnd.get() > currentTime ? currentTime : epochEnd.get();
+                                SpectrumPriceData data = new SpectrumPriceData(newestEpochTime, epochEnd.get(), lastClose.get());
+                                m_priceList.add(data);
+                                numberClass.setSum(numberClass.getSum().add(data.getClose()));
                                 numberClass.setCount(numberClass.getCount() + 1);
                                 epochEnd.set(epochEnd.get() + timeSpanMillis);
                             }
 
-                                SpectrumPriceData priceData = new SpectrumPriceData(spectrumPrice.get().getTimeStamp(), spectrumPrice.get().getPrice(), epochEnd.get());
+                                SpectrumPriceData priceData = new SpectrumPriceData(spectrumPrice.get(), epochEnd.get());
                                 priceData.setOpen(lastClose.get());
-                                lastClose.set(spectrumPrice.get().getPrice());
-
-                                if(index.get() + 1 < size){
-                                    
-                                    try{
-                                        SimpleObjectProperty<SpectrumPrice> nextSpectrumPrice = new SimpleObjectProperty<>(new SpectrumPrice(jsonArray.get(index.get() + 1).getAsJsonObject()));
                             
-                                        while(nextSpectrumPrice.get().getTimeStamp() <= epochEnd.get()){
-                                            priceData.addPrice(nextSpectrumPrice.get().getTimeStamp(), nextSpectrumPrice.get().getPrice());
-                                            lastClose.set(nextSpectrumPrice.get().getPrice());
-                                            index.set(index.get() + 1);
-                                            if(index.get() +1 >= size){
-                                                break;
-                                            }
-                                            try{
-                                                nextSpectrumPrice.set(new SpectrumPrice(jsonArray.get(index.get() + 1).getAsJsonObject()));
-                                            }catch(Exception whileNextException){
-                                                try{
-                                                    Files.writeString(logFile.toPath(), "Spectrum nextPriceException: " + whileNextException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                                }catch(IOException npioe){
+                                addPrices(index, priceData, epochEnd.get(), jsonArray);
 
-                                                }
-                                                    index.set(index.get() + 1);
-                                            
-                                            }
-                                        }
-                                    }catch(Exception nextPriceException){
-                                        try{
-                                            Files.writeString(logFile.toPath(), "Spectrum nextPriceException: " + nextPriceException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                        }catch(IOException npioe){
-
-                                        }
-                                        index.set(index.get() + 1);
-                                    }
-                                }
+                                lastClose.set(priceData.getClose());
 
                                 if (numberClass.getLow().equals(BigDecimal.ZERO)) {
                                     numberClass.setLow(priceData.getLow());
@@ -383,7 +372,7 @@ public class SpectrumChartView {
                                 numberClass.setLow(priceData.getLow().equals(BigDecimal.ZERO) ? numberClass.getLow() : priceData.getLow().min(numberClass.getLow()));
                                 
                                 numberClass.setCount(numberClass.getCount() + 1);
-                                tmpPriceList.add(priceData);
+                                m_priceList.add(priceData);
                                 m_currentPrice = priceData.getClose();
                                 
                                 
@@ -396,7 +385,7 @@ public class SpectrumChartView {
                     }catch(Exception priceException){
                         
                         try {
-                            Files.writeString(logFile.toPath(), "\nSpectrum invalid price.", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            Files.writeString(logFile.toPath(), "\nSpectrum setPriceData: " + priceException.toString() , StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                         } catch (IOException e) {
              
                         }
@@ -407,8 +396,7 @@ public class SpectrumChartView {
                     
                 }
                 
-                
-                // Collections.reverse(tmpPriceList);
+        
             } else {
                 m_valid = 2;
                 m_msg = "Received no data.";
@@ -421,7 +409,7 @@ public class SpectrumChartView {
             numberClass.setDecimals(decimals);
 
 
-            m_priceList = tmpPriceList;
+          
             m_numberClass = numberClass;
            
         } else {
@@ -429,6 +417,47 @@ public class SpectrumChartView {
             m_msg = "Received no data.";
         }
         m_lastUpdated.set(LocalDateTime.now());
+    }
+
+    private static void addPrices(SimpleIntegerProperty index, SpectrumPriceData priceData, long epochEnd, JsonArray jsonArray){
+        int size = jsonArray.size();
+
+        if(index.get() + 1 < size){         
+            try{
+                SimpleObjectProperty<SpectrumPrice> nextSpectrumPrice = new SimpleObjectProperty<>(new SpectrumPrice(jsonArray.get(index.get() + 1).getAsJsonObject()));
+    
+                while(nextSpectrumPrice.get().getTimeStamp() <= epochEnd){
+                    priceData.addPrice(nextSpectrumPrice.get().getTimeStamp(), nextSpectrumPrice.get().getPrice());
+                    index.set(index.get() + 1);
+
+                    if((index.get() +1) == size){
+                        break;
+                    }
+                    try{
+                        nextSpectrumPrice.set(new SpectrumPrice(jsonArray.get(index.get() + 1).getAsJsonObject()));
+                    }catch(Exception whileNextException){
+                        try{
+                            Files.writeString(logFile.toPath(), "Spectrum nextPriceException: " + whileNextException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        }catch(IOException npioe){
+
+                        }
+                        if((index.get() +1) == size){
+                            index.set(index.get() + 1);
+                        }
+                    
+                    }
+                }
+            }catch(Exception nextPriceException){
+                try{
+                    Files.writeString(logFile.toPath(), "Spectrum nextPriceException: " + nextPriceException.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                }catch(IOException npioe){
+
+                } 
+                if((index.get() +1) != size){        
+                    index.set(index.get() + 1);
+                }
+            }
+        }
     }
 
     public JsonObject getPriceDataJson(){
@@ -453,18 +482,19 @@ public class SpectrumChartView {
 
        
         if(m_priceList.size() > 0 ){
-            
+          
+      
             long timeSpanMillis = m_timeSpan.getMillis();
             setLastTimeStamp(lastestTimeStamp);
             
             SpectrumPriceData newestData = m_priceList.get(m_priceList.size() -1);
 
-            final long newestTimeStamp = newestData.getTimestamp();
+            
 
             SimpleIntegerProperty index = new SimpleIntegerProperty(0);
           
 
-            SimpleLongProperty epochEnd = new SimpleLongProperty(newestTimeStamp);
+            SimpleLongProperty epochEnd = new SimpleLongProperty(newestData.getEpochEnd());
      
             SimpleObjectProperty<SpectrumPrice> spectrumPrice = new SimpleObjectProperty<>(null);
 
@@ -476,11 +506,15 @@ public class SpectrumChartView {
                 }
             }
 
+          
+            
 
 
             while(spectrumPrice.get().getTimeStamp() > epochEnd.get() + timeSpanMillis){
                 epochEnd.set( epochEnd.get() + timeSpanMillis);
-                SpectrumPriceData data = new SpectrumPriceData(epochEnd.get(), m_currentPrice, epochEnd.get());
+                long currentTime = System.currentTimeMillis();
+                long newestEpochTime = epochEnd.get() > currentTime ? currentTime : epochEnd.get();
+                SpectrumPriceData data = new SpectrumPriceData(newestEpochTime, epochEnd.get(), m_currentPrice);
                 m_priceList.add(data);
                 m_numberClass.setCount(m_numberClass.getCount() + 1);
         
@@ -523,6 +557,15 @@ public class SpectrumChartView {
                 
                 epochEnd.set(epochEnd.get() + timeSpanMillis);
             }
+
+             try{
+                SpectrumPrice lastPrice =  new SpectrumPrice(jsonArray.get(size -1).getAsJsonObject());
+                BigDecimal secondLastPrice = size > 1 ? new SpectrumPrice(jsonArray.get(size -2).getAsJsonObject()).getPrice() : m_currentPrice;
+               
+                setIsPositive(lastPrice.getPrice().compareTo(secondLastPrice));
+            }catch(Exception jsonException){
+                setIsPositive(0);
+            }
           
 
             while (index.get() < size) {
@@ -531,13 +574,15 @@ public class SpectrumChartView {
                     spectrumPrice.set( new SpectrumPrice( jsonArray.get(index.get()).getAsJsonObject()));
                                     
                     while((epochEnd.get()) < spectrumPrice.get().getTimeStamp() ){
-                        SpectrumPriceData data = new SpectrumPriceData(epochEnd.get(), m_currentPrice, epochEnd.get());
+                        long currentTime = System.currentTimeMillis();
+                        long newestEpochTime = epochEnd.get() > currentTime ? currentTime : epochEnd.get();
+                        SpectrumPriceData data = new SpectrumPriceData(newestEpochTime, epochEnd.get(), m_currentPrice);
                         m_priceList.add(data);
                         m_numberClass.setCount(m_numberClass.getCount() + 1);
                         epochEnd.set(epochEnd.get() + timeSpanMillis);
                     }
 
-                    SpectrumPriceData priceData = new SpectrumPriceData(spectrumPrice.get().getTimeStamp(), spectrumPrice.get().getPrice(), epochEnd.get());
+                    SpectrumPriceData priceData = new SpectrumPriceData(spectrumPrice.get(), epochEnd.get());
                     priceData.setOpen(m_currentPrice);
                     m_currentPrice = spectrumPrice.get().getPrice();
 
@@ -610,7 +655,10 @@ public class SpectrumChartView {
             }
                 
                 
-                // Collections.reverse(tmpPriceList);
+        
+
+           
+            
    
             
             m_lastUpdated.set(LocalDateTime.now());
@@ -745,7 +793,7 @@ public class SpectrumChartView {
 
         double bottomVvalue = rangeBottomVvalueProperty().get();
         double topVvalue = rangeTopVvalueProperty().get();
-        boolean isRangeSetting = isSettingRangeProperty().get();
+        boolean isRangeSetting = m_settingRange;
 
         boolean rangeActive = rangeActiveProperty().get() && !isRangeSetting;
 
@@ -798,10 +846,17 @@ public class SpectrumChartView {
                 }
             } */
 
-            double scale = (.6d * ((double) chartHeight)) / m_numberClass.getHigh().doubleValue();
+            double highValue = m_numberClass.getHigh().doubleValue();
 
+        
+
+            double scale = (.6d * ((double) chartHeight)) / highValue;
+
+      
             double topRangePrice = (topVvalue * (Math.floor(chartHeight / getRowHeight()) * getRowHeight())) / scale;
             double botRangePrice = (bottomVvalue * (Math.floor(chartHeight / getRowHeight()) * getRowHeight())) / scale;
+
+       
 
             if (isRangeSetting) {
                 m_topRangePrice = topRangePrice;
@@ -870,12 +925,23 @@ public class SpectrumChartView {
 
                 double low = priceData.getOpen().doubleValue() < priceData.getLow().doubleValue() ? priceData.getOpen().doubleValue() : priceData.getLow().doubleValue();
                 double high = priceData.getHigh().doubleValue();
-
+                if(rangeActive){
+                    low = low < botRangePrice ? botRangePrice : low;
+                    low = low > topRangePrice ? topRangePrice : low;
+                    high = high < botRangePrice ? botRangePrice : high;
+                    high = high > topRangePrice ? topRangePrice : high;
+                }
                 double nextOpen = (i < m_priceList.size() - 2 ? m_priceList.get(i + 1).getOpen().doubleValue() : priceData.getClose().doubleValue());
-                double prevClose = i > 0 ? m_priceList.get(i - 1).getClose().doubleValue() : priceData.getOpen().doubleValue();
                 double close = priceData.getClose().doubleValue();
+                double open = priceData.getOpen().doubleValue();
 
-                double open = prevClose;
+                
+                if(rangeActive){
+                    close = close < botRangePrice ? botRangePrice : close;
+                    close = close > topRangePrice ? topRangePrice : close;
+                    open = open < botRangePrice ? botRangePrice : open;
+                    open = open > topRangePrice ? topRangePrice : open;
+                }
 
                 int lowY = (int) (low * scale);
                 int highY = (int) (high * scale);
@@ -889,16 +955,16 @@ public class SpectrumChartView {
                     openY = (int) ((open - botRangePrice) * scale2);
                     closeY = (int) ((close - botRangePrice) * scale2);
 
-                    lowY = lowY < 0 ? 0 : lowY;
+                    lowY = lowY < 1 ? 1 : lowY;
                     lowY = lowY > chartHeight ? chartHeight : lowY;
 
-                    highY = highY < 0 ? 0 : highY;
+                    highY = highY < 1 ? 1 : highY;
                     highY = highY > chartHeight ? chartHeight : highY;
 
-                    openY = openY < 0 ? 0 : openY;
+                    openY = openY < 1 ? 1 : openY;
                     openY = openY > chartHeight ? chartHeight : openY;
 
-                    closeY = closeY < 0 ? 0 : closeY;
+                    closeY = closeY < 1 ? 1 : closeY;
                     closeY = closeY > chartHeight ? chartHeight : closeY;
 
                 }
@@ -1013,7 +1079,7 @@ public class SpectrumChartView {
 
             y = y < 0 ? 0 : y > chartHeight ? chartHeight : y;
 
-            m_direction = getCurrentPrice().doubleValue() > m_lastClose;
+            m_direction = m_isPositive.get() > -1;
 
             m_lastClose = getCurrentPrice().doubleValue();
             int y1 = y - (halfLabelHeight + 7);
@@ -1096,8 +1162,17 @@ public class SpectrumChartView {
 
                 int topRangeStringX = (chartWidth + (m_scaleColWidth / 2)) - (topRangeStringWidth / 2);
                 int topRangeStringY = (topRangeY - (m_labelHeight / 2)) + m_labelAscent;
+                int fillTopRangeY1 = topRangeY - (m_labelHeight / 2) - 3;
+                int fillTopRangeY2 = topRangeY + (m_labelHeight / 2) + 3;
 
-                Drawing.fillArea(img, 0xffffffff, x1, topRangeY - (m_labelHeight / 2) - 3, x2, topRangeY + (m_labelHeight / 2) + 3);
+                fillTopRangeY1 = fillTopRangeY1 < 1 ? 1 : fillTopRangeY1;
+                fillTopRangeY2 = fillTopRangeY2 >= img.getHeight() -1 ? img.getHeight() -1 : fillTopRangeY2;
+                /*try {
+                    Files.writeString(logFile.toPath(), "\nimgWidth: " + img.getWidth() + " imgHeight: " + img.getHeight() + "\ntopRY1: " + fillTopRangeY1 + " topRY2: " + fillTopRangeY2 + "\nx1: " + x1 + " x2: " + x2 + "\n" , StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+             
+                }*/
+                Drawing.fillArea(img, 0xffffffff, x1,fillTopRangeY1 , x2, fillTopRangeY2);
                 g2d.setColor(blackColor);
                 g2d.drawString(topRangeString, topRangeStringX, topRangeStringY);
 
@@ -1152,6 +1227,18 @@ public class SpectrumChartView {
         }
         // m_lastUpdated.addListener();
 
+    }
+
+    public SimpleIntegerProperty isPositiveProperty(){
+        return m_isPositive;
+    }
+
+    public void setIsPositive(int isPositive){
+        m_isPositive.set(isPositive);
+    }
+
+    public int isPositive(){
+        return m_isPositive.get();
     }
 
     public void removeUpdateListener() {

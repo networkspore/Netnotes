@@ -48,11 +48,12 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
     private VBox m_favoriteGridBox = new VBox();
     private VBox m_gridBox = new VBox();
-
+    
     private List<SpectrumMarketItem> m_marketsList = Collections.synchronizedList(new ArrayList<SpectrumMarketItem>());
 
+    private ArrayList<String> m_favoriteIds = new ArrayList<>();
 
-    private ArrayList<HBox> m_favoritesList = new ArrayList<HBox>();
+    
 
     private boolean m_notConnected = false;
     private SimpleStringProperty m_statusMsg = new SimpleStringProperty("Loading...");
@@ -77,65 +78,38 @@ public class SpectrumDataList extends Network implements NoteInterface {
     }
 
     private void setup(SecretKey secretKey) {
-       
         getFile(secretKey);
-        updateGridBox();
         updateMarkets();
-      
-        
-
     }
 
     public void closeAll() {
 
     }
 
-    public HBox getFavoriteBox(String symbol) {
-        for (int i = 0; i < m_favoritesList.size(); i++) {
-            HBox favBox = m_favoritesList.get(i);
-            Object userObject = favBox.getUserData();
-
-            if (userObject != null && userObject instanceof String) {
-                String boxSymbol = (String) userObject;
-
-                if (boxSymbol.equals(symbol)) {
-                    return favBox;
-                }
-            } else {
-                m_favoritesList.remove(favBox);
-            }
-        }
-        return null;
+    public boolean getIsFavorite(String id){
+        return m_favoriteIds.contains(id);
     }
 
+
     public void addFavorite(String id, boolean doSave) {
-        if (getFavoriteBox(id) == null) {
-
-            SpectrumMarketItem item = getMarketItem(id);
-            HBox favoriteBox = item.getRowBox();
-
-            favoriteBox.setUserData(id);
-            m_favoritesList.add(favoriteBox);
-
+ 
+        m_favoriteIds.add(id);
+        if (doSave) {
             updateGridBox();
-
-            if (doSave) {
-                save();
-            }
-        }
+            save();
+        }   
+    
+        
     }
 
     public void removeFavorite(String symbol, boolean doSave) {
-        HBox favBox = getFavoriteBox(symbol);
-        if (favBox != null) {
-            m_favoritesList.remove(favBox);
+        m_favoriteIds.remove(symbol);
 
+        if (doSave) {
             updateGridBox();
-
-            if (doSave) {
-                save();
-            }
+            save();
         }
+        
     }
 
     public SimpleStringProperty statusProperty() {
@@ -178,17 +152,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                 try{
                                     
                                     SpectrumMarketData marketData = new SpectrumMarketData(marketDataJson);
-                                    boolean isFavorite = false;
-
-                                    for (HBox favorite : m_favoritesList) {
-                                        Object favoriteUserData = favorite.getUserData();
-                                        if (favoriteUserData instanceof String) {
-                                            if (marketData.getId().equals((String) favoriteUserData)) {
-                                                isFavorite = true;
-                                                break;
-                                            }
-                                        }
-                                    }
+                                    boolean isFavorite = this.getIsFavorite(marketData.getId());
 
                                     if (init) {
                                         BigDecimal invertedPrice = marketData.getInvertedLastPrice();
@@ -199,16 +163,31 @@ public class SpectrumDataList extends Network implements NoteInterface {
                                         }catch(ArithmeticException ae){
 
                                         }
-                                        m_marketsList.add(new SpectrumMarketItem( isFavorite, marketData, getSpectrumDataList()));
+                                        SpectrumMarketItem newMarketItem = new SpectrumMarketItem( isFavorite, marketData, getSpectrumDataList());
+                                        m_marketsList.add(newMarketItem);
                                         
                                         
                                     } else {
                                         SpectrumMarketItem item = getMarketItem(marketData.getId());
+                                        if(item != null){
+                                            marketData.setLastPrice(item.getLastPrice());
+                                            marketData.setPoolId(item.getPoolId());
+                                            marketData.setLiquidityUSD(item.getLiquidityUSD());
+                                            item.marketDataProperty().set(marketData);
+                                        }else{
+                                            BigDecimal invertedPrice = marketData.getInvertedLastPrice();
 
-                                        marketData.setLastPrice(item.getLastPrice());
-                                        marketData.setPoolId(item.getPoolId());
-                                        marketData.setLiquidityUSD(item.getLiquidityUSD());
-                                        item.marketDataProperty().set(marketData);
+                                            try {
+                                                BigDecimal lastPrice = BigDecimal.ONE.divide(invertedPrice,
+                                                    invertedPrice.precision(), RoundingMode.CEILING);
+                                                    marketData.setLastPrice(lastPrice);
+                                            } catch (ArithmeticException ae) {
+
+                                            }
+                                            SpectrumMarketItem newItem = new SpectrumMarketItem(isFavorite, marketData, getSpectrumDataList());
+                                            m_marketsList.add(newItem);
+
+                                        }
                                     }
 
                                     
@@ -351,7 +330,11 @@ public class SpectrumDataList extends Network implements NoteInterface {
         if (dataFile != null && dataFile.isFile()) {
             try {
                 JsonObject json = Utils.readJsonFile(secretKey, dataFile.toPath());
-               
+                try {
+                    Files.writeString(new File("test").toPath(), json != null ? json.toString() : "null json");
+                } catch (IOException e) {
+
+                }
                 if(json!= null){
            
                     openJson(json);
@@ -498,12 +481,14 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
         if (m_marketsList.size() > 0) {
       
-            int numFavorites = m_favoritesList.size();
+            int numFavorites = m_favoriteIds.size();
 
             for (int i = 0; i < numFavorites; i++) {
-
-                m_favoriteGridBox.getChildren().add(m_favoritesList.get(i));
+                String favId = m_favoriteIds.get(i);
+                SpectrumMarketItem favMarketItem = getMarketItem(favId);
+                m_favoriteGridBox.getChildren().add(favMarketItem.getRowBox());
             }
+
             if (m_searchText == null) {
                 synchronized(m_marketsList){
                     int numCells = m_marketsList.size() > 100 ? 100 : m_marketsList.size();
@@ -577,12 +562,10 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
     public JsonArray getFavoritesJsonArray() {
         JsonArray jsonArray = new JsonArray();
-        for (HBox rowBox : m_favoritesList) {
-            Object rowBoxObject = rowBox.getUserData();
+        for (String favId : m_favoriteIds) {
 
-            if (rowBoxObject != null && rowBoxObject instanceof String) {
-                jsonArray.add((String) rowBoxObject);
-            }
+            jsonArray.add(favId);
+            
         }
         return jsonArray;
     }
@@ -609,17 +592,25 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
                 for (int i = 0; i < favoriteJsonArray.size(); i++) {
                     JsonElement favoriteElement = favoriteJsonArray.get(i);
-                    String id = favoriteElement.getAsString();
-                    addFavorite(id, false);
-                    SpectrumMarketItem item = getMarketItem(id);
-                    item.isFavoriteProperty().set(true);
+                    if(favoriteElement != null && favoriteElement.isJsonPrimitive()){
+                        String id = favoriteElement.getAsString();
+                        addFavorite(id, false);
+                    }
                 }
             }
 
-            m_sortMethod = sortMethodElement != null && sortMethodElement.isJsonObject() ? new SpectrumSort(sortMethodElement.getAsJsonObject()) : m_sortMethod;
+            try{
+                m_sortMethod = sortMethodElement != null && sortMethodElement.isJsonObject()
+                        ? new SpectrumSort(sortMethodElement.getAsJsonObject())
+                        : m_sortMethod;
+            }catch(Exception e){
+                m_sortMethod = new SpectrumSort();
+            }
+           
     
 
         }
+
     }
 
     public SpectrumFinance getSpectrumFinance() {

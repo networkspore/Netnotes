@@ -236,7 +236,7 @@ public class SpectrumMarketItem {
 
     public void showStage() {
         if (m_stage == null) {
-            
+         
             SimpleBooleanProperty isInvertChart = new SimpleBooleanProperty(m_dataList.getSortMethod().isTargetSwapped());
 
             double sceneWidth = 750;
@@ -316,7 +316,9 @@ public class SpectrumMarketItem {
 
             SpectrumChartView chartView = new SpectrumChartView(chartWidth, chartHeight, new TimeSpan("1day"));
             HBox chartBox = chartView.getChartBox();
-            
+
+  
+
             MenuButton timeSpanBtn = new MenuButton(chartView.getTimeSpan().getName());
             timeSpanBtn.setFont(App.txtFont);
 
@@ -357,8 +359,10 @@ public class SpectrumMarketItem {
             chartView.rangeActiveProperty().bind(chartRange.activeProperty());
             chartView.rangeTopVvalueProperty().bind(chartRange.topVvalueProperty());
             chartView.rangeBottomVvalueProperty().bind(chartRange.bottomVvalueProperty());
-            chartView.isSettingRangeProperty().bind(chartRange.settingRangeProperty());
-            
+        
+            chartRange.settingRangeProperty().addListener((obs,oldval,newval)->{
+                Platform.runLater(()->chartView.setIsSettingRange(newval));
+            });
             HBox bodyBox = new HBox(chartRange, chartScroll);
             bodyBox.setId("bodyBox");
             bodyBox.setAlignment(Pos.TOP_LEFT);
@@ -408,6 +412,11 @@ public class SpectrumMarketItem {
                     }
                 }
             };
+            
+            Runnable setChartScrollRight = () ->{
+                Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
+                Platform.runLater(()->chartScroll.setHvalue(chartScrollHvalue));
+            };
 
             maximizeBtn.setOnAction((e) -> {
                 if (m_prevHeight == -1) {
@@ -441,12 +450,10 @@ public class SpectrumMarketItem {
                     }
                     marketScene.setOnMouseMoved(null);
                 }
-                FxTimer.runLater(Duration.ofMillis(200), () -> {
-
-                   Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
-                   Platform.runLater(()->chartScroll.setHvalue(chartScrollHvalue));
-                });
+                FxTimer.runLater(Duration.ofMillis(200), setChartScrollRight);
             });
+
+         
 
             fillRightBtn.setOnAction(e -> {
 
@@ -464,11 +471,7 @@ public class SpectrumMarketItem {
                         m_stage.setY(0);
                         m_stage.setWidth(rect.getWidth() - exStage.getWidth());
                         m_stage.setHeight(rect.getHeight());
-                        FxTimer.runLater(Duration.ofMillis(200), () -> {
-
-                           Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
-                           Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
-                        });
+                        FxTimer.runLater(Duration.ofMillis(200), setChartScrollRight);
                     } else {
                         maximizeBtn.fire();
                     }
@@ -526,7 +529,7 @@ public class SpectrumMarketItem {
 
             Runnable resetChartHeightOffset = () -> {
                 chartHeightOffset.set(0);
-                Platform.runLater(()->chartScroll.setVvalue(chartScrollVvalue));
+                chartScroll.setVvalue(chartScrollVvalue);
             };
             EventHandler<javafx.scene.input.KeyEvent> keyEventHandler = (keyEvent) -> {
 
@@ -608,13 +611,15 @@ public class SpectrumMarketItem {
                         }
 
                         saveNewDataJson(currentTime, chartArray);
-
-                        chartView.setPriceDataList(isInvertChart.get() ? invertPrices(chartArray) : chartArray, currentTime);
+                      
+                       
                    
-                        Platform.runLater(()-> chartScroll.setVvalue(chartScrollVvalue));
-                        Platform.runLater(()-> chartScroll.setHvalue(chartScrollHvalue));
+                       
+                        Platform.runLater(()->chartView.setPriceDataList(isInvertChart.get() ? invertPrices(chartArray) : chartArray, currentTime));
+                        
+                        Platform.runLater(()->chartRange.setVisible(true));
 
-                        chartRange.setVisible(true);
+                        FxTimer.runLater(Duration.ofMillis(200), setChartScrollRight);
                     }else{
                         closeBtn.fire();
                     }
@@ -666,8 +671,8 @@ public class SpectrumMarketItem {
                         }
                        
                         saveNewDataJson(currentTime, chartArray);
-             
-                        chartView.updatePriceData(isInvertChart.get() ? invertPrices(newChartArray) : newChartArray, currentTime);                        
+                   
+                        Platform.runLater(()->chartView.updatePriceData(isInvertChart.get() ? invertPrices(newChartArray) : newChartArray, currentTime));                        
                     }
                     
                 }, onFailed->{

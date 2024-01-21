@@ -249,24 +249,26 @@ public class ErgoNetworkData implements InstallerInterface {
             double imageWidth = 75;
             double cellPadding = 15;
             double cellWidth = imageWidth + (cellPadding * 2);
-            int numCells = m_networkList.size();
+            //int numCells = m_networkList.size();
 
             int numCol = (int) Math.floor(width / cellWidth);
             //int numCol = floor == 0 ? 1 : floor;
             // currentNumCols.set(numCol);
-            int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
+         //   int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
 
-            HBox[] rowsBoxes = new HBox[numRows];
-            for (int i = 0; i < numRows; i++) {
-                rowsBoxes[i] = new HBox();
-                m_gridBox.getChildren().add(rowsBoxes[i]);
-            }
+            ArrayList<HBox> rowsBoxes = new ArrayList<HBox>();
 
             ItemIterator grid = new ItemIterator();
+            //j = row
+            //i = col
 
             for (NoteInterface noteInterface : m_networkList) {
-
-                HBox rowBox = rowsBoxes[grid.getJ()];
+                if(rowsBoxes.size() < (grid.getJ() + 1)){
+                    HBox newHBox = new HBox();
+                    rowsBoxes.add(newHBox);
+                    m_gridBox.getChildren().add(newHBox);
+                }
+                HBox rowBox = rowsBoxes.get(grid.getJ());
                 rowBox.getChildren().add(noteInterface.getButton(currentIconStyle));
 
                 if (grid.getI() < numCol) {
@@ -553,41 +555,43 @@ public class ErgoNetworkData implements InstallerInterface {
             double imageWidth = new IconButton().getImageWidth();
             double cellPadding = new IconButton().getPadding().getLeft();
             double cellWidth = imageWidth + cellPadding;
-            double numCells = INTALLABLE_NETWORK_IDS.length - m_networkList.size();
+         //  double numCells = INTALLABLE_NETWORK_IDS.length - m_networkList.size();
             double boxWidth = m_stageWidth - (m_leftColumnWidth);
 
             int floor = (int) Math.floor(boxWidth / (cellWidth));
             int numCol = floor == 0 ? 1 : floor;
-            int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
+           // int numRows = numCells > 0 && numCol != 0 ? (int) Math.ceil(numCells / (double) numCol) : 1;
 
-            HBox[] rowsBoxes = new HBox[numRows];
-            for (int i = 0; i < numRows; i++) {
-                rowsBoxes[i] = new HBox();
-                HBox.setHgrow(rowsBoxes[i], Priority.ALWAYS);
-
-                m_notInstalledVBox.getChildren().add(rowsBoxes[i]);
-            }
+            ArrayList<HBox> rowsBoxes = new ArrayList<HBox>();
+            //j = row
+            //i = col
 
             for (InstallableIcon installable : m_installables) {
-
-                if (installable.getInstalled()) {
-                    installable.setPrefWidth(m_leftColumnWidth);
+                if(installable.getInstalled()){
+                    installable.prefWidthProperty().bind(m_installedVBox.widthProperty());
                     m_installedVBox.getChildren().add(installable);
+                }else{
+                    if(rowsBoxes.size() < (grid.getJ() + 1)){
+                        HBox newHBox = new HBox();
+                        rowsBoxes.add(newHBox);
+                        m_notInstalledVBox.getChildren().add(newHBox);
+                      
+                    }
+    
+                    HBox rowBox = rowsBoxes.get(grid.getJ());
 
-                } else {
+                    installable.setPrefWidth(IconButton.NORMAL_IMAGE_WIDTH);
 
-                    HBox rowBox = rowsBoxes[grid.getJ()];
-
+                    rowBox.getChildren().add(installable);
+    
                     if (grid.getI() < numCol) {
                         grid.setI(grid.getI() + 1);
                     } else {
                         grid.setI(0);
                         grid.setJ(grid.getJ() + 1);
                     }
-                    //   installable.prefWidthProperty().unbind();
-                    installable.setPrefWidth(IconButton.NORMAL_IMAGE_WIDTH);
-                    rowBox.getChildren().add(installable);
                 }
+
             }
         }
     }

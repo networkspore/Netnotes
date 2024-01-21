@@ -53,6 +53,7 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.URLConnection;
 
+import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
@@ -61,6 +62,8 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -1240,7 +1243,68 @@ public class Utils {
         t.start();
     }
 
+    public static String getShellCmd(){
+        return "cmd /c";
+    }
 
+    public static void pingIP(String ip, SimpleStringProperty status, SimpleStringProperty updated, SimpleBooleanProperty available) throws Exception{
+     
+        String[] cmd = { "cmd", "/c", "ping", ip };
+
+            
+
+            Process proc = Runtime.getRuntime().exec(cmd);
+
+            BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+            List<String> javaOutputList = new ArrayList<String>();
+
+            String s = null;
+
+            while ((s = stdInput.readLine()) != null) {
+                javaOutputList.add(s);
+
+                String timeString = "time=";
+                int indexOftimeString = s.indexOf(timeString);
+
+                if (s.indexOf("timed out") > 0) {
+                    Platform.runLater(()->available.set(false));
+                    status.set("Timed out");
+                    updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+                }
+
+                if (indexOftimeString > 0) {
+                    int lengthOftime = timeString.length();
+
+                    int indexOfms = s.indexOf("ms");
+
+                    available.set(true);
+
+                    String time = s.substring(indexOftimeString + lengthOftime, indexOfms + 2);
+
+                    status.set("Ping: " + time);
+                    updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+                }
+
+                String avgString = "Average = ";
+                int indexOfAvgString = s.indexOf(avgString);
+
+                if (indexOfAvgString > 0) {
+                    int lengthOfAvg = avgString.length();
+
+                    String avg = s.substring(indexOfAvgString + lengthOfAvg);
+
+                    status.set("Average: " + avg);
+
+                    updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+
+                }
+
+            }
+           
+           
+
+    }
 
     public static void getWin32_BaseboardHashData(EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed){
         Task<HashData> task = new Task<HashData>() {
@@ -1408,7 +1472,7 @@ public class Utils {
 
     
 
-    public static String[] pslastPID(String jarname){
+    public static String[] findPIDs(String jarname){
           try {
           //  File logFile = new File("wmicTerminate-log.txt");
             //Get-Process | Where {$_.ProcessName -Like "SearchIn*"}
@@ -1472,7 +1536,7 @@ public class Utils {
    
     }
 
-     public static void psStopProcess(String pid){
+     public static void sendTermSig(String pid){
           try {
           //  File logFile = new File("wmicTerminate-log.txt");
             //Get-Process | Where {$_.ProcessName -Like "SearchIn*"}
@@ -1526,7 +1590,7 @@ public class Utils {
         return -1;
     }
 
-    public static boolean wmicTerminate(String jarName) {
+    public static boolean sendKillSig(String jarName) {
         try {
           //  File logFile = new File("wmicTerminate-log.txt");
      

@@ -316,6 +316,8 @@
 }
 
 #passField {
+    -fx-font-family: 'OCR A Extended';
+    -fx-font-size: 10px;
     -fx-background-color: transparent;
     -fx-text-fill: white;
 }

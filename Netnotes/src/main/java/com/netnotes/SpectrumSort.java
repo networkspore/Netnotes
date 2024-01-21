@@ -49,7 +49,7 @@ public class SpectrumSort {
         setSwapTarget(swapTarget);        
     }
 
-    public SpectrumSort(JsonObject json){
+    public SpectrumSort(JsonObject json) throws NullPointerException{
         if(json != null){
             JsonElement typeElement = json.get("type");
             JsonElement directionElement = json.get("direction");
@@ -58,6 +58,8 @@ public class SpectrumSort {
             m_type = typeElement != null && typeElement.isJsonPrimitive() ? typeElement.getAsString() : m_type;
             m_direction = directionElement != null && directionElement.isJsonPrimitive() ? directionElement.getAsString() : m_direction;
             m_isTargetSwappedProperty.set(isSwappedElement != null && isSwappedElement.isJsonPrimitive() ? isSwappedElement.getAsBoolean() : true); 
+        }else{
+            throw new NullPointerException("SpectrumSort Args Null");
         }
     }
 
