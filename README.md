@@ -2,7 +2,7 @@
 ----
 Description
 ---
-An evolving desktop application which allows you to install and control your access to the Ergo Block chain and receive live crypto currency market data utilizing the KuCoin API.
+An evolving desktop application which allows you to install and control your access to the Ergo Block chain and receive live crypto currency market data utilizing various API (KuCoin Exchange/ Spectrum Finanace) .
 
 *Future development aims to include the ability to communicate with the web browsers, utilizing a unique communication technique of passing notes.*
 
