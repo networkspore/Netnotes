@@ -1096,7 +1096,7 @@ public class AddressData extends Network {
             double stageHeight = getStageMaximized() ? getStagePrevHeight() : getStageHeight();
             
             Scene addressScene = new Scene(layoutVBox, stageWidth, stageHeight);
-
+            addressScene.setFill(null);
             Text addressText = new Text(getName() + ": ");
             addressText.setFont(App.txtFont);
             addressText.setFill(App.txtColor);
@@ -1272,7 +1272,7 @@ public class AddressData extends Network {
                 saveAddresInfo();
             };
 
-            m_addressStage.widthProperty().addListener((obs, oldVal, newVal) -> {
+            addressScene.widthProperty().addListener((obs, oldVal, newVal) -> {
                 setStageWidth(newVal.doubleValue());
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {
@@ -1282,7 +1282,7 @@ public class AddressData extends Network {
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
-            m_addressStage.heightProperty().addListener((obs, oldVal, newVal) -> {
+            addressScene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 setStageHeight(newVal.doubleValue());
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {

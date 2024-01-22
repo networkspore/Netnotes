@@ -1,10 +1,12 @@
 package com.netnotes;
 
+import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -53,6 +55,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -87,7 +90,7 @@ public class NetworksData implements InstallerInterface {
 
     private InstallableIcon m_focusedInstallable = null;
 
-    private Rectangle m_rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    private Rectangle m_rect;
     private HostServices m_hostServices;
   
 
@@ -120,6 +123,25 @@ public class NetworksData implements InstallerInterface {
         m_networksBox = new VBox();
         m_hostServices = hostServices;
 
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        m_rect = ge.getMaximumWindowBounds();
+ 
+        
+
+        try {
+            
+            InputStream stream = App.class.getResource("/assets/OCRAEXT.TTF").openStream();//ClassLoader.getSystemClassLoader().getResourceAsStream("/assets/OCRAEXT.TTF");
+            java.awt.Font ocrFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, stream).deriveFont(48f);
+            ge.registerFont(ocrFont);
+        } catch (FontFormatException | IOException e) {
+
+            try {
+                Files.writeString(logFile.toPath(), "\nError registering font: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+            
+            }
+
+        } 
 
         if (isFile) {
             readFile(m_appData.appKeyProperty().get(), networksFile.toPath());
@@ -618,6 +640,7 @@ public class NetworksData implements InstallerInterface {
             VBox layoutVBox = new VBox(titleBox, headerBox, paddingBodyBox, spacer);
 
             Scene addNetworkScene = new Scene(layoutVBox, 600, 500);
+            addNetworkScene.setFill(null);
             addNetworkScene.getStylesheets().add("/css/startWindow.css");
             m_addNetworkStage.setScene(addNetworkScene);
 

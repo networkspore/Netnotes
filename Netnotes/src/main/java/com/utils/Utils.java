@@ -1243,65 +1243,63 @@ public class Utils {
         t.start();
     }
 
-    public static String getShellCmd(){
-        return "cmd /c";
+    public static String[] getShellCmd(String execCmd){
+        return new String[]{"cmd", "/c", execCmd};
     }
 
     public static void pingIP(String ip, SimpleStringProperty status, SimpleStringProperty updated, SimpleBooleanProperty available) throws Exception{
      
         String[] cmd = { "cmd", "/c", "ping", ip };
 
-            
+        Process proc = Runtime.getRuntime().exec(cmd);
 
-            Process proc = Runtime.getRuntime().exec(cmd);
+        BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+        List<String> javaOutputList = new ArrayList<String>();
 
-            List<String> javaOutputList = new ArrayList<String>();
+        String s = null;
 
-            String s = null;
+        while ((s = stdInput.readLine()) != null) {
+            javaOutputList.add(s);
 
-            while ((s = stdInput.readLine()) != null) {
-                javaOutputList.add(s);
+            String timeString = "time=";
+            int indexOftimeString = s.indexOf(timeString);
 
-                String timeString = "time=";
-                int indexOftimeString = s.indexOf(timeString);
+            if (s.indexOf("timed out") > 0) {
+                Platform.runLater(()->available.set(false));
+                status.set("Timed out");
+                updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+            }
 
-                if (s.indexOf("timed out") > 0) {
-                    Platform.runLater(()->available.set(false));
-                    status.set("Timed out");
-                    updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-                }
+            if (indexOftimeString > 0) {
+                int lengthOftime = timeString.length();
 
-                if (indexOftimeString > 0) {
-                    int lengthOftime = timeString.length();
+                int indexOfms = s.indexOf("ms");
 
-                    int indexOfms = s.indexOf("ms");
+                available.set(true);
 
-                    available.set(true);
+                String time = s.substring(indexOftimeString + lengthOftime, indexOfms + 2);
 
-                    String time = s.substring(indexOftimeString + lengthOftime, indexOfms + 2);
+                status.set("Ping: " + time);
+                updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
+            }
 
-                    status.set("Ping: " + time);
-                    updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-                }
+            String avgString = "Average = ";
+            int indexOfAvgString = s.indexOf(avgString);
 
-                String avgString = "Average = ";
-                int indexOfAvgString = s.indexOf(avgString);
+            if (indexOfAvgString > 0) {
+                int lengthOfAvg = avgString.length();
 
-                if (indexOfAvgString > 0) {
-                    int lengthOfAvg = avgString.length();
+                String avg = s.substring(indexOfAvgString + lengthOfAvg);
 
-                    String avg = s.substring(indexOfAvgString + lengthOfAvg);
+                status.set("Average: " + avg);
 
-                    status.set("Average: " + avg);
-
-                    updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
-
-                }
+                updated.set(Utils.formatDateTimeString(LocalDateTime.now()));
 
             }
-           
+
+        }
+        
            
 
     }

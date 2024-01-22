@@ -164,6 +164,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
             VBox layoutBox = new VBox(titleBox, menuBar, scrollPane, menuBox);
 
             Scene mainScene = new Scene(layoutBox, getStageWidth(), getStageHeight());
+            mainScene.setFill(null);
             mainScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(mainScene);
 
@@ -175,7 +176,7 @@ public class ErgoMarkets extends Network implements NoteInterface {
 
             SimpleDoubleProperty gridWidth = new SimpleDoubleProperty(m_stage.getWidth());
             SimpleDoubleProperty scrollWidth = new SimpleDoubleProperty(0);
-            gridWidth.bind(m_stage.widthProperty().subtract(15));
+            gridWidth.bind(mainScene.widthProperty().subtract(15));
 
             VBox gridBox = marketsList.getGridBox(gridWidth, scrollWidth);
 
@@ -208,8 +209,8 @@ public class ErgoMarkets extends Network implements NoteInterface {
                 }
             });
 
-            addButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
-            removeButton.prefWidthProperty().bind(m_stage.widthProperty().divide(2));
+            addButton.prefWidthProperty().bind(mainScene.widthProperty().divide(2));
+            removeButton.prefWidthProperty().bind(mainScene.widthProperty().divide(2));
             m_stage.show();
         } else {
             if (m_stage.isIconified()) {

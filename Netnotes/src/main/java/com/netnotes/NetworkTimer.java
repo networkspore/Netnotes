@@ -99,7 +99,7 @@ public class NetworkTimer extends Network implements NoteInterface {
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
             Scene timerScene = new Scene(layoutVBox, timerStageWidth, timerStageHeight);
-
+            timerScene.setFill(null);
             //  bodyBox.prefHeightProperty().bind(timerScene.heightProperty() - 40 - 100);
             timerScene.getStylesheets().add("/css/startWindow.css");
             m_timerStage.setScene(timerScene);

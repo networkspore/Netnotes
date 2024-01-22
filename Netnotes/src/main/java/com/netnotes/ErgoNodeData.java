@@ -519,7 +519,8 @@ public class ErgoNodeData {
                 Platform.runLater(()->m_statusString.set("Pinging..."));
                 try{
                     Platform.runLater(()->m_cmdProperty.set("PING"));
-                    Utils.pingIP(namedNodeUrl.getIP(),m_cmdStatusUpdated,  m_statusString, m_availableProperty);
+                    
+                    Utils.pingIP(namedNodeUrl.getIP(), m_statusString, m_cmdStatusUpdated, m_availableProperty);
 
                     if (!m_availableProperty.get()) {
                         

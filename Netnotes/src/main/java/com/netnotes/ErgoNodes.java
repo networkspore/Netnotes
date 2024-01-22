@@ -35,6 +35,7 @@ import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -270,8 +271,9 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             m_ergoNodesList.selectedIdProperty().addListener((obs, oldval, newVal) -> updateMenuBar.run());
             updateMenuBar.run();
-
+          
             Scene mainScene = new Scene(layoutBox, getStageWidth(), getStageHeight());
+            mainScene.setFill(null);
             mainScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(mainScene);
 
@@ -286,7 +288,7 @@ public class ErgoNodes extends Network implements NoteInterface {
 
             SimpleDoubleProperty gridWidth = new SimpleDoubleProperty(m_stage.getWidth());
             SimpleDoubleProperty scrollWidth = new SimpleDoubleProperty(0);
-            gridWidth.bind(m_stage.widthProperty().subtract(20));
+            gridWidth.bind(mainScene.widthProperty().subtract(20));
             m_stage.show();
 
             VBox gridBox = m_ergoNodesList.getGridBox(gridWidth, scrollWidth);
@@ -303,7 +305,7 @@ public class ErgoNodes extends Network implements NoteInterface {
                 getLastUpdated().set(LocalDateTime.now());
             };
 
-            m_stage.widthProperty().addListener((obs, oldVal, newVal) -> {
+            mainScene.widthProperty().addListener((obs, oldVal, newVal) -> {
                 setStageWidth(newVal.doubleValue());
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {
@@ -313,7 +315,7 @@ public class ErgoNodes extends Network implements NoteInterface {
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
-            m_stage.heightProperty().addListener((obs, oldVal, newVal) -> {
+            mainScene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 setStageHeight(newVal.doubleValue());
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {

@@ -28,7 +28,7 @@ public class SpectrumSort {
     private String m_direction = SortDirection.DSC;
 
 
-    private SimpleBooleanProperty m_isTargetSwappedProperty = new SimpleBooleanProperty(true);
+    private SimpleBooleanProperty m_isTargetSwappedProperty = new SimpleBooleanProperty(false);
 
     public SpectrumSort(){
 

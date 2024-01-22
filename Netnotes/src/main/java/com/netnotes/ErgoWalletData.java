@@ -247,7 +247,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
             Scene passwordScene = new Scene(layoutVBox, sceneWidth, sceneHeight);
-
+            passwordScene.setFill(null);
             passwordScene.getStylesheets().add("/css/startWindow.css");
             m_walletStage.setScene(passwordScene);
             Rectangle rect = getNetworksData().getMaximumWindowBounds();
@@ -306,7 +306,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
     private Scene getWalletScene(Wallet wallet, Stage walletStage) {
         
        
-        AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType, walletStage);
+        AddressesData addressesData = new AddressesData(FriendlyId.createFriendlyId(), wallet, this, m_networkType);
            
 
         String title = getName() + " - (" + m_networkType.toString() + ")";
@@ -650,7 +650,7 @@ public class ErgoWalletData extends Network implements NoteInterface {
         VBox bodyVBox = new VBox(titleBox, menuVBox, scrollBox, summaryBox, updateBox);
 
         Scene openWalletScene = new Scene(bodyVBox, getStageWidth(), getStageHeight());
-
+        openWalletScene.setFill(null);
         
         scrollPane.setContent(addressesData.getAddressesBox(openWalletScene));
       

@@ -287,6 +287,7 @@ public class ErgoTransaction {
            
             VBox layoutVBox = new VBox();
             Scene txScene = new Scene(layoutVBox, m_stageWidth, m_stageHeight);
+            txScene.setFill(null);
             txScene.getStylesheets().add("/css/startWindow.css");
 
             String titleString = partnerTypeProperty().get() +": " + getErgoAmount().toString() + " - " + statusProperty().get()  + " - " + getTxId();

@@ -177,6 +177,7 @@ public class InstallableIcon extends IconButton {
 
         VBox layoutVBox = new VBox(titleBox, logoBox, bodyHBox, footerRegionVspacer, footerHBox);
         Scene installScene = new Scene(layoutVBox, m_sceneWidth, m_sceneHeight);
+        installScene.setFill(null);
         description.wrappingWidthProperty().bind(bodyText.widthProperty());
 
         installScene.getStylesheets().add("/css/startWindow.css");
@@ -238,6 +239,7 @@ public class InstallableIcon extends IconButton {
         VBox layoutVBox = new VBox(titleBox, logoBox, bodyHBox, footerRegionVspacer, footerHBox);
 
         Scene installScene = new Scene(layoutVBox, m_sceneWidth, m_sceneHeight);
+        installScene.setFill(null);
         installScene.getStylesheets().add("/css/startWindow.css");
         return installScene;
     }

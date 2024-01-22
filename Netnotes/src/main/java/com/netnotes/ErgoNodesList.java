@@ -885,7 +885,7 @@ public class ErgoNodesList {
                 save();
             };
 
-            m_addStage.widthProperty().addListener((obs, oldVal, newVal) -> {
+            addNodeScene.widthProperty().addListener((obs, oldVal, newVal) -> {
                 m_addStageWidth = newVal.doubleValue();
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {
@@ -895,7 +895,7 @@ public class ErgoNodesList {
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
-            m_addStage.heightProperty().addListener((obs, oldVal, newVal) -> {
+            addNodeScene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 m_addStageHeight = newVal.doubleValue();
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {

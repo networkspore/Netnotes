@@ -98,7 +98,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
     final private List<ErgoNodeMsg> m_nodeMsgBuffer = Collections.synchronizedList(new ArrayList<ErgoNodeMsg>());
 
-    private File logFile = new File("ergoLocalNode-log.txt");
+    private static File logFile = new File("netnotes-log.txt");
 
  
     private String m_setupImgUrl = "/assets/open-outline-white-20.png";
@@ -561,8 +561,8 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         if ((m_future == null || m_future != null && m_future.isDone()) ) {
 
-            String cmd = Utils.getShellCmd() + " " + getExecCmd(appFile, configFile);
-
+            String[] cmd = Utils.getShellCmd(getExecCmd(appFile, configFile));
+           
             m_future = m_executor.submit(new Runnable() {
                 Process proc;
 
@@ -581,6 +581,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                     try {
                         proc = Runtime.getRuntime().exec(cmd, null, appFile.getParentFile());
                         BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+                        BufferedReader stderr = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
 
                         if (proc.isAlive()) {
                             Platform.runLater(() -> statusProperty().set(ErgoMarketsData.STARTED));
@@ -629,6 +630,13 @@ public class ErgoNodeLocalData extends ErgoNodeData {
                             }
 
                         }
+                        String errLine = null;
+                        while ((errLine = stderr.readLine()) != null) {
+
+                            Files.writeString(logFile.toPath(), "\nLocal node execution error: " + errLine, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                             
+                        }
+
                         proc.waitFor();
                         Platform.runLater(() -> {
                             statusProperty().set(ErgoMarketsData.STOPPED);
@@ -1140,6 +1148,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         VBox layoutBox = new VBox(titleBox, headerBox, bodyPaddingBox, footerBox);
         Scene setupNodeScene = new Scene(layoutBox, SETUP_STAGE_WIDTH, SETUP_STAGE_HEIGHT);
+        setupNodeScene.setFill(null);
         setupNodeScene.getStylesheets().add("/css/startWindow.css");
 
         Runnable closeStage = () -> {
@@ -1471,6 +1480,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
 
         VBox layoutBox = new VBox(titleBox, headerBox, bodyPaddingBox, footerBox);
         Scene setupNodeScene = new Scene(layoutBox, CORE_SETUP_STAGE_WIDTH, CORE_SETUP_STAGE_HEIGHT);
+        setupNodeScene.setFill(null);
         setupNodeScene.getStylesheets().add("/css/startWindow.css");
 
         SimpleDoubleProperty heightProperty = new SimpleDoubleProperty(CORE_SETUP_STAGE_HEIGHT);
@@ -2706,7 +2716,7 @@ public class ErgoNodeLocalData extends ErgoNodeData {
         
         VBox layoutBox = new VBox();
         Scene settingsScene = new Scene(layoutBox, SETTINGS_STAGE_WIDTH, SETTINGS_STAGE_HEIGHT);
-
+        settingsScene.setFill(null);
         settingsScene.getStylesheets().add("/css/startWindow.css");
 
 

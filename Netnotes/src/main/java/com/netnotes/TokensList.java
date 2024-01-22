@@ -1058,6 +1058,7 @@ public class TokensList extends Network {
        
 
         Scene tokenEditorScene = new Scene(layoutVBox, m_sceneWidth, m_sceneHeight);
+        tokenEditorScene.setFill(null);
         tokenEditorScene.getStylesheets().add("/css/startWindow.css");
 
         layoutVBox.prefWidthProperty().bind(tokenEditorScene.widthProperty());

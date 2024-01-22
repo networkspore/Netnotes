@@ -25,7 +25,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
@@ -206,14 +206,15 @@ public class ErgoNetwork extends Network implements NoteInterface {
             VBox layoutBox = new VBox(headerBox, bodyBox);
             layoutBox.setPadding(new Insets(0, 2, 5, 2));
             Scene scene = new Scene(layoutBox, stageWidth, stageHeight);
+            scene.setFill(null);
             scene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(scene);
 
             SimpleDoubleProperty scrollWidth = new SimpleDoubleProperty(0);
 
-            scrollPane.prefViewportHeightProperty().bind(m_stage.heightProperty().subtract(headerBox.heightProperty()).subtract(20));
-            scrollPane.prefViewportWidthProperty().bind(m_stage.widthProperty());
-            m_ergNetData.gridWidthProperty().bind(m_stage.widthProperty().subtract(30).subtract(scrollWidth));
+            scrollPane.prefViewportHeightProperty().bind(scene.heightProperty().subtract(headerBox.heightProperty()).subtract(20));
+            scrollPane.prefViewportWidthProperty().bind(scene.widthProperty());
+            m_ergNetData.gridWidthProperty().bind(scene.widthProperty().subtract(30).subtract(scrollWidth));
 
             m_stage.show();
             Runnable setUpdated = () -> {
@@ -246,7 +247,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
                 }
             });
 
-            m_stage.widthProperty().addListener((obs, oldVal, newVal) -> {
+            scene.widthProperty().addListener((obs, oldVal, newVal) -> {
                 setStageWidth(newVal.doubleValue());
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {
@@ -256,7 +257,7 @@ public class ErgoNetwork extends Network implements NoteInterface {
                 m_lastExecution = executor.schedule(setUpdated, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
-            m_stage.heightProperty().addListener((obs, oldVal, newVal) -> {
+            scene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 setStageHeight(newVal.doubleValue());
 
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {

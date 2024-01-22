@@ -138,7 +138,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
             Object sourceObject = success.getSource().getValue();
             if (sourceObject != null && sourceObject instanceof JsonArray) {
-                Runnable runUpdate = () ->{
+             
               
                     JsonArray jsonArray = (JsonArray) sourceObject;
                     synchronized(m_marketsList){
@@ -206,7 +206,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
                         
                     }
                     Runnable finish = () ->{
-                        sort();
+                        sort(false);
                         Platform.runLater(()->m_notConnected = false);
                         Platform.runLater(()->updateGridBox());
                         Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
@@ -276,11 +276,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
                     }
             
                
-                };
-
-                Thread updateThread = new Thread(runUpdate);
-                updateThread.setDaemon(true);
-                updateThread.start();
+           
             } else {
                 m_notConnected = true;
                 m_statusMsg.set("Not connected");
@@ -330,11 +326,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
         if (dataFile != null && dataFile.isFile()) {
             try {
                 JsonObject json = Utils.readJsonFile(secretKey, dataFile.toPath());
-                try {
-                    Files.writeString(new File("test").toPath(), json != null ? json.toString() : "null json");
-                } catch (IOException e) {
-
-                }
+           
                 if(json!= null){
            
                     openJson(json);
@@ -365,7 +357,11 @@ public class SpectrumDataList extends Network implements NoteInterface {
         return m_favoriteGridBox;
     }
 
-    public void sort() {
+    public void sort(){
+        sort(true);
+    }
+
+    public void sort(boolean doSave) {
         synchronized(m_marketsList){
             String type = m_sortMethod.getType();
             boolean isAsc = m_sortMethod.isAsc();
@@ -424,7 +420,9 @@ public class SpectrumDataList extends Network implements NoteInterface {
         }
         int maxItems = m_marketsList.size() > 100 ? 100 : m_marketsList.size();
         Platform.runLater(()->m_statusMsg.set("Top "+maxItems+" - " + m_sortMethod.getType() + " " + (m_sortMethod.isAsc() ? "(Low to High)" : "(High to Low)")));
-
+        if(doSave){
+            save();
+        }
     }
 
     public SpectrumSort getSortMethod(){
@@ -434,6 +432,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
     public void setSortMethod(SpectrumSort sortMethod){
         m_sortMethod = sortMethod;
         sort();
+      
     }
 
     public void setSearchText(String text) {

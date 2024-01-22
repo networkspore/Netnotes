@@ -27,7 +27,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
 
-
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
@@ -49,7 +49,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
     private VBox m_favoriteGridBox = new VBox();
     private VBox m_gridBox = new VBox();
     private List<KucoinMarketItem> m_marketsList = Collections.synchronizedList(new ArrayList<KucoinMarketItem>());
-    private ArrayList<HBox> m_favoritesList = new ArrayList<HBox>();
+    private ArrayList<String> m_favoriteIds = new ArrayList<String>();
 
     private boolean m_notConnected = false;
     private SimpleStringProperty m_statusMsg = new SimpleStringProperty("Loading...");
@@ -73,18 +73,18 @@ public class KuCoinDataList extends Network implements NoteInterface {
     }
 
     private void setup(SecretKey secretKey) {
+        getFile(secretKey);
         updateGridBox();
 
         m_kucoinExchange.getAllTickers(success -> {
             Object sourceObject = success.getSource().getValue();
             if (sourceObject != null && sourceObject instanceof JsonObject) {
 
-                readTickers(m_favoritesList, getDataJson((JsonObject) sourceObject), onSuccess -> {
-                    getFile(secretKey);
+                readTickers(getDataJson((JsonObject) sourceObject), onSuccess -> {
+                  
                     sortByChangeRate(false);
                     sort();
                     updateGridBox();
-
                     getLastUpdated().set(LocalDateTime.now());
                 }, failed -> {
                     try {
@@ -92,7 +92,6 @@ public class KuCoinDataList extends Network implements NoteInterface {
                     } catch (IOException e) {
 
                     }
-                    getFile(secretKey);
                     m_notConnected = true;
                     m_statusMsg.set("Not connected");
                     updateGridBox();
@@ -105,7 +104,6 @@ public class KuCoinDataList extends Network implements NoteInterface {
                 } catch (IOException e) {
 
                 }
-                getFile(secretKey);
                 m_notConnected = true;
                 m_statusMsg.set("Not connected");
                 updateGridBox();
@@ -116,7 +114,6 @@ public class KuCoinDataList extends Network implements NoteInterface {
             } catch (IOException e) {
 
             }
-            getFile(secretKey);
             m_notConnected = true;
             m_statusMsg.set("Not connected");
             updateGridBox();
@@ -129,51 +126,35 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
     }
 
-    public HBox getFavoriteBox(String symbol) {
-        for (int i = 0; i < m_favoritesList.size(); i++) {
-            HBox favBox = m_favoritesList.get(i);
-            Object userObject = favBox.getUserData();
 
-            if (userObject != null && userObject instanceof String) {
-                String boxSymbol = (String) userObject;
-
-                if (boxSymbol.equals(symbol)) {
-                    return favBox;
-                }
-            } else {
-                m_favoritesList.remove(favBox);
-            }
-        }
-        return null;
-    }
 
     public void addFavorite(String symbol, boolean doSave) {
-        if (getFavoriteBox(symbol) == null) {
-
-            KucoinMarketItem item = getMarketItem(symbol);
-            HBox favoriteBox = item.getRowBox();
-
-            favoriteBox.setUserData(symbol);
-            m_favoritesList.add(favoriteBox);
-
-            updateGridBox();
+        if (!getIsFavorite(symbol)) {
+            
+            synchronized(m_favoriteIds){
+                m_favoriteIds.add(symbol);
+            }
+           
 
             if (doSave) {
+                updateGridBox();
                 save();
             }
         }
     }
 
     public void removeFavorite(String symbol, boolean doSave) {
-        HBox favBox = getFavoriteBox(symbol);
-        if (favBox != null) {
-            m_favoritesList.remove(favBox);
+        if(symbol != null && getIsFavorite(symbol)){
 
+            synchronized(m_favoriteIds){
+                m_favoriteIds.remove(symbol);
+            }
             updateGridBox();
 
             if (doSave) {
                 save();
             }
+        
         }
     }
 
@@ -193,10 +174,18 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
     public KucoinMarketItem getMarketItem(String symbol) {
         if (symbol != null) {
+            KucoinMarketItem[] itemArray = null;
+            
+            synchronized(m_marketsList){
+                itemArray = new KucoinMarketItem[ m_marketsList.size()];
+                itemArray = m_marketsList.toArray(itemArray);
+            }
 
-            for (KucoinMarketItem item : m_marketsList) {
-                if (item.getSymbol().equals(symbol)) {
-                    return item;
+            if(itemArray != null){
+                for (KucoinMarketItem item : itemArray) {
+                    if (item.getSymbol().equals(symbol)) {
+                        return item;
+                    }
                 }
             }
         }
@@ -207,7 +196,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
         m_kucoinExchange.getAllTickers(success -> {
             Object sourceObject = success.getSource().getValue();
             if (sourceObject != null && sourceObject instanceof JsonObject) {
-                readTickers(m_favoritesList, getDataJson((JsonObject) sourceObject), succeeded -> {
+                readTickers(getDataJson((JsonObject) sourceObject), succeeded -> {
                     m_notConnected = false;
                     updateGridBox();
                     getLastUpdated().set(LocalDateTime.now());
@@ -238,7 +227,7 @@ public class KuCoinDataList extends Network implements NoteInterface {
         return this;
     }
 
-    private void readTickers(ArrayList<HBox> favorites, JsonObject tickersJson, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
+    private void readTickers(JsonObject tickersJson, EventHandler<WorkerStateEvent> onSuccess, EventHandler<WorkerStateEvent> onFailed) {
 
         Task<Object> task = new Task<Object>() {
             @Override
@@ -269,24 +258,27 @@ public class KuCoinDataList extends Network implements NoteInterface {
 
                                         KucoinTickerData tickerData = new KucoinTickerData(symbolString, tickerJson);
 
-                                        boolean isFavorite = false;
-
-                                        for (HBox favorite : m_favoritesList) {
-                                            Object favoriteUserData = favorite.getUserData();
-                                            if (favoriteUserData instanceof String) {
-                                                if (symbolString.equals((String) favoriteUserData)) {
-                                                    isFavorite = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
+                                       
 
                                         if (init) {
-                                            String id = FriendlyId.createFriendlyId();
-                                            m_marketsList.add(new KucoinMarketItem(m_kucoinExchange, id, symbolString, symbolString, isFavorite, tickerData, getKuCoinDataList()));
-                                        } else {
-                                            KucoinMarketItem item = getMarketItem(symbolString);
-                                            item.tickerDataProperty().set(tickerData);
+                                            boolean isFavorite = getIsFavorite(symbolString);
+
+                                            Platform.runLater(()->{
+                                                String id = FriendlyId.createFriendlyId();
+                                                m_marketsList.add(new KucoinMarketItem(m_kucoinExchange, id, symbolString, symbolString, isFavorite, tickerData, getKuCoinDataList()));
+                                            });
+                                        }else {
+                                            Platform.runLater(()->{
+                                                KucoinMarketItem item = getMarketItem(symbolString);
+                                                if(item != null){
+                                                    item.tickerDataProperty().set(tickerData);
+                                                }else{
+
+                                                    String id = FriendlyId.createFriendlyId();
+                                                    m_marketsList.add(new KucoinMarketItem(m_kucoinExchange, id, symbolString, symbolString, getIsFavorite(id), tickerData, getKuCoinDataList()));    
+                                                }
+                                            });
+                                            
                                         }
                                     }
                                 }
@@ -324,6 +316,16 @@ public class KuCoinDataList extends Network implements NoteInterface {
         t.start();
 
     }
+
+    public boolean getIsFavorite(String id){
+
+        synchronized(m_favoriteIds){
+            return m_favoriteIds.contains(id);
+            
+        }
+
+    }
+
 
     private void updateFile(SecretKey oldKey, SecretKey newKey){
         File dataFile = m_kucoinExchange.getDataFile();
@@ -538,17 +540,27 @@ public class KuCoinDataList extends Network implements NoteInterface {
     public void updateGridBox() {
         m_favoriteGridBox.getChildren().clear();
         m_gridBox.getChildren().clear();
+      
 
-        int numCells = m_marketsList.size() > 100 ? 100 : m_marketsList.size();
+        if (m_marketsList.size() > 0) {
 
-        if (numCells > 0) {
-            int numFavorites = m_favoritesList.size();
+            synchronized(m_favoriteIds){
+                int numFavorites = m_favoriteIds.size();
+                String[] favIds = new String[numFavorites];
+                favIds = m_favoriteIds.toArray(favIds);
+            
+                for (int i = 0; i < numFavorites; i++) {
+                    String favId = favIds[i];
 
-            for (int i = 0; i < numFavorites; i++) {
-
-                m_favoriteGridBox.getChildren().add(m_favoritesList.get(i));
+                    KucoinMarketItem favMarketItem = getMarketItem(favId);
+                    if(favMarketItem != null){
+                        m_favoriteGridBox.getChildren().add(favMarketItem.getRowBox());
+                    }
+                }
             }
             if (m_searchText == null) {
+                int numCells = m_marketsList.size() > 100 ? 100 : m_marketsList.size();
+                  
                 for (int i = 0; i < numCells; i++) {
                     KucoinMarketItem marketItem = m_marketsList.get(i);
 
@@ -614,15 +626,23 @@ public class KuCoinDataList extends Network implements NoteInterface {
     }
 
     public JsonArray getFavoritesJsonArray() {
+        String[] favids = null;
         JsonArray jsonArray = new JsonArray();
-        for (HBox rowBox : m_favoritesList) {
-            Object rowBoxObject = rowBox.getUserData();
-
-            if (rowBoxObject != null && rowBoxObject instanceof String) {
-                jsonArray.add((String) rowBoxObject);
-            }
+        
+        synchronized(m_favoriteIds){
+            favids = new String[m_favoriteIds.size()];
+            favids = m_favoriteIds.toArray(favids);
         }
-        return jsonArray;
+
+        if(favids != null){
+            for (String favId : favids) {
+        
+                jsonArray.add(favId);
+
+            }
+           
+        }
+         return jsonArray;
     }
 
     @Override
@@ -650,7 +670,9 @@ public class KuCoinDataList extends Network implements NoteInterface {
                     String symbol = favoriteElement.getAsString();
                     addFavorite(symbol, false);
                     KucoinMarketItem item = getMarketItem(symbol);
-                    item.isFavoriteProperty().set(true);
+                    if(item != null){
+                        item.isFavoriteProperty().set(true);
+                    }
                 }
             }
 

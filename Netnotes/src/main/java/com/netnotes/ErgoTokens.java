@@ -539,7 +539,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             layoutVBox.getChildren().addAll(menuBarPadding, scrollPane, menuBox);
 
             Scene tokensScene = new Scene(layoutVBox, tokensStageWidth, tokensStageHeight);
-      
+            tokensScene.setFill(null);
             getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
     
                 getAvailableExplorerMenu.run();

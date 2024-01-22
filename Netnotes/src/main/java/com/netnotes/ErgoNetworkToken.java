@@ -394,6 +394,7 @@ public class ErgoNetworkToken extends PriceCurrency {
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
     
             Scene tokenScene = new Scene(layoutVBox, m_sceneWidth.get(), m_sceneHeight.get());
+            tokenScene.setFill(null);
             tokenScene.getStylesheets().add("/css/startWindow.css");
               
    

@@ -71,7 +71,6 @@ public class AddressesData {
 
     private final Wallet m_wallet;
     private ErgoWalletData m_walletData;
-    private Stage m_walletStage;
 
     private SimpleObjectProperty<AddressData> m_selectedAddressData = new SimpleObjectProperty<AddressData>(null);
 
@@ -93,12 +92,12 @@ public class AddressesData {
 
     private Stage m_promptStage = null;
 
-    public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType, Stage walletStage) {
+    public AddressesData(String id, Wallet wallet, ErgoWalletData walletData, NetworkType networkType) {
 
         m_wallet = wallet;
         m_walletData = walletData;
         m_networkType = networkType;
-        m_walletStage = walletStage;
+
 
         ErgoNetworkData ergNetData = walletData.getErgoWallets().getErgoNetworkData();
 
@@ -427,6 +426,7 @@ public class AddressesData {
 
         VBox layoutBox = new VBox();
         Scene sendScene = new Scene(layoutBox, 800, 600);
+        sendScene.setFill(null);
         sendScene.getStylesheets().add("/css/startWindow.css");
 
         Button maximizeBtn = new Button();
@@ -1312,6 +1312,7 @@ public class AddressesData {
 
         VBox layoutBox = new VBox();
         Scene confirmTxScene = new Scene(layoutBox, 600, 500);
+        confirmTxScene.setFill(null);
         confirmTxScene.getStylesheets().add("/css/startWindow.css");
         parentStage.setScene(confirmTxScene);
         parentStage.setTitle(title);

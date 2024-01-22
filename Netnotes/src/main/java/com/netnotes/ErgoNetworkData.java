@@ -60,7 +60,7 @@ import javafx.stage.StageStyle;
 
 public class ErgoNetworkData implements InstallerInterface {
 
-    private File logFile;
+    private File logFile = new File("netnotes-log.txt");
 
     public final static String[] INTALLABLE_NETWORK_IDS = new String[]{
         ErgoExplorers.NETWORK_ID,
@@ -93,7 +93,7 @@ public class ErgoNetworkData implements InstallerInterface {
     private ScheduledFuture<?> m_lastExecution = null;
 
     public ErgoNetworkData(String iconStyle, double gridWidth, ErgoNetwork ergoNetwork) {
-        new File(ergoNetwork.getNetworksData().getAppDir().getAbsolutePath() + "/netnotes-log.txt");
+      
         m_ergoNetwork = ergoNetwork;
         m_iconStyle = new SimpleStringProperty(iconStyle);
         m_gridWidth = new SimpleDoubleProperty(gridWidth);
@@ -443,6 +443,7 @@ public class ErgoNetworkData implements InstallerInterface {
 
             layoutBox.setPadding(new Insets(0, 2, 2, 2));
             Scene scene = new Scene(layoutBox, stageWidth, stageHeight);
+            scene.setFill(null);
             scene.getStylesheets().add("/css/startWindow.css");
             m_manageStage.setScene(scene);
 
@@ -510,7 +511,7 @@ public class ErgoNetworkData implements InstallerInterface {
                 }
             });
 
-            m_manageStage.widthProperty().addListener((obs, oldVal, newVal) -> {
+            scene.widthProperty().addListener((obs, oldVal, newVal) -> {
                 m_stageWidth = newVal.doubleValue();
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {
                     m_lastExecution.cancel(false);
@@ -518,7 +519,7 @@ public class ErgoNetworkData implements InstallerInterface {
                 m_lastExecution = executor.schedule(runSave, EXECUTION_TIME, TimeUnit.MILLISECONDS);
             });
 
-            m_manageStage.heightProperty().addListener((obs, oldVal, newVal) -> {
+            scene.heightProperty().addListener((obs, oldVal, newVal) -> {
                 m_stageHeight = newVal.doubleValue();
                 if (m_lastExecution != null && !(m_lastExecution.isDone())) {
                     m_lastExecution.cancel(false);

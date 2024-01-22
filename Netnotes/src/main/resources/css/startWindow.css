@@ -2,14 +2,14 @@
     -fx-background-color: #111111;
     -fx-border-color: #222222;
     -fx-border-width: 0 2px 1px 2px;
-    fx-border-style: solid;
+    -fx-border-style: solid;
 
 }
 
 .root * {
    
     -fx-text-fill: #cdd4da;
-    -fx-background-color: transparent;
+    -fx-background-color: #11111105;
 }
 
 .button {
@@ -317,7 +317,7 @@
 
 #passField {
     -fx-font-family: 'OCR A Extended';
-    -fx-font-size: 10px;
+    -fx-font-size: 12px;
     -fx-background-color: transparent;
     -fx-text-fill: white;
 }

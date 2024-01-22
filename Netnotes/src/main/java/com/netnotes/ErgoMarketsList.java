@@ -301,7 +301,7 @@ public class ErgoMarketsList {
 
             VBox layoutBox = new VBox(titleBox, headingPaddingBox,nameBox, marketBox, updatesBox);
             Scene addScene = new Scene(layoutBox, m_stageWidth, m_stageHeight);
-
+            addScene.setFill(null);
             m_stage.setScene(addScene);
 
             m_stage.show();

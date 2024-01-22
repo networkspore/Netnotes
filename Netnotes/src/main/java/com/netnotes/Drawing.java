@@ -4,6 +4,10 @@ import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
@@ -210,6 +214,12 @@ public class Drawing {
 
     /*int avg = (r + g + b) / 3;*/
     public static void fillArea(BufferedImage img, int RGB, int x1, int y1, int x2, int y2, boolean blend) {
+        x1 = x1 < 0 ? 0 : x1;
+        y1 = y1 < 0 ? 0 : y1;
+        x2 = x2 > img.getWidth()? img.getWidth() : x2;
+        y2 = y2 > img.getHeight() ? img.getHeight(): y2;
+        
+
         for (int x = x1; x < x2; x++) {
             for (int y = y1; y < y2; y++) {
                 if (blend) {
@@ -217,6 +227,35 @@ public class Drawing {
                     img.setRGB(x, y, blendRGBA(oldRGB, RGB));
                 } else {
                     img.setRGB(x, y, RGB);
+                }
+            }
+        }
+    }
+
+    public static void drawImageExact(BufferedImage img, BufferedImage img2, int x1, int y1, boolean blend) {
+        int x2 = x1 + img2.getWidth();
+        int y2 = y1 + img2.getHeight();
+
+        x2 = x2 > img.getWidth() -1 ? img.getWidth() -1 : x2;
+        y2 = y2 > img.getHeight() -1 ? img.getHeight() -1 : y2;
+
+        for (int x = x1; x < x2; x++) {
+            for (int y = y1; y < y2; y++) {
+                int img2x = x - x1;
+                int img2y = y - y1;
+
+                img2x = img2x < 0 ? 0 : (img2x > img2.getWidth() -1 ? img2.getWidth() - 1 : img2x);
+                img2y = img2y < 0 ? 0 : (img2y > img2.getHeight() - 1 ? img2.getHeight() -1 : img2y);
+                
+                int newRGB = img2.getRGB(img2x, img2y);
+                
+                if (blend) {
+                    int oldRGB = img.getRGB(x, y);
+                   
+
+                    img.setRGB(x, y, blendRGBA(oldRGB, newRGB));
+                } else {
+                    img.setRGB(x, y, newRGB);
                 }
             }
         }

@@ -4,7 +4,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 
 import java.awt.Rectangle;
-
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -177,9 +177,9 @@ public class SpectrumMarketItem {
             return null;
         }
         int height = 30;
-
+        int symbolColWidth = 160;
         String symbolString = String.format("%-18s", getCurrentSymbol(m_dataList.getSortMethod().isTargetSwapped()) );
-        String lastString = m_dataList.getSortMethod().isTargetSwapped() ? data.getInvertedLastPrice().toString() : data.getLastPrice().toString();
+        String priceString = m_dataList.getSortMethod().isTargetSwapped() ? data.getInvertedLastPrice().toString() : data.getLastPrice().toString();
 
         boolean positive = false;
         boolean neutral = true;
@@ -192,23 +192,36 @@ public class SpectrumMarketItem {
 
         FontMetrics fm = g2d.getFontMetrics();
 
-        int symbolWidth = fm.stringWidth(symbolString);
-        int lastWidth = fm.stringWidth(lastString);
+        //int symbolWidth = fm.stringWidth(symbolString);
+        int priceWidth = fm.stringWidth(priceString);
         int fontAscent = fm.getAscent();
         int fontHeight = fm.getHeight();
         int stringY = ((height - fontHeight) / 2) + fontAscent;
         int colPadding = 5;
 
-        img = new BufferedImage(symbolWidth + colPadding + lastWidth, height, BufferedImage.TYPE_INT_ARGB);
-        g2d = img.createGraphics();
-
+        BufferedImage symbolImage = new BufferedImage(symbolColWidth, height, BufferedImage.TYPE_INT_ARGB);
+        g2d = symbolImage.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
+        g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         g2d.setFont(font);
         g2d.setColor(WHITE_COLOR);
         g2d.drawString(symbolString, 0, stringY);
+    
 
+        img = new BufferedImage(symbolColWidth + colPadding + priceWidth, height, BufferedImage.TYPE_INT_ARGB);
+        g2d = img.createGraphics();
+
+        //g2d.drawImage(symbolImage, 0, 0, symbolColWidth, height, null);
+        Drawing.drawImageExact(img, symbolImage, 0, 0, false);
        // if (neutral) {
-
-            g2d.drawString(lastString, symbolWidth + colPadding, stringY);
+        g2d.setFont(font);
+        g2d.drawString(priceString, symbolColWidth + colPadding, stringY);
 
        /* } else {
 
@@ -247,7 +260,7 @@ public class SpectrumMarketItem {
             SimpleDoubleProperty chartWidth = new SimpleDoubleProperty(sceneWidth - 50);
             SimpleDoubleProperty chartHeight = new SimpleDoubleProperty(sceneHeight - 170);
             SimpleDoubleProperty chartHeightOffset = new SimpleDoubleProperty(0);
-            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(20);
+            SimpleDoubleProperty rangeWidth = new SimpleDoubleProperty(30);
             SimpleDoubleProperty rangeHeight = new SimpleDoubleProperty(100);
 
             double chartSizeInterval = 25;
@@ -374,6 +387,8 @@ public class SpectrumMarketItem {
             Rectangle rect = m_dataList.getNetworksData().getMaximumWindowBounds();
 
             Scene marketScene = new Scene(layoutBox, sceneWidth, sceneHeight);
+            marketScene.setFill(null);
+            marketScene.setFill(null);
             marketScene.getStylesheets().add("/css/startWindow.css");
             m_stage.setScene(marketScene);
 
