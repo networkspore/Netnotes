@@ -30,8 +30,7 @@ You may also zoom usin the [+] or [-] keys, this will make the chart larger, or 
 
 Installation Instructions 
 ---
-*Current Releases are Windows Only*
-
+See https://github.com/networkspore/Netnotes-Linux/releases for Linux jar
 
 Download the exe and jar file (https://github.com/networkspore/Netnotes/releases)
 
