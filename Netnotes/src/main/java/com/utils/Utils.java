@@ -752,19 +752,20 @@ public class Utils {
 
     }
 
-    public static Image getImageByFile(File file) {
+    public static Image getImageByFile(File file) throws IOException {
         if (file != null && file.isFile()) {
             String contentType = null;
-            try {
+            
                 contentType = Files.probeContentType(file.toPath());
                 contentType = contentType.split("/")[0];
                 if (contentType != null && contentType.equals("image")) {
-                    return  new Image(file.getAbsolutePath());
+                    FileInputStream fis = new FileInputStream(file);
+                    Image img = new Image(fis);
+                    fis.close();
+                    return img;
                     
                 }
-              } catch (IOException e) {
-                return null;
-            }
+              
         }
          return null;
     }
