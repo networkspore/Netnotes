@@ -21,6 +21,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
+import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -28,7 +29,9 @@ import com.google.gson.JsonObject;
 import com.utils.Utils;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.EventHandler;
@@ -53,7 +56,6 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
     private ArrayList<String> m_favoriteIds = new ArrayList<>();
 
-    
 
     private boolean m_notConnected = false;
     private SimpleStringProperty m_statusMsg = new SimpleStringProperty("Loading...");
@@ -61,17 +63,18 @@ public class SpectrumDataList extends Network implements NoteInterface {
     private SpectrumSort m_sortMethod = new SpectrumSort();
     private String m_searchText = null;
 
-    public SpectrumDataList(SpectrumFinance spectrumFinance) {
-        super(null, "spectrumDataList", "SPECTRUM_DATA_LIST", spectrumFinance);
+    public SpectrumDataList(String id, SpectrumFinance spectrumFinance) {
+        super(null, "spectrumDataList", id+"SDLIST", spectrumFinance);
         m_spectrumFinance = spectrumFinance;
 
         setup(m_spectrumFinance.getNetworksData().getAppData().appKeyProperty().get());
         
-
+        
 
     }
-    public SpectrumDataList(SpectrumFinance spectrumFinance, SecretKey oldval, SecretKey newval ) {
-        super(null, "spectrumDataList", "SPECTRUM_DATA_LIST", spectrumFinance);
+
+    public SpectrumDataList(String id, SpectrumFinance spectrumFinance, SecretKey oldval, SecretKey newval ) {
+        super(null, "spectrumDataList", id+"SDLIST", spectrumFinance);
         m_spectrumFinance = spectrumFinance;
 
         updateFile(oldval, newval);
@@ -79,12 +82,89 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
     private void setup(SecretKey secretKey) {
         getFile(secretKey);
-        updateMarkets();
+        
     }
 
-    public void closeAll() {
+    SpectrumMarketInterface m_msgListener;
+    private final String m_exchangeId = FriendlyId.createFriendlyId();
+    public void updateMarkets(SpectrumMarketData[] marketsArray) {
+    
+        if(marketsArray != null){
+            int updateSize = marketsArray.length ;
+         
+            boolean init = m_marketsList.size() == 0;
+
+            for(int i = 0; i< updateSize ; i++){
+                
+                SpectrumMarketData marketData = marketsArray[i];
+                boolean isFavorite = this.getIsFavorite(marketData.getId());
+
+                if (init) {
+                    
+                    SpectrumMarketItem newMarketItem = new SpectrumMarketItem( isFavorite, marketData, getSpectrumDataList());
+                    m_marketsList.add(newMarketItem);
+                    
+                    
+                } else {
+                    SpectrumMarketItem item = getMarketItem(marketData.getId());
+                    if(item != null){
+                        marketData.setLastPrice(item.getLastPrice());
+                        marketData.setPoolId(item.getPoolId());
+                        marketData.setLiquidityUSD(item.getLiquidityUSD());
+                        item.marketDataProperty().set(marketData);
+                    }else{
+                        
+                        SpectrumMarketItem newItem = new SpectrumMarketItem(isFavorite, marketData, getSpectrumDataList());
+                        m_marketsList.add(newItem);
+
+                    }
+                }
+            }
+            sort();
+         
+          updateGridBox();
+          statusProperty().set(ErgoMarketsData.TICKER);
+           getLastUpdated().set(LocalDateTime.now());
+        }else{
+           
+        }
+                             
 
     }
+                  
+                
+    public void connectToExchange(SpectrumFinance spectrum){
+        statusProperty().set(ErgoMarketsData.STARTED);
+      
+
+        m_msgListener = new SpectrumMarketInterface() {
+            
+            
+          
+            public String getId() {
+                return m_exchangeId;
+            }
+        
+            public void marketArrayChange(SpectrumMarketData[] dataArray) {
+                
+                updateMarkets(dataArray);
+            }
+
+
+        };
+
+        spectrum.addMsgListener(m_msgListener);
+        
+        shutdownNowProperty().addListener((obs, oldval, newVal) -> {
+         
+            spectrum.removeMsgListener(m_msgListener);
+            statusProperty().set(ErgoMarketsData.STOPPED);
+        });
+       // spectrum.
+        
+    }
+
+
 
     public boolean getIsFavorite(String id){
         return m_favoriteIds.contains(id);
@@ -131,176 +211,21 @@ public class SpectrumDataList extends Network implements NoteInterface {
         return null;
     }
 
-    public void updateMarkets() {
-        
-        m_spectrumFinance.getCMCMarkets(success -> {
-            boolean init = m_marketsList.size() == 0; 
-
-            Object sourceObject = success.getSource().getValue();
-            if (sourceObject != null && sourceObject instanceof JsonArray) {
-             
-              
-                    JsonArray jsonArray = (JsonArray) sourceObject;
-                    synchronized(m_marketsList){
-                        for (int i = 0; i < jsonArray.size(); i++) {
-                    
-                            JsonElement marketObjectElement = jsonArray.get(i);
-                            if (marketObjectElement != null && marketObjectElement.isJsonObject()) {
-
-                                JsonObject marketDataJson = marketObjectElement.getAsJsonObject();
-                                
-                                try{
-                                    
-                                    SpectrumMarketData marketData = new SpectrumMarketData(marketDataJson);
-                                    boolean isFavorite = this.getIsFavorite(marketData.getId());
-
-                                    if (init) {
-                                        BigDecimal invertedPrice = marketData.getInvertedLastPrice();
-                                        
-                                        try{
-                                            BigDecimal lastPrice = BigDecimal.ONE.divide(invertedPrice, invertedPrice.precision(), RoundingMode.CEILING);
-                                            marketData.setLastPrice(lastPrice);
-                                        }catch(ArithmeticException ae){
-
-                                        }
-                                        SpectrumMarketItem newMarketItem = new SpectrumMarketItem( isFavorite, marketData, getSpectrumDataList());
-                                        m_marketsList.add(newMarketItem);
-                                        
-                                        
-                                    } else {
-                                        SpectrumMarketItem item = getMarketItem(marketData.getId());
-                                        if(item != null){
-                                            marketData.setLastPrice(item.getLastPrice());
-                                            marketData.setPoolId(item.getPoolId());
-                                            marketData.setLiquidityUSD(item.getLiquidityUSD());
-                                            item.marketDataProperty().set(marketData);
-                                        }else{
-                                            BigDecimal invertedPrice = marketData.getInvertedLastPrice();
-
-                                            try {
-                                                BigDecimal lastPrice = BigDecimal.ONE.divide(invertedPrice,
-                                                    invertedPrice.precision(), RoundingMode.CEILING);
-                                                    marketData.setLastPrice(lastPrice);
-                                            } catch (ArithmeticException ae) {
-
-                                            }
-                                            SpectrumMarketItem newItem = new SpectrumMarketItem(isFavorite, marketData, getSpectrumDataList());
-                                            m_marketsList.add(newItem);
-
-                                        }
-                                    }
-
-                                    
-                                }catch(Exception e){
-                                    try {
-                                        Files.writeString(logFile.toPath(), "\nSpectrumFinance(updateMarkets): " + e.toString() + " " + marketDataJson.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                                    } catch (IOException e1) {
-                                  
-                                    }
-                                }
-                                
-                            }
-
-                        }
-                  
-                        
-                    }
-                    Runnable finish = () ->{
-                        sort(false);
-                        Platform.runLater(()->m_notConnected = false);
-                        Platform.runLater(()->updateGridBox());
-                        Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
-                    };
-                    
-                    if(m_marketsList.size() != 0){
-                        m_spectrumFinance.getTickers((onTickerArray)->{
-                            Object tickerSourceObject = onTickerArray.getSource().getValue();
-                            if (tickerSourceObject != null && tickerSourceObject instanceof JsonArray) {
-                                JsonArray tickerArray = (JsonArray) tickerSourceObject;
-                             
-                                synchronized(m_marketsList){
-
-                                    for (int j = 0; j < tickerArray.size(); j++) {
-                                
-                                        JsonElement tickerObjectElement = tickerArray.get(j);
-                                        if (tickerObjectElement != null && tickerObjectElement.isJsonObject()) {
-
-                                            JsonObject tickerDataJson = tickerObjectElement.getAsJsonObject();
-
-                                            JsonElement tickerIdElement = tickerDataJson.get("ticker_id");
-                                            String tickerId = tickerIdElement != null && tickerIdElement.isJsonPrimitive() ? tickerIdElement.getAsString() : null;
-
-                                            if(tickerId != null){
-                                        
-                                                SpectrumMarketItem spectrumItem = getMarketItem(tickerId);
-                                            
-                                                if(spectrumItem != null){
-                                                  
-                                                    JsonElement lastPriceElement = tickerDataJson.get("last_price");
-                                                    JsonElement liquidityUsdElement = tickerDataJson.get("liquidity_in_usd");
-                                                    JsonElement poolIdElement = tickerDataJson.get("pool_id");
-                                                    if(
-                                                        lastPriceElement != null && lastPriceElement.isJsonPrimitive() &&
-                                                        liquidityUsdElement != null && liquidityUsdElement.isJsonPrimitive() &&
-                                                        poolIdElement != null && poolIdElement.isJsonPrimitive()
-                                                    ){
-                                                        SpectrumMarketData spectrumData = spectrumItem.marketDataProperty().get();
-                                                        spectrumData.setLastPrice(lastPriceElement.getAsBigDecimal());
-                                                        spectrumData.setLiquidityUSD(liquidityUsdElement.getAsBigDecimal());
-                                                        spectrumData.setPoolId(poolIdElement.getAsString());
-                                                        
-                                                    }
-                                                }
-
-                                            }
-                                       
-                                            
-                                        }
-
-                                    }
-                            
-                                    
-                                }
-                                finish.run();
-                            }else{
-                                finish.run();
-                            }
-                        }, (onTickersFailed)->{
-                            finish.run();
-                        });
-                    }else{
-                        Platform.runLater(()->m_notConnected = true);
-                        Platform.runLater(()-> updateGridBox());
-                        Platform.runLater(()->m_statusMsg.set("Not connected"));
-                        Platform.runLater(()->getLastUpdated().set(LocalDateTime.now()));
-                    }
-            
-               
-           
-            } else {
-                m_notConnected = true;
-                m_statusMsg.set("Not connected");
-                updateGridBox();
-                getLastUpdated().set(LocalDateTime.now());
-            }
-        }, failed -> {
-            m_notConnected = true;
-            m_statusMsg.set("Not connected");
-            updateGridBox();
-            getLastUpdated().set(LocalDateTime.now());
-        });
-    }
-
     public SpectrumDataList getSpectrumDataList(){
         return this;
     }
 
+    public File getDataFile(){
+        return m_spectrumFinance.getIdDataFile(getNetworkId());
+    }
 
     private void updateFile(SecretKey oldKey, SecretKey newKey){
-        File dataFile = m_spectrumFinance.getDataFile();
+        
+
+        File dataFile = getDataFile();
         if (dataFile != null && dataFile.isFile()) {
             try {
-                JsonObject json = Utils.readJsonFile(oldKey, dataFile.toPath());
+                JsonObject json = Utils.readJsonFile(oldKey, dataFile);
                
                 if(json!= null){
                     Utils.saveJson(newKey, json, dataFile);
@@ -322,10 +247,10 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
     private void getFile(SecretKey secretKey) {
 
-        File dataFile = m_spectrumFinance.getDataFile();
+        File dataFile = getDataFile();
         if (dataFile != null && dataFile.isFile()) {
             try {
-                JsonObject json = Utils.readJsonFile(secretKey, dataFile.toPath());
+                JsonObject json = Utils.readJsonFile(secretKey, dataFile);
            
                 if(json!= null){
            
@@ -349,8 +274,9 @@ public class SpectrumDataList extends Network implements NoteInterface {
 
 
     public VBox getGridBox() {
-
-        return m_gridBox;
+        VBox gridBox = m_gridBox;
+        updateGridBox();
+        return gridBox;
     }
 
     public VBox getFavoriteGridBox() {
@@ -539,7 +465,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
                 notConnectedBtn.setGraphic(IconButton.getIconView(new Image("/assets/cloud-offline-150.png"), 150));
                 notConnectedBtn.setContentDisplay(ContentDisplay.TOP);
                 notConnectedBtn.setOnAction(e -> {
-                    updateMarkets();
+                    
                 });
 
             } else {
@@ -624,7 +550,7 @@ public class SpectrumDataList extends Network implements NoteInterface {
   
         try {
            
-            Utils.saveJson(secretKey, getJsonObject(), m_spectrumFinance.getDataFile());
+            Utils.saveJson(secretKey, getJsonObject(), getDataFile());
         } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
                 | IOException e) {

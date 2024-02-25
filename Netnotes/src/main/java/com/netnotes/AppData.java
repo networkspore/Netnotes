@@ -37,6 +37,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.satergo.extra.AESEncryption;
+import com.utils.GitHubAPI;
+import com.utils.GitHubAPI.GitHubAsset;
 import com.utils.Utils;
 import com.utils.Version;
 
@@ -107,6 +109,10 @@ public class AppData {
         m_persistenceStage.show();
 
       
+    }
+
+    public File getAppFile(){
+        return m_appFile;
     }
 
     private void readFile()throws Exception{
@@ -656,4 +662,41 @@ public class AppData {
         String jsonString = getJson().toString();
         Files.writeString(m_settingsFile.toPath(), jsonString);
     }
+    
+
+    public void checkForUpdates( SimpleObjectProperty<UpdateInformation> updateInformation){
+        GitHubAPI gitHubAPI = new GitHubAPI(App.GITHUB_USER, App.GITHUB_PROJECT);
+         gitHubAPI.getAssetsLatest((onFinished)->{
+            UpdateInformation tmpInfo = new UpdateInformation();
+
+                Object finishedObject = onFinished.getSource().getValue();
+                if(finishedObject != null && finishedObject instanceof GitHubAsset[] && ((GitHubAsset[]) finishedObject).length > 0){
+            
+                    GitHubAsset[] assets = (GitHubAsset[]) finishedObject;
+            
+                    tmpInfo.setAssets(assets);
+
+                    Utils.getUrlJson(tmpInfo.getReleaseUrl(), (onReleaseInfo)->{
+                        Object sourceObject = onReleaseInfo.getSource().getValue();
+                        if(sourceObject != null && sourceObject instanceof com.google.gson.JsonObject){
+                            com.google.gson.JsonObject releaseInfoJson = (com.google.gson.JsonObject) sourceObject;
+                            UpdateInformation upInfo = new UpdateInformation(tmpInfo.getJarUrl(),tmpInfo.getTagName(),tmpInfo.getJarName(),null,tmpInfo.getReleaseUrl());
+                            upInfo.setReleaseInfoJson(releaseInfoJson);
+             
+                            Platform.runLater(()->updateInformation.set(upInfo));
+                        }
+                    }, (releaseInfoFailed)->{
+
+                    }, null);
+                    
+                 
+
+                }
+            },(onFailed)->{
+
+            });
+
+    }
+    
+   
 }

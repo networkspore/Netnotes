@@ -84,6 +84,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.netnotes.App;
+import com.netnotes.FreeMemory;
 import com.netnotes.HashData;
 import com.netnotes.PriceAmount;
 import com.netnotes.PriceCurrency;
@@ -971,9 +972,9 @@ public class Utils {
 
         return null;
     }*/
-    public static JsonObject readJsonFile(SecretKey appKey, Path filePath) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
+    public static JsonObject readJsonFile(SecretKey appKey, File file) throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
 
-        FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ);
+        FileChannel channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         int bufferSize = 1024;
@@ -1005,6 +1006,41 @@ public class Utils {
         }
 
         return null;
+
+    }
+    
+    public static String readStringFile(SecretKey appKey, File file)
+            throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException,
+            InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException, IOException {
+
+        FileChannel channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        int bufferSize = 1024;
+        if (bufferSize > channel.size()) {
+            bufferSize = (int) channel.size();
+        }
+        ByteBuffer buff = ByteBuffer.allocate(bufferSize);
+
+        while (channel.read(buff) > 0) {
+            out.write(buff.array(), 0, buff.position());
+            buff.clear();
+        }
+
+        channel.close();
+
+        byte[] fileBytes = out.toByteArray();
+
+        byte[] iv = new byte[] {
+                fileBytes[0], fileBytes[1], fileBytes[2], fileBytes[3],
+                fileBytes[4], fileBytes[5], fileBytes[6], fileBytes[7],
+                fileBytes[8], fileBytes[9], fileBytes[10], fileBytes[11]
+        };
+
+        buff = ByteBuffer.wrap(fileBytes, 12, fileBytes.length - 12);
+
+        return new String(AESEncryption.decryptData(iv, appKey, buff));
+
 
     }
 
@@ -1180,7 +1216,9 @@ public class Utils {
         t.start();
     }
 
-    public static void getUrlFileHash(String urlString, File outputFile, EventHandler<WorkerStateEvent> onSucceeded, EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator) {
+    public static void getUrlFileHash(String urlString, File outputFile, EventHandler<WorkerStateEvent> onSucceeded,
+            EventHandler<WorkerStateEvent> onFailed, ProgressIndicator progressIndicator,
+            SimpleBooleanProperty cancel) {
 
         Task<HashData> task = new Task<HashData>() {
             @Override
@@ -1190,7 +1228,6 @@ public class Utils {
                 }
                 Files.deleteIfExists(outputFile.toPath());
 
-                InputStream inputStream = null;
                 FileOutputStream outputStream = new FileOutputStream(outputFile);
 
                 final Blake2b digest = Blake2b.Digest.newInstance(32);
@@ -1202,7 +1239,7 @@ public class Utils {
                 con.setRequestProperty("User-Agent", USER_AGENT);
 
                 long contentLength = con.getContentLengthLong();
-                inputStream = con.getInputStream();
+                InputStream inputStream = con.getInputStream();
 
                 byte[] buffer = new byte[8 * 1024];
 
@@ -1216,6 +1253,12 @@ public class Utils {
                     if (progressIndicator != null) {
                         downloaded += (long) length;
                         updateProgress(downloaded, contentLength);
+                    }
+                    if (cancel.get()) {
+                        inputStream.close();
+                        outputStream.close();
+                        return null;
+
                     }
                 }
 
@@ -1535,22 +1578,27 @@ public class Utils {
    
     }
 
-     public static void sendTermSig(String pid){
+     public static boolean sendTermSig(String fileName){
           try {
           //  File logFile = new File("wmicTerminate-log.txt");
             //Get-Process | Where {$_.ProcessName -Like "SearchIn*"}
          //   String[] wmicCmd = {"powershell", "Get-Process", "|", "Where", "{$_.ProcessName", "-Like", "'*" +  jarname+ "*'}"};
-            Process psProc = Runtime.getRuntime().exec("powershell stop-process -id " + pid );
-
-
-            psProc.waitFor();
-
-
-
-        } catch (Exception e) {
             
+            String[] pids = findPIDs(fileName);
+
+            for(String pid : pids){
+                Process psProc = Runtime.getRuntime().exec("powershell stop-process -id " + pid );
+                psProc.waitFor();
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
         }
    
+    }
+
+    public static String getIncreseSwapUrl(){
+        return "https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/how-to-determine-the-appropriate-page-file-size-for-64-bit-versions-of-windows";
     }
 
      public static void cmdTaskKill(String pid){
@@ -1587,6 +1635,90 @@ public class Utils {
         }
 
         return -1;
+    }
+
+    public static FreeMemory getFreeMemory(){
+        // systeminfo | Select-String 'Total Physical Memory:', 'Available Physical Memory:', 'Virtual Memory: Max Size:', 'Virtual Memory: In Use:'
+        try {
+
+            Process psProc = Runtime.getRuntime().exec("powershell get-wmiobject win32_operatingsystem | select FreePhysicalMemory, FreeVirtualMemory, FreeSpaceInPagingFiles, TotalVirtualMemorySize, TotalVisibleMemorySize, SizeStoredInPagingFiles");
+
+            BufferedReader psStderr = new BufferedReader(new InputStreamReader(psProc.getErrorStream()));
+            // String pserr = null;
+
+
+            BufferedReader psStdInput = new BufferedReader(new InputStreamReader(psProc.getInputStream()));
+
+            String psInput = null;
+            
+            long swapTotal = -1;
+            long swapFree = -1;
+            long memFree = -1;
+            long memAvailable = -1;
+            long memTotal = -1;
+
+            final String delimiter = " ";
+            final String valueDelim = ": ";
+            final int valueDelimSize = valueDelim.length();
+
+            long consumedVMem = -1;
+
+            while ((psInput = psStdInput.readLine()) != null) {
+                int spaceIndex = psInput.indexOf(delimiter);
+                int valueIndex = psInput.indexOf(valueDelim);
+                String rowStr = psInput.substring(0, spaceIndex);
+                long value = Long.parseLong(psInput.substring(valueIndex + valueDelimSize));
+
+                switch(rowStr){
+                    case "SizeStoredInPagingFiles":
+                        consumedVMem = value;
+                    break;
+                    case "FreePhysicalMemory":
+                        memFree = value;
+                    break;
+                    case "FreeSpaceInPagingFiles":
+                        swapFree = value;
+                    break;
+                    case "TotalVirtualMemorySize":
+                        swapTotal = value;
+                        memAvailable = value;
+                        
+                    break;
+                    case "TotalVisibleMemorySize":
+                        memTotal = value;
+                    break;
+
+                }
+            }
+
+            memAvailable = memAvailable > 0 ? memAvailable - consumedVMem : memAvailable;
+          
+            String errStr = psStderr.readLine();
+            psProc.waitFor();
+          
+            if(errStr == null){
+                return new FreeMemory(swapTotal, swapFree, memFree, memAvailable, memTotal);
+            }
+
+
+        } catch (Exception e) {
+            try {
+                Files.writeString(new File("netnotes-log.txt").toPath(), "\ngetFreeMemory: " + e.toString(),
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e1) {
+
+            }
+
+            return null;
+        }
+        try {
+            Files.writeString(new File("netnotes-log.txt").toPath(), "\ngetFreeMemory: null",
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e1) {
+
+        }
+
+        return null;
     }
 
     public static boolean sendKillSig(String jarName) {
@@ -1631,7 +1763,11 @@ public class Utils {
         return false;
     }
 
+    public static void openDir(File file) throws Exception  {
 
+        java.awt.Desktop.getDesktop().browseFileDirectory(file);
+
+    }
     
     public static URL getLocation(final Class<?> c) {
 

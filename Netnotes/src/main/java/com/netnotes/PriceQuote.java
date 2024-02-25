@@ -1,6 +1,10 @@
 package com.netnotes;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 
 import com.google.gson.JsonObject;
 import com.utils.Utils;
@@ -8,33 +12,51 @@ import com.utils.Utils;
 public class PriceQuote {
 
     private String m_amountString;
-
+    private String m_transactionCurrencyId = "";
     private String m_transactionCurrency;
     private String m_quoteCurrency;
     private long m_timestamp = 0;
     private long m_precisionLong;
+    private String m_quoteCurrencyId = "";
 
     private int m_fractionalPrecision = 0;
 
 
 
+    public PriceQuote(){
+        m_timestamp = System.currentTimeMillis();
+
+    }
+
     public PriceQuote(String amountString, String transactionCurrency, String quoteCurrency) {
 
+        setPrices(amountString, transactionCurrency, quoteCurrency);
+    }
+
+    public PriceQuote(String amountString, String transactionCurrency, String quoteCurrency, long timestamp) {
+        m_timestamp = timestamp;
+        
+        setPrices(amountString, transactionCurrency, quoteCurrency);
+    }
+
+    private void setPrices(String amountString, String transactionCurrency, String quoteCurrency){
         setStringAmount(amountString);
         m_timestamp = System.currentTimeMillis();
         m_amountString = amountString;
         m_transactionCurrency = transactionCurrency;
         m_quoteCurrency = quoteCurrency;
-
+        m_transactionCurrencyId = null;
+        m_quoteCurrencyId = null;
     }
-
-    public PriceQuote(String amountString, String transactionCurrency, String quoteCurrency, long timestamp) {
+    
+    public void setPrices(String amountString, String transactionCurrency, String quoteCurrency, String txId, String quoteId){
         setStringAmount(amountString);
-        m_timestamp = timestamp;
+        m_timestamp = System.currentTimeMillis();
         m_amountString = amountString;
         m_transactionCurrency = transactionCurrency;
         m_quoteCurrency = quoteCurrency;
-
+        m_transactionCurrencyId = txId;
+        m_quoteCurrencyId = quoteId;
     }
 
     public void setStringAmount(String amountString) {
@@ -54,6 +76,14 @@ public class PriceQuote {
         m_precisionLong = (long) (precision * amount);
     }
 
+    public String getTransactionCurrencyId(){
+        return m_transactionCurrencyId;
+    }
+
+    public String getQuoteCurrencyId(){
+        return m_quoteCurrencyId;
+    }
+
     public double getDoubleAmount() {
         return java.lang.Double.parseDouble(m_amountString);
     }
@@ -71,12 +101,24 @@ public class PriceQuote {
         return m_amountString;
     }
 
+    public void setAmountString(String amountString){
+        m_amountString = amountString;
+    }
+
     public String getTransactionCurrency() {
         return m_transactionCurrency;
     }
 
+    public void setTransactionCurrency(String transactionCurrency){
+        m_transactionCurrency = transactionCurrency;
+    }
+
     public String getQuoteCurrency() {
         return m_quoteCurrency;
+    }
+
+    public void setQuoteCurrency(String quoteCurrency){
+        m_quoteCurrency = quoteCurrency;
     }
 
     public long howOldMillis() {

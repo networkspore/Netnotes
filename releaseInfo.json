@@ -5,18 +5,18 @@
       "name": "Blake2b-256",
       "hash": "fe9acb16d532e590a22fbd0077d222426db49cbd13c696fcef1bb2ea288b4363"
     },
-    "name": "netnotes-0.2.0.exe",
-    "version": "0.2.0",
-    "tag": "v0.2.0-Beta"
+    "name": "netnotes-0.3.1.exe",
+    "version": "0.3.1",
+    "tag": "betaRelease"
   },
   "application": {
     "hashData": {
-      "id": "34gPANgqOWRbuzYM01UHCp",
+      "id": "74gSD8bINGV8BgXbEVkynm",
       "name": "Blake2b-256",
-      "hash": "ceb7bf9a8d5b77327faac607a2e3363ff3dfaa816ae19dc39511e72252a44f66"
+      "hash": "f744c7d20d85b1ec54869fb135facfd4fa8113abe272f387aa881309ba084b0a"
     },
-    "name": "netnotes-0.2.0.jar",
-    "version": "0.2.0",
-    "tag": "v0.2.0-Beta"
+    "name": "netnotes-0.3.1.jar",
+    "version": "0.3.1",
+    "tag": "betaRelease"
   }
 }

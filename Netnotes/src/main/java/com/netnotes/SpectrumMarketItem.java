@@ -11,18 +11,22 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 
 import org.reactfx.util.FxTimer;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
-import com.google.gson.Gson;
 
 import com.utils.Utils;
 
@@ -88,12 +92,8 @@ public class SpectrumMarketItem {
 
     public File getMarketFile() throws IOException{
     
-        File marketFile = new File(m_dataList.getSpectrumFinance().getDataDir().getAbsolutePath() + "/" + m_symbol + ".json" );
+        File marketFile = m_dataList.getSpectrumFinance().getIdDataFile(m_symbol);
 
-        File parentFile = marketFile.getParentFile();
-        if(!parentFile.isDirectory()){
-            Files.createDirectory(parentFile.toPath());
-        }
         return marketFile;
     }
 
@@ -144,7 +144,9 @@ public class SpectrumMarketItem {
         rowButton.setGraphic(buttonImage == null ? null : IconButton.getIconView(buttonImage, buttonImage.getWidth()));
         rowButton.setId("rowBtn");
 
-        HBox rowBox = new HBox(favoriteBtn, rowButton);
+        Text hasChart = new Text(m_marketDataProperty.get().getPoolId() != null ? " Chart Available" : "");
+
+        HBox rowBox = new HBox(favoriteBtn, rowButton, hasChart);
 
         rowButton.prefWidthProperty().bind(rowBox.widthProperty().subtract(favoriteBtn.widthProperty()));
 
@@ -176,16 +178,17 @@ public class SpectrumMarketItem {
         if (data == null) {
             return null;
         }
+        boolean isInvert = data.getDefaultInvert() ? !m_dataList.getSortMethod().isTargetSwapped() : m_dataList.getSortMethod().isTargetSwapped();
         int height = 30;
         int symbolColWidth = 160;
-        String symbolString = String.format("%-18s", getCurrentSymbol(m_dataList.getSortMethod().isTargetSwapped()) );
-        String priceString = m_dataList.getSortMethod().isTargetSwapped() ? data.getInvertedLastPrice().toString() : data.getLastPrice().toString();
+        String symbolString = String.format("%-18s", getCurrentSymbol(isInvert) );
+        String priceString = isInvert ? data.getInvertedLastPrice().toString() : data.getLastPrice().toString();
 
-        boolean positive = false;
-        boolean neutral = true;
+       // boolean positive = false;
+       // boolean neutral = true;
 
         java.awt.Font font = new java.awt.Font("OCR A Extended", java.awt.Font.PLAIN, 15);
-
+        java.awt.Font txtFont = new java.awt.Font("Deja Vu Sans", java.awt.Font.PLAIN, 15);
         BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();
         g2d.setFont(font);
@@ -209,7 +212,7 @@ public class SpectrumMarketItem {
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-        g2d.setFont(font);
+        g2d.setFont(txtFont);
         g2d.setColor(WHITE_COLOR);
         g2d.drawString(symbolString, 0, stringY);
     
@@ -247,10 +250,15 @@ public class SpectrumMarketItem {
         return getId();
     }
 
+    public boolean isInvert(){
+        SpectrumMarketData data = marketDataProperty().get();
+        return data.getDefaultInvert() ? !m_dataList.getSortMethod().isTargetSwapped() : m_dataList.getSortMethod().isTargetSwapped();
+    }
+
     public void showStage() {
         if (m_stage == null) {
-         
-            SimpleBooleanProperty isInvertChart = new SimpleBooleanProperty(m_dataList.getSortMethod().isTargetSwapped());
+            
+            SimpleBooleanProperty isInvertChart = new SimpleBooleanProperty(isInvert() );
 
             double sceneWidth = 750;
             double sceneHeight = 800;
@@ -266,6 +274,13 @@ public class SpectrumMarketItem {
             double chartSizeInterval = 25;
 
             SpectrumFinance exchange = m_dataList.getSpectrumFinance();
+
+            try {
+                Files.writeString(logFile.toPath(), "\n" + m_marketDataProperty.get().getJsonObject().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+  
+            }
+       
 
             m_stage = new Stage();
             m_stage.getIcons().add(SpectrumFinance.getSmallAppIcon());
@@ -321,7 +336,7 @@ public class SpectrumMarketItem {
                 favoriteBtn.setGraphic(IconButton.getIconView(new Image(m_isFavorite.get() ? "/assets/star-30.png" : "/assets/star-outline-30.png"), 30));
             });
 
-            Text headingText = new Text(getCurrentSymbol(isInvertChart.get()) + "  - ");
+            Text headingText = new Text(getCurrentSymbol(isInvert()) + "  - ");
             headingText.setFont(App.txtFont);
             headingText.setFill(Color.WHITE);
 
@@ -590,8 +605,8 @@ public class SpectrumMarketItem {
             Runnable setCandles = () ->{
                 JsonObject existingObj = null;
                 try {
-                    existingObj = getMarketFile().isFile() ? new JsonParser().parse(Files.readString(getMarketFile().toPath())).getAsJsonObject() : null;
-                } catch (IOException | JsonParseException e) {
+                    existingObj = getMarketFile().isFile() ? Utils.readJsonFile(getAppKey(), getMarketFile()) : null;
+                } catch (IOException | JsonParseException | InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                     try {
                         Files.writeString(logFile.toPath(), "\nSpectrum Market Data (setCandles.run):" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException  e1) {
@@ -630,7 +645,7 @@ public class SpectrumMarketItem {
                        
                    
                        
-                        Platform.runLater(()->chartView.setPriceDataList(isInvertChart.get() ? invertPrices(chartArray) : chartArray, currentTime));
+                        Platform.runLater(()->chartView.setPriceDataList(isInvertChart.get() ?  chartArray : invertPrices(chartArray), currentTime));
                         
                         Platform.runLater(()->chartRange.setVisible(true));
 
@@ -649,8 +664,9 @@ public class SpectrumMarketItem {
             Runnable updateCandles = () ->{
                 JsonObject existingObj = null;
                 try {
-                    existingObj = getMarketFile().isFile() ? new JsonParser().parse(Files.readString(getMarketFile().toPath())).getAsJsonObject() : null;
-                } catch (IOException | JsonParseException e) {
+                    File marketFile = getMarketFile();
+                    existingObj = marketFile.isFile() ? Utils.readJsonFile(getAppKey(), marketFile) : null;
+                } catch (IOException | JsonParseException | InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                     try {
                         Files.writeString(logFile.toPath(), "\nSpectrum Market Data (setCandles.run):" + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException  e1) {
@@ -764,6 +780,10 @@ public class SpectrumMarketItem {
         }
     }
 
+    public SecretKey getAppKey(){
+        return m_dataList.getSpectrumFinance().getAppKey();
+    }
+
     public void saveNewDataJson(long lastTimeStamp, JsonArray jsonArray){
       
      
@@ -772,8 +792,8 @@ public class SpectrumMarketItem {
             json.add("priceData", jsonArray);
 
             try {
-                Files.writeString(getMarketFile().toPath(), json.toString());
-            } catch (IOException e) {
+                Utils.saveJson(getAppKey(), json, getMarketFile());
+            } catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                 try {
                     Files.writeString(logFile.toPath(), "\nSpectrumMarketItem (saveNewDataJson): " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND );
                 } catch (IOException e1) {

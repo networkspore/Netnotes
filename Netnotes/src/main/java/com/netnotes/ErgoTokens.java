@@ -16,7 +16,6 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
 
@@ -34,8 +33,10 @@ import org.ergoplatform.appkit.NetworkType;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.utils.Utils;
 
+import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.ListChangeListener;
 import javafx.concurrent.WorkerStateEvent;
@@ -48,7 +49,6 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
@@ -71,8 +71,11 @@ public class ErgoTokens extends Network implements NoteInterface {
     public final static String NAME = "Ergo Tokens";
     public final static String NETWORK_ID = "ERGO_TOKENS";
 
+    public final static String[] TOKEN_MARKETS = new String[] { SpectrumFinance.NETWORK_ID };
+    private final SimpleLongProperty m_timeStampProperty = new SimpleLongProperty(0);
+
+
     private File logFile = new File("netnotes-log.txt");
-    private File m_dataFile = null;
     private File m_testnetDataFile = null;
     private File m_appDir = null;
     private Stage m_tokensStage = null;
@@ -81,91 +84,17 @@ public class ErgoTokens extends Network implements NoteInterface {
     private String m_explorerId = null;
 
     private ErgoNetworkData m_ergNetData;
-    private TokensList m_tokensList = null;
 
-    private boolean m_firstOpen = false;
+   // private boolean m_firstOpen = false;
     
-    
-    private final SimpleObjectProperty<ErgoExplorerData> m_selectedExplorerData = new SimpleObjectProperty<>(null);
+
+    private String m_marketId = SpectrumFinance.NETWORK_ID;
 
     public ErgoTokens(ErgoNetworkData ergNetData, ErgoNetwork ergoNetwork) {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         m_ergNetData = ergNetData;
-
         m_appDir = new File(ergoNetwork.getAppDir().getAbsolutePath() + "/" + NAME);
-
-        if (!m_appDir.isDirectory()) {
-
-            try {
-                Files.createDirectories(m_appDir.toPath());
-            } catch (IOException e) {
-                Alert a = new Alert(AlertType.NONE, e.toString(), ButtonType.CLOSE);
-                a.show();
-            }
-            File tokensDir = new File(m_appDir.getAbsolutePath() + "/tokens");
-
-            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-
-            setupTokens(getNetworksData().getAppData().appKeyProperty().get(), tokensDir);
-
-        } else {
-            m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + NAME + ".dat");
-            m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + NAME + ".dat");
-            if(m_dataFile.isFile()){
-                m_tokensList = new TokensList(getNetworksData().getAppData().appKeyProperty().get(), m_networkType, this);
-            }else{
-                File tokensDir = new File(m_appDir.getAbsolutePath() + "/tokens");
-                setupTokens(getNetworksData().getAppData().appKeyProperty().get(), tokensDir);
-            }
-            
-           
-        }
-
-
-         ergoNetwork.getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
-            if(m_tokensList != null && m_tokensList.getNetworkType().toString().equals(NetworkType.MAINNET.toString())){
-                save(getNetworksData().getAppData().appKeyProperty().get(), m_tokensList.getJsonObject(), NetworkType.MAINNET);
-            }else{
-                TokensList tokensList = new TokensList(oldVal, NetworkType.MAINNET, this);
-
-                save(getNetworksData().getAppData().appKeyProperty().get(), tokensList.getJsonObject(), NetworkType.MAINNET);
-            }
-        });
-
-        Runnable setDefaultExplorer = () ->{
-            if(m_explorerId == null && ergNetData.getNetwork(ErgoExplorers.NETWORK_ID) != null){
-                ErgoExplorers ergoExplorers = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
-                m_explorerId = ergoExplorers.getErgoExplorersList().defaultIdProperty().get();
-                if(m_explorerId != null){
-                    ErgoExplorerData ergoExplorerData = ergoExplorers.getErgoExplorersList().getErgoExplorerData(m_explorerId);
-                    if(ergoExplorerData != null){
-                        m_selectedExplorerData.set(ergoExplorerData);
-                    
-                    }
-                }
-          
-            }
-        };
-        setDefaultExplorer.run();
-       
-        getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
-
-            if(ergNetData.getNetwork(ErgoExplorers.NETWORK_ID) == null){
-                m_selectedExplorerData.set(null);
-            }else{
-                if(!m_firstOpen){
-                    setDefaultExplorer.run();
-                }
-            }
-    
-        });
-
-        m_selectedExplorerData.addListener((obs,oldval,newval)->{
-            
-            setExplorerId(newval != null ? newval.getId() : null);
-        });
-
+     
         getLastUpdated().set(LocalDateTime.now());
 
     }
@@ -174,35 +103,13 @@ public class ErgoTokens extends Network implements NoteInterface {
         super(getAppIcon(), NAME, NETWORK_ID, ergoNetwork);
         m_ergNetData = ergNetData;
         JsonElement networkTypeElement = jsonObject.get("networkType");
-        JsonElement appDirElement = jsonObject.get("appDir");
-        JsonElement dataElement = jsonObject.get("dataFile");
-        JsonElement testnetDataElement = jsonObject.get("testnetDataFile");
         JsonElement explorerIdElement = jsonObject.get("explorerId");
-
-         if(ergNetData.getNetwork(ErgoExplorers.NETWORK_ID) != null){
-            ErgoExplorers ergoExplorers = (ErgoExplorers) ergNetData.getNetwork(ErgoExplorers.NETWORK_ID);
-            if(explorerIdElement != null && explorerIdElement.isJsonPrimitive()){
-                m_explorerId = explorerIdElement.getAsString();
-                if(m_explorerId != null){
-                    ErgoExplorerData ergoExplorerData = ergoExplorers.getErgoExplorersList().getErgoExplorerData(m_explorerId);
-                    if(ergoExplorerData != null){
-                        m_selectedExplorerData.set(ergoExplorerData);
-                    }
-                }
-            }
-        }
+        JsonElement marketIdElement = jsonObject.get("marketId");
         
-        getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
-            if(ergNetData.getNetwork(ErgoExplorers.NETWORK_ID) == null){
-                m_selectedExplorerData.set(null);
-            }
-        });
+        m_marketId = marketIdElement != null && marketIdElement.isJsonPrimitive() ? marketIdElement.getAsString() : SpectrumFinance.NETWORK_ID;
 
-        m_selectedExplorerData.addListener((obs,oldval,newval)->{
-            setExplorerId(newval != null ? newval.getId() : null);
-        });
-   
-
+        m_explorerId = explorerIdElement != null ? explorerIdElement.getAsString() : null;
+        
         if (networkTypeElement != null) {
             if (networkTypeElement.getAsString().equals(NetworkType.TESTNET.toString())) {
                 m_networkType = NetworkType.TESTNET;
@@ -210,15 +117,29 @@ public class ErgoTokens extends Network implements NoteInterface {
                 m_networkType = NetworkType.MAINNET;
             }
         }
+        addListeners();
+        setup();
 
-        if (appDirElement != null) {
-            m_appDir = new File(appDirElement.getAsString());
-        } else {
+        
+    }
 
-            m_appDir = new File(ergoNetwork.getAppDir().getAbsolutePath() + "/" + NAME);
-        }
+    public void setMarketId(String marketId){
+        m_marketId = marketId;
+        getLastUpdated().set(LocalDateTime.now());
+    }
 
-        if (!m_appDir.isDirectory()) {
+    public String getMarketId(){
+        return m_marketId;
+    }
+
+    public void setup(){
+  
+
+
+        m_appDir = new File(m_ergNetData.getErgoNetwork().getAppDir().getAbsolutePath() + "/" + NAME);
+        
+        boolean isAppDir = m_appDir.isDirectory();
+        if (!isAppDir) {
 
             try {
                 Files.createDirectories(m_appDir.toPath());
@@ -227,55 +148,57 @@ public class ErgoTokens extends Network implements NoteInterface {
                 a.show();
             }
            
+        }
+        
+        setDataDir(new File(m_appDir.getAbsolutePath()));
 
-            if (dataElement == null) {
-                m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
-            } else {
-                m_dataFile = new File(dataElement.getAsString());
-            }
-
-            if (testnetDataElement == null) {
-                m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
-            } else {
-                m_testnetDataFile = new File(testnetDataElement.getAsString());
-            }
+        m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
+  
+        File dataFile = getIdDataFile(NAME);
+        if(!isAppDir || !dataFile.isFile()){
+           
             File tokensDir = new File(m_appDir.getAbsolutePath() + "/tokens");
             setupTokens(getNetworksData().getAppData().appKeyProperty().get(), tokensDir);
-        } else {
-
-            if (dataElement == null) {
-                m_dataFile = new File(m_appDir.getAbsolutePath() + "/" + ErgoTokens.NAME + ".dat");
-            } else {
-                m_dataFile = new File(dataElement.getAsString());
-            }
-
-            if (testnetDataElement == null) {
-                m_testnetDataFile = new File(m_appDir.getAbsolutePath() + "/testnet" + ErgoTokens.NAME + ".dat");
-            } else {
-                m_testnetDataFile = new File(testnetDataElement.getAsString());
-            }
-
-            m_tokensList = new TokensList(getNetworksData().getAppData().appKeyProperty().get(), m_networkType, this);
         }
-
-      
-        m_tokensList.addUpdateListener((obs, oldVal, newVal) -> {
+    }
+    public void addListeners(){
 
         
-            save(getNetworksData().getAppData().appKeyProperty().get(), m_tokensList.getJsonObject(), m_networkType);
-        });
+    
 
-         ergoNetwork.getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
-            if(m_tokensList != null && m_tokensList.getNetworkType() == NetworkType.MAINNET){
-                save(getNetworksData().getAppData().appKeyProperty().get(), m_tokensList.getJsonObject(), NetworkType.MAINNET);
-            }else{
-                TokensList tokensList = new TokensList(oldVal, NetworkType.MAINNET, this);
+        
+        getNetworksData().getAppData().appKeyProperty().addListener((obs, oldVal, newVal) -> {
+            JsonArray indexArray = getIndexFileArray(oldVal);
+            if(indexArray != null){
+                saveIndexFile(indexArray);
+                for(int i = 0; i< indexArray.size() ; i++){
+                    JsonElement fileElement = indexArray.get(i);
+                    JsonObject idFileObject = fileElement.getAsJsonObject();
+                    JsonElement fileLocationElement = idFileObject.get("file");
+                    String fileLocationString = fileLocationElement.getAsString();
 
-                save(getNetworksData().getAppData().appKeyProperty().get(), tokensList.getJsonObject(), NetworkType.MAINNET);
+                    File file = new File(fileLocationString);
+                    
+                    if(file.isFile()){
+                        try {
+                            String fileString = Utils.readStringFile(oldVal, file);
+                            Utils.writeEncryptedString(newVal, file, fileString);
+                        } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
+                                | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
+                                | IOException e) {
+                            try {
+                                Files.writeString(logFile.toPath(), "ErgoTokens: could not update file: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                            } catch (IOException e1) {
+                        
+                            }
+                        }
+                    }
+                }
             }
+            
+            
+            
         });
-
-
     }
 
     public String getExplorerId(){
@@ -284,7 +207,6 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     public void setExplorerId(String explorerId){
         m_explorerId = explorerId;
-        m_firstOpen = true;
         getLastUpdated().set(LocalDateTime.now());
     }
 
@@ -294,18 +216,14 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     @Override
     public void open() {
-        m_firstOpen = true;
         showTokensStage();
     }
 
-
-
-    public void setNetworkType(NetworkType networkType) {
+    private void setNetworkType(NetworkType networkType){
         m_networkType = networkType;
-        m_tokensList.setNetworkType(getNetworksData().getAppData().appKeyProperty().get(), m_networkType);
         getLastUpdated().set(LocalDateTime.now());
-
     }
+
 
     public NetworkType getNetworkType() {
         return m_networkType;
@@ -313,15 +231,20 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     public void showTokensStage() {
         if (m_tokensStage == null) {
-
-    
-
-
+            ErgoTokensList tokensList = new ErgoTokensList(getAppKey(), m_networkType, this, m_marketId, m_explorerId);
             
+
+            tokensList.selectedExplorerData().addListener((obs,oldval,newval)->{
+                setExplorerId(newval != null ? newval.getId() : null);
+            });
+
+
 
             double tokensStageWidth = 375;
             double tokensStageHeight = 600;
-            double buttonHeight = 100;
+            double buttonHeight = 70;
+
+
 
             m_tokensStage = new Stage();
             m_tokensStage.getIcons().add(getIcon());
@@ -350,7 +273,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 chooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("text/json", "*.json"));
                 File openFile = chooser.showOpenDialog(m_tokensStage);
                 if (openFile != null) {
-                    m_tokensList.importJson(m_tokensStage, openFile);
+                    tokensList.importJson(m_tokensStage, openFile);
                 }
             });
 
@@ -365,7 +288,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                 if (saveFile != null) {
                     try {
-                        Files.writeString(saveFile.toPath(), m_tokensList.getJsonObject().toString());
+                        Files.writeString(saveFile.toPath(), tokensList.getJsonObject().toString());
                     } catch (IOException e) {
                         Alert writeAlert = new Alert(AlertType.NONE, e.toString(), ButtonType.OK);
                         writeAlert.initOwner(m_tokensStage);
@@ -385,8 +308,9 @@ public class ErgoTokens extends Network implements NoteInterface {
             toggleNetworkTypeBtn.setId("menuBtn");
             toggleNetworkTypeBtn.setTooltip(toggleTip);
             toggleNetworkTypeBtn.setOnAction(e -> {
-
                 setNetworkType(m_networkType == NetworkType.MAINNET ? NetworkType.TESTNET : NetworkType.MAINNET);
+             
+                tokensList.setNetworkType(getAppKey(), m_networkType);
 
                 toggleTip.setText((m_networkType == NetworkType.MAINNET ? "MAINNET" : "TESTNET"));
                 toggleNetworkTypeBtn.setImage(m_networkType == NetworkType.MAINNET ?new Image("/assets/toggle-on.png") : new Image("/assets/toggle-off.png"));
@@ -395,12 +319,19 @@ public class ErgoTokens extends Network implements NoteInterface {
                
             });
 
-             Tooltip explorerTip = new Tooltip("Select explorer");
+            Tooltip marketsTip = new Tooltip("Token Market: (set default)");
+            marketsTip.setShowDelay(new javafx.util.Duration(50));
+            marketsTip.setFont(App.txtFont);
+     
+            BufferedMenuButton marketBtn = new BufferedMenuButton("/assets/ergo-charts-30.png", App.MENU_BAR_IMAGE_WIDTH);
+            marketBtn.setPadding(new Insets(2, 0, 0, 2));
+            marketBtn.setTooltip(marketsTip);
+
+            
+
+            Tooltip explorerTip = new Tooltip("Select explorer");
             explorerTip.setShowDelay(new javafx.util.Duration(50));
             explorerTip.setFont(App.txtFont);
-
-     
-
      
             BufferedMenuButton explorerBtn = new BufferedMenuButton("/assets/ergo-explorer-30.png", App.MENU_BAR_IMAGE_WIDTH);
             explorerBtn.setPadding(new Insets(2, 0, 0, 2));
@@ -413,13 +344,13 @@ public class ErgoTokens extends Network implements NoteInterface {
             Runnable updateExplorerBtn = () ->{
                 ErgoExplorers ergoExplorers = (ErgoExplorers) getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
             
-                ErgoExplorerData explorerData = m_selectedExplorerData.get();
-            
+                ErgoExplorerData explorerData = tokensList.selectedExplorerData().get();
+                
             
                 if(explorerData != null && ergoExplorers != null){
                 
                     explorerTip.setText("Ergo Explorer: " + explorerData.getName());
-                    
+                
 
                 }else{
                     
@@ -434,10 +365,10 @@ public class ErgoTokens extends Network implements NoteInterface {
 
             Runnable getAvailableExplorerMenu = () ->{
             
-                ErgoExplorers ergoExplorers = (ErgoExplorers) getErgoNetworkData().getNetwork(ErgoExplorers.NETWORK_ID);
-                if(ergoExplorers != null){
+                ErgoExplorerList explorerList = tokensList.ergoExplorerListProperty().get();
+                if(explorerList != null){
                     explorerBtn.setId("menuBtn");
-                    ergoExplorers.getErgoExplorersList().getMenu(explorerBtn, m_selectedExplorerData);
+                    explorerList.getMenu(explorerBtn, tokensList.selectedExplorerData());
                 }else{
                     explorerBtn.getItems().clear();
                     explorerBtn.setId("menuBtnDisabled");
@@ -446,9 +377,48 @@ public class ErgoTokens extends Network implements NoteInterface {
                 updateExplorerBtn.run();
             };
 
+            Runnable updateMarketsBtn = () -> {
+                
+                ErgoMarketsData marketsData = tokensList.selectedMarketData().get();
+                ErgoMarkets ergoMarkets = (ErgoMarkets) getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
     
+                if (marketsData != null && ergoMarkets != null) {
+    
+                    marketsTip.setText("Ergo Markets: " + marketsData.getName());
+                    tokensList.updateSelectedMarket(marketsData);
+                    
+                } else {
+    
+                    if (ergoMarkets == null) {
+                        marketsTip.setText("(install 'Ergo Markets')");
+                    } else {
+                        marketsTip.setText("Select market...");
+                    }
+                }
+    
+            };
+            tokensList.selectedMarketData().addListener((obs, oldval, newVal) -> {
+                setMarketId(newVal != null ? newVal.getMarketId() : null);
+                updateMarketsBtn.run();
+            });
+    
+            Runnable getAvailableMarketsMenu = () -> {
+                ErgoMarkets ergoMarkets = (ErgoMarkets) getErgoNetworkData().getNetwork(ErgoMarkets.NETWORK_ID);
+         
+                if (ergoMarkets != null) {
+                    marketBtn.setId("menuBtn");
+                    
+                    ergoMarkets.getErgoMarketsList().getMenu(marketBtn, tokensList.selectedMarketData());
+                } else {
+                    marketBtn.getItems().clear();
+                    marketBtn.setId("menuBtnDisabled");
+                }
+                updateMarketsBtn.run();
+            };
+          
 
-            HBox rightSideMenu = new HBox(explorerBtn);
+
+            HBox rightSideMenu = new HBox(marketBtn, explorerBtn);
             rightSideMenu.setId("rightSideMenuBar");
             rightSideMenu.setPadding(new Insets(0, 10, 0, 20));
 
@@ -478,7 +448,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             layoutVBox.setPadding(new Insets(0, 5, 0, 5));
             VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
-            VBox tokensBox = m_tokensList.getButtonGrid();
+            VBox tokensBox = tokensList.getButtonGrid();
 
             Region growRegion = new Region();
 
@@ -515,7 +485,7 @@ public class ErgoTokens extends Network implements NoteInterface {
             removeButton.setOnAction(action -> {
 
                 
-                ErgoNetworkToken selectedToken = (ErgoNetworkToken) m_tokensList.selectedTokenProperty().get();
+                ErgoNetworkToken selectedToken = (ErgoNetworkToken) tokensList.selectedTokenProperty().get();
                 if(selectedToken != null){
                     Alert a = new Alert(AlertType.NONE, "Would you like to remove '" + selectedToken.getName() + "' from Ergo Tokens?", ButtonType.NO, ButtonType.YES);
                     a.initOwner(m_tokensStage);
@@ -526,13 +496,13 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                     if (result.isPresent() && result.get() == ButtonType.YES) {
 
-                        m_tokensList.removeToken(selectedToken.getNetworkId());
+                        tokensList.removeToken(selectedToken.getNetworkId());
                     }
                 
                 }
 
                 removeButton.setDisable(true);
-                m_tokensList.selectedTokenProperty().set(null);
+                tokensList.selectedTokenProperty().set(null);
                 removeButton.setId("menuBarBtnDisabled");
             });
 
@@ -550,17 +520,18 @@ public class ErgoTokens extends Network implements NoteInterface {
             getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> {
     
                 getAvailableExplorerMenu.run();
-        
+                getAvailableMarketsMenu.run();
             });
 
             getAvailableExplorerMenu.run();
+            getAvailableMarketsMenu.run();
 
             tokensScene.focusOwnerProperty().addListener((e) -> {
                 Object focusOwnerObject = tokensScene.focusOwnerProperty().get();
                 if (focusOwnerObject != null && focusOwnerObject instanceof IconButton &&  ((IconButton) focusOwnerObject).getUserData() != null &&  ((IconButton) focusOwnerObject).getUserData() instanceof ErgoNetworkToken) {
                   
                     ErgoNetworkToken selectedToken = (ErgoNetworkToken) ((IconButton) focusOwnerObject).getUserData();    
-                    m_tokensList.selectedTokenProperty().set(selectedToken);
+                    tokensList.selectedTokenProperty().set(selectedToken);
                     removeButton.setDisable(false);
                     removeButton.setId("menuBarBtn");
                 } else {
@@ -569,7 +540,7 @@ public class ErgoTokens extends Network implements NoteInterface {
 
                     } else {
                         removeButton.setDisable(true);
-                        m_tokensList.selectedTokenProperty().set(null);
+                        tokensList.selectedTokenProperty().set(null);
                         removeButton.setId("menuBarBtnDisabled");
                     }
                 }
@@ -594,7 +565,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 addEditTokenStage.initStyle(StageStyle.UNDECORATED);
                 Button stageCloseBtn = new Button();
 
-                Scene addTokenScene = m_tokensList.getEditTokenScene(null, m_networkType, addEditTokenStage, stageCloseBtn);
+                Scene addTokenScene = tokensList.getEditTokenScene(null, m_networkType, addEditTokenStage, stageCloseBtn);
 
                 addEditTokenStage.setScene(addTokenScene);
                 addEditTokenStage.show();
@@ -617,21 +588,23 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     }
 
-    public File getDataFile() {
-        return m_dataFile;
-    }
+
+
 
     public File getTestnetDataFile() {
         return m_testnetDataFile;
     }
 
-    public TokensList getTokensList(NetworkType networkType){
-        if(m_tokensList.getNetworkType().toString().equals(networkType.toString())){
-            return m_tokensList;
-        }else{
-            return new TokensList(getNetworksData().getAppData().appKeyProperty().get(), networkType, this);
-        }
-        //return tokensList;
+    public ErgoTokensList getTokensList(NetworkType networkType){
+      
+        return new ErgoTokensList(getAppKey(), networkType, this, m_marketId, m_explorerId);
+
+    }
+
+    public ErgoTokensList getTokensList(NetworkType networkType, String marketId, String explorerId){
+      
+        return new ErgoTokensList(getAppKey(), networkType, this, marketId, explorerId);
+
     }
 
     @Override
@@ -641,9 +614,6 @@ public class ErgoTokens extends Network implements NoteInterface {
 
     }
 
-    public SimpleObjectProperty<ErgoExplorerData> explorerDataProperty(){
-        return m_selectedExplorerData;
-    }
 
     public static Image getAppIcon() {
         return new Image("/assets/diamond-150.png");
@@ -654,8 +624,8 @@ public class ErgoTokens extends Network implements NoteInterface {
     }
 
     public String getFile(NetworkType networkType) {
-
-        return networkType == NetworkType.MAINNET ? m_dataFile.getAbsolutePath() : m_testnetDataFile.getAbsolutePath();
+  
+        return networkType == NetworkType.MAINNET ? getIdDataFile(NAME).getAbsolutePath() : m_testnetDataFile.getAbsolutePath();
 
     }
 
@@ -669,20 +639,18 @@ public class ErgoTokens extends Network implements NoteInterface {
         getLastUpdated().set(LocalDateTime.now());
     }
 
+
+
     @Override
     public JsonObject getJsonObject() {
         JsonObject json = super.getJsonObject();
         json.addProperty("appDir", m_appDir.getAbsolutePath());
         json.addProperty("networkType", m_networkType.toString());
-        if (m_dataFile != null) {
-            json.addProperty("dataFile", m_dataFile.getAbsolutePath());
-        }
-        if (m_testnetDataFile != null) {
-            json.addProperty("testnetDataFile", m_testnetDataFile.getAbsolutePath());
-        }
+   
         if(m_explorerId != null){
             json.addProperty("explorerId", m_explorerId);
         }
+        json.addProperty("marketId",m_marketId == null ? "NULL" : m_marketId);
         return json;
     }
 
@@ -708,8 +676,8 @@ public class ErgoTokens extends Network implements NoteInterface {
             }
         }
         
-        m_tokensList = new TokensList(appKey, m_networkType, this);
-
+        ErgoTokensList tokensList = new ErgoTokensList(appKey, m_networkType, this, m_marketId, m_explorerId);
+     
         if (tokensDir.isDirectory() && createdtokensDirectory) {
             //ArrayList<ErgoNetworkToken> ergoTokenList = new ArrayList<ErgoNetworkToken>();
 
@@ -722,7 +690,7 @@ public class ErgoTokens extends Network implements NoteInterface {
                 zipStream = new ZipInputStream(is);
                 final Blake2b digest = Blake2b.Digest.newInstance(32);
             
-                String tokensPathString = tokensDir.getCanonicalPath();
+                String tokensPathString = tokensDir.getAbsolutePath();
 
                 if (zipStream != null) {
                     // Enumeration<? extends ZipEntry> entries = zipFile.entries();
@@ -768,7 +736,8 @@ public class ErgoTokens extends Network implements NoteInterface {
                           //      ErgoNetworkToken token = createToken();
                             
                              //   if (token != null) {
-                                    m_tokensList.addToken(fileName, fileString, hashData);
+
+                                    tokensList.addToken(fileName, fileString, hashData);
                                // }
 
                             } catch (IOException ex) {
@@ -809,108 +778,20 @@ public class ErgoTokens extends Network implements NoteInterface {
             }
 
 
-            save(appKey, m_tokensList.getJsonObject(), m_networkType);
+            save(appKey, tokensList.getJsonObject(), m_networkType);
         }
 
     }
-    /* 
-    public ErgoNetworkToken createToken(String key, String imageString, HashData hashData) {
-        ErgoNetworkToken ergoToken = null;
-       
-        NetworkType networkType = NetworkType.MAINNET;
-        switch (key) {
-            case "aht":
-                ergoToken = new ErgoNetworkToken("Ergo Auction House", "https://ergoauctions.org/", "18c938e1924fc3eadc266e75ec02d81fe73b56e4e9f4e268dffffcb30387c42d", imageString, hashData, networkType, this);
-                break;
-            case "comet":
-                ergoToken = new ErgoNetworkToken("Comet", "https://thecomettoken.com/", "0cd8c9f416e5b1ca9f986a7f10a84191dfb85941619e49e53c0dc30ebf83324b", imageString, hashData, networkType, this);
-                break;
-            case "cypx":
-                ergoToken = new ErgoNetworkToken("CyberVerse", "https://cybercitizens.io/dist/pages/cyberverse.html", "01dce8a5632d19799950ff90bca3b5d0ca3ebfa8aaafd06f0cc6dd1e97150e7f", imageString, hashData, networkType, this);
-                break;
-            case "egio":
-                ergoToken = new ErgoNetworkToken("ErgoGames.io", "https://www.ergogames.io/", "00b1e236b60b95c2c6f8007a9d89bc460fc9e78f98b09faec9449007b40bccf3", imageString, hashData, networkType, this);
-                break;
-            case "epos":
-                ergoToken = new ErgoNetworkToken("ErgoPOS", "https://www.tabbylab.io/", "00bd762484086cf560d3127eb53f0769d76244d9737636b2699d55c56cd470bf", imageString, hashData, networkType, this);
-                break;
-            case "erdoge":
-                ergoToken = new ErgoNetworkToken("Erdoge", "https://erdoge.biz/", "36aba4b4a97b65be491cf9f5ca57b5408b0da8d0194f30ec8330d1e8946161c1", imageString, hashData, networkType, this);
-                break;
+   
+   
+    public SimpleLongProperty timeStampProperty(){
+        return m_timeStampProperty;
+    }
 
-            case "ergold":
-                ergoToken = new ErgoNetworkToken("Ergold", "https://github.com/supERGeometry/Ergold", "e91cbc48016eb390f8f872aa2962772863e2e840708517d1ab85e57451f91bed", imageString, hashData, networkType, this);
-                break;
-            case "ergone":
-                ergoToken = new ErgoNetworkToken("ErgOne NFT", "http://ergone.io/", "fcfca7654fb0da57ecf9a3f489bcbeb1d43b56dce7e73b352f7bc6f2561d2a1b", imageString, hashData, networkType, this);
-                break;
-            case "ergopad":
-                ergoToken = new ErgoNetworkToken("ErgoPad", "https://www.ergopad.io/", "d71693c49a84fbbecd4908c94813b46514b18b67a99952dc1e6e4791556de413", imageString, hashData, networkType, this);
-                break;
-            case "ermoon":
-                ergoToken = new ErgoNetworkToken("ErMoon", "", "9dbc8dd9d7ea75e38ef43cf3c0ffde2c55fd74d58ac7fc0489ec8ffee082991b", imageString, hashData, networkType, this);
-                break;
-            case "exle":
-                ergoToken = new ErgoNetworkToken("Ergo-Lend", "https://exle.io/", "007fd64d1ee54d78dd269c8930a38286caa28d3f29d27cadcb796418ab15c283", imageString, hashData, networkType, this);
-                break;
-            case "flux":
-                ergoToken = new ErgoNetworkToken("Flux", "https://runonflux.io/", "e8b20745ee9d18817305f32eb21015831a48f02d40980de6e849f886dca7f807", imageString, hashData, networkType, this);
-                break;
-            case "getblock":
-                ergoToken = new ErgoNetworkToken("GetBlok.io", "https://www.getblok.io/", "4f5c05967a2a68d5fe0cdd7a688289f5b1a8aef7d24cab71c20ab8896068e0a8", imageString, hashData, networkType, this);
-                break;
-            case "kushti":
-                ergoToken = new ErgoNetworkToken("Kushti", "https://github.com/kushti", "fbbaac7337d051c10fc3da0ccb864f4d32d40027551e1c3ea3ce361f39b91e40", imageString, hashData, networkType, this);
-                break;
-            case "love":
-                ergoToken = new ErgoNetworkToken("Love", "https://explorer.ergoplatform.com/en/issued-tokens?searchQuery=3405d8f709a19479839597f9a22a7553bdfc1a590a427572787d7c44a88b6386", "3405d8f709a19479839597f9a22a7553bdfc1a590a427572787d7c44a88b6386", imageString, hashData, networkType, this);
-                break;
-            case "lunadog":
-                ergoToken = new ErgoNetworkToken("LunaDog", "https://explorer.ergoplatform.com/en/issued-tokens?searchQuery=5a34d53ca483924b9a6aa0c771f11888881b516a8d1a9cdc535d063fe26d065e", "5a34d53ca483924b9a6aa0c771f11888881b516a8d1a9cdc535d063fe26d065e", imageString, hashData, networkType, this);
-                break;
-            case "migoreng":
-                ergoToken = new ErgoNetworkToken("Mi Goreng", "https://docs.google.com/spreadsheets/d/148c1iHNMNfyjscCcPznepkEnMp2Ycj3HuLvpcLsnWrM/edit#gid=205730070", "0779ec04f2fae64e87418a1ad917639d4668f78484f45df962b0dec14a2591d2", imageString, hashData, networkType, this);
-                break;
-            case "neta":
-                ergoToken = new ErgoNetworkToken("anetaBTC", "https://anetabtc.io/", "472c3d4ecaa08fb7392ff041ee2e6af75f4a558810a74b28600549d5392810e8", imageString, hashData, networkType, this);
-                break;
-            case "obsidian":
-                ergoToken = new ErgoNetworkToken("Adventurers DAO", "https://adventurersdao.xyz/", "2a51396e09ad9eca60b1bdafd365416beae155efce64fc3deb0d1b3580127b8f", imageString, hashData, networkType, this);
-                break;
-            case "ogre":
-                ergoToken = new ErgoNetworkToken("Ogre", "https://ogre-token.web.app", "6de6f46e5c3eca524d938d822e444b924dbffbe02e5d34bd9dcd4bbfe9e85940", imageString, hashData, networkType, this);
-                break;
-            case "paideia":
-                ergoToken = new ErgoNetworkToken("Paideia", "https://www.paideia.im/", "1fd6e032e8476c4aa54c18c1a308dce83940e8f4a28f576440513ed7326ad489", imageString, hashData, networkType, this);
-                break;
-            case "proxie":
-                ergoToken = new ErgoNetworkToken("Proxies NFT", "https://proxiesnft.io/", "01ddcc3d0205c2da8a067ffe047a2ccfc3e8241bc3fcc6f6ebc96b7f7363bb36", imageString, hashData, networkType, this);
-                break;
-            case "quacks":
-                ergoToken = new ErgoNetworkToken("duckpools.io", "https://www.duckpools.io/", "089990451bb430f05a85f4ef3bcb6ebf852b3d6ee68d86d78658b9ccef20074f", imageString, hashData, networkType, this);
-                break;
-            case "sigrsv":
-                ergoToken = new ErgoNetworkToken("Sigma Reserve", "https://sigmausd.io/", "003bd19d0187117f130b62e1bcab0939929ff5c7709f843c5c4dd158949285d0", imageString, hashData, networkType, this);
-                break;
-            case "sigusd":
-                ergoToken = new ErgoNetworkToken("Sigma USD", "https://sigmausd.io/", "03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04", imageString, hashData, networkType, this);
-                break;
-            case "spf":
-                ergoToken = new ErgoNetworkToken("Spectrum Finanace", "https://spectrum.fi/", "9a06d9e545a41fd51eeffc5e20d818073bf820c635e2a9d922269913e0de369d", imageString, hashData, networkType, this);
-                break;
-            case "terahertz":
-                ergoToken = new ErgoNetworkToken("swamp.audio", "https://www.thz.fm/", "02f31739e2e4937bb9afb552943753d1e3e9cdd1a5e5661949cb0cef93f907ea", imageString, hashData, networkType, this);
-                break;
-            case "walrus":
-                ergoToken = new ErgoNetworkToken("Walrus Dao", "https://www.walrusdao.io/", "59ee24951ce668f0ed32bdb2e2e5731b6c36128748a3b23c28407c5f8ccbf0f6", imageString, hashData, networkType, this);
-                break;
-            case "woodennickels":
-                ergoToken = new ErgoNetworkToken("Wooden Nickles", "https://brianrxm.com/comimg/cnsmovtv_perrymason_woodennickels_12.jpg", "4c8ac00a28b198219042af9c03937eecb422b34490d55537366dc9245e85d4e1", imageString, hashData, networkType, this);
-                break;
-        }
-
-        return ergoToken;
-    }*/
+    public void save(JsonObject listJson, NetworkType networkType, long timeStamp) {
+        save(getAppKey(), listJson, networkType);
+        timeStampProperty().set(timeStamp);
+    }
 
     public void save(SecretKey appKey, JsonObject listJson, NetworkType networkType) {
 
@@ -945,12 +826,13 @@ public class ErgoTokens extends Network implements NoteInterface {
                 byte[] encryptedData = cipher.doFinal(tokenString.getBytes());
 
                 try {
+                    File tokenListFile = getIdDataFile(NAME);
 
-                    if (m_dataFile.isFile()) {
-                        Files.delete(m_dataFile.toPath());
+                    if (tokenListFile.exists()) {
+                        Files.delete(tokenListFile.toPath());
                     }
 
-                    FileOutputStream outputStream = new FileOutputStream(m_dataFile);
+                    FileOutputStream outputStream = new FileOutputStream(tokenListFile);
                     FileChannel fc = outputStream.getChannel();
 
                     ByteBuffer byteBuffer = ByteBuffer.wrap(iV);
@@ -990,6 +872,8 @@ public class ErgoTokens extends Network implements NoteInterface {
             }
         }
     }
+    
+    
 
     @Override
     public IconButton getButton(String iconStyle) {

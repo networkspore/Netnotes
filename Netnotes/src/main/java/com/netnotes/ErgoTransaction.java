@@ -148,7 +148,7 @@ public class ErgoTransaction {
                 }, (onFailed)->{
                     
                     try {
-                        Files.writeString(logFile.toPath(), "tx doUpdate failed: " + onFailed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                        Files.writeString(logFile.toPath(), "\ntx doUpdate failed: " + onFailed.getSource().getException().toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                     } catch (IOException e) {
         
                     }
@@ -565,8 +565,28 @@ public class ErgoTransaction {
 
             ErgoAmountBox ergoAmountBox = new ErgoAmountBox(getErgoAmount(), txScene, getParentAddress().getNetworksData().getHostServices());
             HBox.setHgrow(ergoAmountBox, Priority.ALWAYS);
-            ergoAmountBox.priceQuoteProperty().bind(getParentAddress().getAddressesData().currentPriceQuoteProperty());
+       
             ergoAmountBox.priceAmountProperty().bind(ergoAmountProperty());
+
+            ChangeListener<PriceQuote> quoteChangeListener = (obs,oldval,newval)->{
+                ergoAmountBox.priceQuoteProperty().set(newval);
+            };
+
+            m_parentAddress.getAddressesData().selectedMarketData().addListener((obs, oldval, newVal) -> {
+                if (oldval != null) {
+                    oldval.priceQuoteProperty().removeListener(quoteChangeListener);
+                   // oldval.shutdown();
+                }
+                if (newVal != null) {
+                    newVal.priceQuoteProperty().addListener(quoteChangeListener);
+                    ergoAmountBox.priceQuoteProperty().set(newVal.priceQuoteProperty().get());
+                }
+            });
+
+            if(m_parentAddress.getAddressesData().selectedMarketData().get() != null){
+                ergoAmountBox.priceQuoteProperty().set(m_parentAddress.getAddressesData().selectedMarketData().get().priceQuoteProperty().get());
+            }
+    
 
             HBox amountBoxPadding = new HBox(ergoAmountBox);
             amountBoxPadding.setPadding(new Insets(10, 10, 0, 10));
@@ -583,7 +603,7 @@ public class ErgoTransaction {
                     for (int i = 0; i < numTokens; i++) {
                         PriceAmount tokenAmount = tokens[i];
 
-                        AmountBox amountBox = new AmountBox(tokenAmount,txScene, getParentAddress().getAddressesData().isErgoTokensProperty(), getParentAddress().getAddressesData().getWalletData().getErgoWallets().getErgoNetworkData());
+                        AmountBox amountBox = new AmountBox(tokenAmount,txScene, getParentAddress().getAddressesData());
                         amountBoxes.add(amountBox);
                         
                     }
@@ -914,7 +934,7 @@ public class ErgoTransaction {
         
         if(jsonArray != null && jsonArray.size() > 0){
             ErgoTokens ergoTokens = getParentAddress().getAddressesData().isErgoTokensProperty().get() ? (ErgoTokens) getParentAddress().getAddressesData().getWalletData().getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID) : null;
-            TokensList tokensList = ergoTokens != null ? ergoTokens.getTokensList(getParentAddress().getNetworkType()) : null;
+            ErgoTokensList tokensList = ergoTokens != null ? ergoTokens.getTokensList(getParentAddress().getNetworkType()) : null;
 
             int size = jsonArray.size();
             ArrayList<PriceAmount> tokenArrayList = new ArrayList<>();

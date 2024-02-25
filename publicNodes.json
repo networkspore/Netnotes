@@ -1,5 +1,5 @@
 {
-    "timeStamp":"1692406173255",
+    "timeStamp":"1708033542192",
     "nodes":
         [
             {
@@ -8,6 +8,13 @@
                 "protocol":"http",
                 "ip":"213.239.193.208",
                 "port":9053
+            },
+            {
+                "id": "PUBLIC_SERVER_#2",
+                "name": "Public node #2",
+                "protocol": "http",
+                "ip": "159.65.11.55",
+                "port": 9053
             }
         ]
 }

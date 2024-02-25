@@ -35,7 +35,7 @@ public class AmountSendBox extends AmountBox {
 
   
 
-    private SimpleObjectProperty<PriceAmount> m_balanceAmount = new SimpleObjectProperty<>();
+    private SimpleObjectProperty<PriceAmount> m_balanceAmount;
     private SimpleObjectProperty<Image> m_maxAmountImage = new SimpleObjectProperty<>();
     private SimpleBooleanProperty m_isFee = new SimpleBooleanProperty();
     private AmountFeeBox m_feeBox = null;
@@ -43,6 +43,7 @@ public class AmountSendBox extends AmountBox {
 
     public AmountSendBox(PriceAmount priceAmount, Scene scene, boolean editable) {
         super();
+        m_balanceAmount =  new SimpleObjectProperty<>(new PriceAmount(0L, priceAmount.getCurrency()));
         setId("darkBox");
         setMinHeight(40);
         priceAmountProperty().set(priceAmount);
@@ -75,16 +76,19 @@ public class AmountSendBox extends AmountBox {
         maxAmountBtn.setContentDisplay(ContentDisplay.RIGHT);
         maxAmountBtn.setAlignment(Pos.CENTER_RIGHT);
         maxAmountBtn.setPadding(new Insets(0, 0, 0, 0));
-        maxAmountBtn.setGraphic(IconButton.getIconView(new Image("/assets/selectAddress.png"), 172));
 
-        m_maxAmountImage.addListener((obs,oldval,newval)->{
-            Image newImage = newval;
+        Runnable updateImage = ()->{
+        
+            Image newImage = m_maxAmountImage.get();
             if(newImage != null){
                 maxAmountBtn.setGraphic(IconButton.getIconView(newImage,newImage.getWidth()));
             }else{
-                maxAmountBtn.setGraphic(IconButton.getIconView(new Image("/assets/selectAddress.png"), 172));
+                maxAmountBtn.setGraphic(null);
             }
-        });
+        
+        };
+        updateImage.run();
+        m_maxAmountImage.addListener((obs,oldval,newval)->updateImage.run());
 
         String textFieldId = getBoxId() +"TextField";
 

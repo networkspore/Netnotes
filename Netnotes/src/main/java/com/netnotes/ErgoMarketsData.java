@@ -1,27 +1,21 @@
 package com.netnotes;
 
 
+import java.io.File;
 import java.time.LocalDateTime;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
-import com.devskiller.friendly_id.FriendlyId;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.utils.Utils;
 
-
+import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-
 import javafx.scene.control.TextField;
-
 import javafx.scene.image.Image;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -33,7 +27,7 @@ import javafx.scene.text.Text;
 
 public class ErgoMarketsData {
 
-  //  private File logFile = new File("netnotes-log.txt");;
+    public static File logFile = new File("netnotes-log.txt");;
 
     public final static String SCHEDULED = "Scheduled";
     public final static String POLLING = "Polling";
@@ -45,11 +39,14 @@ public class ErgoMarketsData {
     public final static String POLLED = "POLLED";
     public final static String REALTIME = "REALTIME";
 
+
+    private final static double CURRENCY_COL_WIDTH = 80;
+
     public final static String TICKER = "ticker";
 
     private ErgoMarketsList m_marketsList;
 
-    private Font m_priceFont = Font.font("OCR A Extended", FontWeight.BOLD, 30);
+    private Font m_priceFont = Font.font("OCR A Extended", FontWeight.NORMAL, 25);
     private Font m_font = Font.font("OCR A Extended", FontWeight.BOLD, 13);
 
     private Font m_smallFont =Font.font("OCR A Extended", FontWeight.NORMAL, 10);
@@ -68,34 +65,35 @@ public class ErgoMarketsData {
     private String m_name;
     private String m_baseSymbol = "ERG";
     private String m_quoteSymbol = "USDT";
-    private String m_marketId = KucoinExchange.NETWORK_ID;
     private String m_updateType = TICKER;
     private String m_value = null;
     private SimpleObjectProperty<LocalDateTime> m_shutdownNow = new SimpleObjectProperty<>(LocalDateTime.now());
-   
-
-    private ScheduledExecutorService m_polledExecutor = null;
+    private ChangeListener<LocalDateTime> m_shutdownListener = null;
 
     private SimpleObjectProperty<PriceQuote> m_priceQuoteProperty = new SimpleObjectProperty<PriceQuote>(null);
     private SimpleStringProperty m_statusProperty = new SimpleStringProperty(STOPPED);
-    private MessageInterface m_msgListener;
 
-    public ErgoMarketsData(ErgoMarketsList marketsList, JsonObject json) {
+    private SimpleObjectProperty<PriceQuote[]> m_marketDataProperty = new SimpleObjectProperty<>(new PriceQuote[0]);
+
+    public ErgoMarketsData(ErgoMarketsList marketsList, JsonObject json) throws NullPointerException {
         m_marketsList = marketsList;
         if (json != null) {
 
             JsonElement idElement = json.get("id");
             JsonElement typeElement = json.get("type");
             JsonElement valueElement = json.get("value");
-            JsonElement marketIdElement = json.get("marketId");
             JsonElement symbolElement = json.get("symbol");
             JsonElement nameElement = json.get("name");
 
-            m_id = idElement == null ? FriendlyId.createFriendlyId() : idElement.getAsString();
-            m_marketId = marketIdElement == null ? null : marketIdElement.getAsString();
+            m_id = idElement == null ? null : idElement.getAsString();
+
+            if(m_id == null){
+                throw new NullPointerException("ErgoMarketData null Id");
+            }
+
             m_updateType = typeElement == null ? null : typeElement.getAsString();
             m_value = valueElement == null ? null : valueElement.getAsString();
-            m_name = nameElement == null ? "market #" + m_id : nameElement.getAsString();
+            m_name = nameElement == null ?  m_id : nameElement.getAsString();
 
             JsonObject symbolObject = symbolElement != null && symbolElement.isJsonObject() ? symbolElement.getAsJsonObject() : null;
 
@@ -106,25 +104,38 @@ public class ErgoMarketsData {
 
             } else {
                 m_baseSymbol = "ERG";
-                m_quoteSymbol = "USDT";
+                m_quoteSymbol = "";
             }
         } else {
-            m_id = FriendlyId.createFriendlyId();
+            throw new NullPointerException("ErgoMarketData null Id");
         }
 
 
     }
 
-    public ErgoMarketsData(String id, String name, String marketId, String baseSymbol, String quoteSymbol, String updateType, String updateValue, ErgoMarketsList marketsList) {
-        m_id = id;
+    public ErgoMarketsData(String name, String marketId, String baseSymbol, String quoteSymbol, String updateType, String updateValue, ErgoMarketsList marketsList) {
+    
         m_name = name;
         m_baseSymbol = baseSymbol;
         m_quoteSymbol = quoteSymbol;
-        m_marketId = marketId;
+        m_id = marketId;
         m_updateType = updateType;
         m_value = updateValue;
         m_marketsList = marketsList;
 
+    }
+
+    public void setShutdownListener(ChangeListener<LocalDateTime> lisener){
+        m_shutdownListener = lisener;
+        m_shutdownNow.addListener(m_shutdownListener);
+    }
+
+    public ChangeListener<LocalDateTime> getShutdownListener(){
+        return m_shutdownListener;
+    }
+
+    public SimpleStringProperty statusProperty(){
+        return m_statusProperty;
     }
 
     public String getName(){
@@ -150,13 +161,12 @@ public class ErgoMarketsData {
     }
 
     public String getMarketId() {
-        return m_marketId;
+        return m_id;
     }
 
 
-
-    public void setMarketid(String marketId) {
-        m_marketId = marketId;
+    public SimpleObjectProperty<PriceQuote[]> marketDataProperty(){
+        return m_marketDataProperty;
     }
 
     public String getUpdateType() {
@@ -175,6 +185,46 @@ public class ErgoMarketsData {
         return m_priceFont;
     }
 
+    public void setPriceFont(Font font){
+        m_priceFont = font;
+    }
+
+   public Font getFont(){
+        return m_font;
+   }
+   public void setFont(Font font){
+    m_font = font;
+   }
+
+   public Font getSmallFont(){
+    return m_smallFont;
+   }
+   public void setSmallFont(Font font){
+    m_font = font;
+   }
+
+   public Color getBaseCurrencyColor(){
+    return m_baseCurrencyColor;
+   }
+   public Color getQuoteCurrencyColor(){
+    return m_quoteCurrencyColor;
+   }
+   public String getRadioOffUrl(){
+    return m_radioOffUrl;
+   }
+   public String getRadioOnUrl(){
+    return m_radioOnUrl;
+   }
+
+   public String getStartImgUrl(){
+    return m_startImgUrl;
+   }
+
+   public String getStopImgUrl(){
+    return m_stopImgUrl;
+   }
+
+
     public JsonObject getSymbolJson() {
         JsonObject json = new JsonObject();
         json.addProperty("base", m_baseSymbol);
@@ -187,229 +237,79 @@ public class ErgoMarketsData {
         json.addProperty("id", m_id);
         json.addProperty("type", m_updateType);
         json.addProperty("value", m_value);
-        json.addProperty("marketId", m_marketId);
         json.addProperty("name", m_name);
         json.add("symbol", getSymbolJson());
         return json;
     }
 
-    
-    private NoteInterface m_marketInterface = null;
 
-    public void start() {
-        if (m_marketId != null &&  !m_statusProperty.get().equals(STARTED)) {
-            m_marketInterface = m_marketsList.getErgoMarkets().getNetworksData().getNoteInterface(m_marketId);
-            if (m_marketInterface != null) {
-
-                if (m_marketInterface instanceof KucoinExchange) {
-                    KucoinExchange exchange = (KucoinExchange) m_marketInterface;
-
-                    switch (m_updateType) {
-                        case POLLED:
-                            startPollingKuCoin(exchange);
-                            break;
-                        case REALTIME:
-                            startKucoinListener(exchange);
-                    }
-                }
-
-            }
-        }
+    public ErgoMarketsList getMarketsList(){
+        return m_marketsList;
     }
 
-    private void startKucoinListener(KucoinExchange exchange) {
-        String symbol = m_baseSymbol + "-" + m_quoteSymbol;
-        switch (m_value) {
-            case TICKER:
-                startTicker(symbol, exchange);
-                break;
-        }
 
-    }
 
-    private ChangeListener<LocalDateTime> m_shutdownListener = null;
-
-    private void stopTicker(KucoinExchange exchange) {
-
-        boolean removed = exchange.removeMsgListener(m_msgListener);
-        if (removed) {
-
-            exchange.unsubscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
-            m_statusProperty.set(STOPPED);
-
-            m_shutdownNow.removeListener(m_shutdownListener);
-        }
-    }
-
-    private void startTicker(String symbol, KucoinExchange exchange) {
-        m_statusProperty.set(STARTING);
-
-        String subjectString = "trade.ticker";
-        String topicString = "/market/ticker:" + symbol;
-
-        exchange.getTicker(symbol, (onSucceeded) -> {
-            Object sourceObject = onSucceeded.getSource().getValue();
-            if (sourceObject != null && sourceObject instanceof JsonObject) {
-                onTickerMsg((JsonObject) sourceObject);
-            }
-        }, (onFailed) -> {
-            m_statusProperty.set(ERROR);
-        });
-
-        m_msgListener = new MessageInterface() {
-
-            public String getSubject() {
-                return subjectString;
-            }
-
-            public String getTopic() {
-                return topicString;
-            }
-
-            public String getTunnelId() {
-                return null;
-            }
-
-            public String getId() {
-                return m_id;
-            }
-
-            public void onMsgChanged(JsonObject json) {
-                /*try {
-                    Files.writeString(logFile.toPath(), json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }*/
-
-                JsonElement subjectElement = json.get("subject");
-                JsonElement topicElement = json.get("topic");
-
-                String subject = subjectElement != null && subjectElement.isJsonPrimitive() ? subjectElement.getAsString() : null;
-                String topic = topicElement != null && topicElement.isJsonPrimitive() ? topicElement.getAsString() : null;
-                if (subject != null && topic != null && subject.equals(subjectString)) {
-
-                    if (topic.substring(topic.length() - symbol.length(), topic.length()).equals(symbol)) {
-                        onTickerMsg(json);
-                    }
-                }
-            }
-
-            public void onReady() {
-                /*try {
-                    Files.writeString(logFile.toPath(), "\nready", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-
-                }*/
-
-                exchange.subscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
-            }
-        };
-
-        exchange.addMsgListener(m_msgListener);
-
-        if (exchange.isClientReady()) {
-
-            exchange.subscribeToTicker(m_id, m_baseSymbol + "-" + m_quoteSymbol);
-
-        }
-
-        m_shutdownListener = (obs, oldval, newVal) -> {
-            stopTicker(exchange);
-        };
-
-        m_shutdownNow.addListener(m_shutdownListener);
-
-    }
-
-    private void onTickerMsg(JsonObject json) {
       
-        if (json != null) {
+    public void start(){
 
-            JsonElement dataElement = json.get("data");
-
-            if (dataElement != null && dataElement.isJsonObject()) {
-                JsonObject dataObject = dataElement.getAsJsonObject();
-
-                JsonElement priceElement = dataObject.get("price");
-               // JsonElement timeElement = dataObject.get("time");
-               String priceString = priceElement != null && priceElement.isJsonPrimitive() ? priceElement.getAsString() : null;
-
-
-
-                if(priceString!=null){
-                    priceQuoteProperty().set(new PriceQuote(priceString, m_baseSymbol, m_quoteSymbol, System.currentTimeMillis()));
-                }
-            }
-        }
     }
 
-    private void startPollingKuCoin(KucoinExchange exchange) {
+    public String getValue(){
+        return m_value;
+    }
 
-        m_statusProperty.set(STARTED);
+    public String getQuoteSymbol(){
+        return m_quoteSymbol;
+    }
 
-        long seconds = Long.parseLong(m_value);
-        if (seconds > 0) {
-            m_polledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
-                public Thread newThread(Runnable r) {
-                    Thread t = Executors.defaultThreadFactory().newThread(r);
-                    t.setDaemon(true);
-                    return t;
-                }
-            });
-
-            m_polledExecutor.schedule(() -> {
-                m_statusProperty.set(POLLING);
-                exchange.getTicker(m_baseSymbol + "-" + m_quoteSymbol, (success) -> {
-                    Object sourceObject = success.getSource().getValue();
-                    if (sourceObject != null && sourceObject instanceof PriceQuote) {
-                        PriceQuote priceQuote = (PriceQuote) sourceObject;
-                        m_priceQuoteProperty.set(priceQuote);
-                    }
-                }, (failed) -> {
-                    m_statusProperty.set(ERROR);
-                });
-            }, seconds, TimeUnit.SECONDS);
-
-            m_statusProperty.set(SCHEDULED);
-
-        }
-
+    public String getBaseSymbol(){
+        return m_baseSymbol;
     }
 
     public SimpleObjectProperty<PriceQuote> priceQuoteProperty() {
         return m_priceQuoteProperty;
     }
-    
+
+
+    public void shutdown() {
+        m_shutdownNow.set(LocalDateTime.now());
+
+    }
+
+    public SimpleObjectProperty<LocalDateTime> getShutdownNow(){
+        return m_shutdownNow;
+    }
+
     public HBox getRowItem() {
-        String defaultId = m_marketsList.defaultIdProperty().get();
+        String defaultId = getMarketsList().defaultIdProperty().get();
 
-        BufferedButton defaultBtn = new BufferedButton(defaultId != null && m_id.equals(defaultId) ? m_radioOnUrl : m_radioOffUrl, 15);
+        BufferedButton defaultBtn = new BufferedButton(defaultId != null && getId().equals(defaultId) ?getRadioOnUrl() : getRadioOffUrl(), 15);
 
-        m_marketsList.defaultIdProperty().addListener((obs, oldval, newVal) -> {
-            defaultBtn.getBufferedImageView().setDefaultImage(new Image(newVal != null && m_id.equals(newVal) ? m_radioOnUrl : m_radioOffUrl));
+        getMarketsList().defaultIdProperty().addListener((obs, oldval, newVal) -> {
+            defaultBtn.getBufferedImageView().setDefaultImage(new Image(newVal != null && getId().equals(newVal) ? getRadioOnUrl() : getRadioOffUrl()));
         });
 
-        String valueString = m_value == null ? "" : m_value;
-        String amountString = m_priceQuoteProperty.get() == null ? "-" : m_priceQuoteProperty.get().getAmountString();
-        String baseCurrencyString = m_priceQuoteProperty.get() == null ? m_baseSymbol : m_priceQuoteProperty.get().getTransactionCurrency();
-        String quoteCurrencyString = m_priceQuoteProperty.get() == null ? m_quoteSymbol : m_priceQuoteProperty.get().getQuoteCurrency();
+        String valueString = getValue() == null ? "" : getValue();
+        String amountString = priceQuoteProperty().get() == null ? "-" : priceQuoteProperty().get().getAmountString();
+        String baseCurrencyString = priceQuoteProperty().get() == null ? getBaseSymbol() : priceQuoteProperty().get().getTransactionCurrency();
+        String quoteCurrencyString = priceQuoteProperty().get() == null ? getQuoteSymbol() : priceQuoteProperty().get().getQuoteCurrency();
 
         Text topValueText = new Text(valueString);
-        topValueText.setFont(m_font);
-        topValueText.setFill(m_baseCurrencyColor);
+        topValueText.setFont(getFont());
+        topValueText.setFill(getBaseCurrencyColor());
 
         Text topInfoStringText = new Text(getName());
-        topInfoStringText.setFont(m_font);
-        topInfoStringText.setFill(m_baseCurrencyColor);
+        topInfoStringText.setFont(getFont());
+        topInfoStringText.setFill(getBaseCurrencyColor());
 
         Text topRightText = new Text("");
-        topRightText.setFont(m_font);
-        topRightText.setFill(m_baseCurrencyColor);
+        topRightText.setFont(getFont());
+        topRightText.setFill(getBaseCurrencyColor());
 
 
         Text botTimeText = new Text();
-        botTimeText.setFont(m_smallFont);
-        botTimeText.setFill(m_baseCurrencyColor);
+        botTimeText.setFont(getSmallFont());
+        botTimeText.setFill(getBaseCurrencyColor());
 
         TextField amountField = new TextField(amountString);
         amountField.setFont(getPriceFont());
@@ -419,51 +319,52 @@ public class ErgoMarketsData {
         amountField.setPadding(new Insets(0, 10, 0, 0));
 
         Text baseCurrencyText = new Text(baseCurrencyString);
-        baseCurrencyText.setFont(m_font);
-        baseCurrencyText.setFill(m_baseCurrencyColor);
+        baseCurrencyText.setFont(getFont());
+        baseCurrencyText.setFill(getBaseCurrencyColor());
 
         Text quoteCurrencyText = new Text(quoteCurrencyString);
-        quoteCurrencyText.setFont(m_font);
-        quoteCurrencyText.setFill(m_quoteCurrencyColor);
+        quoteCurrencyText.setFont(getFont());
+        quoteCurrencyText.setFill(getQuoteCurrencyColor());
 
         VBox currencyBox = new VBox(baseCurrencyText, quoteCurrencyText);
         currencyBox.setAlignment(Pos.CENTER_RIGHT);
+        currencyBox.setMinWidth(CURRENCY_COL_WIDTH);
 
         VBox.setVgrow(currencyBox, Priority.ALWAYS);
 
-        BufferedButton statusBtn = new BufferedButton(m_statusProperty.get().equals(STOPPED) ? m_startImgUrl : m_stopImgUrl, 15);
+        BufferedButton statusBtn = new BufferedButton(statusProperty().get().equals(STOPPED) ? getStartImgUrl() : getStopImgUrl(), 15);
         statusBtn.setId("statusBtn");
         statusBtn.setPadding(new Insets(0, 10, 0, 10));
         statusBtn.setOnAction(action -> {
-            if (m_statusProperty.get().equals(STOPPED)) {
+            if (statusProperty().get().equals(STOPPED)) {
                 start();
             } else {
-                m_shutdownNow.set(LocalDateTime.now());
+                shutdown();
             }
         });
 
-        m_statusProperty.addListener((obs, oldVal, newVal) -> {
-            switch (m_statusProperty.get()) {
+        statusProperty().addListener((obs, oldVal, newVal) -> {
+            switch (statusProperty().get()) {
                 case STOPPED:
-                    statusBtn.getBufferedImageView().setDefaultImage(new Image(m_startImgUrl), 15);
+                    statusBtn.getBufferedImageView().setDefaultImage(new Image(getStartImgUrl()), 15);
                     break;
                 default:
-                    statusBtn.getBufferedImageView().setDefaultImage(new Image(m_stopImgUrl), 15);
+                    statusBtn.getBufferedImageView().setDefaultImage(new Image(getStopImgUrl()), 15);
                     break;
             }
         });
 
-        m_priceQuoteProperty.addListener((obs, oldVal, newVal) -> {
-            String updateAmountString = m_priceQuoteProperty.get() == null ? "-" : m_priceQuoteProperty.get().getAmountString();
-            String updateBaseCurrencyString = m_priceQuoteProperty.get() == null ? m_baseSymbol : m_priceQuoteProperty.get().getTransactionCurrency();
-            String updateQuoteCurrencyString = m_priceQuoteProperty.get() == null ? m_quoteSymbol : m_priceQuoteProperty.get().getQuoteCurrency();
-            String updateTimeString = m_priceQuoteProperty.get() == null ? "" : Utils.formatTimeString(Utils.milliToLocalTime(m_priceQuoteProperty.get().getTimeStamp()));
+        priceQuoteProperty().addListener((obs, oldVal, newVal) -> {
+            String updateAmountString = priceQuoteProperty().get() == null ? "-" : priceQuoteProperty().get().getAmountString();
+            String updateBaseCurrencyString = priceQuoteProperty().get() == null ? getBaseSymbol() : priceQuoteProperty().get().getTransactionCurrency();
+            String updateQuoteCurrencyString = priceQuoteProperty().get() == null ? getQuoteSymbol() : priceQuoteProperty().get().getQuoteCurrency();
+            String updateTimeString = priceQuoteProperty().get() == null ? "" : Utils.formatTimeString(Utils.milliToLocalTime(priceQuoteProperty().get().getTimeStamp()));
 
             amountField.setText(updateAmountString);
             baseCurrencyText.setText(updateBaseCurrencyString);
             quoteCurrencyText.setText(updateQuoteCurrencyString);
 
-            topValueText.setText(m_value == null ? "" : m_value);
+            topValueText.setText(getValue() == null ? "" : getValue());
             botTimeText.setText(updateTimeString);
         });
 
@@ -512,20 +413,38 @@ public class ErgoMarketsData {
         HBox rowBox = new HBox(leftBox, bodyBox, rightBox);
         rowBox.setAlignment(Pos.CENTER_LEFT);
         rowBox.setId("rowBox");
+        
+        rowBox.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
+            if(e.getClickCount() == 2){
+                Network market = (Network) m_marketsList.getErgoMarkets().getNetworksData().getNoteInterface(m_id);
+                if(market != null){
+                    Platform.runLater(()->market.open());
+                }
+                e.consume();
+            }else{
+                Platform.runLater(() -> {
+                    m_marketsList.selectedIdProperty().set(getId());
+                    
+                });
+                e.consume();
+            }
+            
+        });
 
+        Runnable updateSelected = () -> {
+            String selectedId = m_marketsList.selectedIdProperty().get();
+            boolean isSelected = selectedId != null && getId().equals(selectedId);
+
+            amountField.setId(isSelected ? "textField" : "priceField");
+
+            rowBox.setId(isSelected ? "selected" : "unSelected");
+        };
+
+        m_marketsList.selectedIdProperty().addListener((obs, oldval, newVal) -> updateSelected.run());
+        updateSelected.run();
         // centerBox.prefWidthProperty().bind(rowBox.widthProperty().subtract(leftBox.widthProperty()).subtract(rightBox.widthProperty()));
         start();
         return rowBox;
     }
 
-    public void shutdown() {
-        m_shutdownNow.set(LocalDateTime.now());
-
-        if (m_polledExecutor != null) {
-            m_polledExecutor.shutdownNow();
-            m_polledExecutor = null;
-        }
-    }
-
-  
 }

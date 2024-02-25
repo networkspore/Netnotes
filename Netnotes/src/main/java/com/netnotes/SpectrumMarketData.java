@@ -11,7 +11,7 @@ import java.nio.file.StandardOpenOption;
 
 import com.google.gson.JsonElement;
 
-public class SpectrumMarketData {
+public class SpectrumMarketData extends PriceQuote {
 
     private File logFile = new File("netnotes-log.txt");
 
@@ -28,45 +28,90 @@ public class SpectrumMarketData {
     private String m_poolId = null;
     private BigDecimal m_liquidityUSD = BigDecimal.ZERO;
 
-
+    private boolean m_defaultInvert = false;
+    
     public SpectrumMarketData(JsonObject json) throws Exception{
-     
-        JsonElement baseIdElement = json.get("base_id");
-        JsonElement baseSymbolElement = json.get("base_symbol");
-        JsonElement quoteIdElement = json.get("quote_id");
-        JsonElement quoteSymbolElement = json.get("quote_symbol");
-        JsonElement lastPriceElement = json.get("last_price");
-        JsonElement quoteVolumeElement = json.get("base_volume");
-        JsonElement baseVolumeElement = json.get("quote_volume");
-
+       // JsonElement idElement = json.get("id");
+        JsonElement baseIdElement = json.get("baseId");
+        JsonElement baseSymbolElement = json.get("baseSymbol");
+        JsonElement quoteIdElement = json.get("quoteId");
+        JsonElement quoteSymbolElement = json.get("quoteSymbol");
+        JsonElement lastPriceElement = json.get("lastPrice");
+        JsonElement quoteVolumeElement = json.get("baseVolume");
+        JsonElement baseVolumeElement = json.get("quoteVolume");
+// idElement != null && idElement.isJsonPrimitive() &&
         if(
-      
+           
             baseIdElement != null && baseIdElement.isJsonPrimitive() &&
             baseSymbolElement != null && baseSymbolElement.isJsonPrimitive() &&
             quoteIdElement != null && quoteIdElement.isJsonPrimitive() &&
             quoteSymbolElement != null && quoteSymbolElement.isJsonPrimitive() &&
             lastPriceElement != null && lastPriceElement.isJsonPrimitive() &&
-            baseVolumeElement != null &&  baseVolumeElement.isJsonPrimitive() &&
-            quoteVolumeElement != null && quoteVolumeElement.isJsonPrimitive()
+            baseVolumeElement != null &&  baseVolumeElement.isJsonObject() &&
+            quoteVolumeElement != null && quoteVolumeElement.isJsonObject()
         ){
+            m_lastPrice = lastPriceElement.getAsBigDecimal();
+            JsonObject quoteVolumeObject = quoteVolumeElement.getAsJsonObject();
+            long quoteVolumeValue = quoteVolumeObject.get("value").getAsLong();
+            int quoteVolumeDecimals = quoteVolumeObject.get("units").getAsJsonObject().get("asset").getAsJsonObject().get("decimals").getAsInt();
+            BigDecimal quoteVolumeBigDecimal = calculateLongToBigDecimal(quoteVolumeValue, quoteVolumeDecimals);
             
-            m_baseId = baseIdElement.getAsString();
-            m_baseSymbol = baseSymbolElement.getAsString();
-            m_quoteId = quoteIdElement.getAsString();
-            m_quoteSymbol = quoteSymbolElement.getAsString();
 
-            m_id = m_quoteId + "_" + m_baseId;
-
-            m_quoteVolume = quoteVolumeElement.getAsBigDecimal();
-            m_baseVolume = baseVolumeElement.getAsBigDecimal();
-
-            m_invertedPrice = lastPriceElement.getAsBigDecimal();
+            JsonObject baseVolumeObject = baseVolumeElement.getAsJsonObject();
+            long baseVolumeValue = baseVolumeObject.get("value").getAsLong();
+            int baseVolumeDecimals = baseVolumeObject.get("units").getAsJsonObject().get("asset").getAsJsonObject().get("decimals").getAsInt();
+            BigDecimal baseVolumeBigDecimal = calculateLongToBigDecimal(baseVolumeValue, baseVolumeDecimals);
+            String baseId = baseIdElement.getAsString();
+            String quoteId = quoteIdElement.getAsString();
+            m_id = quoteId + "_" + baseId;
+            String quoteSymbol = quoteSymbolElement.getAsString();
             
+            m_defaultInvert = quoteSymbol.equals("SigUSD");
+            m_quoteId = baseId;
+            m_quoteSymbol = baseSymbolElement.getAsString();
+            m_baseId = quoteIdElement.getAsString();
+            m_baseSymbol = quoteSymbol;
+        
+            m_quoteVolume = baseVolumeBigDecimal;
+            m_baseVolume = quoteVolumeBigDecimal;
+
+            try{
+            
+                
+                m_invertedPrice = lastPriceElement.getAsBigDecimal();
+                m_lastPrice = BigDecimal.ONE.divide(m_invertedPrice, m_invertedPrice.precision(), RoundingMode.CEILING);
+
+                setPrices(m_lastPrice.toString(), m_baseSymbol,m_quoteSymbol, m_baseId, m_quoteId);
+            }catch(ArithmeticException ae){
+                m_invertedPrice = BigDecimal.ZERO;
+                setPrices("0", m_baseSymbol, m_quoteSymbol, m_baseId, m_quoteId);
+                // Files.writeString(logFile.toPath(), "\nspectrumMarketData (Arithmetic exception): " + ae.toString() + "|n" + json.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            //   throw new Exception("Divide by zero");
+            }
+            
+            
+          
         }else{
             throw new Exception("Missing expected arguments");
         }
         
     }
+
+    public boolean getDefaultInvert(){
+        return m_defaultInvert;
+    }
+    public BigDecimal calculateLongToBigDecimal(long amount, int decimals){
+
+        BigDecimal bigAmount = BigDecimal.valueOf(amount);
+
+        if(decimals != 0){
+            BigDecimal pow = BigDecimal.valueOf(10).pow(decimals);
+            return bigAmount.divide(pow);
+        }else{
+            return bigAmount;
+        }
+    }
+    
 
     public String getPoolId(){
         return m_poolId;

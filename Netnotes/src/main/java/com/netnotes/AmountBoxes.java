@@ -31,8 +31,7 @@ public class AmountBoxes extends VBox {
     private String m_lastRowItemStyle = ADD_AS_LAST_ROW;
     private boolean m_lastRowItemDisabled = false;
 
-    
-
+ 
     public AmountBoxes(AmountBox... boxes) {
         super();
        //m_addressData = addressData;
@@ -118,7 +117,7 @@ public class AmountBoxes extends VBox {
             AmountBox existingBox = getAmountBox(amountBox.getTokenId());
             if(existingBox == null){
                 m_amountsList.add(amountBox);
-          
+             
             }else{ 
                 PriceAmount newPriceAmount = amountBox.priceAmountProperty().get();
                 existingBox.priceAmountProperty().set(newPriceAmount);

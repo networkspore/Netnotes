@@ -7,9 +7,10 @@ package com.netnotes;
 import javafx.application.Application;
 import javafx.application.HostServices;
 import javafx.application.Platform;
+import javafx.beans.binding.Binding;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 
@@ -43,7 +44,6 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
 
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
@@ -59,7 +59,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -67,6 +66,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.reactfx.util.FxTimer;
+
 
 import com.netnotes.IconButton.IconStyle;
 
@@ -76,7 +76,10 @@ import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.LongPasswordStrategies;
 
 public class App extends Application {
+    public static final String GITHUB_USER = "networkspore";
+    public static final String GITHUB_PROJECT = "Netnotes";
 
+    public static final String CURRENT_VERSION = "v0.2.1-win-beta";
     public static final String CMD_SHOW_APPSTAGE = "SHOW_APPSTAGE";
     public static final long NOTE_EXECUTION_TIME = 100;
     public static final String notesFileName = "notes.dat";
@@ -238,7 +241,7 @@ public class App extends Application {
 
 
     public void startApp(AppData appData, Stage appStage) {
-        
+
         appStage.setTitle("Netnotes - Enter Password");
 
         Button closeBtn = new Button();
@@ -281,15 +284,13 @@ public class App extends Application {
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
         Scene passwordScene = new Scene(layoutVBox, 600, 300);
-    
+        passwordScene.setFill(null);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         appStage.setScene(passwordScene);
-        
+
         closeBtn.setOnAction(e -> {
             shutdownNow();
         });
-
-       
 
         passwordField.setOnKeyPressed(e -> {
             Stage statusStage = getStatusStage("Verifying - Netnotes", "Verifying...");
@@ -300,34 +301,32 @@ public class App extends Application {
                 if (passwordField.getText().length() < 6) {
                     passwordField.setText("");
                 } else {
-                  
 
                     statusStage.show();
 
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
                         String password = passwordField.getText();
-                        
+
                         Platform.runLater(() -> passwordField.setText(""));
                         byte[] hashBytes = appData.getAppKeyBytes();
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), hashBytes);
+                        BCrypt.Result result = BCrypt
+                                .verifyer(BCrypt.Version.VERSION_2A,
+                                        LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A))
+                                .verify(password.toCharArray(), hashBytes);
                         statusStage.close();
                         if (result.verified) {
 
                             try {
                                 appData.createKey(password);
                                 openNetnotes(appData, appStage);
-                                File networksFile = new File(NETWORKS_FILE_NAME);
 
-                                boolean isNetworksFile = networksFile.isFile();
-                                if(!isNetworksFile){
-                                    m_networksData.showManageNetworkStage();
-                                }
-                               
                             } catch (Exception e1) {
+                                e1.printStackTrace();
                                 try {
-                                    Files.writeString(logFile.toPath(), "\nApp  errpr " + e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                    Files.writeString(logFile.toPath(), "\nApp  errpr " + e1.toString(),
+                                            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                 } catch (IOException e2) {
-                            
+
                                 }
                             }
 
@@ -336,26 +335,19 @@ public class App extends Application {
                 }
             }
         });
-       
-    
 
- 
-       Platform.runLater(()->passwordField.requestFocus());
-      
-       
-     
-       passwordScene.focusOwnerProperty().addListener((obs, oldval, newval)->{
-            
-            Platform.runLater(()->passwordField.requestFocus());
-            
+        Platform.runLater(() -> passwordField.requestFocus());
+
+        passwordScene.focusOwnerProperty().addListener((obs, oldval, newval) -> {
+
+            Platform.runLater(() -> passwordField.requestFocus());
+
         });
-      
 
-           appStage.show();
-      
+        appStage.show();
+
     }
 
-   
     public static Stage getStatusStage(String title, String statusMessage) {
         Stage statusStage = new Stage();
         statusStage.setResizable(false);
@@ -399,13 +391,14 @@ public class App extends Application {
         VBox layoutVBox = new VBox(newTopBar, bodyVBox);
 
         Scene statusScene = new Scene(layoutVBox, 420, 215);
+        statusScene.setFill(null);
         statusScene.getStylesheets().add("/css/startWindow.css");
 
         statusStage.setScene(statusScene);
-        
+
         Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        statusStage.setX((screenRect.getWidth()/2) - (statusScene.getWidth()/2));
-        statusStage.setY((screenRect.getHeight()/2) - (statusScene.getHeight()/2));
+        statusStage.setX((screenRect.getWidth() / 2) - (statusScene.getWidth() / 2));
+        statusStage.setY((screenRect.getHeight() / 2) - (statusScene.getHeight() / 2));
 
         return statusStage;
     }
@@ -415,14 +408,12 @@ public class App extends Application {
         double x, y;
     }
 
-    // private static int createTries = 0;
-    private void openNetnotes(AppData appData,  Stage appStage) {
+    private void openNetnotes(AppData appData, Stage appStage) {
         File networksFile = new File(appData.getAppDir().getAbsolutePath() + "/" + NETWORKS_FILE_NAME);
 
         boolean isNetworksFile = networksFile.isFile();
-      
 
-        m_networksData = new NetworksData(appData, m_networkServices, networksFile, isNetworksFile);    
+        m_networksData = new NetworksData(appData, m_networkServices, networksFile, isNetworksFile);
 
         m_networksData.cmdSwitchProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -436,43 +427,44 @@ public class App extends Application {
                             switch (cmd) {
 
                                 case CMD_SHOW_APPSTAGE:
-                                    //  Alert a = new Alert(AlertType.NONE, "msg", ButtonType.CLOSE);
-                                    //  a.show();
+                                    // Alert a = new Alert(AlertType.NONE, "msg", ButtonType.CLOSE);
+                                    // a.show();
                                     if (appStage.isIconified()) {
-                                        Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-                                      
+                                        Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                                                .getMaximumWindowBounds();
+
                                         appStage.setIconified(false);
-                                        appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
-                                        appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
+                                        appStage.setX((screenRect.getWidth() / 2) - (appStage.getWidth() / 2));
+                                        appStage.setY((screenRect.getHeight() / 2) - (appStage.getHeight() / 2));
                                         appStage.show();
-                                      
-                                     
+
                                     } else {
                                         if (appStage.isShowing()) {
 
-                                            Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-                                            appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
-                                            appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
+                                            Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                                                    .getMaximumWindowBounds();
+                                            appStage.setX((screenRect.getWidth() / 2) - (appStage.getWidth() / 2));
+                                            appStage.setY((screenRect.getHeight() / 2) - (appStage.getHeight() / 2));
                                             appStage.show();
-                                       
+
                                             appStage.requestFocus();
 
-                                            if(!networksFile.isFile()){
+                                            if (!networksFile.isFile()) {
                                                 m_networksData.showManageNetworkStage();
                                             }
-                                           
+
                                         } else {
 
                                             verifyAppKey(() -> {
 
-                                                
-                                               
                                                 appStage.show();
                                                 appStage.requestFocus();
-                                                Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-                                                appStage.setX((screenRect.getWidth()/2) - (appStage.getWidth()/2));
-                                                appStage.setY((screenRect.getHeight()/2) - (appStage.getHeight()/2));
-                                                 if(!networksFile.isFile()){
+                                                Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                                                        .getMaximumWindowBounds();
+                                                appStage.setX((screenRect.getWidth() / 2) - (appStage.getWidth() / 2));
+                                                appStage.setY(
+                                                        (screenRect.getHeight() / 2) - (appStage.getHeight() / 2));
+                                                if (!networksFile.isFile()) {
                                                     m_networksData.showManageNetworkStage();
                                                 }
 
@@ -495,17 +487,19 @@ public class App extends Application {
         }
 
         loadMainStage(appStage, isNetworksFile);
-        if(!appData.isAutorun()){
+        if (!appData.isAutorun()) {
             m_networksData.show();
         }
-       
+
     }
 
-    public static HBox createShrinkTopBar(Image iconImage, String titleString, Button maximizeBtn,  Button shrinkBtn, Button closeBtn, Stage theStage, SimpleBooleanProperty isShrunk, AppData appData) {
-      
+     
+
+    public static HBox createShrinkTopBar(Image iconImage, String titleString, Button maximizeBtn, Button shrinkBtn,
+            Button closeBtn, Stage theStage, SimpleBooleanProperty isShrunk, AppData appData) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
+        barIconView.setFitWidth(20);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -518,41 +512,40 @@ public class App extends Application {
         newTitleLbl.setTextFill(App.txtColor);
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
 
-
-
-        shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20) : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
+        shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20)
+                : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
         shrinkBtn.setPadding(new Insets(0, 0, 0, 0));
         shrinkBtn.setId("toolBtn");
-        shrinkBtn.setOnAction(e->{
-           
+        shrinkBtn.setOnAction(e -> {
 
-            if(isShrunk.get()){
+            if (isShrunk.get()) {
                 final Scene originalScene = theStage.getScene();
                 final double originalHeight = originalScene.getHeight();
                 Rectangle rect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
                 final double passSceneWidth = 600;
                 final double passSceneHeight = 305;
-                ResizeHelper.addResizeListener(theStage,passSceneWidth,passSceneHeight, passSceneWidth,passSceneHeight);
-      
+                ResizeHelper.addResizeListener(theStage, passSceneWidth, passSceneHeight, passSceneWidth,
+                        passSceneHeight);
+
                 theStage.setHeight(passSceneHeight);
-                verifyAppKey(theStage, appData, (onSucceeded)->{
-   
+                verifyAppKey(theStage, appData, (onSucceeded) -> {
+
                     theStage.setScene(originalScene);
                     isShrunk.set(false);
-                    
-                }, ()->{
-         
+
+                }, () -> {
+
                     theStage.setScene(originalScene);
                     theStage.setHeight(originalHeight);
-                    ResizeHelper.addResizeListener(theStage,400 , originalHeight, rect.getWidth(), originalHeight);
+                    ResizeHelper.addResizeListener(theStage, 400, originalHeight, rect.getWidth(), originalHeight);
                 });
-            }else{
-                 isShrunk.set(true);
+            } else {
+                isShrunk.set(true);
             }
-           
+
         });
 
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        // HBox.setHgrow(titleLbl2, Priority.ALWAYS);
         ImageView closeImage = App.highlightedImageView(App.closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
@@ -584,14 +577,15 @@ public class App extends Application {
         newTopBar.setPadding(new Insets(7, 8, 10, 10));
         newTopBar.setId("topBar");
 
-        isShrunk.addListener((obs, oldVal, newVal)->{
-            shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20) : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
-            if(newVal){
-                if(newTopBar.getChildren().contains(maximizeBtn)){
+        isShrunk.addListener((obs, oldVal, newVal) -> {
+            shrinkBtn.setGraphic(isShrunk.get() ? IconButton.getIconView(new Image("/assets/unshrink-30.png"), 20)
+                    : IconButton.getIconView(new Image("/assets/shrink-30.png"), 20));
+            if (newVal) {
+                if (newTopBar.getChildren().contains(maximizeBtn)) {
                     newTopBar.getChildren().remove(maximizeBtn);
                 }
-            }else{
-                if(!newTopBar.getChildren().contains(maximizeBtn)){
+            } else {
+                if (!newTopBar.getChildren().contains(maximizeBtn)) {
                     newTopBar.getChildren().add(4, maximizeBtn);
                 }
             }
@@ -617,7 +611,7 @@ public class App extends Application {
 
         return newTopBar;
     }
-    
+
     public static void verifyAppKey(Runnable runnable, byte[] appkey) {
 
         String title = "Netnotes - Enter Password";
@@ -666,7 +660,7 @@ public class App extends Application {
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
         Scene passwordScene = new Scene(layoutVBox, 600, 290);
-
+        passwordScene.setFill(null);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
@@ -681,12 +675,15 @@ public class App extends Application {
                 if (passwordField.getText().length() < 6) {
                     passwordField.setText("");
                 } else {
-          
+
                     statusStage.show();
-                    
+
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
 
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), appkey);
+                        BCrypt.Result result = BCrypt
+                                .verifyer(BCrypt.Version.VERSION_2A,
+                                        LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A))
+                                .verify(passwordField.getText().toCharArray(), appkey);
                         Platform.runLater(() -> passwordField.setText(""));
                         statusStage.close();
                         if (result.verified) {
@@ -711,13 +708,12 @@ public class App extends Application {
                 Platform.runLater(() -> passwordField.requestFocus());
             }
         });
-             passwordStage.show();
-            passwordStage.toFront();
-        Platform.runLater(() ->{
-       
-        
-            passwordField.requestFocus();}
-        );
+        passwordStage.show();
+        passwordStage.toFront();
+        Platform.runLater(() -> {
+
+            passwordField.requestFocus();
+        });
     }
 
     public void verifyAppKey(Runnable runnable) {
@@ -768,7 +764,7 @@ public class App extends Application {
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
         Scene passwordScene = new Scene(layoutVBox, 600, 320);
-
+        passwordScene.setFill(null);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
@@ -788,7 +784,11 @@ public class App extends Application {
 
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
 
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(passwordField.getText().toCharArray(), m_networksData.getAppData().getAppKeyBytes());
+                        BCrypt.Result result = BCrypt
+                                .verifyer(BCrypt.Version.VERSION_2A,
+                                        LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A))
+                                .verify(passwordField.getText().toCharArray(),
+                                        m_networksData.getAppData().getAppKeyBytes());
                         Platform.runLater(() -> passwordField.setText(""));
                         statusStage.close();
                         if (result.verified) {
@@ -814,22 +814,22 @@ public class App extends Application {
             }
         });
         passwordStage.show();
- 
-        Platform.runLater(() ->{
-       
-        
-            passwordField.requestFocus();}
-        );
+
+        Platform.runLater(() -> {
+
+            passwordField.requestFocus();
+        });
     }
 
-    public void createAutorunKeyDialog(Stage appStage, boolean isNewKey, Runnable newKey, Runnable disableAutorun){
+    public void createAutorunKeyDialog(Stage appStage, boolean isNewKey, Runnable newKey, Runnable disableAutorun) {
 
         TextField inpuTextField = new TextField();
         Button closeBtn = new Button();
-        showGetTextInput(!isNewKey ? "Autrun key invalid. " : "" + "Create autorun key? (Y/n)", "Autorun - Setup", logo, inpuTextField, closeBtn, appStage);
-        closeBtn.setOnAction(e->{
-                shutdownNow();
-            });
+        showGetTextInput(!isNewKey ? "Autrun key invalid. " : "" + "Create autorun key? (Y/n)", "Autorun - Setup", logo,
+                inpuTextField, closeBtn, appStage);
+        closeBtn.setOnAction(e -> {
+            shutdownNow();
+        });
 
         inpuTextField.setOnKeyPressed(e -> {
 
@@ -837,24 +837,23 @@ public class App extends Application {
 
             if (keyCode == KeyCode.ENTER || keyCode == KeyCode.Y) {
                 newKey.run();
-            }else{
-                if(keyCode == KeyCode.N){
+            } else {
+                if (keyCode == KeyCode.N) {
                     disableAutorun.run();
-                }else{
+                } else {
                     inpuTextField.setText("");
                 }
             }
         });
-      
+
     }
 
-    
-    public static void verifyAppKey(Stage passwordStage, AppData appData, EventHandler<WorkerStateEvent> onSucceeded, Runnable onAbort) {
-       
+    public static void verifyAppKey(Stage passwordStage, AppData appData, EventHandler<WorkerStateEvent> onSucceeded,
+            Runnable onAbort) {
+
         String title = "Enter Password - Netnotes";
 
         passwordStage.setTitle(title);
-
 
         Button closeBtn = new Button();
 
@@ -862,12 +861,9 @@ public class App extends Application {
 
         Button imageButton = createImageButton(logo, "Netnotes");
 
-        
-
         HBox imageBox = new HBox(imageButton);
         imageBox.setAlignment(Pos.CENTER);
 
- 
         Text passwordTxt = new Text("> Enter password:");
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
@@ -877,12 +873,10 @@ public class App extends Application {
         passwordField.setId("passField");
         HBox.setHgrow(passwordField, Priority.ALWAYS);
 
-
         HBox passwordBox = new HBox(passwordTxt, passwordField);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
         passwordBox.setPadding(new Insets(20, 0, 0, 0));
 
-    
         Button clickRegion = new Button();
         clickRegion.setPrefWidth(Double.MAX_VALUE);
         clickRegion.setId("transparentColor");
@@ -899,12 +893,11 @@ public class App extends Application {
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
         Scene passwordScene = new Scene(layoutVBox, 600, 320);
-
+        passwordScene.setFill(null);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
-       
-         Stage statusStage = getStatusStage("Verifying - Netnotes", "Verifying...");
+        Stage statusStage = getStatusStage("Verifying - Netnotes", "Verifying...");
 
         passwordField.setOnKeyPressed(e -> {
 
@@ -915,55 +908,53 @@ public class App extends Application {
                 if (passwordField.getText().length() < 6) {
                     passwordField.setText("");
                 } else {
-                   
+
                     statusStage.show();
 
                     FxTimer.runLater(Duration.ofMillis(100), () -> {
                         String password = passwordField.getText();
-                        BCrypt.Result result = BCrypt.verifyer(BCrypt.Version.VERSION_2A, LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A)).verify(password.toCharArray(), appData.getAppKeyBytes());
-                        Platform.runLater(() ->{
+                        BCrypt.Result result = BCrypt
+                                .verifyer(BCrypt.Version.VERSION_2A,
+                                        LongPasswordStrategies.hashSha512(BCrypt.Version.VERSION_2A))
+                                .verify(password.toCharArray(), appData.getAppKeyBytes());
+                        Platform.runLater(() -> {
                             passwordField.setText("");
-                            
+
                             if (result.verified) {
-                                Utils.returnObject((Object)password, onSucceeded, (onFailed)->{});
-                          
-                                
+                                Utils.returnObject((Object) password, onSucceeded, (onFailed) -> {
+                                });
+
                             }
                             statusStage.close();
-                        } );
+                        });
 
                     });
                 }
             }
         });
 
-        passwordScene.focusOwnerProperty().addListener((obs, oldval, newval)->{
-            if(!(newval != null && newval instanceof TextField)){
-                Platform.runLater(()->passwordField.requestFocus());
+        passwordScene.focusOwnerProperty().addListener((obs, oldval, newval) -> {
+            if (!(newval != null && newval instanceof TextField)) {
+                Platform.runLater(() -> passwordField.requestFocus());
             }
         });
 
-
         closeBtn.setOnAction(e -> {
-            
-            
+
             onAbort.run();
         });
 
-        passwordStage.setOnCloseRequest(e->{
+        passwordStage.setOnCloseRequest(e -> {
             closeBtn.fire();
         });
 
-  
-
         passwordStage.show();
-        Platform.runLater(() ->passwordField.requestFocus());
+        Platform.runLater(() -> passwordField.requestFocus());
 
     }
 
-
     private void loadMainStage(Stage appStage, boolean isNetworksFile) {
-   
+
         Button closeBtn = new Button();
         Button settingsBtn = new Button();
         Button networksBtn = new Button();
@@ -995,7 +986,7 @@ public class App extends Application {
 
         VBox bodyBox = new VBox(headerBox, bodyVBox);
         HBox.setHgrow(bodyBox, Priority.ALWAYS);
-        VBox.setVgrow(bodyBox,Priority.ALWAYS);
+        VBox.setVgrow(bodyBox, Priority.ALWAYS);
 
         HBox mainHbox = new HBox(menuBox, vBar, bodyBox);
         VBox.setVgrow(mainHbox, Priority.ALWAYS);
@@ -1101,10 +1092,9 @@ public class App extends Application {
             m_networksData.showManageNetworkStage();
         }
     }
-    
 
     private void showNetworks(Scene appScene, VBox header, VBox bodyVBox) {
-        bodyVBox.setPadding(new Insets(0,2,2,0));
+        bodyVBox.setPadding(new Insets(0, 2, 2, 0));
         bodyVBox.setId("darkBox");
         bodyVBox.getChildren().clear();
 
@@ -1123,9 +1113,9 @@ public class App extends Application {
         gridTypeToolTip.setShowDelay(new javafx.util.Duration(50));
         gridTypeToolTip.setHideDelay(new javafx.util.Duration(200));
 
-        BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png", App.MENU_BAR_IMAGE_WIDTH);
+        BufferedButton toggleGridTypeButton = new BufferedButton("/assets/list-outline-white-25.png",
+                App.MENU_BAR_IMAGE_WIDTH);
         toggleGridTypeButton.setTooltip(gridTypeToolTip);
-  
 
         HBox menuBar = new HBox(manageButton, menuSpacer, toggleGridTypeButton);
         HBox.setHgrow(menuBar, Priority.ALWAYS);
@@ -1136,64 +1126,67 @@ public class App extends Application {
         HBox menuBarPadding = new HBox(menuBar);
         menuBarPadding.setId("darkBox");
         HBox.setHgrow(menuBarPadding, Priority.ALWAYS);
-        menuBarPadding.setPadding(new Insets(0,0,4,2));
+        menuBarPadding.setPadding(new Insets(0, 0, 4, 2));
 
         header.getChildren().clear();
-        header.setPadding(new Insets(0,1,0,1));
+        header.setPadding(new Insets(0, 1, 0, 1));
         header.setId("darkBox");
         header.getChildren().add(menuBarPadding);
 
         VBox gridBox = m_networksData.getNetworksBox();
 
-
         ScrollPane scrollPane = new ScrollPane(gridBox);
         scrollPane.setId("bodyBox");
         scrollPane.setPadding(new Insets(5));
-        scrollPane.prefViewportWidthProperty().bind(appScene.widthProperty().subtract(90));
-        scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty().subtract(menuBar.heightProperty().get()).subtract(50));
+        scrollPane.prefViewportWidthProperty().bind(appScene.widthProperty());
+        scrollPane.prefViewportHeightProperty().bind(appScene.heightProperty());
+
+        Binding<Double> viewportWidth = Bindings.createObjectBinding(
+                () -> scrollPane.viewportBoundsProperty().get().getWidth(), scrollPane.viewportBoundsProperty());
+
+        gridBox.prefWidthProperty().bind(viewportWidth);
 
         VBox scrollPanePadding = new VBox(scrollPane);
-        VBox.setVgrow(scrollPanePadding,Priority.ALWAYS);
+        VBox.setVgrow(scrollPanePadding, Priority.ALWAYS);
         HBox.setHgrow(scrollPanePadding, Priority.ALWAYS);
-        scrollPanePadding.setPadding(new Insets(0,0,0,3));
+        scrollPanePadding.setPadding(new Insets(0, 0, 0, 3));
         bodyVBox.getChildren().addAll(scrollPanePadding);
 
         toggleGridTypeButton.setOnAction(e -> {
 
-            m_networksData.iconStyleProperty().set(m_networksData.iconStyleProperty().get().equals(IconStyle.ROW) ? IconStyle.ICON : IconStyle.ROW);
+            m_networksData.iconStyleProperty().set(
+                    m_networksData.iconStyleProperty().get().equals(IconStyle.ROW) ? IconStyle.ICON : IconStyle.ROW);
 
         });
 
         /*
-        addButton.setOnAction(clickEvent -> {
-            Network newNetwork = showNetworkStage(null);
-
-            refreshNetworksGrid(gridBox);
-        });*/
+         * addButton.setOnAction(clickEvent -> {
+         * Network newNetwork = showNetworkStage(null);
+         * 
+         * refreshNetworksGrid(gridBox);
+         * });
+         */
     }
 
     private void showSettings(Stage appStage, VBox bodyVBox) {
         bodyVBox.getChildren().clear();
-
-        boolean isUpdates = m_networksData.getAppData().getUpdates();
 
         Button settingsButton = createImageButton(logo, "Settings");
 
         HBox settingsBtnBox = new HBox(settingsButton);
         settingsBtnBox.setAlignment(Pos.CENTER);
 
-        Text passwordTxt = new Text(String.format("%-12s", "  Password:"));
+        Text passwordTxt = new Text(String.format("%-18s", "  Password:"));
         passwordTxt.setFill(txtColor);
         passwordTxt.setFont(txtFont);
 
-    
-
         Button passwordBtn = new Button("(click to update)");
         passwordBtn.setFont(txtFont);
+        passwordBtn.setAlignment(Pos.CENTER_LEFT);
         passwordBtn.setId("toolBtn");
         passwordBtn.setOnAction(e -> {
             Button closeBtn = new Button();
-            verifyAppKey(()->{
+            verifyAppKey(() -> {
                 Stage passwordStage = createPassword("Netnotes - Password", logo, logo, closeBtn, (onSuccess) -> {
                     Object sourceObject = onSuccess.getSource().getValue();
 
@@ -1206,18 +1199,20 @@ public class App extends Application {
                             statusStage.show();
                             FxTimer.runLater(Duration.ofMillis(100), () -> {
                                 String hash = Utils.getBcryptHashString(newPassword);
-                                Platform.runLater(()->{
+                                Platform.runLater(() -> {
                                     try {
 
                                         m_networksData.getAppData().setAppKey(hash);
                                         m_networksData.getAppData().createKey(newPassword);
-                                    } catch ( Exception e1) {
+                                    } catch (Exception e1) {
                                         try {
-                                            Files.writeString(logFile.toPath(), "App createPassword: " +  e1.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                                            Files.writeString(logFile.toPath(), "App createPassword: " + e1.toString(),
+                                                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                                         } catch (IOException e2) {
-                                        
+
                                         }
-                                        Alert a = new Alert(AlertType.NONE, "Error: Password not changed.", ButtonType.CLOSE);
+                                        Alert a = new Alert(AlertType.NONE, "Error: Password not changed.",
+                                                ButtonType.CLOSE);
                                         a.setTitle("Error: Password not changed.");
                                         a.initOwner(appStage);
                                         a.show();
@@ -1227,7 +1222,8 @@ public class App extends Application {
 
                             });
                         } else {
-                            Alert a = new Alert(AlertType.NONE, "Netnotes: Passwod not change.\n\nCanceled by user.", ButtonType.CLOSE);
+                            Alert a = new Alert(AlertType.NONE, "Netnotes: Passwod not change.\n\nCanceled by user.",
+                                    ButtonType.CLOSE);
                             a.setTitle("Netnotes: Password not changed");
                             a.initOwner(appStage);
                             a.show();
@@ -1241,140 +1237,277 @@ public class App extends Application {
 
         HBox passwordBox = new HBox(passwordTxt, passwordBtn);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
-        passwordBox.setPadding(new Insets(10, 0, 0, 20));
+        passwordBox.setPadding(new Insets(10, 0, 10, 10));
         passwordBox.setMinHeight(30);
 
-        Text updatesTxt = new Text(String.format("%-12s", "  Updates:"));
-        updatesTxt.setFill(txtColor);
-        updatesTxt.setFont(txtFont);
+       
 
-        Button updatesBtn = new Button(isUpdates ? "Enabled" : "Disabled");
-        updatesBtn.setFont(txtFont);
-        updatesBtn.setId("toolBtn");
-        updatesBtn.setOnAction(e -> {
+        Text versionTxt = new Text(String.format("%-18s", "  Version:"));
+        versionTxt.setFill(txtColor);
+        versionTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+        TextField versionField = new TextField(CURRENT_VERSION);
+        versionField.setFont(txtFont);
+        versionField.setId("formField");
+        versionField.setEditable(false);
+        HBox.setHgrow(versionField, Priority.ALWAYS);
+
+        HBox versionBox = new HBox(versionTxt, versionField);
+        versionBox.setPadding(new Insets(10, 10, 5, 10));
+        versionBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text fileTxt = new Text(String.format("%-18s", "  File:"));
+        fileTxt.setFill(txtColor);
+        fileTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+        TextField fileField = new TextField(m_networksData.getAppData().getAppFile().getName());
+        fileField.setFont(txtFont);
+        fileField.setEditable(false);
+        fileField.setId("formField");
+        HBox.setHgrow(fileField, Priority.ALWAYS);
+
+        HBox fileBox = new HBox(fileTxt, fileField);
+        HBox.setHgrow(fileBox, Priority.ALWAYS);
+        fileBox.setAlignment(Pos.CENTER_LEFT);
+        fileBox.setPadding(new Insets(5, 10, 5, 10));
+
+        Text hashTxt = new Text(String.format("%-18s", "  Hash (Blake-2b):"));
+        hashTxt.setFill(txtColor);
+        hashTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+        TextField hashField = new TextField(m_networksData.getAppData().appHashData().getHashStringHex());
+        hashField.setFont(txtFont);
+        hashField.setEditable(false);
+        hashField.setId("formField");
+        HBox.setHgrow(hashField, Priority.ALWAYS);
+
+        HBox hashBox = new HBox(hashTxt, hashField);
+        HBox.setHgrow(hashBox, Priority.ALWAYS);
+        hashBox.setPadding(new Insets(5, 10, 5, 10));
+        hashBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text passwordHeading = new Text("Password");
+        passwordHeading.setFont(txtFont);
+        passwordHeading.setFill(txtColor);
+
+        HBox passHeadingBox = new HBox(passwordHeading);
+        HBox.setHgrow(passHeadingBox, Priority.ALWAYS);
+        passHeadingBox.setId("headingBox");
+        passHeadingBox.setPadding(new Insets(5));
+
+        VBox passwordSettingsBox = new VBox(passHeadingBox, passwordBox);
+        passwordSettingsBox.setId("bodyBox");
+
+        Text appHeading = new Text("App");
+        appHeading.setFont(txtFont);
+        appHeading.setFill(txtColor);
+
+        HBox appHeadingBox = new HBox(appHeading);
+        HBox.setHgrow(appHeadingBox, Priority.ALWAYS);
+        appHeadingBox.setId("headingBox");
+        appHeadingBox.setPadding(new Insets(5));
+
+        VBox appSettingsBox = new VBox(appHeadingBox, versionBox, fileBox, hashBox);
+        appSettingsBox.setId("bodyBox");
+
+        Text latestVersionTxt = new Text(String.format("%-18s", "  Version:"));
+        latestVersionTxt.setFill(txtColor);
+        latestVersionTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+
+        Tooltip checkForUpdatesTip = new Tooltip("Check for updates");
+        checkForUpdatesTip.setShowDelay(new javafx.util.Duration(100));
+
+        String checkImageUrlString = "/assets/checkmark-25.png";
+
+        BufferedButton checkForUpdatesToggle = new BufferedButton(
+                m_networksData.getAppData().getUpdates() ? checkImageUrlString : null, App.MENU_BAR_IMAGE_WIDTH);
+        checkForUpdatesToggle.setTooltip(checkForUpdatesTip);
+        checkForUpdatesToggle.setId("checkBtn");
+
+        checkForUpdatesToggle.setOnAction(e -> {
+            boolean wasUpdates = m_networksData.getAppData().getUpdates();
+
+            wasUpdates = !wasUpdates;
+
+            checkForUpdatesToggle.setImage(wasUpdates ? new Image(checkImageUrlString) : null);
+
             try {
-                if (updatesBtn.getText().equals("Enabled")) {
-                    updatesBtn.setText("Disabled");
-                    m_networksData.getAppData().setUpdates(false);
-                } else {
-                    updatesBtn.setText("Enabled");
-                    m_networksData.getAppData().setUpdates(true);
-                }
+                m_networksData.getAppData().setUpdates(wasUpdates);
             } catch (IOException e1) {
-                Alert a = new Alert(AlertType.NONE, "Error:\n\n" + e1.toString(), ButtonType.CLOSE);
+                Alert a = new Alert(AlertType.NONE, e1.toString(), ButtonType.CANCEL);
+                a.setTitle("Error: File IO");
+                a.setHeaderText("Error");
                 a.initOwner(appStage);
                 a.show();
             }
+        });
+
+      
+
+        TextField latestVersionField = new TextField("");
+        latestVersionField.setFont(txtFont);
+        latestVersionField.setEditable(false);
+        latestVersionField.setId("formField");
+        HBox.setHgrow(latestVersionField, Priority.ALWAYS);
+
+        HBox latestVersionBox = new HBox(latestVersionTxt, latestVersionField);
+        latestVersionBox.setPadding(new Insets(10, 10, 5, 10));
+        latestVersionBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text latestURLTxt = new Text(String.format("%-18s", "  Url:"));
+        latestURLTxt.setFill(txtColor);
+        latestURLTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+        TextField latestURLField = new TextField();
+        latestURLField.setFont(txtFont);
+        latestURLField.setEditable(false);
+        latestURLField.setId("formField");
+        HBox.setHgrow(latestURLField, Priority.ALWAYS);
+
+        HBox latestURLBox = new HBox(latestURLTxt, latestURLField);
+        HBox.setHgrow(latestURLBox, Priority.ALWAYS);
+        latestURLBox.setAlignment(Pos.CENTER_LEFT);
+        latestURLBox.setPadding(new Insets(5, 10, 5, 10));
+
+        Text latestNameTxt = new Text(String.format("%-18s", "  File name:"));
+        latestNameTxt.setFill(txtColor);
+        latestNameTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+        TextField latestNameField = new TextField();
+        latestNameField.setFont(txtFont);
+        latestNameField.setEditable(false);
+        latestNameField.setId("formField");
+        HBox.setHgrow(latestNameField, Priority.ALWAYS);
+
+        HBox latestNameBox = new HBox(latestNameTxt, latestNameField);
+        HBox.setHgrow(latestNameBox, Priority.ALWAYS);
+        latestNameBox.setAlignment(Pos.CENTER_LEFT);
+        latestNameBox.setPadding(new Insets(5, 10, 5, 10));
+
+        Text latestHashTxt = new Text(String.format("%-18s", "  Hash (Blake-2b):"));
+        latestHashTxt.setFill(txtColor);
+        latestHashTxt.setFont(txtFont);
+        // LATEST_RELEASE_URL
+
+        TextField latestHashField = new TextField();
+        latestHashField.setFont(txtFont);
+        latestHashField.setEditable(false);
+        latestHashField.setId("formField");
+        HBox.setHgrow(latestHashField, Priority.ALWAYS);
+
+        HBox latestHashBox = new HBox(latestHashTxt, latestHashField);
+        HBox.setHgrow(latestHashBox, Priority.ALWAYS);
+        latestHashBox.setPadding(new Insets(5, 10, 5, 10));
+        latestHashBox.setAlignment(Pos.CENTER_LEFT);
+
+        Text latestHeading = new Text(" Updates");
+        latestHeading.setFont(txtFont);
+        latestHeading.setFill(txtColor);
+
+        Region latestHeadingSpacer = new Region();
+        HBox.setHgrow(latestHeadingSpacer, Priority.ALWAYS);
+
+        Button downloadLatestBtn = new Button("Download");
+        
+
+        SimpleObjectProperty<UpdateInformation> updateInfoProperty = new SimpleObjectProperty<>();
+
+        updateInfoProperty.addListener((obs, oldval, newval) -> {
+
+            latestHashField.setText(newval.getJarHashData().getHashStringHex());
+            latestVersionField.setText(newval.getTagName());
+            latestNameField.setText(newval.getJarName());
+            latestURLField.setText(newval.getJarUrl());
 
         });
 
-        HBox updatesBox = new HBox(updatesTxt, updatesBtn);
-        updatesBox.setAlignment(Pos.CENTER_LEFT);
-        updatesBox.setPadding(new Insets(0, 0, 0, 20));
-        updatesBox.setMinHeight(30);
+        Button getInfoBtn = new Button("Update");
+        getInfoBtn.setId("checkBtn");
+        getInfoBtn.setOnAction(e -> {
+            m_networksData.getAppData().checkForUpdates(updateInfoProperty);
+        });
+        File appDir = m_networksData.getAppDir();
+        downloadLatestBtn.setOnAction(e -> {
+            SimpleObjectProperty<UpdateInformation> downloadInformation = new SimpleObjectProperty<>();
+            UpdateInformation updateInfo = updateInfoProperty.get();
+            if (updateInfo != null && updateInfo.getJarHashData() != null) {
 
-        Text autoRunTxt = new Text(String.format("%-12s", "  Auto-run:"));
-        autoRunTxt.setFill(txtColor);
-        autoRunTxt.setFont(txtFont);
+                HashData jarHashData = updateInfo.getJarHashData();
+                String jarName = updateInfo.getJarName();
+                String urlString = updateInfo.getJarUrl();
 
-        
-        FileChooser keyFileChooser = new FileChooser();
-        keyFileChooser.setTitle("Create key file");
-        
-        File autoRunFile = m_networksData.getAppData().getAutoRunFile();
+                HashDataDownloader dlder = new HashDataDownloader(logo, urlString, jarName,appDir, jarHashData,
+                        HashDataDownloader.Extensions.getJarFilter());
+                dlder.start();
 
- 
-        Button autoRunBtn = new Button(m_networksData.getAppData().isStartupShortcut() && autoRunFile != null && autoRunFile.isFile() ? "Enabled" : "Disabled");
-        autoRunBtn.setFont(txtFont);
-        autoRunBtn.setId("toolBtn");
-        
-
-        HBox autoRunBox = new HBox(autoRunTxt, autoRunBtn);
-        autoRunBox.setAlignment(Pos.CENTER_LEFT);
-        autoRunBox.setPadding(new Insets(0, 0, 0, 20));
-        autoRunBox.setMinHeight(30);
-
-        Runnable setAutoRun = () ->{
-            Stage passwordStage = new Stage();
-
-            passwordStage.setTitle("Enter password - Netnotes");
-
-            passwordStage.getIcons().add(logo);
-            passwordStage.setResizable(false);
-            passwordStage.initStyle(StageStyle.UNDECORATED);
-
-            verifyAppKey(passwordStage, m_networksData.getAppData(), (onSucceded)->{
-                Object sourceObject = onSucceded.getSource().getValue();
-                if(sourceObject != null && sourceObject instanceof String){
-
-                    File keyFile = keyFileChooser.showSaveDialog(passwordStage);
-                    try {
-                        
-                        if(keyFile != null){
-                            Files.writeString(keyFile.toPath(), "keyFile");
-                            Files.delete(keyFile.toPath());
-                            m_networksData.getAppData().setAutoRunFile(keyFile);
-                             m_networksData.getAppData().enableAutoRun((String) sourceObject);
-                             
-                          
-                        
-                            autoRunBtn.setText("Enabled");
-                           
-                        }
-                    } catch (Exception e1) {
-                        Alert err = new Alert(AlertType.NONE, e1.toString(), ButtonType.OK);
-                        err.setTitle(e1.getCause().toString());
-                        err.setHeaderText(e1.getCause().toString());
-                        err.initOwner(appStage);
-                        err.show();
-                    }
-                }
-            },()->{
-                passwordStage.close();
-            });
-            
-                
-       
-        };
-
-        autoRunBtn.setOnAction(btnEvent -> {
-            if (autoRunBtn.getText().equals("Enabled")) {
-           
-
-                try {
-                    m_networksData.getAppData().disableAutoRun();
-                    autoRunBtn.setText("Disabled");
-                } catch (Exception e1) {
-                    Alert a = new Alert(AlertType.NONE, "Unable to access file system.", ButtonType.OK);
-                    a.setTitle("Error");
-                    a.setHeaderText("Error");
-                    a.initOwner(appStage);
-                    a.show();
-                }
-                
             } else {
-                
-                Alert a = new Alert(AlertType.NONE, AUTORUN_WARNING, ButtonType.CANCEL, ButtonType.OK);
-                a.setTitle("Security Warning");
-                a.setHeaderText("Security Warning");
-                a.initOwner(appStage);
-                Optional<ButtonType> result = a.showAndWait();
-                if(result.isPresent() && result.get() == ButtonType.OK){
-                    setAutoRun.run();
-                }
+                downloadInformation.addListener((obs, oldval, newval) -> {
+                    if (newval != null) {
+                        updateInfoProperty.set(newval);
+
+                        String urlString = newval.getJarUrl();
+                        if (urlString.startsWith("http")) {
+                            HashData latestHashData = newval.getJarHashData();
+                            HashDataDownloader dlder = new HashDataDownloader(logo, urlString,
+                                    latestNameField.getText(), appDir, latestHashData,
+                                    HashDataDownloader.Extensions.getJarFilter());
+                            dlder.start();
+                        }
+                    }
+                });
+                m_networksData.getAppData().checkForUpdates(downloadInformation);
             }
         });
 
-        
-        
-        VBox settingsVBox = new VBox(passwordBox, updatesBox, autoRunBox);
+    
+        HBox latestHeadingBox = new HBox(checkForUpdatesToggle, latestHeading, latestHeadingSpacer, getInfoBtn);
+        HBox.setHgrow(latestHeadingBox, Priority.ALWAYS);
+        latestHeadingBox.setId("headingBox");
+        latestHeadingBox.setPadding(new Insets(5, 10, 5, 10));
+        latestHeadingBox.setAlignment(Pos.CENTER_LEFT);
+
+        HBox downloadLatestBox = new HBox(downloadLatestBtn);
+        downloadLatestBox.setAlignment(Pos.CENTER_RIGHT);
+        downloadLatestBox.setPadding(new Insets(5, 15, 10, 10));
+
+        VBox latestSettingsBox = new VBox(latestHeadingBox, latestVersionBox, latestNameBox, latestURLBox,
+                latestHashBox, downloadLatestBox);
+        latestSettingsBox.setId("bodyBox");
+
+        Region settingsSpacer1 = new Region();
+        settingsSpacer1.setMinHeight(15);
+
+        Region settingsSpacer2 = new Region();
+        settingsSpacer2.setMinHeight(15);
+
+        VBox settingsVBox = new VBox(settingsBtnBox, passwordSettingsBox, settingsSpacer1, appSettingsBox,
+                settingsSpacer2, latestSettingsBox);
         HBox.setHgrow(settingsVBox, Priority.ALWAYS);
 
         settingsVBox.setAlignment(Pos.CENTER_LEFT);
-        settingsVBox.setPadding(new Insets(15,0,15,0));
+        settingsVBox.setPadding(new Insets(15, 15, 15, 15));
 
+        Scene appScene = appStage.getScene();
 
-        bodyVBox.getChildren().addAll(settingsBtnBox, settingsVBox);
+        ScrollPane settingsScroll = new ScrollPane(settingsVBox);
+
+        settingsScroll.prefViewportHeightProperty().bind(appScene.heightProperty());
+        settingsScroll.prefViewportWidthProperty().bind(appScene.widthProperty());
+
+        Binding<Double> viewportWidth = Bindings.createObjectBinding(
+                () -> settingsScroll.viewportBoundsProperty().get().getWidth(),
+                settingsScroll.viewportBoundsProperty());
+
+        settingsVBox.prefWidthProperty().bind(viewportWidth);
+
+        bodyVBox.getChildren().add(settingsScroll);
     }
 
     private VBox createMenu(Button settingsBtn, Button networksBtn) {
@@ -1411,9 +1544,8 @@ public class App extends Application {
         return menuBox;
     }
 
-    
     public static void showStatusStage(Stage statusStage, String title, String statusMessage) {
-       
+
         statusStage.setTitle(title);
 
         Label newTitleLbl = new Label(title);
@@ -1450,34 +1582,34 @@ public class App extends Application {
         VBox layoutVBox = new VBox(newTopBar, bodyVBox);
 
         Scene statusScene = new Scene(layoutVBox, 420, 215);
+        statusScene.setFill(null);
         statusScene.getStylesheets().add("/css/startWindow.css");
 
         statusStage.setScene(statusScene);
         Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        statusStage.setX((screenRect.getWidth()/2) - (statusScene.getWidth()/2));
-        statusStage.setY((screenRect.getHeight()/2) - (statusScene.getHeight()/2));
+        statusStage.setX((screenRect.getWidth() / 2) - (statusScene.getWidth() / 2));
+        statusStage.setY((screenRect.getHeight() / 2) - (statusScene.getHeight() / 2));
         statusStage.show();
     }
 
     public static File getFile(String title, Stage owner, FileChooser.ExtensionFilter... extensionFilters) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(title);
-        //  fileChooser.setInitialFileName(initialFileName);
+        // fileChooser.setInitialFileName(initialFileName);
 
         fileChooser.getExtensionFilters().addAll(extensionFilters);
         File file = fileChooser.showOpenDialog(owner);
         return file;
     }
 
-    
-    public static Stage createPassword(String topTitle, Image windowLogo, Image mainLogo, Button closeBtn, EventHandler<WorkerStateEvent> onSucceeded) {
+    public static Stage createPassword(String topTitle, Image windowLogo, Image mainLogo, Button closeBtn,
+            EventHandler<WorkerStateEvent> onSucceeded) {
         Stage passwordStage = new Stage();
         passwordStage.initStyle(StageStyle.UNDECORATED);
-        passwordStage.setTitle(topTitle);
+
         passwordStage.getIcons().add(windowLogo);
         passwordStage.setTitle(topTitle);
 
-      
         HBox titleBox = createTopBar(icon, topTitle, closeBtn, passwordStage);
 
         Button imageBtn = App.createImageButton(mainLogo, "Create Password");
@@ -1520,6 +1652,7 @@ public class App extends Application {
         VBox passwordVBox = new VBox(titleBox, imageBox, bodyBox);
 
         Scene passwordScene = new Scene(passwordVBox, 600, 300);
+        passwordScene.setFill(null);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
@@ -1579,7 +1712,124 @@ public class App extends Application {
 
             }
         });
+        passwordScene.focusOwnerProperty().addListener((obs, oldVal, newVal) -> {
+            if (!(newVal != null && newVal instanceof TextField)) {
+                Platform.runLater(() -> {
+                    passwordField.requestFocus();
+                });
+            }
+        });
         return passwordStage;
+    }
+
+    public static void createPassword(Stage passwordStage, String topTitle, Image windowLogo, Image mainLogo,
+            Button closeBtn, EventHandler<WorkerStateEvent> onSucceeded) {
+
+        passwordStage.setTitle(topTitle);
+
+        HBox titleBox = createTopBar(icon, topTitle, closeBtn, passwordStage);
+
+        Button imageBtn = App.createImageButton(mainLogo, "Password");
+        imageBtn.setGraphicTextGap(20);
+        HBox imageBox = new HBox(imageBtn);
+        imageBox.setAlignment(Pos.CENTER);
+
+        Text passwordTxt = new Text("> Create password:");
+        passwordTxt.setFill(txtColor);
+        passwordTxt.setFont(txtFont);
+
+        PasswordField passwordField = new PasswordField();
+
+        passwordField.setFont(txtFont);
+        passwordField.setId("passField");
+        HBox.setHgrow(passwordField, Priority.ALWAYS);
+
+        PasswordField createPassField2 = new PasswordField();
+        HBox.setHgrow(createPassField2, Priority.ALWAYS);
+        createPassField2.setId("passField");
+
+        HBox passwordBox = new HBox(passwordTxt, passwordField);
+        passwordBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button clickRegion = new Button();
+        clickRegion.setMaxWidth(Double.MAX_VALUE);
+        clickRegion.setId("transparentColor");
+        clickRegion.setPrefHeight(Double.MAX_VALUE);
+
+        clickRegion.setOnAction(e -> {
+            passwordField.requestFocus();
+        });
+
+        VBox bodyBox = new VBox(passwordBox, clickRegion);
+        VBox.setMargin(bodyBox, new Insets(5, 10, 0, 20));
+        VBox.setVgrow(bodyBox, Priority.ALWAYS);
+
+        Platform.runLater(() -> passwordField.requestFocus());
+
+        VBox passwordVBox = new VBox(titleBox, imageBox, bodyBox);
+
+        Scene passwordScene = new Scene(passwordVBox, 600, 300);
+        passwordScene.setFill(null);
+        passwordScene.getStylesheets().add("/css/startWindow.css");
+        passwordStage.setScene(passwordScene);
+
+        closeBtn.setOnAction(e -> {
+            passwordField.setText("");
+            passwordStage.close();
+        });
+
+        passwordField.setOnKeyPressed(e1 -> {
+
+            KeyCode keyCode = e1.getCode();
+
+            if ((keyCode == KeyCode.ENTER || keyCode == KeyCode.TAB)) {
+
+                String passStr = passwordField.getText();
+                // createPassField.setText("");
+
+                bodyBox.getChildren().removeAll(passwordBox, clickRegion);
+
+                Text reenterTxt = new Text("> Confirm password:");
+                reenterTxt.setFill(txtColor);
+                reenterTxt.setFont(txtFont);
+
+                Platform.runLater(() -> createPassField2.requestFocus());
+
+                HBox secondPassBox = new HBox(reenterTxt, createPassField2);
+                secondPassBox.setAlignment(Pos.CENTER_LEFT);
+
+                bodyBox.getChildren().addAll(secondPassBox, clickRegion);
+
+                clickRegion.setOnAction(regionEvent -> {
+                    createPassField2.requestFocus();
+                });
+
+                createPassField2.setOnKeyPressed(pressEvent -> {
+
+                    KeyCode keyCode2 = pressEvent.getCode();
+
+                    if ((keyCode2 == KeyCode.ENTER)) {
+
+                        if (passStr.equals(createPassField2.getText())) {
+
+                            Utils.returnObject(passStr, onSucceeded, e -> {
+                                closeBtn.fire();
+                            });
+                        } else {
+                            bodyBox.getChildren().clear();
+                            createPassField2.setText("");
+                            passwordField.setText("");
+
+                            secondPassBox.getChildren().clear();
+                            bodyBox.getChildren().addAll(passwordBox, clickRegion);
+
+                        }
+                    }
+                });
+
+            }
+        });
+
     }
 
     public String getNowTimeString() {
@@ -1590,13 +1840,10 @@ public class App extends Application {
         return formater.format(time);
     }
 
-    
+    public static void showGetTextInput(String prompt, String title, Image img, TextField textField, Button closeBtn,
+            Stage textInputStage) {
 
-
-    public static void showGetTextInput(String prompt, String title, Image img, TextField textField, Button closeBtn, Stage textInputStage) {
-        
         textInputStage.setTitle(title);
-  
 
         HBox titleBox = createTopBar(icon, title, closeBtn, textInputStage);
 
@@ -1609,11 +1856,8 @@ public class App extends Application {
         promptTxt.setFill(txtColor);
         promptTxt.setFont(txtFont);
 
-
         textField.setFont(txtFont);
         textField.setId("textField");
-
-
 
         HBox.setHgrow(textField, Priority.ALWAYS);
 
@@ -1622,36 +1866,35 @@ public class App extends Application {
         HBox passwordBox = new HBox(promptTxt, textField);
         passwordBox.setAlignment(Pos.CENTER_LEFT);
 
-    
         VBox.setMargin(passwordBox, new Insets(5, 10, 0, 20));
 
         VBox layoutVBox = new VBox(titleBox, imageBox, passwordBox);
         VBox.setVgrow(layoutVBox, Priority.ALWAYS);
 
         Scene textInputScene = new Scene(layoutVBox, 600, 330);
-
+        textInputScene.setFill(null);
         textInputScene.getStylesheets().add("/css/startWindow.css");
 
         textInputStage.setScene(textInputScene);
 
-        textInputScene.focusOwnerProperty().addListener((obs, oldVal,newVal)->{
-            if(!(newVal instanceof TextField)){
-                Platform.runLater(()->textField.requestFocus());
+        textInputScene.focusOwnerProperty().addListener((obs, oldVal, newVal) -> {
+            if (!(newVal instanceof TextField)) {
+                Platform.runLater(() -> textField.requestFocus());
             }
         });
         Rectangle screenRect = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        textInputStage.setX((screenRect.getWidth()/2) - (textInputScene.getWidth()/2));
-        textInputStage.setY((screenRect.getHeight()/2) - (textInputScene.getHeight()/2));
-      
-        textInputStage.show();
+        textInputStage.setX((screenRect.getWidth() / 2) - (textInputScene.getWidth() / 2));
+        textInputStage.setY((screenRect.getHeight() / 2) - (textInputScene.getHeight() / 2));
 
+        textInputStage.show();
 
     }
 
-    public static HBox createTopBar(Image iconImage, Button fillRightBtn, Button maximizeBtn, Button closeBtn, Stage theStage) {
+    public static HBox createTopBar(Image iconImage, Button fillRightBtn, Button maximizeBtn, Button closeBtn,
+            Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
+        barIconView.setFitWidth(20);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -1665,7 +1908,7 @@ public class App extends Application {
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
         newTitleLbl.textProperty().bind(theStage.titleProperty());
 
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        // HBox.setHgrow(titleLbl2, Priority.ALWAYS);
         ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
@@ -1725,7 +1968,7 @@ public class App extends Application {
     public static HBox createTopBar(Image iconImage, Button maximizeBtn, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
+        barIconView.setFitWidth(20);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -1739,7 +1982,7 @@ public class App extends Application {
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
         newTitleLbl.textProperty().bind(theStage.titleProperty());
 
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        // HBox.setHgrow(titleLbl2, Priority.ALWAYS);
         ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
@@ -1792,12 +2035,11 @@ public class App extends Application {
         return newTopBar;
     }
 
-    
-
-    public static HBox createTopBar(Image iconImage, String titleString, Button maximizeBtn, Button closeBtn, Stage theStage) {
+    public static HBox createTopBar(Image iconImage, String titleString, Button maximizeBtn, Button closeBtn,
+            Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
+        barIconView.setFitWidth(20);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -1810,7 +2052,7 @@ public class App extends Application {
         newTitleLbl.setTextFill(txtColor);
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
 
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        // HBox.setHgrow(titleLbl2, Priority.ALWAYS);
         ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
@@ -1866,7 +2108,7 @@ public class App extends Application {
     public static HBox createTopBar(Image iconImage, String titleString, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
+        barIconView.setFitWidth(20);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -1879,7 +2121,7 @@ public class App extends Application {
         newTitleLbl.setTextFill(txtColor);
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
 
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        // HBox.setHgrow(titleLbl2, Priority.ALWAYS);
         ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
@@ -1931,7 +2173,7 @@ public class App extends Application {
     public static HBox createTopBar(Image iconImage, Label newTitleLbl, Button closeBtn, Stage theStage) {
 
         ImageView barIconView = new ImageView(iconImage);
-        barIconView.setFitWidth(25);
+        barIconView.setFitWidth(20);
         barIconView.setPreserveRatio(true);
 
         // Rectangle2D logoRect = new Rectangle2D(30,30,30,30);
@@ -1943,7 +2185,7 @@ public class App extends Application {
         newTitleLbl.setTextFill(txtColor);
         newTitleLbl.setPadding(new Insets(0, 0, 0, 10));
 
-        //  HBox.setHgrow(titleLbl2, Priority.ALWAYS);
+        // HBox.setHgrow(titleLbl2, Priority.ALWAYS);
         ImageView closeImage = highlightedImageView(closeImg);
         closeImage.setFitHeight(20);
         closeImage.setFitWidth(20);
@@ -2031,9 +2273,8 @@ public class App extends Application {
         return imageView;
     }
 
-    public static String confirmPassword(String topTitle,Image windowLogo, Image smallLogo, String windowSubTitle, String information) {
-
-        
+    public static String confirmPassword(String topTitle, Image windowLogo, Image smallLogo, String windowSubTitle,
+            String information) {
 
         Stage passwordStage = new Stage();
 
@@ -2080,10 +2321,9 @@ public class App extends Application {
         VBox.setVgrow(bodyBox, Priority.ALWAYS);
 
         VBox layoutVBox = new VBox(titleBox, imageBox, bodyBox);
-        
 
         Scene passwordScene = new Scene(layoutVBox, 600, 290);
-
+        passwordScene.setFill(null);
         passwordScene.getStylesheets().add("/css/startWindow.css");
         passwordStage.setScene(passwordScene);
 
@@ -2128,7 +2368,7 @@ public class App extends Application {
                 if (event.getActionCommand().equals("show")) {
                     m_networksData.show();
                 }
-              
+
             }));
 
             java.awt.MenuItem openItem = new java.awt.MenuItem("Show Netnotes");
@@ -2155,22 +2395,23 @@ public class App extends Application {
 
         } catch (java.awt.AWTException e) {
             try {
-                Files.writeString(logFile.toPath(), "\nAWT - trayItem: " + e.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                Files.writeString(logFile.toPath(), "\nAWT - trayItem: " + e.toString(), StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
             } catch (IOException e1) {
-              
+
             }
-            
+
         }
 
     }
 
-    public static Scene getProgressScene(Image icon, String headingString, String titleContextString, SimpleStringProperty fileName, ProgressBar progressBar, Stage stage) {
+    public static Scene getProgressScene(Image icon, String headingString, String titleContextString, String fileName,
+            ProgressBar progressBar, Stage stage, Button closeBtn) {
 
         double defaultRowHeight = 40;
-        Button closeBtn = new Button();
 
-
-        Text fileNameProgressText = new Text(fileName.get() + " (" + String.format("%.1f", progressBar.getProgress() * 100) + "%)");
+        Text fileNameProgressText = new Text(
+                fileName + " (" + String.format("%.1f", progressBar.getProgress() * 100) + "%)");
         fileNameProgressText.setFill(txtColor);
         fileNameProgressText.setFont(txtFont);
 
@@ -2200,19 +2441,17 @@ public class App extends Application {
 
         headerBox.setPadding(new Insets(0, 5, 0, 5));
 
-        //Region progressLeftRegion = new Region();
-        //progressLeftRegion.minWidthProperty().bind(stage.widthProperty().multiply(0.15));
+        // Region progressLeftRegion = new Region();
+        // progressLeftRegion.minWidthProperty().bind(stage.widthProperty().multiply(0.15));
         progressBar.prefWidthProperty().bind(stage.widthProperty().multiply(0.7));
 
-        //  Region bodyTopRegion = new Region();
+        // Region bodyTopRegion = new Region();
         HBox progressAlignmentBox = new HBox(progressBar);
-        //  HBox.setHgrow(progressAlignmentBox, Priority.ALWAYS);
+        // HBox.setHgrow(progressAlignmentBox, Priority.ALWAYS);
         progressAlignmentBox.setAlignment(Pos.CENTER);
 
-       
-
         progressBar.progressProperty().addListener((obs, oldVal, newVal) -> {
-            fileNameProgressText.setText(fileName.get() + " (" + String.format("%.1f", newVal.doubleValue() * 100) + "%)");
+            fileNameProgressText.setText(fileName + " (" + String.format("%.1f", newVal.doubleValue() * 100) + "%)");
         });
 
         stage.titleProperty().bind(Bindings.concat(fileNameProgressText.textProperty(), " - ", titleContextString));
@@ -2239,11 +2478,13 @@ public class App extends Application {
 
         VBox footerBox = new VBox(footerSpacer);
         VBox layoutBox = new VBox(headerBox, bodyPaddingBox, footerBox);
-        Scene coreFileProgressScene = new Scene(layoutBox, 600, 260);
-        coreFileProgressScene.getStylesheets().add("/css/startWindow.css");
+        Scene scene = new Scene(layoutBox, 600, 260);
+        scene.setFill(null);
+        scene.getStylesheets().add("/css/startWindow.css");
 
         // bodyTopRegion.minHeightProperty().bind(stage.heightProperty().subtract(30).divide(2).subtract(progressAlignmentBox.heightProperty()).subtract(fileNameProgressBox.heightProperty().divide(2)));
-        bodyBox.prefHeightProperty().bind(stage.heightProperty().subtract(headerBox.heightProperty()).subtract(footerBox.heightProperty()).subtract(10));
-        return coreFileProgressScene;
+        bodyBox.prefHeightProperty().bind(stage.heightProperty().subtract(headerBox.heightProperty())
+                .subtract(footerBox.heightProperty()).subtract(10));
+        return scene;
     }
 }

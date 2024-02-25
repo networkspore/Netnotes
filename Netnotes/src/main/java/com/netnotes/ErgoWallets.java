@@ -141,19 +141,29 @@ public class ErgoWallets extends Network implements NoteInterface {
         jsonObject.add("stage", getStageJson());
         return jsonObject;
     }
-    
-    public File getDataDir() throws IOException{
+
+    @Override
+    public File getDataDir(){
         File dataDir = new File(getAppDir().getAbsolutePath() + "/data");
         if(!dataDir.isDirectory()){
-            Files.createDirectory(dataDir.toPath());
+            try{
+                Files.createDirectory(dataDir.toPath());
+            }catch(IOException e){
+                try {
+                    Files.writeString(logFile.toPath(),"\nWallets cannot create data directory: " + e.toString()  , StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                } catch (IOException e1) {
+
+                }
+                
+            }
         }
         return dataDir;
     }
 
-    public File getIdDataFile() throws IOException{
+    public File getIdDataFile(){
         File dataDir = getDataDir();
 
-        File idDataFile = new File(dataDir.getCanonicalPath() + "/data.dat");
+        File idDataFile = new File(dataDir.getAbsolutePath() + "/data.dat");
         return idDataFile;
     }
 
@@ -182,7 +192,7 @@ public class ErgoWallets extends Network implements NoteInterface {
             File idDataFile =  getIdDataFile();
             if(idDataFile.isFile()){
               
-                JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
+                JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile);
                 JsonElement idsElement = json.get("ids");
         
                 if(idsElement != null && idsElement.isJsonArray()){
@@ -243,7 +253,7 @@ public class ErgoWallets extends Network implements NoteInterface {
         File idDataFile = getIdDataFile(id, id2);
         if(idDataFile.isFile()){
             try {
-                return Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
+                return Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile);
             } catch (InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException
                     | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
                 try {
@@ -265,7 +275,7 @@ public class ErgoWallets extends Network implements NoteInterface {
            
         if(idDataFile.isFile()){
             
-            JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile.toPath());
+            JsonObject json = Utils.readJsonFile(getNetworksData().getAppData().appKeyProperty().get(), idDataFile);
             JsonElement idsElement = json.get("ids");
             json.remove("ids");
             if(idsElement != null && idsElement.isJsonArray()){
@@ -408,7 +418,7 @@ public class ErgoWallets extends Network implements NoteInterface {
     public void showWalletsStage() {
         if (m_walletsStage == null) {
 
-            ErgoWalletDataList walletsDataList = new ErgoWalletDataList(getStageWidth() - 30, getStageIconStyle(), m_dataFile, m_walletsDir, this);
+            ErgoWalletDataList walletsDataList = new ErgoWalletDataList(getStageWidth() - 30, getStageIconStyle(), m_dataFile, this);
 
             String title = "Wallets" + " - " + getName();
 
@@ -682,7 +692,7 @@ public class ErgoWallets extends Network implements NoteInterface {
                 File idDataFile = getIdDataFile();
                 if(idDataFile.isFile()){
                     try {
-                        JsonObject dataFileJson = Utils.readJsonFile(oldval, idDataFile.toPath());
+                        JsonObject dataFileJson = Utils.readJsonFile(oldval, idDataFile);
                         if(dataFileJson != null){
                             Utils.saveJson(newval, dataFileJson, idDataFile);
 
@@ -710,7 +720,7 @@ public class ErgoWallets extends Network implements NoteInterface {
                                                     if(fileElement != null && fileElement.isJsonPrimitive()){
                                                         File file = new File(fileElement.getAsString());
                                                         if(file.isFile()){
-                                                            JsonObject fileObject = Utils.readJsonFile(oldval, file.toPath());
+                                                            JsonObject fileObject = Utils.readJsonFile(oldval, file);
                                                             if(fileObject != null){
                                                                 Utils.saveJson(newval, fileObject, file);
                                                             }

@@ -4,8 +4,12 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
@@ -17,6 +21,7 @@ import com.utils.Utils;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
@@ -63,16 +68,17 @@ public class AmountBox extends HBox {
         
     }
 
+    private AddressesData m_addressesData;
 
-
-    public AmountBox(PriceAmount priceAmount, Scene scene, SimpleBooleanProperty isErgoTokensProperty, ErgoNetworkData ergoNetworkData) {
+    public AmountBox(PriceAmount priceAmount, Scene scene, AddressesData addressesData) {
         super();
+       
         setId("darkRowBox");
         setMinHeight(45);
         setMaxHeight(45);
 
         m_currentAmount.set(priceAmount);
-  
+        m_addressesData = addressesData;
         
 
        
@@ -105,6 +111,8 @@ public class AmountBox extends HBox {
         df.setMaximumFractionDigits(precision);
 
        ImageView textViewImage = IconButton.getIconView( priceAmount.getCurrency().getIcon(),35);
+
+       
 
         VBox imgPaddingBox = new VBox(textViewImage);
         imgPaddingBox.setPadding(new Insets(0,15,0,10)); 
@@ -217,11 +225,8 @@ public class AmountBox extends HBox {
 
         
         m_priceQuoteProperty.addListener((obs, oldval, newval)->updateBufferedImage());
-        updateBufferedImage();
-
-        
-
-
+      
+      
         Tooltip ergoTokensBtnTip = new Tooltip("Options");
         
 
@@ -234,19 +239,20 @@ public class AmountBox extends HBox {
 
         MenuItem installErgoTokensItem = new MenuItem("Install Ergo Tokens");
         installErgoTokensItem.setOnAction(e->{
-            ergoNetworkData.showwManageStage();
+            m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().showwManageStage();
+          
         });
 
         final String enableString = "enable";
 
         MenuItem enableErgoTokens = new MenuItem("Enable Ergo Tokens");
         enableErgoTokens.setOnAction(e->{
-            isErgoTokensProperty.set(true);
+            m_addressesData.isErgoTokensProperty().set(true);
         });
 
-        final String rememberString = "Remember";
+    
         final String viewString = "viewToken";
-        MenuItem addItem = new MenuItem("Add to Ergo Tokens");
+      //  MenuItem addItem = new MenuItem("Add to Ergo Tokens");
         MenuItem viewItem = new MenuItem("Open");
 
         MenuItem currencyUrlItem = new MenuItem("Visit Website");
@@ -259,12 +265,16 @@ public class AmountBox extends HBox {
 
         Runnable updates = () ->{
             
-            boolean isErgoTokens = isErgoTokensProperty.get();
-            ErgoTokens ergoTokens = (ErgoTokens) ergoNetworkData.getNetwork(ErgoTokens.NETWORK_ID) ;
+           
+            ErgoTokensList tokensList = m_addressesData.tokensListProperty().get();
+
+            boolean isErgoTokens = tokensList != null;
+
             Object btnUserData =ergoTokensBtn.getUserData();
             String tokenOptionsBtnUserData = btnUserData != null && btnUserData instanceof String ?  (String) btnUserData : "null";
 
             PriceAmount currentAmount = m_currentAmount.get();
+
             if(currentAmount != null){
 
                 String newAmountText = df.format(currentAmount.getDoubleAmount());
@@ -272,13 +282,13 @@ public class AmountBox extends HBox {
                     amountField.setText(newAmountText);
                 }
                 PriceCurrency currency = currentAmount.getCurrency();
-        
+                
                
-
-                if(ergoTokens != null && isErgoTokens){
-            
+                if(tokensList != null){
+                   
                     if(currency instanceof ErgoNetworkToken){
                         
+
                         if(!tokenOptionsBtnUserData.equals(viewString)){
                             ergoTokensBtn.setUserData(viewString);
                             ergoTokensBtn.getItems().clear();
@@ -294,7 +304,7 @@ public class AmountBox extends HBox {
                             });
                             ergoTokensBtn.getItems().add(viewItem);
                         }   
-                    }else{
+                     /*else{
                         if(!tokenOptionsBtnUserData.equals(rememberString)){
                             ergoTokensBtn.setUserData(rememberString);
                             ergoTokensBtn.getItems().clear();
@@ -302,7 +312,7 @@ public class AmountBox extends HBox {
                             addItem.setOnAction(e->{
                                   
                                NetworkType tokenNetworkType = currency.getNetworkTypeString().equals(NetworkType.TESTNET.toString()) ? NetworkType.TESTNET : NetworkType.MAINNET;
-                               TokensList tokensList = ergoTokens.getTokensList(tokenNetworkType);
+                               
                                //  Alert a = new Alert(AlertType.NONE, "ok", ButtonType.OK);
                              //   a.show();
 
@@ -312,22 +322,19 @@ public class AmountBox extends HBox {
                                 Stage addEditTokenStage =  new Stage();
                                 addEditTokenStage.getIcons().add(ErgoTokens.getAppIcon());
                                 addEditTokenStage.initStyle(StageStyle.UNDECORATED);
+                                Button addEditTokenStageCloseBtn = new Button();
+                                Scene addTokenScene = tokensList.getEditTokenScene(newToken, tokenNetworkType, addEditTokenStage, addEditTokenStageCloseBtn);
                                 
-                                Button stageCloseBtn = new Button();
-
-                             
-                                Scene addTokenScene = tokensList.getEditTokenScene(newToken, tokenNetworkType, addEditTokenStage, stageCloseBtn);
-
                                 addEditTokenStage.setScene(addTokenScene);
                                 addEditTokenStage.show();
-                                stageCloseBtn.setOnAction(e1->{
+                                addEditTokenStageCloseBtn.setOnAction(e1->{
                                     addEditTokenStage.close();
                                 });
                             });
-                        }
+                        }*/
                     }
                 }else{
-                    if(!isErgoTokens && ergoTokens != null){
+                    if(!isErgoTokens && m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().getNetwork(ErgoTokens.NETWORK_ID) != null){
                         
                         if(!tokenOptionsBtnUserData.equals(enableString)){
                             ergoTokensBtn.setUserData(enableString);
@@ -356,8 +363,31 @@ public class AmountBox extends HBox {
             updates.run();
             updateBufferedImage();
         });
-        isErgoTokensProperty.addListener((obs,oldval,newval)->updates.run());
-        ergoNetworkData.addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> updates.run());
+        ChangeListener<PriceQuote[]> listPriceListener = (obs,oldval,newval)->updateBufferedImage();
+        ChangeListener<LocalDateTime> updateListener = (obs,oldval,newval)->{
+            PriceAmount currentAmount = m_currentAmount.get();
+            if(currentAmount != null){
+                textViewImage.setImage(currentAmount.getCurrency().getIcon());
+            }
+        };
+        m_addressesData.tokensListProperty().addListener((obs,oldval,newval)->{
+            updates.run();
+            if(oldval != null){
+                oldval.priceQuotesProperty().removeListener(listPriceListener);
+                oldval.getLastUpdated().removeListener(updateListener);
+            }
+            if(newval != null){
+                newval.priceQuotesProperty().addListener(listPriceListener);
+                newval.getLastUpdated().removeListener(updateListener);
+            }
+            updateBufferedImage();
+        });
+        if(m_addressesData.tokensListProperty().get() != null){
+            m_addressesData.tokensListProperty().get().priceQuotesProperty().addListener(listPriceListener);
+            m_addressesData.tokensListProperty().get().getLastUpdated().addListener(updateListener);
+            updateBufferedImage();
+        }
+        m_addressesData.getWalletData().getErgoWallets().getErgoNetworkData().addNetworkListener((ListChangeListener.Change<? extends NoteInterface> c) -> updates.run());
         
         updateBufferedImage();
         updates.run();
@@ -413,22 +443,34 @@ public class AmountBox extends HBox {
         m_minImgWidth = width;
     }
    
-
+    
    
     public void updateBufferedImage() {
         PriceAmount priceAmount = m_currentAmount.get();
         boolean quantityValid = priceAmount != null && priceAmount.getAmountValid();
         BigDecimal priceAmountDecimal = priceAmount != null && quantityValid ? priceAmount.getBigDecimalAmount() : BigDecimal.valueOf(0);
 
-        PriceQuote priceQuote = m_priceQuoteProperty.get();
+        PriceCurrency priceCurrency = priceAmount != null ? priceAmount.getCurrency() : null;
+
+        int decimalPlaces = priceCurrency != null ? priceCurrency.getFractionalPrecision() : 0;
+        String currencySymbol =  priceCurrency != null ? priceCurrency.getSymbol() : "UKNOWN";
+
+        PriceQuote priceQuote = priceCurrency != null && priceCurrency instanceof ErgoNetworkToken ? ((ErgoNetworkToken) priceCurrency).getPriceQuote() : m_priceQuoteProperty.get();
+        //PriceQuote priceQuote = priceQuoteBase != null ? priceQuoteBase.getPriceQuote(quantityValid ? priceAmount.getTokenId() : null) : null;
+     
+        //String tokenId = priceAmount != null ? priceAmount.getTokenId() : null;
+
+        //PriceQuote priceQuote =  (priceQuoteBase != null && tokenId != null ? priceQuoteBase.getPriceQuote(tokenId): null);
+
         boolean priceValid = priceQuote != null && priceQuote.getTimeStamp() != 0 && priceQuote.howOldMillis() < m_quoteTimeout;
+        
+        
         BigDecimal priceQuoteBigDecimal = priceValid  && priceQuote != null ? priceQuote.getBigDecimalAmount() : BigDecimal.valueOf(0);
         
         String totalPrice = priceValid && priceQuote != null ? Utils.formatCryptoString( priceAmountDecimal.multiply(priceQuoteBigDecimal), priceQuote.getQuoteCurrency(), priceQuote.getFractionalPrecision(),  quantityValid && priceValid) : " -.--";
         BigInteger integers = priceAmount != null ? priceAmount.getBigDecimalAmount().toBigInteger() : BigInteger.ZERO;
         BigDecimal decimals = priceAmount != null ? priceAmount.getBigDecimalAmount().subtract(new BigDecimal(integers)) : BigDecimal.ZERO;
-        int decimalPlaces = priceAmount != null ? priceAmount.getCurrency().getFractionalPrecision() : 0;
-        String currencySymbol = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "UKNOWN";
+      
        
 
         //String currencyName = priceAmount != null ? priceAmount.getCurrency().getSymbol() : "Token";
@@ -465,6 +507,7 @@ public class AmountBox extends HBox {
         int currencyWidth = fm.stringWidth(currencyPrice);
         int priceLength = (priceWidth > currencyWidth ? priceWidth : currencyWidth);
        
+        priceLength = priceLength < 400 ? 400 : priceLength;
        // int smallAscent = fm.getAscent();
 
         //  int priceAscent = fm.getAscent();
@@ -510,7 +553,7 @@ public class AmountBox extends HBox {
             }
         }
          */
-        g2d.drawImage(unitImage, 75 , (height / 2) - (unitImage.getHeight() / 2), unitImage.getWidth(), unitImage.getHeight(), null);
+        g2d.drawImage(unitImage, 200 , (height / 2) - (unitImage.getHeight() / 2), unitImage.getWidth(), unitImage.getHeight(), null);
 
         //g2d.setFont(smallFont);
       //  g2d.setColor(new java.awt.Color(0x777777, false));

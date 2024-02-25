@@ -11,5 +11,13 @@
     "graalvm.installations": [
         "C:\\dev\\graalvm",
         "c:\\Dev\\graalvm-ce-java17-22.3.3"
+    ],
+    "java.home": "c:\\Dev\\graalvm-ce-java17-22.3.3",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "c:\\Dev\\graalvm-ce-java17-22.3.3",
+            "default": true
+        }
     ]
 }
