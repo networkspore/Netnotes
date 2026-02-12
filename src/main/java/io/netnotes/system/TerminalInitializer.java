@@ -13,7 +13,7 @@ import java.util.concurrent.CompletionException;
 public class TerminalInitializer {
     public static Attributes ORIGINAL_TERMINAL_ATTRIBUTES = null;
     public static CompletableFuture<ConsoleUIRenderer> createAndInitialize() {
-        return CompletableFuture.supplyAsync(()->{
+        return VirtualExecutors.getIoExecutor().submit(()->{
             try {
                 ConsoleUIRenderer renderer = new ConsoleUIRenderer();
                 Terminal terminal = renderer.getTerminal();
@@ -22,7 +22,12 @@ public class TerminalInitializer {
             } catch (IOException e) {
                 throw new CompletionException("Failed to initialize", e);
             }
-        }, VirtualExecutors.getVirtualExecutor());
+        })
+        .thenCompose(renderer->{
+            return renderer.initialize()
+                .thenApply(v->renderer);
+        });
+
     }
     
     private static void setRawMode(Terminal terminal) {

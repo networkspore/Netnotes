@@ -12,20 +12,18 @@
         <exec.mainClass>io.netnotes.Main</exec.mainClass>
 
     </properties>
-       
-
         <dependencies>
 
             <dependency>
                 <groupId>io.netnotes</groupId>
                 <artifactId>netterminal</artifactId>
-                <version>1.0.0</version>
+                <version>1.0.5</version>
             </dependency>
 
             <dependency>
                 <groupId>io.netnotes</groupId>
                 <artifactId>engine</artifactId>
-                <version>0.2.0</version>
+                <version>0.2.2</version>
             </dependency>
 
 

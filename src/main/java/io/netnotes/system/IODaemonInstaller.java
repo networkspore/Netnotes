@@ -5,7 +5,6 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.concurrent.CompletableFuture;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -15,10 +14,12 @@ import io.netnotes.terminal.TerminalRectangle;
 import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.TextStyle;
 import io.netnotes.terminal.TextStyle.BoxStyle;
-import io.netnotes.terminal.components.ScrollableTextViewer;
-import io.netnotes.terminal.components.TerminalLabel;
+
+
 import io.netnotes.terminal.components.TerminalProgressBar;
-import io.netnotes.terminal.components.TerminalTextBox;
+import io.netnotes.terminal.components.text.ScrollableTextViewer;
+import io.netnotes.terminal.components.text.TerminalLabel;
+import io.netnotes.terminal.components.text.TerminalTextBox;
 import io.netnotes.terminal.layout.TerminalLayoutData;
 import io.netnotes.terminal.menus.MenuContext;
 import io.netnotes.terminal.menus.MenuNavigator;
@@ -76,7 +77,7 @@ public class IODaemonInstaller extends TerminalRenderable {
         this.osName = System.getProperty("os.name", "unknown").toLowerCase();
 
         headerLabel = new TerminalLabel("iod-header", "IODaemon Installer");
-        headerLabel.setStyle(TextStyle.BOLD);
+        headerLabel.setTextStyle(TextStyle.BOLD);
 
         statusBox = new TerminalTextBox("iod-status");
         statusBox.setBorderStyle(BoxStyle.SINGLE);

@@ -1,8 +1,9 @@
 package io.netnotes.system;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
+import org.jline.terminal.Terminal;
 
 import io.netnotes.engine.io.ContextPath;
 import io.netnotes.engine.io.daemon.ClientSession;
@@ -12,16 +13,13 @@ import io.netnotes.engine.io.process.FlowProcessService;
 import io.netnotes.engine.io.process.ProcessRegistryInterface;
 import io.netnotes.engine.io.process.StreamChannel;
 
-import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.NoteBytesEphemeral;
-import io.netnotes.noteBytes.NoteBytesReadOnly;
-import io.netnotes.noteBytes.collections.NoteBytesMap;
 import io.netnotes.renderer.ConsoleUIRenderer;
 import io.netnotes.terminal.TerminalContainerHandle;
 import io.netnotes.terminal.TerminalRectangle;
+import io.netnotes.terminal.TerminalRectanglePool;
 import io.netnotes.terminal.layout.TerminalLayoutData;
 import io.netnotes.engine.state.ConcurrentBitFlagStateMachine;
-import io.netnotes.engine.ui.UIRenderer;
 import io.netnotes.engine.ui.containers.Container;
 import io.netnotes.engine.ui.containers.RenderingService;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
@@ -40,6 +38,9 @@ import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
  */
 public class SystemApplication extends FlowProcess {
    
+    public static final int MIN_WIDTH = 40;
+    public static final int MIN_HEIGHT = 40;
+
     // ===== HANDLE STATES =====
     public static final int DETACHED = 0;
     public static final int ATTACHED = 1;
@@ -73,7 +74,7 @@ public class SystemApplication extends FlowProcess {
     private final RenderingService renderingService;
     private final FlowProcessService processService;
     private final IODaemonManager ioDaemonManager;
-
+    private final PasswordService passwordService;
     // ===== UI STATE =====
     protected TerminalContainerHandle containerHandle;
     private ApplicationRootScene rootScene;
@@ -81,47 +82,41 @@ public class SystemApplication extends FlowProcess {
     
     // ===== AUTHENTICATION =====
     private PasswordKeyboardManager passwordKeyboardManager = null;
+    
     private String claimedKeyboardId;
     private SystemRuntime systemRuntime;
     private RuntimeAccess systemAccess;
     private CompletableFuture<Void> authTimeoutFuture;
 
     // ===== LIFECYCLE =====
-    private volatile boolean running = false;
+
     private final CompletableFuture<Void> shutdownFuture = new CompletableFuture<>();
     private volatile boolean shutdownInProgress = false;
+    private CompletableFuture<Void> deattachHandleFuture = null;
     
     // ===== MODE FLAGS =====
-    private boolean daemonMode = false;
+    protected boolean startDetached = false;
     private boolean allowRemoteAccess = false;
     private boolean isInRecoveryMode = false;
-    private String recoveryReason;
+    private String recoveryReason = null;
     
     private static final long AUTH_TIMEOUT_SECONDS = 30;
     public static final String DEFAULT_IO_DAEMON_SOCKET_PATH = "/var/run/io-daemon.sock";
     public static final String PASSWORD_KEYBOARD_MANAGER_ID = "password-keyboard";
-    public static final String RESOURCE_IO_EXECUTOR = "io-executor";
-    
-    // ===== CONFIG KEYS =====
-    private static class ConfigKeys {
-        public static final NoteBytesReadOnly CLAIMED_KEYBOARD_ID = 
-            new NoteBytesReadOnly("claimedKeyboardId");
-        public static final NoteBytesReadOnly IO_DAEMON_SOCKET_PATH = 
-            new NoteBytesReadOnly("ioDaemonSocketPath");
-        public static final NoteBytesReadOnly RECOVERY_MODE = 
-            new NoteBytesReadOnly("recoveryMode");
-        public static final NoteBytesReadOnly RECOVERY_REASON = 
-            new NoteBytesReadOnly("recoveryReason");
-    }
+
     
     // ===== CONSTRUCTION =====
-    
+
+    /**
+     * Constructor 1: FIRST RUN / RECOVERY MODE
+     * Used when bootstrap config doesn't exist or is invalid.
+     * Initializes minimal infrastructure to show SystemSetupScreen.
+     */
     private SystemApplication(
         ConsoleUIRenderer uiRenderer,
         RenderingService renderingService,
         FlowProcessService processService,
-        ProcessRegistryInterface registry,
-        boolean daemonMode
+        ProcessRegistryInterface registry
     ) {
         super("SystemApplication", ProcessType.BIDIRECTIONAL);
         this.id = NoteUUID.createSafeUUID128();
@@ -130,19 +125,60 @@ public class SystemApplication extends FlowProcess {
         this.uiRenderer = uiRenderer;
         this.renderingService = renderingService;
         this.processService = processService;
-        this.daemonMode = daemonMode;
+        this.passwordService = new PasswordService(this);
         this.ioDaemonManager = new IODaemonManager(
             CoreConstants.IO_DAEMON, 
             CoreConstants.IO_DAEMON_PATH,
             registry, 
-            DEFAULT_IO_DAEMON_SOCKET_PATH
+            SystemApplication.DEFAULT_IO_DAEMON_SOCKET_PATH
         );
+        this.uiRenderer.setOnCtrlC(this::handleCtrlC);
+        setupStateTransitions();
+        setupShutdownHook();
+    }
+    
+    /**
+     * Constructor 2: NORMAL BOOTSTRAP
+     * Used when valid bootstrap config exists.
+     * Initializes with config values - can skip setup, go straight to auth/recovery.
+     */
+    private SystemApplication(
+        ConsoleUIRenderer uiRenderer,
+        RenderingService renderingService,
+        FlowProcessService processService,
+        ProcessRegistryInterface registry,
+        BootstrapConfig config
+    ) {
+        super("SystemApplication", ProcessType.BIDIRECTIONAL);
+        this.id = NoteUUID.createSafeUUID128();
+        this.stateMachine = new ConcurrentBitFlagStateMachine("SystemApplication:" + id);
+        this.stateMachine.setSerialExecutor(uiExecutor);
+        this.uiRenderer = uiRenderer;
+        this.renderingService = renderingService;
+        this.processService = processService;
+        this.passwordService = new PasswordService(this);
+        this.startDetached = config.isDetachedMode();
+        this.claimedKeyboardId = config.getClaimedKeyboardId().orElse(null);
+        this.isInRecoveryMode = config.isRecoveryMode();
+        this.recoveryReason = config.getRecoveryReason().orElse(null);
+
+        String socketPath = config.getIoDaemonSocketPath()
+            .orElse(SystemApplication.DEFAULT_IO_DAEMON_SOCKET_PATH);
+        
+        this.ioDaemonManager = new IODaemonManager(
+            CoreConstants.IO_DAEMON, 
+            CoreConstants.IO_DAEMON_PATH,
+            registry, 
+            socketPath
+        );
+        
         this.uiRenderer.setOnCtrlC(this::handleCtrlC);
         setupStateTransitions();
         setupShutdownHook();
     }
 
     private void setupShutdownHook() {
+        /* Not required for now
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             if (!shutdownInProgress) {
             }
@@ -152,7 +188,7 @@ public class SystemApplication extends FlowProcess {
             System.err.println("[SystemApplication] Uncaught exception in " + 
                 thread.getName() + ": " + throwable.getMessage());
             throwable.printStackTrace();
-        });
+        }); */
     }
 
     private void handleCtrlC(){
@@ -160,41 +196,122 @@ public class SystemApplication extends FlowProcess {
     }
 
     public CompletableFuture<SystemApplication> start(){
-        Log.logMsg("[SystemApplication] Bootstrap starting...");
+         Log.logMsg("[SystemApplication] Loading bootstrap config...");
         
-        return TerminalInitializer.createAndInitialize()
-            .thenCompose(renderer -> bootstrapInfrastructure(renderer, daemonMode))
-            .whenComplete((app,ex) -> {
-                if(ex != null){
+        return BootstrapConfig.load()
+            .thenCompose(config -> {
+                if (config == null) {
+                    Log.logMsg("[SystemApplication] First run - setup required");
+                    return TerminalInitializer.createAndInitialize()
+                        .thenCompose(renderer -> bootstrapMinimal(renderer));
+                } else {
+                    Log.logMsg("[SystemApplication] Config exists - normal bootstrap");
+                    return TerminalInitializer.createAndInitialize()
+                        .thenCompose(renderer -> bootstrapWithConfig(renderer, config));
+                }
+            })
+            .whenComplete((app, ex) -> {
+                if (ex != null) {
                     Log.logError("[SystemApplication]", "Startup failed", ex);
                     ex.printStackTrace();
                     System.exit(1);
-                }else{
-                    app.running = true;
+                } else {
                     Log.logMsg("[SystemApplication] Bootstrap complete");
                 }
             });
-           
-            
-
     }
 
-    private static CompletableFuture<SystemApplication> bootstrapInfrastructure(
+    /**
+     * FULL BOOTSTRAP - with config, go to auth or recovery
+     */
+    private static CompletableFuture<SystemApplication> bootstrapWithConfig(
         ConsoleUIRenderer uiRenderer,
-        boolean daemonMode
+        BootstrapConfig config
     ) {
         FlowProcessService processService = new FlowProcessService();
         ProcessRegistryInterface registry = processService.getRegistryInterface();
         
-        return uiRenderer.initialize()
-            .thenCompose(v -> startRenderingService(uiRenderer, registry))
+        return startRenderingService(uiRenderer, registry)
+             .thenCompose(v -> startRenderingService(uiRenderer, registry))
             .thenCompose(renderingService -> {
                 SystemApplication app = new SystemApplication(
                     uiRenderer,
                     renderingService,
                     processService,
                     registry,
-                    daemonMode
+                    config
+                );
+                
+                registry.registerProcess(app, CoreConstants.SYSTEM_PATH, null, registry);
+                
+                return registry.startProcess(CoreConstants.SYSTEM_PATH)
+                    .thenCompose(v2 -> {
+                        registry.connect(CoreConstants.SYSTEM_PATH, CoreConstants.RENDERING_SERVICE_PATH);
+                        registry.connect(CoreConstants.RENDERING_SERVICE_PATH, CoreConstants.SYSTEM_PATH);
+                        
+                        
+                        if (!app.startDetached) {
+                            // Attach mode - create handle with keyboard manager
+                            return app.attachLocalTerminal()
+                                .thenCompose(v->CompletableFuture.completedFuture(app));
+                        } else {
+                            // Daemon mode - skip handle creation
+                            app.stateMachine.addState(DETACHED);
+                            return CompletableFuture.completedFuture(app);
+                        }
+                    })
+                    .thenApply(a -> {
+                        // Set initial state based on mode
+                        if (a.isInRecoveryMode) {
+                            a.stateMachine.addState(FAILED_SETTINGS);
+                        } else if (!a.startDetached) {
+                            a.stateMachine.addState(AUTHENTICATING);
+                        }
+                        
+                        Log.logMsg("[SystemApplication] Full bootstrap complete");
+                        return a;
+                    });
+            });
+    }
+
+    /*
+    if (claimedKeyboardId != null) {
+        // Setup password keyboard manager
+        passwordKeyboardManager = new PasswordKeyboardManager(
+            claimedKeyboardId,
+            ClientSession.Modes.PARSED.toString()
+        );
+        
+        handle.addDeviceManager(PASSWORD_KEYBOARD_MANAGER_ID, passwordKeyboardManager);
+        
+        return passwordKeyboardManager.enable()
+            .thenApply(v -> {
+                stateMachine.addState(ATTACHED);
+                Log.logMsg("[SystemApplication] Handle attached with keyboard: " + claimedKeyboardId);
+                return this;
+            });
+    } else {
+        stateMachine.addState(ATTACHED);
+        Log.logMsg("[SystemApplication] Handle attached (no keyboard configured)");
+        return CompletableFuture.completedFuture(this);
+    }*/
+
+    /**
+     * MINIMAL BOOTSTRAP - no config, go to setup
+     */
+    private static CompletableFuture<SystemApplication> bootstrapMinimal(
+        ConsoleUIRenderer uiRenderer
+    ) {
+        FlowProcessService processService = new FlowProcessService();
+        ProcessRegistryInterface registry = processService.getRegistryInterface();
+        
+        return startRenderingService(uiRenderer, registry)
+            .thenCompose(renderingService -> {
+                SystemApplication app = new SystemApplication(
+                    uiRenderer,
+                    renderingService,
+                    processService,
+                    registry
                 );
                 
                 registry.registerProcess(app, CoreConstants.SYSTEM_PATH, null, registry);
@@ -203,17 +320,20 @@ public class SystemApplication extends FlowProcess {
                     .thenApply(v2 -> {
                         registry.connect(CoreConstants.SYSTEM_PATH, CoreConstants.RENDERING_SERVICE_PATH);
                         registry.connect(CoreConstants.RENDERING_SERVICE_PATH, CoreConstants.SYSTEM_PATH);
-                        
-                        Log.logMsg("[SystemApplication] Infrastructure operational");
+                         Log.logMsg("[SystemApplication] Minimal bootstrap complete - setup required");
+                        app.stateMachine.addState(SETUP_NEEDED);
                         return app;
                     });
             });
     }
 
-    
-    // ===== BOOTSTRAP =====
-    
-    
+    private TerminalRectangle getInitialBounds(){
+        Terminal terminal = uiRenderer.getTerminal();
+        TerminalRectangle initialBounds = TerminalRectanglePool.getInstance().obtain();
+        initialBounds.set(0, 0, terminal.getWidth(), terminal.getHeight(), 0, 0);
+        return initialBounds;
+    }
+
     private static CompletableFuture<RenderingService> startRenderingService(
         ConsoleUIRenderer uiRenderer,
         ProcessRegistryInterface registry
@@ -233,104 +353,7 @@ public class SystemApplication extends FlowProcess {
         return registry.startProcess(servicePath)
             .thenApply(v -> renderingService);
     }
-    
-    // ===== INITIALIZATION =====
-    
-    @Override
-    public CompletableFuture<Void> run() {
-        stateMachine.addState(INITIALIZING);
-        if (needsBootstrap()) {
-            stateMachine.removeState(INITIALIZING);
-            stateMachine.addState(SETUP_NEEDED);
-            return attachLocalTerminal();
-        }
-        
-        return loadBootstrapConfig()
-            .thenCompose(v -> {
-                stateMachine.removeState(INITIALIZING);
-                stateMachine.addState(INITIALIZED);
-                return decideHandleAttachment();
-            })
-            .thenCompose(v -> setupIODaemon())
-            .whenComplete((v, ex) -> {
-                if (ex != null) {
-                    Log.logError("[SystemApplication] Init failed: " + ex.getMessage());
-                    stateMachine.addState(ERROR);
-                }
-            });
-    }
-    
-    private boolean needsBootstrap() {
-        return !SettingsData.isSystemConfigData();
-    }
-    
-    private CompletableFuture<Void> loadBootstrapConfig() {
-        if (!SettingsData.isSystemConfigData()) {
-            return CompletableFuture.failedFuture(new IOException("Config does not exist"));
-        }
-        
-        return SettingsData.loadSystemConfig(ioExecutor)
-            .thenCompose(map -> uiExecutor.submit(() -> {
-                NoteBytes keyboardBytes = map.get(ConfigKeys.CLAIMED_KEYBOARD_ID);
-                NoteBytes socketBytes = map.get(ConfigKeys.IO_DAEMON_SOCKET_PATH);
-                NoteBytes recoveryBytes = map.get(ConfigKeys.RECOVERY_MODE);
-                NoteBytes reasonBytes = map.get(ConfigKeys.RECOVERY_REASON);
-                
-                claimedKeyboardId = keyboardBytes != null
-                    ? keyboardBytes.getAsString()
-                    : null;
-                
-                String ioDaemonSocketPath = socketBytes != null
-                    ? socketBytes.getAsString()
-                    : DEFAULT_IO_DAEMON_SOCKET_PATH;
-                
-                isInRecoveryMode = recoveryBytes != null
-                    ? recoveryBytes.getAsBoolean()
-                    : false;
-                recoveryReason = reasonBytes != null
-                    ? reasonBytes.getAsString()
-                    : null;
-                
-                ioDaemonManager.setIODaemonSocketPath(ioDaemonSocketPath);
-                
-                Log.logMsg("[SystemApplication] Bootstrap loaded: passwordKeyboard=" + claimedKeyboardId);
-                return null;
-            }));
-    }
-    
-    private CompletableFuture<Void> saveBootstrapConfig() {
-        return uiExecutor.submit(() -> {
-            NoteBytesMap map = new NoteBytesMap();
-            
-            String keyboardId = this.claimedKeyboardId;
-            if (keyboardId != null) {
-                map.put(ConfigKeys.CLAIMED_KEYBOARD_ID, keyboardId);
-            }
-            map.put(ConfigKeys.IO_DAEMON_SOCKET_PATH, ioDaemonManager.getIODaemonSocketPath());
-            
-            if (isInRecoveryMode) {
-                map.put(ConfigKeys.RECOVERY_MODE, isInRecoveryMode);
-                if (recoveryReason != null) {
-                    map.put(ConfigKeys.RECOVERY_REASON, recoveryReason);
-                }
-            }
-            return map;
-        }).thenCompose(map -> SettingsData.saveSystemConfig(ioExecutor, map))
-            .thenRun(() -> Log.logMsg("[SystemApplication] Bootstrap saved (recovery=" + isInRecoveryMode + ")"));
-    }
-    
-    private CompletableFuture<Void> setupIODaemon() {
-        if (!daemonMode) {
-            return CompletableFuture.completedFuture(null);
-        }
-        
-        stateMachine.addState(INFRASTRUCTURE_INITIALIZING);
-        return ioDaemonManager.ensureAvailable()
-            .thenAccept(v -> {
-                stateMachine.removeState(INFRASTRUCTURE_INITIALIZING);
-                stateMachine.addState(INFRASTRUCTURE_READY);
-            });
-    }
+
 
     private CompletableFuture<Void> attachLocalTerminal() {
         if (isHandleAttached()) {
@@ -343,21 +366,14 @@ public class SystemApplication extends FlowProcess {
                 CoreConstants.SYSTEM_CONTAINER_NAME, 
                 CoreConstants.RENDERING_SERVICE_PATH, 
                 CoreConstants.TERMINAL_RENDERER_ID
-            ).build();
+            ).initialRegion(getInitialBounds()).build();
 
         ContextPath terminalPath = registerChildAt(handle, CoreConstants.SYSTEM_CONTAINER_HANDLE_PATH);
         return startProcess(terminalPath)
-            .thenRun(() -> setHandle(handle));
+            .thenCompose((v) -> setHandle(handle));
     }
 
-    private CompletableFuture<Void> decideHandleAttachment() {
-        if (daemonMode) {
-            Log.logMsg("[SystemApplication] Daemon mode - staying headless");
-            return CompletableFuture.completedFuture(null);
-        }
-        return attachLocalTerminal();
-    }
-    
+
     // ===== STATE TRANSITIONS =====
     
     protected void setupStateTransitions() {
@@ -433,7 +449,7 @@ public class SystemApplication extends FlowProcess {
         stateMachine.onStateAdded(AUTHENTICATING, (old, now, bit) -> {
             startAuthTimeout();
             if (containerHandle != null && claimedKeyboardId != null) {
-                setupClaimedKeyboard(containerHandle);
+                ensurePasswordKeyboard(containerHandle);
             }
             syncScaffoldingToState();
         });
@@ -441,12 +457,7 @@ public class SystemApplication extends FlowProcess {
         stateMachine.onStateRemoved(AUTHENTICATING, (old, now, bit) -> {
             cancelAuthTimeout();
             if (passwordKeyboardManager != null) {
-                passwordKeyboardManager.setExclusiveMode(false)
-                    .thenCompose(v -> passwordKeyboardManager.disable())
-                    .exceptionally(ex -> {
-                        Log.logError("[SystemApplication] Password keyboard release failed", ex);
-                        return null;
-                    });
+                disableClaimedKeyboard();
             }
         });
 
@@ -470,23 +481,20 @@ public class SystemApplication extends FlowProcess {
         Log.logMsg("[SystemApplication] Handle attached");
         
         if (rootScene == null) {
-            rootScene = createRootScene();
-            registerProcessFactories();
+            rootScene = new ApplicationRootScene(this);
+            registerSceneFactories();
         }
         
         containerHandle.setRenderable(rootScene, (ctx ->{
             TerminalRectangle newRegion = ctx.getRequestedRegion();
-            if(newRegion.getWidth() < 40){
-                newRegion.setWidth(40);
+            if(newRegion.getWidth() < MIN_WIDTH){
+                newRegion.setWidth(MIN_WIDTH);
             }
-            if(newRegion.getHeight() < 40){
-                newRegion.setHeight(40);
+            if(newRegion.getHeight() < MIN_HEIGHT){
+                newRegion.setHeight(MIN_HEIGHT);
             }
             return TerminalLayoutData.getBuilder().setBounds(newRegion).build();
         }));
-        if (claimedKeyboardId != null) {
-            setupClaimedKeyboard(containerHandle);
-        }
         syncScaffoldingToState();
     }
     
@@ -512,11 +520,8 @@ public class SystemApplication extends FlowProcess {
         }
     }
     
-    protected ApplicationRootScene createRootScene() {
-        return new ApplicationRootScene("root", this);
-    }
-    
-    protected void registerProcessFactories() {
+
+    protected void registerSceneFactories() {
     
     }
 
@@ -538,7 +543,7 @@ public class SystemApplication extends FlowProcess {
         
     }
 
-    private CompletableFuture<Void> deattachHandleFuture = null;
+    
 
     private CompletableFuture<Void> detachHandle(){
         if(deattachHandleFuture != null) return deattachHandleFuture;
@@ -548,7 +553,7 @@ public class SystemApplication extends FlowProcess {
             if(containerHandle != null){
                 TerminalContainerHandle oldHandle = containerHandle;
                 containerHandle = null;
-
+                passwordService.onHandleDetached();
                 if (stateMachine.hasState(ATTACHED) && oldHandle != null) {
                     stateMachine.removeState(ATTACHED);
                     oldHandle.close()
@@ -566,6 +571,7 @@ public class SystemApplication extends FlowProcess {
     private CompletableFuture<Void> attachHandle(TerminalContainerHandle handle){
         return uiExecutor.execute(()->{
             this.containerHandle = handle;
+            passwordService.onHandleAttached(containerHandle);
             deattachHandleFuture = null;
             if (handle != null) {
                 stateMachine.addState(ATTACHED);
@@ -580,8 +586,7 @@ public class SystemApplication extends FlowProcess {
         String previousKeyboardId = this.claimedKeyboardId;
         this.claimedKeyboardId = selectedKeyboardId;
 
-        return saveBootstrapConfig()
-            .thenCompose(v -> updatePasswordKeyboard(previousKeyboardId))
+        return saveBootstrapConfig().thenCompose(v -> updatePasswordKeyboard(previousKeyboardId))
             .thenRun(() -> {
                 Log.logMsg("[SystemApplication] Bootstrap complete");
                 stateMachine.removeState(SETUP_NEEDED);
@@ -590,25 +595,31 @@ public class SystemApplication extends FlowProcess {
             });
     }
 
+    private CompletableFuture<Void> saveBootstrapConfig(){
+        return BootstrapConfig.save(
+            this.ioExecutor,
+            this.claimedKeyboardId,
+            this.ioDaemonManager.getIODaemonSocketPath(),
+            this.isInRecoveryMode,
+            this.recoveryReason, 
+            this.startDetached
+        );
+    }
+
     private CompletableFuture<Void> updatePasswordKeyboard(String previousKeyboardId) {
         TerminalContainerHandle handle = containerHandle;
         String currentKeyboardId = claimedKeyboardId;
 
         if (handle == null) {
+            if(passwordKeyboardManager != null){
+                passwordKeyboardManager.disable();
+                passwordKeyboardManager = null;
+            }
             return CompletableFuture.completedFuture(null);
         }
 
-        if (currentKeyboardId == null) {
-            return removePasswordKeyboard(handle);
-        }
-
         if (previousKeyboardId == null || !previousKeyboardId.equals(currentKeyboardId)) {
-            return removePasswordKeyboard(handle)
-                .thenCompose(v -> setupClaimedKeyboard(handle));
-        }
-
-        if (passwordKeyboardManager == null) {
-            return setupClaimedKeyboard(handle);
+            return removePasswordKeyboard(handle);
         }
 
         return CompletableFuture.completedFuture(null);
@@ -616,27 +627,67 @@ public class SystemApplication extends FlowProcess {
 
     // ===== PASSWORD KEYBOARD MANAGEMENT =====
 
-    private CompletableFuture<Void> setupClaimedKeyboard(TerminalContainerHandle handle) {
+    private CompletableFuture<Void> ensurePasswordKeyboard(TerminalContainerHandle handle) {
         String keyboardId = claimedKeyboardId;
         if (keyboardId == null) {
             return CompletableFuture.completedFuture(null);
         }
 
         if (passwordKeyboardManager != null) {
-            return CompletableFuture.completedFuture(null);
+            return ioDaemonManager.ensureAvailable()
+                .thenCompose(v->passwordKeyboardManager.isEnabled())
+                .thenCompose(isEnabled->{
+                    if(!isEnabled){
+                        return passwordKeyboardManager.enable()
+                            .thenCompose(v->passwordKeyboardManager.setExclusiveMode(true));
+                    }else{
+                        return CompletableFuture.completedFuture(null);
+                    }
+                })
+                .thenRun(()->{
+                    Log.logMsg("[SystemApplication.] passwordKeyboardManager running");
+                })
+                .exceptionallyCompose(ex->{
+                    Log.logError("[SystemApplication] could not enable keyboard manager", ex);
+                    return passwordKeyboardManager.disable()
+                        .thenRun(()->{
+                            passwordKeyboardManager = null;
+                        });
+                });
         }
 
-        PasswordKeyboardManager keyboardManager = new PasswordKeyboardManager(
-            keyboardId,
-            ClientSession.Modes.PARSED.toString()
-        );
-        passwordKeyboardManager = keyboardManager;
+        return ioDaemonManager.ensureAvailable()
+            .thenCompose(path->{
+                PasswordKeyboardManager keyboardManager = new PasswordKeyboardManager(
+                    keyboardId,
+                    ClientSession.Modes.PARSED.toString()
+                );
+                passwordKeyboardManager = keyboardManager;
 
-        return handle.addDeviceManager(PASSWORD_KEYBOARD_MANAGER_ID, keyboardManager)
-            .thenRun(() -> Log.logMsg("[SystemApplication] Password keyboard attached: " + keyboardId))
+                return handle.addDeviceManager(PASSWORD_KEYBOARD_MANAGER_ID, keyboardManager)
+                    .thenCompose(v->keyboardManager.enable())
+                    .thenCompose((v)->{
+                        return keyboardManager.setExclusiveMode(true);
+                    })
+                    .thenRun(()->{
+                        Log.logMsg("[SystemApplication.] passwordKeyboardManager running");
+                    })
+                     .exceptionallyCompose(ex->{
+                        Log.logError("[SystemApplication] could not enable keyboard manager", ex);
+                        return passwordKeyboardManager.disable()
+                            .thenRun(()->{
+                                passwordKeyboardManager = null;
+                            });
+                    });
+
+            });
+    }
+
+    private CompletableFuture<Void> disableClaimedKeyboard(){
+        return passwordKeyboardManager.setExclusiveMode(false)
+            .thenCompose(v -> passwordKeyboardManager.disable())
             .exceptionally(ex -> {
-                Log.logError("[SystemApplication] Password keyboard setup failed", ex);
-                passwordKeyboardManager = null;
+                Log.logError("[SystemApplication] Password keyboard release failed", ex);
                 return null;
             });
     }
@@ -987,13 +1038,17 @@ public class SystemApplication extends FlowProcess {
     SystemRuntime getSystemRuntime() {
         return systemRuntime;
     }
+
+    public PasswordService getPasswordService() {
+        return passwordService;
+    }
     
-    UIRenderer<?> getUIRenderer() {
+    ConsoleUIRenderer getUIRenderer() {
         return uiRenderer;
     }
     
-    boolean isDaemonMode() {
-        return daemonMode;
+    boolean isStartDetached() {
+        return startDetached;
     }
     
     @Override
@@ -1004,7 +1059,6 @@ public class SystemApplication extends FlowProcess {
     public void shutdown() {
         if (shutdownInProgress) return;
         shutdownInProgress = true;
-        running = false;
         
         Log.logMsg("[SystemApplication] Shutdown initiated...");
         

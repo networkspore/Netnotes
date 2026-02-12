@@ -1,17 +1,19 @@
 package io.netnotes.system;
 
-import io.netnotes.terminal.*;
-import io.netnotes.terminal.components.*;
+import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.components.panels.TerminalBorderPanel;
 import io.netnotes.terminal.components.panels.TerminalVStack;
+import io.netnotes.terminal.components.text.TerminalLabel;
+import io.netnotes.terminal.components.text.TerminalTextBox;
 import io.netnotes.terminal.input.TerminalTextInput;
-import io.netnotes.terminal.menus.*;
+import io.netnotes.terminal.menus.MenuContext;
+import io.netnotes.terminal.menus.MenuNavigator;
 import io.netnotes.engine.io.ContextPath;
 import io.netnotes.engine.io.daemon.DiscoveredDeviceRegistry.DeviceDescriptorWithCapabilities;
 import io.netnotes.engine.io.daemon.IODaemonDetection;
 import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
 import io.netnotes.engine.messaging.NoteMessaging.ItemTypes;
-import io.netnotes.noteBytes.NoteBytesEphemeral;
+import io.netnotes.engine.ui.BorderPanel;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 
 import java.util.List;
@@ -43,7 +45,6 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     
     private TerminalTextInput socketInput;
     private IODaemonInstaller installer;
-    private PasswordPrompt passwordPrompt;
 
     
     private final boolean isFirstRun;
@@ -84,8 +85,8 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         topStack.addChild(headerLabel);
         topStack.addChild(statusBox);
         
-        layout.setPanel(TerminalBorderPanel.Panel.TOP, topStack);
-        layout.setPanel(TerminalBorderPanel.Panel.CENTER, menuNavigator);
+        layout.setPanel(BorderPanel.TOP, topStack);
+        layout.setPanel(BorderPanel.CENTER, menuNavigator);
         
         menuNavigator.hide();
         inputStack.hide();
@@ -160,10 +161,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
             showPasswordPrompt();
         });
         
-        stateMachine.onStateRemoved(STATE_PASSWORD, (o,n,b) -> {
-            hidePasswordPrompt();
-        });
-        
+
         stateMachine.onStateAdded(STATE_ERROR, (o,n,b) -> {
             headerLabel.setText("═══ Error ═══");
             statusBox.setText(errorMessage != null ? errorMessage : "Unknown error");
@@ -340,7 +338,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         socketInput.setOnEscape(text -> transitionTo(STATE_SOCKET_CONFIG, STATE_MAIN_MENU));
         
         inputStack.addChild(socketInput);
-        layout.setPanel(TerminalBorderPanel.Panel.CENTER, inputStack);
+        layout.setPanel(BorderPanel.CENTER, inputStack);
         inputStack.show();
     }
     
@@ -351,7 +349,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
             socketInput = null;
         }
         inputStack.hide();
-        layout.setPanel(TerminalBorderPanel.Panel.CENTER, menuNavigator);
+        layout.setPanel(BorderPanel.CENTER, menuNavigator);
     }
     
     private void handleSocketPathComplete(String newPath) {
@@ -445,7 +443,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
                 transitionTo(STATE_INSTALLER, STATE_DETECTING);
             });
 
-            layout.setPanel(TerminalBorderPanel.Panel.CENTER, installer);
+            layout.setPanel(BorderPanel.CENTER, installer);
             menuNavigator.hide();
         });
      
@@ -454,7 +452,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     
     private void hideInstaller() {
         if (installer != null) {
-            layout.setPanel(TerminalBorderPanel.Panel.CENTER, menuNavigator);
+            layout.setPanel(BorderPanel.CENTER, menuNavigator);
             installer = null;
         }
     }
@@ -463,39 +461,26 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     // ===== PASSWORD =====
     
     private void showPasswordPrompt() {
-        passwordPrompt = new PasswordPrompt("password", SystemApplication.PASSWORD_KEYBOARD_MANAGER_ID,  application.getContainerHandle())
-            .withTitle("Create System Password")
-            .withPrompt("Enter new password:")
-            .withConfirmPrompt("Confirm password:")
-            .onPassword(this::handlePasswordCreated)
-            .onCancel(this::handlePasswordCancelled);
-        
-        layout.setPanel(TerminalBorderPanel.Panel.CENTER, passwordPrompt);
-        menuNavigator.hide();
-        passwordPrompt.activate();
-    }
-    
-    private void hidePasswordPrompt() {
-        if (passwordPrompt != null) {
-            passwordPrompt.deactivate();
-            layout.setPanel(TerminalBorderPanel.Panel.CENTER, menuNavigator);
-            passwordPrompt = null;
-        }
-    }
-    
-    private void handlePasswordCreated(NoteBytesEphemeral password) {
-        application.createNewSystem(password)
-            .thenRun(this::complete)
-            .exceptionally(ex -> {
-                errorMessage = "Failed to create system: " + ex.getMessage();
-                transitionTo(STATE_PASSWORD, STATE_ERROR);
-                return null;
+        application.getPasswordService()
+            .requestCreation(
+                "Create System Password",
+                "Enter new password:",
+                "Confirm password:",
+                pw -> application.createNewSystem(pw).thenApply(v -> true),
+                5  // 5 attempts to get matching passwords
+            )
+            .thenAccept(result -> {
+                if (result.success()) {
+                    complete();
+                } else {
+                    errorMessage = result.message();
+                    transitionTo(STATE_PASSWORD, STATE_ERROR);
+                }
             });
     }
     
-    private void handlePasswordCancelled() {
-        transitionTo(STATE_PASSWORD, STATE_MAIN_MENU);
-    }
+
+
     
     // ===== COMPLETION =====
     

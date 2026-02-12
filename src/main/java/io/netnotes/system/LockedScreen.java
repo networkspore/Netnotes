@@ -6,8 +6,8 @@ import java.util.function.Consumer;
 
 import io.netnotes.terminal.TerminalCommands;
 import io.netnotes.terminal.TerminalRenderable;
-import io.netnotes.terminal.components.TerminalLabel;
 import io.netnotes.terminal.components.panels.TerminalVStack;
+import io.netnotes.terminal.components.text.TerminalLabel;
 import io.netnotes.engine.io.input.ephemeralEvents.EphemeralKeyDownEvent;
 import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
 
@@ -32,10 +32,10 @@ class LockedScreen extends TerminalVStack implements SystemUIInterface {
 
         // Create labels
         titleLabel = new TerminalLabel("locked-title", "System Locked");
-        titleLabel.setStyle(TextStyle.BOLD);
+        titleLabel.setTextStyle(TextStyle.BOLD);
 
         promptLabel = new TerminalLabel("locked-prompt", TerminalCommands.PRESS_ANY_KEY);
-        promptLabel.setStyle(TextStyle.NORMAL);
+        promptLabel.setTextStyle(TextStyle.NORMAL);
 
         buildUi();
     }

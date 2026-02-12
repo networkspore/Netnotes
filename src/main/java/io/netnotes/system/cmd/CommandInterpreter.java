@@ -1,9 +1,10 @@
 package io.netnotes.system.cmd;
 
+import io.netnotes.engine.ui.BorderPanel;
 import io.netnotes.system.ApplicationRootScene;
 import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.components.panels.TerminalBorderPanel;
-import io.netnotes.terminal.components.TerminalLabel;
+import io.netnotes.terminal.components.text.TerminalLabel;
 import io.netnotes.terminal.input.TerminalTextInput;
 
 /**
@@ -27,8 +28,8 @@ public class CommandInterpreter {
         this.breadcrumb = new TerminalLabel(name + "-breadcrumb", "");
         this.input = new TerminalTextInput(name + "-input", 0, 0, 256);
         
-        ui.setPanel(TerminalBorderPanel.Panel.LEFT, breadcrumb);
-        ui.setPanel(TerminalBorderPanel.Panel.RIGHT, input);
+        ui.setPanel(BorderPanel.LEFT, breadcrumb);
+        ui.setPanel(BorderPanel.RIGHT, input);
         
         input.setOnComplete(this::handleCommand);
     }

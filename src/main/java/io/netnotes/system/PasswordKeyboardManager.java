@@ -51,13 +51,13 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
     
     private boolean exclusiveMode = false;
     private String filterId; // Filter ID for cleanup
-    
     // ===== CONSTRUCTION =====
     
     public PasswordKeyboardManager(String deviceId, String deviceMode) {
         super(deviceId, deviceMode, ItemTypes.KEYBOARD.getAsString());
     }
-    
+
+
     // ===== LIFECYCLE HOOKS =====
     
     @Override
@@ -227,5 +227,6 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
         return serialExec.submit(() -> exclusiveMode);
     }
 
+  
 
 }
