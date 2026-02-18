@@ -1,7 +1,6 @@
 package io.netnotes.system;
 
 import io.netnotes.engine.io.ContextPath;
-import io.netnotes.noteBytes.NoteBytesReadOnly;
 
 public class CoreConstants {
 
@@ -21,7 +20,7 @@ public class CoreConstants {
 
     public static final String DEFAULT_KEYBOARD_ID = "default-keyboard";
 
-    public static final String SYSTEM_CONTAINER_NAME = "sys-term";
+    public static final String SYSTEM_CONTAINER_NAME = "system-terminal";
 
 
  

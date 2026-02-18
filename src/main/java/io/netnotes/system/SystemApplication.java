@@ -29,12 +29,17 @@ import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
 
 /**
  * SystemApplication - Process-based terminal system with authentication
+ * Startup States: These four are mutually exclusive 
+ *      FIRST_RUN - syscfg.dat does not exist. User has never completed setup. 
+ *          Show full SystemSetupScreen (keyboard selection + password creation).
+ *      SETUP_NEEDED - syscfg.dat exists but settings.dat does not. 
+ *          Keyboard was selected but password was never created. Show 
+ *          SystemSetupScreen resuming at the password creation step.
+ *      FAILED_SETTING - Ssettings.dat exists and contains OLD_BCRYPT_KEY / OLD_SALT_KEY fields. 
+ *          A password change was started but not completed. Show recovery UI.
+ *      AUTHENTICATING - Both files exist and settings.dat has no old key fields. Normal login.
  * 
- * Lifecycle:
- * 1. Bootstrap: Create infrastructure (RenderingService, ProcessService)
- * 2. Initialize: Load config, check settings
- * 3. Authenticate: First run / login / unlock
- * 4. Runtime: Manage processes, handle detachment
+ *  — CHECKING_SETTINGS handler should set exactly one of them and nothing else.
  */
 public class SystemApplication extends FlowProcess {
    
@@ -195,21 +200,12 @@ public class SystemApplication extends FlowProcess {
         requestShutdown();
     }
 
-    public static CompletableFuture<Void> start(){
+    public static CompletableFuture<Void> start() {
         Log.logMsg("[SystemApplication] Loading bootstrap config...");
-        
+
         return BootstrapConfig.load()
-            .thenCompose(config -> {
-                if (config == null) {
-                    Log.logMsg("[SystemApplication] First run - setup required");
-                    return TerminalInitializer.createAndInitialize()
-                        .thenCompose(renderer -> bootstrapMinimal(renderer));
-                } else {
-                    Log.logMsg("[SystemApplication] Config exists - normal bootstrap");
-                    return TerminalInitializer.createAndInitialize()
-                        .thenCompose(renderer -> bootstrapWithConfig(renderer, config));
-                }
-            })
+            .thenCompose(config -> TerminalInitializer.createAndInitialize()
+                .thenCompose(renderer -> bootstrap(renderer, config)))  // config may be null
             .whenComplete((v, ex) -> {
                 if (ex != null) {
                     Log.logError("[SystemApplication]", "Application error", ex);
@@ -221,90 +217,39 @@ public class SystemApplication extends FlowProcess {
             });
     }
 
-    /**
-     * FULL BOOTSTRAP - with config, go to auth or recovery
-     */
-    private static CompletableFuture<Void> bootstrapWithConfig(
+    private static CompletableFuture<Void> bootstrap(
         ConsoleUIRenderer uiRenderer,
-        BootstrapConfig config
+        BootstrapConfig config          // null when syscfg.dat does not exist
     ) {
         FlowProcessService processService = new FlowProcessService();
         ProcessRegistryInterface registry = processService.getRegistryInterface();
-        
+
         return startRenderingService(uiRenderer, registry)
-             .thenCompose(v -> startRenderingService(uiRenderer, registry))
             .thenCompose(renderingService -> {
-                SystemApplication app = new SystemApplication(
-                    uiRenderer,
-                    renderingService,
-                    processService,
-                    registry,
-                    config
-                );
-                
+                SystemApplication app = config != null
+                    ? new SystemApplication(uiRenderer, renderingService, processService, registry, config)
+                    : new SystemApplication(uiRenderer, renderingService, processService, registry);
+
                 registry.registerProcess(app, CoreConstants.SYSTEM_PATH, null, registry);
-                
+
                 return registry.startProcess(CoreConstants.SYSTEM_PATH)
-                    .thenCompose(v2 -> {
+                    .thenRun(() -> {
                         registry.connect(CoreConstants.SYSTEM_PATH, CoreConstants.RENDERING_SERVICE_PATH);
                         registry.connect(CoreConstants.RENDERING_SERVICE_PATH, CoreConstants.SYSTEM_PATH);
-                        
-                        
-                        if (!app.startDetached) {
-                            // Attach mode - create handle with keyboard manager
-                            return app.attachLocalTerminal()
-                                .thenCompose(v->CompletableFuture.completedFuture(app));
-                        } else {
-                            // Daemon mode - skip handle creation
-                            app.stateMachine.addState(DETACHED);
-                            return CompletableFuture.completedFuture(app);
-                        }
                     })
-                    .thenAccept(a -> {
-                        // Set initial state based on mode
-                        if (a.isInRecoveryMode) {
-                            a.stateMachine.addState(FAILED_SETTINGS);
-                        } else if (!a.startDetached) {
-                            a.stateMachine.addState(AUTHENTICATING);
+                    .thenCompose(v -> {
+                        if (app.startDetached) {
+                            app.stateMachine.addState(DETACHED);
+                            return CompletableFuture.completedFuture(null);
                         }
-                        
-                        Log.logMsg("[SystemApplication] Full bootstrap complete");
-           
+                        return app.attachLocalTerminal();
+                    })
+                    .thenRun(() -> {
+                        Log.logMsg("[SystemApplication] Bootstrap complete - entering state machine");
+                        app.stateMachine.addState(INITIALIZED);  // ← single entry point
                     });
             });
-    }
-
- 
-
-    /**
-     * MINIMAL BOOTSTRAP - no config, go to setup
-     */
-    private static CompletableFuture<Void> bootstrapMinimal(
-        ConsoleUIRenderer uiRenderer
-    ) {
-        FlowProcessService processService = new FlowProcessService();
-        ProcessRegistryInterface registry = processService.getRegistryInterface();
-        
-        return startRenderingService(uiRenderer, registry)
-            .thenCompose(renderingService -> {
-                SystemApplication app = new SystemApplication(
-                    uiRenderer,
-                    renderingService,
-                    processService,
-                    registry
-                );
-                
-                registry.registerProcess(app, CoreConstants.SYSTEM_PATH, null, registry);
-                
-                return registry.startProcess(CoreConstants.SYSTEM_PATH)
-                    .thenAccept(v2 -> {
-                        registry.connect(CoreConstants.SYSTEM_PATH, CoreConstants.RENDERING_SERVICE_PATH);
-                        registry.connect(CoreConstants.RENDERING_SERVICE_PATH, CoreConstants.SYSTEM_PATH);
-                        Log.logMsg("[SystemApplication] Minimal bootstrap complete - setup required");
-                      
-                    }).thenCompose(v->app.attachLocalTerminal());
-            });
-    }
+}
 
     private TerminalRectangle getInitialBounds(){
         Terminal terminal = uiRenderer.getTerminal();
@@ -348,8 +293,12 @@ public class SystemApplication extends FlowProcess {
             ).initialRegion(getInitialBounds()).build();
 
         ContextPath terminalPath = registerChildAt(handle, CoreConstants.SYSTEM_CONTAINER_HANDLE_PATH);
+        Log.logMsg("[SystemApplication] registered handle at: " + terminalPath);
         return startProcess(terminalPath)
-            .thenCompose((v) -> setHandle(handle));
+            .thenCompose((v) -> {
+                Log.logMsg("[SystemApplication] handle started");
+                return setHandle(handle);
+            });
     }
 
 
@@ -366,8 +315,7 @@ public class SystemApplication extends FlowProcess {
         });
 
         stateMachine.onStateAdded(INITIALIZED, (old, now, bit) -> {
-            Log.logMsg("[SystemApplication] INITIALIZED");
-            stateMachine.addState(SETUP_COMPLETE);
+            Log.logMsg("[SystemApplication] INITIALIZED — checking system state");
             stateMachine.addState(CHECKING_SETTINGS);
         });
 
@@ -378,30 +326,43 @@ public class SystemApplication extends FlowProcess {
 
         stateMachine.onStateAdded(CHECKING_SETTINGS, (old, now, bit) -> {
             Log.logMsg("[SystemApplication] CHECKING_SETTINGS");
+            stateMachine.removeState(CHECKING_SETTINGS);
 
+            // Recovery mode is set from BootstrapConfig — highest priority check
             if (isInRecoveryMode) {
                 Log.logMsg("[SystemApplication] Recovery mode active: " + recoveryReason);
-                stateMachine.removeState(CHECKING_SETTINGS);
                 stateMachine.addState(FAILED_SETTINGS);
                 return;
             }
 
-            checkSettingsExist()
-                .thenAccept(exists -> {
-                    stateMachine.removeState(CHECKING_SETTINGS);
-                    if (exists) {
-                        stateMachine.addState(AUTHENTICATING);
+            // syscfg.dat absent → user has never completed setup
+            if (!SettingsData.isSystemConfigData()) {
+                Log.logMsg("[SystemApplication] No system config — FIRST_RUN");
+                stateMachine.addState(FIRST_RUN);
+                return;
+            }
+
+            // syscfg.dat present but settings.dat absent → keyboard selected, no password yet
+            if (!SettingsData.isSettingsData()) {
+                Log.logMsg("[SystemApplication] System config exists, no password — SETUP_NEEDED");
+                stateMachine.addState(SETUP_NEEDED);
+                return;
+            }
+
+            // Both files exist — load settings map to check for interrupted password change
+            SettingsData.loadSettingsMap(ioExecutor)
+                .thenAccept(map -> {
+                    boolean hasOldKey = map.containsKey(SettingsData.OLD_BCRYPT_KEY);
+                    if (hasOldKey) {
+                        Log.logMsg("[SystemApplication] Incomplete password change detected — FAILED_SETTINGS");
+                        stateMachine.addState(FAILED_SETTINGS);
                     } else {
-                        if (!SettingsData.isIdDataFile()) {
-                            stateMachine.addState(FIRST_RUN);
-                        } else {
-                            stateMachine.addState(FAILED_SETTINGS);
-                        }
+                        Log.logMsg("[SystemApplication] Settings valid — AUTHENTICATING");
+                        stateMachine.addState(AUTHENTICATING);
                     }
                 })
                 .exceptionally(ex -> {
-                    Log.logError("[SystemApplication] Settings check failed", ex);
-                    stateMachine.removeState(CHECKING_SETTINGS);
+                    Log.logError("[SystemApplication] Settings load failed", ex);
                     stateMachine.addState(FAILED_SETTINGS);
                     return null;
                 });
@@ -464,7 +425,8 @@ public class SystemApplication extends FlowProcess {
             .thenCompose(v->{
                 TerminalContainerHandle attach = newHandle;
                 newHandle = null;
-                if(attach == null){
+                if(attach == null || attach == containerHandle){
+                    Log.logMsg("[SystemApplication] no handle to attach");
                     return CompletableFuture.completedFuture(null);
                 }else{
                     return attachHandle(attach);
@@ -506,6 +468,7 @@ public class SystemApplication extends FlowProcess {
 
     private CompletableFuture<Void> attachHandle(TerminalContainerHandle handle) {
         return uiExecutor.execute(() -> {
+            Log.logMsg("[SystemApplication] handle attached:" + handle.getName());
             this.containerHandle = handle;
             deattachHandleFuture = null;
         })
@@ -513,10 +476,13 @@ public class SystemApplication extends FlowProcess {
         .thenAccept(v -> {
             // rootScene setup and containerHandle.setRenderable(...) remain here unchanged
             if (rootScene == null) {
+                Log.logMsg("[SystemApplication] creating root scene");
                 rootScene = new ApplicationRootScene(this);
                 registerSceneFactories();
             }
+           
             containerHandle.setRenderable(rootScene, (ctx ->{
+                Log.logMsg("[SystemApplication] root scene callback, updating size");
                 TerminalRectangle newRegion = ctx.getRequestedRegion();
                 if(newRegion.getWidth() < MIN_WIDTH){
                     newRegion.setWidth(MIN_WIDTH);
@@ -584,13 +550,6 @@ public class SystemApplication extends FlowProcess {
             authTimeoutFuture.cancel(true);
             authTimeoutFuture = null;
         }
-    }
-    
-    private CompletableFuture<Boolean> checkSettingsExist() {
-        if (SettingsData.isSettingsData()) {
-            return SettingsData.loadSettingsMap(ioExecutor).thenApply(map -> map != null);
-        }
-        return CompletableFuture.completedFuture(false);
     }
     
     public CompletableFuture<Void> createNewSystem(NoteBytesEphemeral password) {
@@ -761,7 +720,10 @@ public class SystemApplication extends FlowProcess {
      *    - Full process lifecycle
      */
     private void syncScaffoldingToState() {
-        if (rootScene == null) return;
+        if (rootScene == null){ 
+            Log.logMsg("[SystemApplication] syncScaffoldingToState - rootScene null canceling");    
+            return;
+        }
         Log.logMsg("[SystemApplication.syncScaffoldingToState]");
         // ===== SCAFFOLDING STATES (Pre-Process) =====
         
