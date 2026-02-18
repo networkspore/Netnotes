@@ -5,10 +5,12 @@ import java.util.concurrent.CompletableFuture;
 import io.netnotes.terminal.TerminalContainerHandle;
 import io.netnotes.terminal.TerminalDeviceManager;
 import io.netnotes.engine.io.daemon.ClaimedDevice;
+import io.netnotes.engine.io.input.IEventFactory;
 import io.netnotes.engine.io.input.events.EventFilter;
 import io.netnotes.engine.io.input.events.keyboardEvents.RoutedKeyboardEvent;
 import io.netnotes.engine.messaging.NoteMessaging.ItemTypes;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.noteBytes.NoteBytes;
 
 /**
  * PasswordKeyboardManager - Manages password keyboard with two modes
@@ -53,8 +55,8 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
     private String filterId; // Filter ID for cleanup
     // ===== CONSTRUCTION =====
     
-    public PasswordKeyboardManager(String deviceId, String deviceMode) {
-        super(deviceId, deviceMode, ItemTypes.KEYBOARD.getAsString());
+    public PasswordKeyboardManager(NoteBytes deviceId, NoteBytes deviceMode) {
+        super(deviceId, deviceMode, ItemTypes.KEYBOARD);
     }
 
 
@@ -225,6 +227,12 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
      */
     public CompletableFuture<Boolean> isExclusiveMode() {
         return serialExec.submit(() -> exclusiveMode);
+    }
+
+
+    @Override
+    protected IEventFactory createEventFactory() {
+        return EphemeralKeyboardFactory.getInstance();
     }
 
   

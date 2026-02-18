@@ -23,7 +23,7 @@ public class CoreConstants {
 
     public static final String SYSTEM_CONTAINER_NAME = "sys-term";
 
-    public static final NoteBytesReadOnly TERMINAL_RENDERER_ID = new NoteBytesReadOnly("JLINE3");
+
  
 
     public static final ContextPath SYSTEM_PATH = ContextPath.of(CoreConstants.SYSTEM);

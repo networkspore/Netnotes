@@ -1,6 +1,7 @@
 package io.netnotes.system;
 
 import io.netnotes.noteBytes.NoteBoolean;
+import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.NoteBytesReadOnly;
 import io.netnotes.noteBytes.collections.NoteBytesMap;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
@@ -51,7 +52,7 @@ public class BootstrapConfig {
   
     public static CompletableFuture<Void> save(
         SerializedVirtualExecutor ioExecutor,
-        String keyboardId,
+        NoteBytes keyboardId,
         String socketPath,
         boolean isInRecoveryMode,
         String recoveryReason,
@@ -104,10 +105,10 @@ public class BootstrapConfig {
         return config.getAsBoolean(START_DETACHED, false);
     }
     
-    public Optional<String> getClaimedKeyboardId() {
+    public Optional<NoteBytes> getClaimedKeyboardId() {
         ensureExists();
         return config.containsKey(CLAIMED_KEYBOARD_ID) 
-            ? Optional.of(config.get(CLAIMED_KEYBOARD_ID).toString())
+            ? Optional.of(config.get(CLAIMED_KEYBOARD_ID))
             : Optional.empty();
     }
     

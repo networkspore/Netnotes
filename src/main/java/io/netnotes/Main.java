@@ -1,12 +1,11 @@
 package io.netnotes;
 
-
-import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.system.SystemApplication;
 
 public class Main {
-
-     public static void main(String[] args) {
-       
+ 
+    public static void main(String[] args) {
+        SystemApplication.start().join();
     }
 
     

@@ -15,6 +15,7 @@ import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
 import io.netnotes.engine.messaging.NoteMessaging.ItemTypes;
 import io.netnotes.engine.ui.BorderPanel;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.noteBytes.NoteBytes;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -74,6 +75,8 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         buildLayout();
         
         stateMachine.addState(isFirstRun ? STATE_WELCOME : STATE_DETECTING);
+
+        Log.logMsg("[SystemSetupScreen] instantiated");
     }
     
     private void buildLayout() {
@@ -280,7 +283,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
                 () -> transitionTo(STATE_KEYBOARD_SELECTION, STATE_MAIN_MENU));
         } else {
             for (DeviceDescriptorWithCapabilities device : availableKeyboards) {
-                String deviceId = device.usbDevice().getDeviceId();
+                NoteBytes deviceId = device.usbDevice().getDeviceId();
                 String manufacturer = device.usbDevice().manufacturer;
                 String product = device.usbDevice().product;
                 
@@ -291,7 +294,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
                 
                 String badge = device.claimed() ? "IN USE" : null;
                 
-                menu.addItem(deviceId, displayName, badge, () -> selectKeyboard(deviceId));
+                menu.addItem(deviceId.getAsString(), displayName, badge, () -> selectKeyboard(deviceId));
             }
             
             menu.addSeparator("");
@@ -392,7 +395,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     
     // ===== KEYBOARD SELECTION =====
     
-    private void selectKeyboard(String deviceId) {
+    private void selectKeyboard(NoteBytes deviceId) {
         application.completeBootstrap(deviceId)
             .thenRun(() -> {
                 if (isFirstRun) {
