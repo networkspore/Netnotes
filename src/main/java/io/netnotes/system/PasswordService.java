@@ -9,6 +9,7 @@ import io.netnotes.terminal.components.input.PasswordPrompt;
 import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.NoteBytesEphemeral;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
 
 /**
@@ -37,6 +38,7 @@ import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
  * - Shows prompt immediately
  */
 public class PasswordService {
+    private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
 
     private final SystemApplication application;
     private TerminalContainerHandle containerHandle;
@@ -108,7 +110,8 @@ public class PasswordService {
                     Log.logError("[PasswordService] Failed to register new keyboard manager", ex);
                     passwordKeyboardManager = null;
                 }else{
-                    Log.logMsg("[PasswordService] device manager added: " + SystemApplication.PASSWORD_KEYBOARD_MANAGER_ID);
+                    Log.logMsg("[PasswordService] device manager added: " 
+                        + SystemApplication.PASSWORD_KEYBOARD_MANAGER_ID, LOG_LEVEL);
                 }
                 return null;
             });
@@ -196,7 +199,8 @@ public class PasswordService {
                 Log.logError("[PasswordService] Failed to register new keyboard manager", ex);
                 passwordKeyboardManager = null;
             }else{
-                Log.logMsg("[PasswordService] device manager added: " + SystemApplication.PASSWORD_KEYBOARD_MANAGER_ID);
+                Log.logMsg("[PasswordService] device manager added: " 
+                    + SystemApplication.PASSWORD_KEYBOARD_MANAGER_ID, LOG_LEVEL);
             }
             return null;
         });
@@ -440,7 +444,7 @@ public class PasswordService {
             .thenRun(() -> updateInitProgress(0.7, "Securing event path.."))
             .thenCompose(v -> {
                 if (passwordKeyboardManager == null) {
-                    Log.logMsg("[PasswordService] No password keyboard registered");
+                    Log.logMsg("[PasswordService] No password keyboard registered", LOG_LEVEL);
                     return CompletableFuture.completedFuture(null);
                 }
 
@@ -458,7 +462,8 @@ public class PasswordService {
                         return passwordKeyboardManager.setExclusiveMode(true)
                             .thenCompose(v2 -> passwordKeyboardManager.enable())
                             .thenAccept((claimedDevice)->{
-                                Log.logMsg("[PasswordService] password keyboard->enabled: " + claimedDevice.getDeviceId());
+                                Log.logMsg("[PasswordService] password keyboard->enabled: " 
+                                    + claimedDevice.getDeviceId(), LOG_LEVEL);
                             });
                     });
             })

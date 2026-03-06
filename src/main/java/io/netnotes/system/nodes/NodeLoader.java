@@ -6,6 +6,7 @@ import io.netnotes.engine.io.process.ProcessRegistryInterface;
 import io.netnotes.noteFiles.NoteFileServiceInterface;
 import io.netnotes.system.nodes.osgi.OSGiBundleLoader;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 /**
  * NodeLoader - Loads nodes from packages (OSGi integration)
@@ -45,7 +46,7 @@ class NodeLoader {
         PackageManifest manifest = installedPackage.getManifest();
         
         Log.logMsg("[NodeLoader] Loading node: " + 
-            installedPackage.getName() + " (type: " + manifest.getType() + ")");
+            installedPackage.getName() + " (type: " + manifest.getType() + ")", LogLevel.IMPORTANT);
         
         switch (manifest.getType()) {
             case "osgi-bundle":

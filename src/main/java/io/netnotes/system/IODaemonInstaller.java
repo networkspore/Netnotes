@@ -11,12 +11,12 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 import io.netnotes.terminal.TerminalRectangle;
-import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.TextStyle;
 import io.netnotes.terminal.TextStyle.BoxStyle;
 
 
 import io.netnotes.terminal.components.TerminalProgressBar;
+import io.netnotes.terminal.components.TerminalRegion;
 import io.netnotes.terminal.components.text.ScrollableTextViewer;
 import io.netnotes.terminal.components.text.TerminalLabel;
 import io.netnotes.terminal.components.text.TerminalTextBox;
@@ -25,6 +25,7 @@ import io.netnotes.terminal.menus.MenuContext;
 import io.netnotes.terminal.menus.MenuNavigator;
 import io.netnotes.engine.io.ContextPath;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.github.GitHubAPI;
 import io.netnotes.engine.utils.github.GitHubAsset;
 import io.netnotes.engine.utils.github.GitHubInfo;
@@ -33,7 +34,8 @@ import io.netnotes.engine.utils.streams.UrlStreamHelpers;
 /**
  * IODaemonInstaller - menu-driven installer using component-based UI.
  */
-public class IODaemonInstaller extends TerminalRenderable {
+public class IODaemonInstaller extends TerminalRegion {
+    private static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     private static final GitHubInfo GITHUB_INFO = new GitHubInfo("networkspore", "NoteDaemon");
 
     // States
@@ -631,7 +633,7 @@ public class IODaemonInstaller extends TerminalRenderable {
             String line;
             while ((line = reader.readLine()) != null) {
                 postLog("  " + line);
-                Log.logMsg("  " + line);
+                Log.logMsg("  " + line, LOG_LEVEL);
             }
         }
 
@@ -653,7 +655,7 @@ public class IODaemonInstaller extends TerminalRenderable {
             String line;
             while ((line = reader.readLine()) != null) {
                 postLog("  " + line);
-                Log.logMsg("  " + line);
+                Log.logMsg("  " + line, LOG_LEVEL);
             }
         }
 
@@ -715,7 +717,7 @@ public class IODaemonInstaller extends TerminalRenderable {
             progressBar.updatePercent(percent);
             logViewer.addLine(String.format("[%d/%d] %s", step, totalSteps, message));
         });
-        Log.logMsg("[Installer] " + message);
+        Log.logMsg("[Installer] " + message, LOG_LEVEL);
     }
 
     private void postLog(String line) {
@@ -745,5 +747,10 @@ public class IODaemonInstaller extends TerminalRenderable {
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
         return (bytes / (1024 * 1024)) + " MB";
+    }
+
+    @Override
+    protected void onRemovedFromLayout(){
+        destroy();
     }
 }

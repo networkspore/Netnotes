@@ -30,10 +30,13 @@ import io.netnotes.noteBytes.processing.NoteBytesMetaData;
 import io.netnotes.noteBytes.processing.RandomService;
 import io.netnotes.engine.utils.JarHelpers;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
 
 public class SettingsData {
+    private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
+
     public static final NoteBytes BCRYPT_KEY = new NoteBytes("bcrypt_key");
     public static final NoteBytes SALT_KEY = new NoteBytes("salt_key"); 
     public static final NoteBytes OLD_BCRYPT_KEY = new NoteBytes("old_bcrypt");
@@ -148,7 +151,7 @@ public class SettingsData {
         m_oldBcrypt = null;
         try{
             save();
-            Log.logMsg("[SettingsData] Old key/salt cleared");
+            Log.logMsg("[SettingsData] Old key/salt cleared", LOG_LEVEL);
         }catch(IOException e){
           
             Log.logError("[SettingsData] Old key/salt cleared, but not saved:\n" + e.toString());
@@ -290,7 +293,7 @@ public class SettingsData {
                 "Rollback is only possible if system hasn't restarted since password change.");
         }
         
-        Log.logMsg("[SettingsData] Rolling back to old password");
+        Log.logMsg("[SettingsData] Rolling back to old password", LOG_LEVEL);
         
         // Save current as temporary
         SecretKey tempKey = m_secretKey;

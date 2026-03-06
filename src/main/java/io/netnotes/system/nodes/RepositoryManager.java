@@ -15,6 +15,7 @@ import io.netnotes.noteBytes.collections.NoteBytesMap;
 import io.netnotes.noteBytes.collections.NoteBytesPair;
 import io.netnotes.noteFiles.NoteFile;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.github.GitHubInfo;
 import io.netnotes.engine.utils.streams.UrlStreamHelpers;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
@@ -53,6 +54,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * }
  */
 public class RepositoryManager extends FlowProcess {
+    public static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
+
     public static final GitHubNodeRepository OFFICIAL_REPO = new GitHubNodeRepository("official","Official Netnotes Repository",
             GitHubInfo.NETNOTES_OFFICIAL_REPO,
             "packages/packages.json",
@@ -93,12 +96,12 @@ public class RepositoryManager extends FlowProcess {
      * Gets NoteFile ONCE and stores for entire lifecycle.
      */
     public CompletableFuture<Void> initialize() {
-        Log.logMsg("[RepositoryManager] Initializing at: " + contextPath);
+        Log.logMsg("[RepositoryManager] Initializing at: " + contextPath, LOG_LEVEL);
   
         return loadRepositories()
             .exceptionallyCompose(ex -> {
                 // First run - add default repository
-                Log.logMsg("[RepositoryManager] No existing sources found, adding defaults");
+                Log.logMsg("[RepositoryManager] No existing sources found, adding defaults", LOG_LEVEL);
                 addDefaultRepository();
                 return saveRepositories();
             });
@@ -113,7 +116,7 @@ public class RepositoryManager extends FlowProcess {
                 // Deserialize from NoteBytes format
                 NoteBytesMap reposMap = noteBytesObj.getAsNoteBytesMap();
                 
-                Log.logMsg("[RepositoryManager] Found " + reposMap.size() + " repositories");
+                Log.logMsg("[RepositoryManager] Found " + reposMap.size() + " repositories", LOG_LEVEL);
                 
                 for (Map.Entry<NoteBytes, NoteBytes> entry : reposMap.entrySet()) {
                     NoteBytes repoId = entry.getKey();
@@ -122,7 +125,7 @@ public class RepositoryManager extends FlowProcess {
                         repositories.put(repoId.readOnly(), repo);
                         
                         Log.logMsg("[RepositoryManager] Loaded: " + 
-                            repo.getName() + (repo.isEnabled() ? "" : " (disabled)"));
+                            repo.getName() + (repo.isEnabled() ? "" : " (disabled)"), LOG_LEVEL);
                             
                     } catch (Exception e) {
                         Log.logError("[RepositoryManager] Failed to load repository " + 
@@ -147,7 +150,7 @@ public class RepositoryManager extends FlowProcess {
         
         repositories.put(OFFICIAL_REPO.getId(), OFFICIAL_REPO);
         Log.logMsg("[RepositoryManager] Added default repository: " + 
-            OFFICIAL_REPO.getName());
+            OFFICIAL_REPO.getName(), LOG_LEVEL);
     }
     
     /**
@@ -162,7 +165,7 @@ public class RepositoryManager extends FlowProcess {
      */
     public CompletableFuture<Void> addRepository(Repository repo) {
         repositories.put(repo.getId(), repo);
-        Log.logMsg("[RepositoryManager] Added repository: " + repo.getName());
+        Log.logMsg("[RepositoryManager] Added repository: " + repo.getName(), LOG_LEVEL);
         emitRepositoryEvent("repository_added", repo.getId());
         return saveRepositories();
     }
@@ -170,11 +173,11 @@ public class RepositoryManager extends FlowProcess {
     /**
      * Remove a repository
      */
-    public CompletableFuture<Void> removeRepository(String repoId) {
+    public CompletableFuture<Void> removeRepository(NoteBytesReadOnly repoId) {
         Repository removed = repositories.remove(repoId);
         if (removed != null) {
             Log.logMsg("[RepositoryManager] Removed repository: " + 
-                removed.getName());
+                removed.getName(), LOG_LEVEL);
             emitRepositoryEvent("repository_removed", removed.getId());
             
             return saveRepositories();
@@ -185,12 +188,12 @@ public class RepositoryManager extends FlowProcess {
     /**
      * Enable/disable a repository
      */
-    public CompletableFuture<Void> setRepositoryEnabled(String repoId, boolean enabled) {
+    public CompletableFuture<Void> setRepositoryEnabled(NoteBytesReadOnly repoId, boolean enabled) {
         Repository repo = repositories.get(repoId);
         if (repo != null) {
             repo.setEnabled(enabled);
             Log.logMsg("[RepositoryManager] Repository " + repo.getName() + 
-                " " + (enabled ? "enabled" : "disabled"));
+                " " + (enabled ? "enabled" : "disabled"), LOG_LEVEL);
             emitRepositoryEvent(
                 enabled ? "repository_enabled" : "repository_disabled",
                 repo.getId()
@@ -209,7 +212,7 @@ public class RepositoryManager extends FlowProcess {
         
         Log.logMsg("[RepositoryManager] Updating package lists from " + 
             repositories.values().stream().filter(Repository::isEnabled).count() + 
-            " enabled repositories");
+            " enabled repositories", LOG_LEVEL);
         
         for (Repository repo : repositories.values()) {
             if (repo.isEnabled()) {
@@ -230,7 +233,7 @@ public class RepositoryManager extends FlowProcess {
                 }
                 
                 Log.logMsg("[RepositoryManager] Found " + allPackages.size() + 
-                    " packages total");
+                    " packages total", LOG_LEVEL);
                 return allPackages;
             });
     }
@@ -246,7 +249,7 @@ public class RepositoryManager extends FlowProcess {
             .thenCompose(jsonString ->
                 CompletableFuture.supplyAsync(() -> {
                     try {
-                        Log.logMsg("[RepositoryManager] Fetching from: " + repo.getName());
+                        Log.logMsg("[RepositoryManager] Fetching from: " + repo.getName(), LOG_LEVEL);
                         
                         // Fetch JSON from URL (EXTERNAL format)
                         JsonObject repoData = JsonParser.parseString(jsonString).getAsJsonObject();
@@ -298,7 +301,7 @@ public class RepositoryManager extends FlowProcess {
                         }
                         
                         Log.logMsg("[RepositoryManager] " + repo.getName() + 
-                            " provided " + packages.size() + " packages");
+                            " provided " + packages.size() + " packages", LOG_LEVEL);
                         
                         return packages;
                         
@@ -348,7 +351,7 @@ public class RepositoryManager extends FlowProcess {
      * Shutdown - ensure sources are saved and NoteFile closed
      */
     public CompletableFuture<Void> shutdown() {
-        Log.logMsg("[RepositoryManager] Shutting down, saving sources");
+        Log.logMsg("[RepositoryManager] Shutting down, saving sources", LOG_LEVEL);
         
         return saveRepositories()
             .whenComplete((v, ex) -> {
@@ -359,11 +362,11 @@ public class RepositoryManager extends FlowProcess {
                 
                 if (sourcesFile != null) {
                     sourcesFile.close(); // disables further access
-                    Log.logMsg("[RepositoryManager] NoteFile closed");
+                    Log.logMsg("[RepositoryManager] NoteFile closed", LOG_LEVEL);
                 }
             })
             .thenRun(() -> {
-                Log.logMsg("[RepositoryManager] Shutdown complete");
+                Log.logMsg("[RepositoryManager] Shutdown complete", LOG_LEVEL);
             });
     }
     

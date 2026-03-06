@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import io.netnotes.noteBytes.NoteBytesReadOnly;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 /**
  * PackageCache - In-memory cache of available packages
@@ -22,7 +23,7 @@ public class PackageCache {
     public void updateCache(List<PackageInfo> packages) {
         cache.clear();
         packages.forEach(pkg -> cache.put(pkg.getPackageId(), pkg));
-        Log.logMsg("[PackageCache] Cached " + packages.size() + " packages");
+        Log.logMsg("[PackageCache] Cached " + packages.size() + " packages", LogLevel.IMPORTANT);
     }
     
     public List<PackageInfo> getAllPackages() {

@@ -8,6 +8,7 @@ import io.netnotes.system.nodes.security.NodeSecurityPolicy;
 import io.netnotes.system.nodes.security.PathCapability;
 import io.netnotes.system.nodes.security.PolicyManifest;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 /**
  * InstallationExecutor - Actually performs the installation
@@ -22,6 +23,7 @@ import io.netnotes.engine.utils.LoggingHelpers.Log;
  * 5. Return for registration (caller registers in InstallationRegistry)
  */
 class InstallationExecutor {
+    private static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     private final NoteFileServiceInterface fileService;
     private final PackageInstaller packageInstaller;
     
@@ -55,13 +57,13 @@ class InstallationExecutor {
         ProcessConfig processConfig = request.getProcessConfig();
         PolicyManifest policyManifest = request.getPolicyManifest();
         
-        Log.logMsg("[InstallationExecutor] Installing: " + pkgInfo.getName());
-        Log.logMsg("  ProcessId: " + processConfig.getProcessId());
+        Log.logMsg("[InstallationExecutor] Installing: " + pkgInfo.getName(), LOG_LEVEL);
+        Log.logMsg("  ProcessId: " + processConfig.getProcessId(), LOG_LEVEL);
         
         // Step 1: Download and store package files
         return packageInstaller.installPackage(pkgInfo)
             .thenApply(installPath -> {
-                Log.logMsg("[InstallationExecutor] Files downloaded and stored");
+                Log.logMsg("[InstallationExecutor] Files downloaded and stored", LOG_LEVEL);
                 
                 // Step 2: Create security policy from manifest
                 NodeSecurityPolicy policy = createSecurityPolicy(
@@ -71,7 +73,7 @@ class InstallationExecutor {
                 );
                 
                 Log.logMsg("[InstallationExecutor] Security policy created with " + 
-                    policy.getGrantedCapabilities().size() + " capabilities");
+                    policy.getGrantedCapabilities().size() + " capabilities", LOG_LEVEL);
                 
                 // Step 3: Create RefactoredInstalledPackage with all metadata
                 InstalledPackage pkg = new InstalledPackage(
@@ -87,7 +89,7 @@ class InstallationExecutor {
                 );
 
                 Log.logMsg("[InstallationExecutor] Installation complete: " + 
-                    pkgInfo.getName());
+                    pkgInfo.getName(), LOG_LEVEL);
                 
                 return pkg;
             })
@@ -119,7 +121,7 @@ class InstallationExecutor {
             policy.grantCapability(cap);
             
             Log.logMsg("[InstallationExecutor]   Granted: " + 
-                cap.getPathPattern() + " (" + cap.getReason() + ")");
+                cap.getPathPattern() + " (" + cap.getReason() + ")", LOG_LEVEL);
         }
         
         // Mark as approved (password was verified in SystemSessionProcess)

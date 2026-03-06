@@ -14,6 +14,7 @@ import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.collections.NoteBytesMap;
 import io.netnotes.noteFiles.NoteFile;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 /**
  * InstallationRegistry - Tracks INSTALLED packages (FlowProcess)
@@ -37,6 +38,7 @@ import io.netnotes.engine.utils.LoggingHelpers.Log;
  * - NoteFile cached as instance field
  */
 public class InstallationRegistry extends FlowProcess {
+    private static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     
     private final ConcurrentHashMap<PackageId, InstalledPackage> installed;
     private final NoteFile registryFile;
@@ -62,12 +64,12 @@ public class InstallationRegistry extends FlowProcess {
      * Initialize - load installation registry from NoteFile
      */
     public CompletableFuture<Void> initialize() {
-        Log.logMsg("[InstallationRegistry] Initializing at: " + contextPath);
+        Log.logMsg("[InstallationRegistry] Initializing at: " + contextPath, LOG_LEVEL);
         
         return loadInstalledPackages()
             .exceptionally(ex -> {
                 // First run - create empty registry
-                Log.logMsg("[InstallationRegistry] First run - creating empty registry");
+                Log.logMsg("[InstallationRegistry] First run - creating empty registry", LOG_LEVEL);
                 return saveToFile().join(); // Create empty file
             });
     }
@@ -85,7 +87,7 @@ public class InstallationRegistry extends FlowProcess {
                 NoteBytesMap packagesMap = noteBytesObj.getAsNoteBytesMap();
                 
                 Log.logMsg("[InstallationRegistry] Loading " + 
-                    packagesMap.size() + " installed packages");
+                    packagesMap.size() + " installed packages", LOG_LEVEL);
                 
                 for (NoteBytes pkgIdBytes : packagesMap.keySet()) {
                     try {
@@ -96,7 +98,7 @@ public class InstallationRegistry extends FlowProcess {
                         installed.put(pkg.getPackageId(), pkg);
                         
                         Log.logMsg("[InstallationRegistry]   Loaded: " + 
-                            pkg.getName() + " v" + pkg.getVersion());
+                            pkg.getName() + " v" + pkg.getVersion(), LOG_LEVEL);
                             
                     } catch (Exception e) {
                         Log.logError("[InstallationRegistry]   Failed to load package " + 
@@ -105,7 +107,7 @@ public class InstallationRegistry extends FlowProcess {
                 }
                 
                 Log.logMsg("[InstallationRegistry] Successfully loaded " + 
-                    installed.size() + " packages");
+                    installed.size() + " packages", LOG_LEVEL);
             });
     }
     
@@ -116,7 +118,7 @@ public class InstallationRegistry extends FlowProcess {
         installed.put(pkg.getPackageId(), pkg);
         
         Log.logMsg("[InstallationRegistry] Registered: " + pkg.getName() + 
-            " (processId: " + pkg.getProcessId() + ")");
+            " (processId: " + pkg.getProcessId() + ")", LOG_LEVEL);
         
         // Emit event
         emitPackageEvent("package_installed", pkg.getPackageId().getId());
@@ -124,7 +126,7 @@ public class InstallationRegistry extends FlowProcess {
         return saveToFile()
             .thenRun(() -> {
                 Log.logMsg("[InstallationRegistry] Registry saved (" + 
-                    installed.size() + " packages)");
+                    installed.size() + " packages)", LOG_LEVEL);
             });
     }
     
@@ -135,18 +137,18 @@ public class InstallationRegistry extends FlowProcess {
         InstalledPackage removed = installed.remove(packageId);
         
         if (removed != null) {
-            Log.logMsg("[InstallationRegistry] Unregistered: " + removed.getName());
+            Log.logMsg("[InstallationRegistry] Unregistered: " + removed.getName(), LOG_LEVEL);
             
             // Emit event
             emitPackageEvent("package_uninstalled", packageId.getId());
             
             return saveToFile()
                 .thenRun(() -> {
-                    Log.logMsg("[InstallationRegistry] Registry saved after removal");
+                    Log.logMsg("[InstallationRegistry] Registry saved after removal", LOG_LEVEL);
                 });
         }
         
-        Log.logMsg("[InstallationRegistry] Package not found: " + packageId);
+        Log.logMsg("[InstallationRegistry] Package not found: " + packageId, LOG_LEVEL);
         return CompletableFuture.completedFuture(null);
     }
     
@@ -193,7 +195,7 @@ public class InstallationRegistry extends FlowProcess {
         return registryFile.write(packagesMap.toNoteBytes())
             .thenRun(() -> {
                 Log.logMsg("[InstallationRegistry] Saved " + 
-                    installed.size() + " packages to file");
+                    installed.size() + " packages to file", LOG_LEVEL);
             })
             .exceptionally(ex -> {
                 Log.logError("[InstallationRegistry] Failed to save: " + 
@@ -234,7 +236,7 @@ public class InstallationRegistry extends FlowProcess {
      * Shutdown - ensure registry is saved and NoteFile closed
      */
     public CompletableFuture<Void> shutdown() {
-        Log.logMsg("[InstallationRegistry] Shutting down");
+        Log.logMsg("[InstallationRegistry] Shutting down", LOG_LEVEL);
         
         return saveToFile()
             .whenComplete((v, ex) -> {
@@ -245,12 +247,12 @@ public class InstallationRegistry extends FlowProcess {
                 
                 if (registryFile != null) {
                     registryFile.close();
-                    Log.logMsg("[InstallationRegistry] NoteFile closed");
+                    Log.logMsg("[InstallationRegistry] NoteFile closed", LOG_LEVEL);
                 }
             })
             .thenRun(() -> {
                 complete();
-                Log.logMsg("[InstallationRegistry] Shutdown complete");
+                Log.logMsg("[InstallationRegistry] Shutdown complete", LOG_LEVEL);
             });
     }
     

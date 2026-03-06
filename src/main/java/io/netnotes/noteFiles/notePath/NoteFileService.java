@@ -18,6 +18,7 @@ import io.netnotes.noteBytes.collections.NoteBytesPair;
 import io.netnotes.noteBytes.processing.AsyncNoteBytesWriter;
 import io.netnotes.noteBytes.processing.NoteBytesReader;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.streams.StreamUtils;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
 
@@ -57,6 +58,8 @@ import javax.crypto.SecretKey;
  * - Provides recovery operations for AppData
  */
 public class NoteFileService extends NotePathFactory {
+    private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
+
     private final Map<NoteStringArrayReadOnly, ManagedNoteFileInterface> m_registry = new ConcurrentHashMap<>();
 
     public NoteFileService(SettingsData settingsData) {
@@ -759,13 +762,13 @@ public class NoteFileService extends NotePathFactory {
             FileEncryptionAnalysis analysis) {
         
         if (filePaths == null || filePaths.isEmpty()) {
-            Log.logMsg("[NoteFileService] No files to re-encrypt");
+            Log.logMsg("[NoteFileService] No files to re-encrypt", LOG_LEVEL);
             return CompletableFuture.completedFuture(true);
         }
         
         Log.logMsg(String.format(
             "[NoteFileService] %s: Adaptive processing of %d files (initial batch: %d)",
-            operation, filePaths.size(), initialBatchSize));
+            operation, filePaths.size(), initialBatchSize), LOG_LEVEL);
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -797,7 +800,7 @@ public class NoteFileService extends NotePathFactory {
                     if (resourceCheck.recommendedBatchSize < currentBatchSize.get()) {
                         Log.logMsg(String.format(
                             "[NoteFileService] Adjusting batch size: %d -> %d",
-                            currentBatchSize.get(), resourceCheck.recommendedBatchSize));
+                            currentBatchSize.get(), resourceCheck.recommendedBatchSize), LOG_LEVEL);
                         currentBatchSize.set(resourceCheck.recommendedBatchSize);
                     }
                     
@@ -873,14 +876,14 @@ public class NoteFileService extends NotePathFactory {
                     
                     Log.logMsg(String.format(
                         "[NoteFileService] Batch complete: %d/%d files remaining",
-                        remainingFiles.size(), filePaths.size()));
+                        remainingFiles.size(), filePaths.size()), LOG_LEVEL);
                 }
                 
                 boolean success = failed.get() == 0;
                 
                 Log.logMsg(String.format(
                     "[NoteFileService] %s complete: %d succeeded, %d failed",
-                    operation, completed.get(), failed.get()));
+                    operation, completed.get(), failed.get()), LOG_LEVEL);
                 
                 return success;
                 
@@ -951,7 +954,7 @@ public class NoteFileService extends NotePathFactory {
                 "Disk space constrained. Reducing batch from %d to %d files",
                 proposedBatchSize, maxFiles);
             
-            Log.logMsg("[NoteFileService] " + check.reason);
+            Log.logMsg("[NoteFileService] " + check.reason, LOG_LEVEL);
             return check;
         }
         
@@ -989,7 +992,7 @@ public class NoteFileService extends NotePathFactory {
                 "Memory constrained. Reducing batch from %d to %d files",
                 proposedBatchSize, memoryBasedBatch);
             
-            Log.logMsg("[NoteFileService] " + check.reason);
+            Log.logMsg("[NoteFileService] " + check.reason, LOG_LEVEL);
             return check;
         }
         
@@ -1020,13 +1023,13 @@ public class NoteFileService extends NotePathFactory {
                 try {
                     if (file.exists()) {
                         Files.delete(file.toPath());
-                        Log.logMsg("[NoteFileService] Deleted corrupted file: " + filePath);
+                        Log.logMsg("[NoteFileService] Deleted corrupted file: " + filePath, LOG_LEVEL);
                     }
                     
                     if (tmpFile.exists()) {
                         Files.delete(tmpFile.toPath());
                         Log.logMsg("[NoteFileService] Deleted corrupted tmp: " + 
-                            tmpFile.getName());
+                            tmpFile.getName(), LOG_LEVEL);
                     }
                 } catch (IOException e) {
                     Log.logError("[NoteFileService] Failed to delete: " + filePath + 

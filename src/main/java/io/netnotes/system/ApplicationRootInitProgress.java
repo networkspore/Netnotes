@@ -1,5 +1,6 @@
 package io.netnotes.system;
 
+import io.netnotes.engine.ui.SizePreference;
 import io.netnotes.terminal.components.TerminalProgressBar;
 import io.netnotes.terminal.components.panels.TerminalPanel;
 

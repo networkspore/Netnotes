@@ -10,6 +10,7 @@ import io.netnotes.engine.io.input.events.EventFilter;
 import io.netnotes.engine.io.input.events.keyboardEvents.RoutedKeyboardEvent;
 import io.netnotes.engine.messaging.NoteMessaging.ItemTypes;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.noteBytes.NoteBytes;
 
 /**
@@ -50,7 +51,7 @@ import io.netnotes.noteBytes.NoteBytes;
  * </pre>
  */
 public class PasswordKeyboardManager extends TerminalDeviceManager {
-    
+    private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     private boolean exclusiveMode = false;
     private String filterId; // Filter ID for cleanup
     // ===== CONSTRUCTION =====
@@ -64,19 +65,19 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
     
     @Override
     protected CompletableFuture<Void> onAttached(TerminalContainerHandle handle) {
-        Log.logMsg("[PasswordKeyboard] Attached to terminal handle: " + handle.getId());
+        Log.logMsg("[PasswordKeyboard] Attached to terminal handle: " + handle.getId(), LOG_LEVEL);
         return CompletableFuture.completedFuture(null);
     }
     
     @Override
     protected CompletableFuture<Void> onDeviceEnabled(ClaimedDevice device) {
-        Log.logMsg("[PasswordKeyboard] Device enabled");
-        Log.logMsg("[PasswordKeyboard] Source path: " + deviceSourcePath);
+        Log.logMsg("[PasswordKeyboard] Device enabled", LOG_LEVEL);
+        Log.logMsg("[PasswordKeyboard] Source path: " + deviceSourcePath, LOG_LEVEL);
         
         if (exclusiveMode) {
-            Log.logMsg("[PasswordKeyboard] EXCLUSIVE mode - filtering other keyboards");
+            Log.logMsg("[PasswordKeyboard] EXCLUSIVE mode - filtering other keyboards", LOG_LEVEL);
         } else {
-            Log.logMsg("[PasswordKeyboard] NON-EXCLUSIVE mode - all keyboards allowed");
+            Log.logMsg("[PasswordKeyboard] NON-EXCLUSIVE mode - all keyboards allowed", LOG_LEVEL);
         }
         
         return CompletableFuture.completedFuture(null);
@@ -84,10 +85,10 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
 
     @Override
     protected CompletableFuture<Void> onDeviceDisabled() {
-        Log.logMsg("[PasswordKeyboard] Device disabled");
+        Log.logMsg("[PasswordKeyboard] Device disabled", LOG_LEVEL);
         
         if (exclusiveMode) {
-            Log.logMsg("[PasswordKeyboard] Normal keyboard input restored");
+            Log.logMsg("[PasswordKeyboard] Normal keyboard input restored", LOG_LEVEL);
         }
         
         return CompletableFuture.completedFuture(null);
@@ -128,13 +129,13 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
                     if (added) {
                         filterId = filter.getId();
                         Log.logMsg("[PasswordKeyboard] Exclusive filter configured - " +
-                            "blocking all keyboard events except from: " + deviceSourcePath);
+                            "blocking all keyboard events except from: " + deviceSourcePath, LOG_LEVEL);
                     } else {
                         Log.logMsg("[PasswordKeyboard] Cannot add filter:" +
                             (filterId != null 
                                 ? " filterId already exists: " + filterId
                                 : " rejected")
-                        );
+                        , LOG_LEVEL);
                     }    
                 });
         });
@@ -153,7 +154,7 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
                 if (fId != null) {
                     return handle.filterListRemoveEventFilterById(fId)
                         .thenAccept(removed -> {
-                            Log.logMsg("[PasswordKeyboard] Exclusive filter removed");
+                            Log.logMsg("[PasswordKeyboard] Exclusive filter removed", LOG_LEVEL);
                             filterId = null;
                         });
                 }
@@ -202,7 +203,7 @@ public class PasswordKeyboardManager extends TerminalDeviceManager {
             this.exclusiveMode = exclusive;
             
             Log.logMsg("[PasswordKeyboard] Mode changed: " + 
-                (exclusive ? "EXCLUSIVE" : "NON-EXCLUSIVE"));
+                (exclusive ? "EXCLUSIVE" : "NON-EXCLUSIVE"), LOG_LEVEL);
             
             return wasExclusive;
         }).thenCompose(wasExclusive->{

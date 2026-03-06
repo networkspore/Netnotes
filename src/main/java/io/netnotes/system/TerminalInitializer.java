@@ -2,8 +2,9 @@ package io.netnotes.system;
 
 import org.jline.terminal.Terminal;
 
+import io.netnotes.consoleRenderer.ConsoleRenderer;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
-import io.netnotes.renderer.ConsoleUIRenderer;
+
 
 import org.jline.terminal.Attributes;
 import java.io.IOException;
@@ -12,10 +13,10 @@ import java.util.concurrent.CompletionException;
 
 public class TerminalInitializer {
     public static Attributes ORIGINAL_TERMINAL_ATTRIBUTES = null;
-    public static CompletableFuture<ConsoleUIRenderer> createAndInitialize() {
+    public static CompletableFuture<ConsoleRenderer> createAndInitialize() {
         return VirtualExecutors.getIoExecutor().submit(()->{
             try {
-                ConsoleUIRenderer renderer = new ConsoleUIRenderer();
+                ConsoleRenderer renderer = new ConsoleRenderer();
                 Terminal terminal = renderer.getTerminal();
                 setRawMode(terminal);
                 return renderer;
@@ -45,7 +46,7 @@ public class TerminalInitializer {
         terminal.setAttributes(raw);
     }
     
-    public static void shutdown(ConsoleUIRenderer renderer) {
+    public static void shutdown(ConsoleRenderer renderer) {
         if (renderer == null) return;
         try {
             Terminal terminal = renderer.getTerminal();

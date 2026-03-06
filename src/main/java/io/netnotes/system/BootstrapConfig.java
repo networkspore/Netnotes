@@ -5,6 +5,7 @@ import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.NoteBytesReadOnly;
 import io.netnotes.noteBytes.collections.NoteBytesMap;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
 
@@ -14,7 +15,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 public class BootstrapConfig {
-    
+    private static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
+
     private static final NoteBytesReadOnly START_DETACHED = new NoteBytesReadOnly("startDetached");
     private static final NoteBytesReadOnly CLAIMED_KEYBOARD_ID = new NoteBytesReadOnly("claimedKeyboardId");
     private static final NoteBytesReadOnly IO_DAEMON_SOCKET_PATH = new NoteBytesReadOnly("ioDaemonSocketPath");
@@ -30,7 +32,7 @@ public class BootstrapConfig {
     
     public static CompletableFuture<BootstrapConfig> load() {
         if(!SettingsData.isSystemConfigData()){
-            Log.logMsg("[BootstrapConfig] System config not found starting first run");
+            Log.logMsg("[BootstrapConfig] System config not found starting first run", LOG_LEVEL);
             return CompletableFuture.completedFuture((BootstrapConfig)null);
         }
 
@@ -80,7 +82,7 @@ public class BootstrapConfig {
                     Log.logError("[BootstrapConfig]", "Save Failed!", ex);
                 }else{
                     Log.logMsg("[SystemApplication] Bootstrap saved" + (isInRecoveryMode ? " (recovery=" + 
-                        isInRecoveryMode + " reason: "+recoveryReason+")": ""));
+                        isInRecoveryMode + " reason: "+recoveryReason+")": ""), LOG_LEVEL);
                 }
             });
     }

@@ -3,8 +3,7 @@ package io.netnotes.system;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.jline.terminal.Terminal;
-
+import io.netnotes.consoleRenderer.ConsoleRenderer;
 import io.netnotes.engine.io.ContextPath;
 import io.netnotes.engine.io.daemon.IODaemonManager;
 import io.netnotes.engine.io.process.FlowProcess;
@@ -14,15 +13,15 @@ import io.netnotes.engine.io.process.StreamChannel;
 import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.NoteBytesEphemeral;
 import io.netnotes.noteBytes.NoteBytesReadOnly;
-import io.netnotes.renderer.ConsoleUIRenderer;
+
 import io.netnotes.terminal.TerminalContainerHandle;
 import io.netnotes.terminal.TerminalRectangle;
-import io.netnotes.terminal.TerminalRectanglePool;
 import io.netnotes.terminal.layout.TerminalLayoutData;
 import io.netnotes.engine.state.ConcurrentBitFlagStateMachine;
 import io.netnotes.engine.ui.containers.Container;
-import io.netnotes.engine.ui.containers.RenderingService;
+import io.netnotes.engine.ui.renderer.RenderingService;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.noteBytes.NoteUUID;
 import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
@@ -42,10 +41,8 @@ import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
  *  — CHECKING_SETTINGS handler should set exactly one of them and nothing else.
  */
 public class SystemApplication extends FlowProcess {
+    private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
    
-    public static final int MIN_WIDTH = 40;
-    public static final int MIN_HEIGHT = 40;
-
     // ===== HANDLE STATES =====
     public static final int DETACHED = 0;
     public static final int ATTACHED = 1;
@@ -75,7 +72,7 @@ public class SystemApplication extends FlowProcess {
     protected final SerializedVirtualExecutor uiExecutor = VirtualExecutors.getUiExecutor();
     protected final SerializedVirtualExecutor ioExecutor = VirtualExecutors.getIoExecutor();
     
-    private final ConsoleUIRenderer uiRenderer;
+    private final ConsoleRenderer uiRenderer;
     private final RenderingService renderingService;
     private final FlowProcessService processService;
     private final IODaemonManager ioDaemonManager;
@@ -118,7 +115,7 @@ public class SystemApplication extends FlowProcess {
      * Initializes minimal infrastructure to show SystemSetupScreen.
      */
     private SystemApplication(
-        ConsoleUIRenderer uiRenderer,
+        ConsoleRenderer uiRenderer,
         RenderingService renderingService,
         FlowProcessService processService,
         ProcessRegistryInterface registry
@@ -148,7 +145,7 @@ public class SystemApplication extends FlowProcess {
      * Initializes with config values - can skip setup, go straight to auth/recovery.
      */
     private SystemApplication(
-        ConsoleUIRenderer uiRenderer,
+        ConsoleRenderer uiRenderer,
         RenderingService renderingService,
         FlowProcessService processService,
         ProcessRegistryInterface registry,
@@ -201,24 +198,24 @@ public class SystemApplication extends FlowProcess {
     }
 
     public static CompletableFuture<Void> start() {
-        Log.logMsg("[SystemApplication] Loading bootstrap config...");
+        Log.logMsg("[SystemApplication] Loading bootstrap config...", LOG_LEVEL);
 
         return BootstrapConfig.load()
             .thenCompose(config -> TerminalInitializer.createAndInitialize()
                 .thenCompose(renderer -> bootstrap(renderer, config)))  // config may be null
-            .whenComplete((v, ex) -> {
-                if (ex != null) {
-                    Log.logError("[SystemApplication]", "Application error", ex);
-                    ex.printStackTrace();
-                    System.exit(1);
-                } else {
-                    Log.logMsg("[SystemApplication] Clean shutdown");
-                }
-            });
+                .whenComplete((v, ex) -> {
+                    if (ex != null) {
+                        Log.logError("[SystemApplication]", "Application error", ex);
+                        ex.printStackTrace();
+                        System.exit(1);
+                    } else {
+                        Log.logMsg("[SystemApplication] Clean shutdown", LOG_LEVEL);
+                    }
+                });
     }
 
     private static CompletableFuture<Void> bootstrap(
-        ConsoleUIRenderer uiRenderer,
+        ConsoleRenderer uiRenderer,
         BootstrapConfig config          // null when syscfg.dat does not exist
     ) {
         FlowProcessService processService = new FlowProcessService();
@@ -245,21 +242,16 @@ public class SystemApplication extends FlowProcess {
                         return app.attachLocalTerminal();
                     })
                     .thenRun(() -> {
-                        Log.logMsg("[SystemApplication] Bootstrap complete - entering state machine");
+                        Log.logMsg("[SystemApplication] Bootstrap complete - entering state machine", LOG_LEVEL);
                         app.stateMachine.addState(INITIALIZED);  // ← single entry point
-                    });
+                    })
+                    .thenCompose(v -> app.shutdownFuture);
             });
 }
 
-    private TerminalRectangle getInitialBounds(){
-        Terminal terminal = uiRenderer.getTerminal();
-        TerminalRectangle initialBounds = TerminalRectanglePool.getInstance().obtain();
-        initialBounds.set(0, 0, terminal.getWidth(), terminal.getHeight(), 0, 0);
-        return initialBounds;
-    }
 
     private static CompletableFuture<RenderingService> startRenderingService(
-        ConsoleUIRenderer uiRenderer,
+        ConsoleRenderer uiRenderer,
         ProcessRegistryInterface registry
     ) {
         RenderingService renderingService = new RenderingService(
@@ -281,22 +273,22 @@ public class SystemApplication extends FlowProcess {
 
     private CompletableFuture<Void> attachLocalTerminal() {
         if (isHandleAttached()) {
-            Log.logMsg("[SystemApplication] Handle already attached");
+            Log.logMsg("[SystemApplication] Handle already attached", LOG_LEVEL);
             return CompletableFuture.completedFuture(null);
         }
 
-        Log.logMsg("[SystemApplication] Attaching local terminal");
+        Log.logMsg("[SystemApplication] Attaching local terminal", LOG_LEVEL);
         TerminalContainerHandle handle = TerminalContainerHandle.builder(
                 CoreConstants.SYSTEM_CONTAINER_NAME, 
                 CoreConstants.RENDERING_SERVICE_PATH, 
-                ConsoleUIRenderer.DEFAULT_RENDERER_ID
-            ).initialRegion(getInitialBounds()).build();
+                ConsoleRenderer.DEFAULT_RENDERER_ID
+            ).build();
 
         ContextPath terminalPath = registerChildAt(handle, CoreConstants.SYSTEM_CONTAINER_HANDLE_PATH);
-        Log.logMsg("[SystemApplication] registered handle at: " + terminalPath);
+        Log.logMsg("[SystemApplication] registered handle at: " + terminalPath, LOG_LEVEL);
         return startProcess(terminalPath)
             .thenCompose((v) -> {
-                Log.logMsg("[SystemApplication] handle started");
+                Log.logMsg("[SystemApplication] handle started", LOG_LEVEL);
                 return setHandle(handle);
             });
     }
@@ -305,7 +297,7 @@ public class SystemApplication extends FlowProcess {
     // ===== STATE TRANSITIONS =====
     
     protected void setupStateTransitions() {
-        Log.logMsg("[SystemApplication] setupStateTransitions");
+        Log.logMsg("[SystemApplication] setupStateTransitions", LOG_LEVEL);
         stateMachine.onStateAdded(ATTACHED, (old, now, bit) -> {
             stateMachine.removeState(DETACHED);
         });
@@ -315,36 +307,36 @@ public class SystemApplication extends FlowProcess {
         });
 
         stateMachine.onStateAdded(INITIALIZED, (old, now, bit) -> {
-            Log.logMsg("[SystemApplication] INITIALIZED — checking system state");
+            Log.logMsg("[SystemApplication] INITIALIZED — checking system state", LOG_LEVEL);
             stateMachine.addState(CHECKING_SETTINGS);
         });
 
         stateMachine.onStateAdded(SETUP_NEEDED, (old, now, bit) -> {
-            Log.logMsg("[SystemApplication] SETUP_NEEDED");
+            Log.logMsg("[SystemApplication] SETUP_NEEDED", LOG_LEVEL);
             syncScaffoldingToState();
         });
 
         stateMachine.onStateAdded(CHECKING_SETTINGS, (old, now, bit) -> {
-            Log.logMsg("[SystemApplication] CHECKING_SETTINGS");
+            Log.logMsg("[SystemApplication] CHECKING_SETTINGS", LOG_LEVEL);
             stateMachine.removeState(CHECKING_SETTINGS);
 
             // Recovery mode is set from BootstrapConfig — highest priority check
             if (isInRecoveryMode) {
-                Log.logMsg("[SystemApplication] Recovery mode active: " + recoveryReason);
+                Log.logMsg("[SystemApplication] Recovery mode active: " + recoveryReason, LOG_LEVEL);
                 stateMachine.addState(FAILED_SETTINGS);
                 return;
             }
 
             // syscfg.dat absent → user has never completed setup
             if (!SettingsData.isSystemConfigData()) {
-                Log.logMsg("[SystemApplication] No system config — FIRST_RUN");
+                Log.logMsg("[SystemApplication] No system config — FIRST_RUN", LOG_LEVEL);
                 stateMachine.addState(FIRST_RUN);
                 return;
             }
 
             // syscfg.dat present but settings.dat absent → keyboard selected, no password yet
             if (!SettingsData.isSettingsData()) {
-                Log.logMsg("[SystemApplication] System config exists, no password — SETUP_NEEDED");
+                Log.logMsg("[SystemApplication] System config exists, no password — SETUP_NEEDED", LOG_LEVEL);
                 stateMachine.addState(SETUP_NEEDED);
                 return;
             }
@@ -354,10 +346,10 @@ public class SystemApplication extends FlowProcess {
                 .thenAccept(map -> {
                     boolean hasOldKey = map.containsKey(SettingsData.OLD_BCRYPT_KEY);
                     if (hasOldKey) {
-                        Log.logMsg("[SystemApplication] Incomplete password change detected — FAILED_SETTINGS");
+                        Log.logMsg("[SystemApplication] Incomplete password change detected — FAILED_SETTINGS", LOG_LEVEL);
                         stateMachine.addState(FAILED_SETTINGS);
                     } else {
-                        Log.logMsg("[SystemApplication] Settings valid — AUTHENTICATING");
+                        Log.logMsg("[SystemApplication] Settings valid — AUTHENTICATING", LOG_LEVEL);
                         stateMachine.addState(AUTHENTICATING);
                     }
                 })
@@ -426,7 +418,7 @@ public class SystemApplication extends FlowProcess {
                 TerminalContainerHandle attach = newHandle;
                 newHandle = null;
                 if(attach == null || attach == containerHandle){
-                    Log.logMsg("[SystemApplication] no handle to attach");
+                    Log.logMsg("[SystemApplication] no handle to attach", LOG_LEVEL);
                     return CompletableFuture.completedFuture(null);
                 }else{
                     return attachHandle(attach);
@@ -468,7 +460,7 @@ public class SystemApplication extends FlowProcess {
 
     private CompletableFuture<Void> attachHandle(TerminalContainerHandle handle) {
         return uiExecutor.execute(() -> {
-            Log.logMsg("[SystemApplication] handle attached:" + handle.getName());
+            Log.logMsg("[SystemApplication] handle attached:" + handle.getName(), LOG_LEVEL);
             this.containerHandle = handle;
             deattachHandleFuture = null;
         })
@@ -476,20 +468,16 @@ public class SystemApplication extends FlowProcess {
         .thenAccept(v -> {
             // rootScene setup and containerHandle.setRenderable(...) remain here unchanged
             if (rootScene == null) {
-                Log.logMsg("[SystemApplication] creating root scene");
+                Log.logMsg("[SystemApplication] creating root scene", LOG_LEVEL);
                 rootScene = new ApplicationRootScene(this);
                 registerSceneFactories();
             }
            
             containerHandle.setRenderable(rootScene, (ctx ->{
-                Log.logMsg("[SystemApplication] root scene callback, updating size");
                 TerminalRectangle newRegion = ctx.getRequestedRegion();
-                if(newRegion.getWidth() < MIN_WIDTH){
-                    newRegion.setWidth(MIN_WIDTH);
-                }
-                if(newRegion.getHeight() < MIN_HEIGHT){
-                    newRegion.setHeight(MIN_HEIGHT);
-                }
+
+                  Log.logMsg("[SystemApplication] root scene callback, updating"
+                    +"\n\tsize:" + newRegion, LOG_LEVEL);
                 return TerminalLayoutData.getBuilder().setBounds(newRegion).build();
             }));
             syncScaffoldingToState();
@@ -508,7 +496,7 @@ public class SystemApplication extends FlowProcess {
         return saveBootstrapConfig()
             .thenCompose(v -> passwordService.onKeyboardIdChanged(selectedKeyboardId))
             .thenRun(() -> {
-                Log.logMsg("[SystemApplication] Bootstrap complete");
+                Log.logMsg("[SystemApplication] Bootstrap complete", LOG_LEVEL);
                 stateMachine.removeState(SETUP_NEEDED);
                 stateMachine.addState(SETUP_COMPLETE);
                 stateMachine.addState(CHECKING_SETTINGS);
@@ -609,7 +597,7 @@ public class SystemApplication extends FlowProcess {
     }
     
     public CompletableFuture<Void> lock() {
-        Log.logMsg("[SystemApplication] Locking system");
+        Log.logMsg("[SystemApplication] Locking system", LOG_LEVEL);
         
         if (isAuthenticated()) {
             stateMachine.addState(LOCKED);
@@ -624,7 +612,7 @@ public class SystemApplication extends FlowProcess {
         this.isInRecoveryMode = true;
         this.recoveryReason = reason;
         
-        Log.logMsg("[SystemApplication] Entering recovery mode: " + reason);
+        Log.logMsg("[SystemApplication] Entering recovery mode: " + reason, LOG_LEVEL);
         
         return saveBootstrapConfig();
     }
@@ -633,7 +621,7 @@ public class SystemApplication extends FlowProcess {
         this.isInRecoveryMode = false;
         this.recoveryReason = null;
         
-        Log.logMsg("[SystemApplication] Exiting recovery mode");
+        Log.logMsg("[SystemApplication] Exiting recovery mode", LOG_LEVEL);
         
         return saveBootstrapConfig();
     }
@@ -673,7 +661,7 @@ public class SystemApplication extends FlowProcess {
             Log.logError("[SystemApplication] Cannot show scaffolding - no root scene");
             return;
         }
-        Log.logMsg("[SystemApplication.showScaffoldingScreen]");
+        Log.logMsg("[SystemApplication.showScaffoldingScreen]", LOG_LEVEL);
         // Create fresh instance (screens cannot be reused)
         SystemUIInterface screen = switch (screenId) {
             case "locked" -> new LockedScreen(this);
@@ -721,10 +709,10 @@ public class SystemApplication extends FlowProcess {
      */
     private void syncScaffoldingToState() {
         if (rootScene == null){ 
-            Log.logMsg("[SystemApplication] syncScaffoldingToState - rootScene null canceling");    
+            Log.logMsg("[SystemApplication] syncScaffoldingToState - rootScene null canceling", LOG_LEVEL);    
             return;
         }
-        Log.logMsg("[SystemApplication.syncScaffoldingToState]");
+        Log.logMsg("[SystemApplication.syncScaffoldingToState]", LOG_LEVEL);
         // ===== SCAFFOLDING STATES (Pre-Process) =====
         
         // Setup overlay takes priority over everything
@@ -861,7 +849,7 @@ public class SystemApplication extends FlowProcess {
         return passwordService;
     }
     
-    ConsoleUIRenderer getUIRenderer() {
+    ConsoleRenderer getUIRenderer() {
         return uiRenderer;
     }
     
@@ -878,7 +866,7 @@ public class SystemApplication extends FlowProcess {
         if (shutdownInProgress) return;
         shutdownInProgress = true;
         
-        Log.logMsg("[SystemApplication] Shutdown initiated...");
+        Log.logMsg("[SystemApplication] Shutdown initiated...", LOG_LEVEL);
         
         detachHandle().orTimeout(3, TimeUnit.SECONDS)
             .thenCompose((v)->{

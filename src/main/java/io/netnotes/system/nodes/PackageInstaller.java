@@ -9,6 +9,7 @@ import io.netnotes.noteBytes.NoteBytesObject;
 import io.netnotes.noteFiles.NoteFile;
 import io.netnotes.noteFiles.NoteFileServiceInterface;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.streams.UrlStreamHelpers;
 import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
 
@@ -31,7 +32,7 @@ public class PackageInstaller {
     }
     
     public CompletableFuture<ContextPath> installPackage(PackageInfo pkgInfo) {
-        Log.logMsg("[PackageInstaller] Installing " + pkgInfo.getName());
+        Log.logMsg("[PackageInstaller] Installing " + pkgInfo.getName(), LogLevel.IMPORTANT);
         
         ContextPath installPath = pkgInfo.createInstallPath();
         

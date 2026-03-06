@@ -15,10 +15,11 @@ import io.netnotes.noteFiles.notePath.NoteFileService;
 import io.netnotes.system.nodes.NodeController;
 import io.netnotes.system.nodes.RepositoryManager;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 
 public class SystemRuntime {
-
+    private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     private final NoteFileService noteFileService;
     private final ProcessRegistryInterface registryInterface;
     
@@ -224,12 +225,12 @@ public class SystemRuntime {
      * - NodeController
      */
     public CompletableFuture<Void> initialize() {
-        Log.logMsg("[SystemRuntime] Initializing services...");
+        Log.logMsg("[SystemRuntime] Initializing services...", LOG_LEVEL);
         
         return initializeRepositoryManager()
             .thenCompose(v -> initializeNodeController())
             .thenRun(() -> {
-                Log.logMsg("[SystemRuntime] All services initialized");
+                Log.logMsg("[SystemRuntime] All services initialized", LOG_LEVEL);
             });
     }
 
@@ -250,7 +251,7 @@ public class SystemRuntime {
                     CoreConstants.SYSTEM_PATH,
                     registryInterface
                 );
-                Log.logMsg("[SystemRuntime] Registered RepositoryManager at: " + path);
+                Log.logMsg("[SystemRuntime] Registered RepositoryManager at: " + path, LOG_LEVEL);
                 return registryInterface.startProcess(path)
                     .thenCompose(v -> repositoryManager.initialize());
             });
@@ -302,7 +303,7 @@ public class SystemRuntime {
                     registryInterface
                 );
 
-        Log.logMsg("[SystemRuntime] Registered NodeController at: " + path);
+        Log.logMsg("[SystemRuntime] Registered NodeController at: " + path, LOG_LEVEL);
 
 
         return registryInterface.startProcess(path);
@@ -313,13 +314,13 @@ public class SystemRuntime {
      * Shutdown - stop all services
      */
     public CompletableFuture<Void> shutdown() {
-        Log.logMsg("[SystemRuntime] Shutting down services");
+        Log.logMsg("[SystemRuntime] Shutting down services", LOG_LEVEL);
         
         return nodeController.shutdown()
             .thenCompose(v -> repositoryManager.shutdown())
             .thenCompose(v -> noteFileService.shutdown(null))
             .thenRun(() -> {
-                Log.logMsg("[SystemRuntime] Shutdown complete");
+                Log.logMsg("[SystemRuntime] Shutdown complete", LOG_LEVEL);
             });
     }
 

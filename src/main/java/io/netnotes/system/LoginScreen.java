@@ -12,9 +12,10 @@ import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
 import io.netnotes.noteBytes.NoteBytesReadOnly;
 import io.netnotes.engine.state.ConcurrentBitFlagStateMachine;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
-    
+    private static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     private static final int STATE_SHOWING_PROMPT = 0;
     private static final int STATE_SHOWING_ERROR = 1;
 
@@ -61,7 +62,7 @@ class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
     @Override
     protected void setupStateTransitions() {
         stateMachine.onStateAdded(STATE_SHOWING_PROMPT, (old, now, bit) -> {
-            Log.logMsg("[LoginScreen] STATE_SHOWING_PROMPT");
+            Log.logMsg("[LoginScreen] STATE_SHOWING_PROMPT", LOG_LEVEL);
             timeoutError = false;
 
             String title = application.isAuthenticated() ? "System Locked" : "Netnotes";
@@ -90,7 +91,7 @@ class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
         });
 
         stateMachine.onStateAdded(STATE_SHOWING_ERROR, (old, now, bit) -> {
-            Log.logMsg("[LoginScreen] STATE_SHOWING_ERROR: " + errorMessage);
+            Log.logError("[LoginScreen] STATE_SHOWING_ERROR: " + errorMessage);
             errorBox.setText(buildErrorText());
             errorBox.show();
             registerErrorKeyHandler();
@@ -135,13 +136,13 @@ class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
     }
 
     @Override
-    protected void onCleanup() {
+    protected void onRemovedFromLayout() {
         removeErrorKeyHandler();
         
         if (onDisposed != null) {
             onDisposed.accept(this);
         }
         
-        super.onCleanup();
+        destroy();
     }
 }

@@ -11,6 +11,7 @@ import io.netnotes.system.nodes.INode;
 import io.netnotes.system.nodes.InstalledPackage;
 import io.netnotes.system.nodes.PackageId;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 
 import java.io.*;
 import java.util.*;
@@ -45,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Bundle stop releases INode service
  */
 public class OSGiBundleLoader {
+    private static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     
     private final NoteFileServiceInterface appDataInterface;
     private Framework framework;
@@ -74,7 +76,7 @@ public class OSGiBundleLoader {
                 }
                 
                 try {
-                    Log.logMsg("[OSGiBundleLoader] Initializing OSGi framework");
+                    Log.logMsg("[OSGiBundleLoader] Initializing OSGi framework", LOG_LEVEL);
                     
                     // Get FrameworkFactory via ServiceLoader
                     ServiceLoader<FrameworkFactory> factoryLoader = 
@@ -105,7 +107,7 @@ public class OSGiBundleLoader {
                     
                     frameworkInitialized = true;
                     
-                    Log.logMsg("[OSGiBundleLoader] OSGi framework started");
+                    Log.logMsg("[OSGiBundleLoader] OSGi framework started", LOG_LEVEL);
                     
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to initialize OSGi framework", e);
@@ -147,7 +149,7 @@ public class OSGiBundleLoader {
             CompletableFuture.supplyAsync(() -> {
                 try {
                     Log.logMsg("[OSGiBundleLoader] Installing bundle: " + 
-                        pkg.getName() + " from " + jarPath);
+                        pkg.getName() + " from " + jarPath, LOG_LEVEL);
                     if(!jarFile.isFile()){
                         throw new CompletionException("Note file is not written", new FileNotFoundException("Bundle JAR not found: " + jarPath));
                     }
@@ -191,7 +193,7 @@ public class OSGiBundleLoader {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Log.logMsg("[OSGiBundleLoader] Waiting for INode service from: " + 
-                    packageId);
+                    packageId, LOG_LEVEL);
                 
                 BundleContext context = framework.getBundleContext();
                 
@@ -212,7 +214,7 @@ public class OSGiBundleLoader {
                     INode node = (INode) context.getService(refs[0]);
                     
                     if (node != null) {
-                        Log.logMsg("[OSGiBundleLoader] Found INode service: ");
+                        Log.logMsg("[OSGiBundleLoader] Found INode service", LOG_LEVEL);
                         return node;
                     }
                 }
@@ -252,7 +254,7 @@ public class OSGiBundleLoader {
                 );
             }
             
-            Log.logMsg("[OSGiBundleLoader] INode service registered: ");
+            Log.logMsg("[OSGiBundleLoader] INode service registered: " + node.getClass().getSimpleName(), LOG_LEVEL);
             
             return node;
             
@@ -271,7 +273,7 @@ public class OSGiBundleLoader {
                 
                 if (bundle != null) {
                     Log.logMsg("[OSGiBundleLoader] Unloading bundle: " + 
-                        bundle.getSymbolicName());
+                        bundle.getSymbolicName(), LOG_LEVEL);
                     
                     // Stop bundle (deactivates BundleActivator)
                     bundle.stop();
@@ -279,7 +281,7 @@ public class OSGiBundleLoader {
                     // Uninstall bundle
                     bundle.uninstall();
                     
-                    Log.logMsg("[OSGiBundleLoader] Bundle unloaded: " + packageId);
+                    Log.logMsg("[OSGiBundleLoader] Bundle unloaded: " + packageId, LOG_LEVEL);
                 }
                 
             } catch (BundleException e) {
@@ -296,7 +298,7 @@ public class OSGiBundleLoader {
             synchronized (frameworkLock) {
                 if (framework != null && frameworkInitialized) {
                     try {
-                        Log.logMsg("[OSGiBundleLoader] Shutting down OSGi framework");
+                        Log.logMsg("[OSGiBundleLoader] Shutting down OSGi framework", LOG_LEVEL);
                         
                         // Stop framework (stops all bundles)
                         framework.stop();
@@ -304,7 +306,7 @@ public class OSGiBundleLoader {
                         // Wait for framework to stop
                         framework.waitForStop(10000);
                         
-                        Log.logMsg("[OSGiBundleLoader] OSGi framework stopped");
+                        Log.logMsg("[OSGiBundleLoader] OSGi framework stopped", LOG_LEVEL);
                         
                     } catch (Exception e) {
                         Log.logError("[OSGiBundleLoader] Error shutting down framework: " + 

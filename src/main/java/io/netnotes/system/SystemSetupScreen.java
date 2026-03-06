@@ -14,7 +14,9 @@ import io.netnotes.engine.io.daemon.IODaemonDetection;
 import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
 import io.netnotes.engine.messaging.NoteMessaging.ItemTypes;
 import io.netnotes.engine.ui.BorderPanel;
+import io.netnotes.engine.ui.SizePreference;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.noteBytes.NoteBytes;
 
 import java.util.List;
@@ -26,8 +28,8 @@ import java.util.function.Consumer;
  * Flow: Welcome → Detect → Menu → [Installer] → Password → Complete
  * Installer: Nested overlay, returns to setup on completion
  */
-public class SystemSetupScreen extends TerminalRenderable implements SystemUIInterface {
-    
+public class SystemSetupScreen extends TerminalBorderPanel implements SystemUIInterface {
+    private static LogLevel LOG_LEVEL = LogLevel.IMPORTANT; 
     private static final int STATE_WELCOME = 20;
     private static final int STATE_DETECTING = 21;
     private static final int STATE_MAIN_MENU = 22;
@@ -37,7 +39,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     private static final int STATE_PASSWORD = 26;
     private static final int STATE_ERROR = 27;
     
-    private final TerminalBorderPanel layout;
+
     private final TerminalLabel headerLabel;
     private final TerminalTextBox statusBox;
     private final MenuNavigator menuNavigator;
@@ -65,31 +67,30 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         this.socketPath = configuredPath != null
             ? configuredPath
             : SystemApplication.DEFAULT_IO_DAEMON_SOCKET_PATH;
-        
-        this.layout = new TerminalBorderPanel("setup-layout");
-        this.headerLabel = new TerminalLabel("header", "");
-        this.statusBox = new TerminalTextBox("status");
-        this.menuNavigator = new MenuNavigator("menu");
-        this.inputStack = new TerminalVStack("input");
+        setWidthPreference(SizePreference.FILL);
+        setHeightPreference(SizePreference.FIT_CONTENT);
+
+        this.headerLabel = new TerminalLabel("system-setup-header", "");
+        this.statusBox = new TerminalTextBox("system-setup-status");
+        this.menuNavigator = new MenuNavigator("system-setup-menu");
+        this.inputStack = new TerminalVStack("system-setup-input");
         
         buildLayout();
         
         stateMachine.addState(isFirstRun ? STATE_WELCOME : STATE_DETECTING);
-
-        Log.logMsg("[SystemSetupScreen] instantiated");
+        
+        Log.logMsg("[SystemSetupScreen] instantiated", LOG_LEVEL);
     }
     
     private void buildLayout() {
-        addChild(layout);
-        
-        TerminalVStack topStack = new TerminalVStack("top");
+        TerminalVStack topStack = new TerminalVStack("system-setup-top");
         topStack.setSpacing(1);
         topStack.setPadding(2);
         topStack.addChild(headerLabel);
         topStack.addChild(statusBox);
         
-        layout.setPanel(BorderPanel.TOP, topStack);
-        layout.setPanel(BorderPanel.CENTER, menuNavigator);
+        setPanel(BorderPanel.TOP, topStack);
+        setPanel(BorderPanel.CENTER, menuNavigator);
         
         menuNavigator.hide();
         inputStack.hide();
@@ -98,6 +99,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     @Override
     protected void setupStateTransitions() {
         stateMachine.onStateAdded(STATE_WELCOME, (o,n,b) -> {
+            Log.logMsg("[SystemSetupScreen] STATE_WELCOME", LOG_LEVEL);
             headerLabel.setText("═══ System Setup ═══");
             statusBox.setText(
                 "Welcome to NoteNexus!\n\n" +
@@ -116,6 +118,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         });
         
         stateMachine.onStateAdded(STATE_DETECTING, (o,n,b) -> {
+            Log.logMsg("[SystemSetupScreen] STATE_DETECTING", LOG_LEVEL);
             headerLabel.setText("═══ Detecting Devices ═══");
             statusBox.setText("Scanning for IODaemon and USB devices...\n\nPlease wait...");
             statusBox.show();
@@ -124,6 +127,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         });
         
         stateMachine.onStateAdded(STATE_MAIN_MENU, (o,n,b) -> {
+             Log.logMsg("[SystemSetupScreen] STATE_MAIN_MENU", LOG_LEVEL);
             headerLabel.setText("═══ Setup Menu ═══");
             statusBox.setText(buildStatusText());
             statusBox.show();
@@ -132,6 +136,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         });
         
         stateMachine.onStateAdded(STATE_KEYBOARD_SELECTION, (o,n,b) -> {
+            Log.logMsg("[SystemSetupScreen] STATE_KEYBOARD_SELECTION", LOG_LEVEL);
             headerLabel.setText("═══ Keyboard Selection ═══");
             statusBox.setText("Select a USB keyboard for password entry");
             statusBox.show();
@@ -140,6 +145,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         });
         
         stateMachine.onStateAdded(STATE_SOCKET_CONFIG, (o,n,b) -> {
+            Log.logMsg("[SystemSetupScreen] STATE_SOCKET_CONFIG", LOG_LEVEL);
             headerLabel.setText("═══ Socket Configuration ═══");
             statusBox.setText("Enter IODaemon socket path:\n(Default: " + 
                 SystemApplication.DEFAULT_IO_DAEMON_SOCKET_PATH + ")");
@@ -166,6 +172,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         
 
         stateMachine.onStateAdded(STATE_ERROR, (o,n,b) -> {
+            Log.logMsg("[SystemSetupScreen] STATE_ERROR", LOG_LEVEL);
             headerLabel.setText("═══ Error ═══");
             statusBox.setText(errorMessage != null ? errorMessage : "Unknown error");
             statusBox.show();
@@ -341,7 +348,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
         socketInput.setOnEscape(text -> transitionTo(STATE_SOCKET_CONFIG, STATE_MAIN_MENU));
         
         inputStack.addChild(socketInput);
-        layout.setPanel(BorderPanel.CENTER, inputStack);
+        setPanel(BorderPanel.CENTER, inputStack);
         inputStack.show();
     }
     
@@ -352,7 +359,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
             socketInput = null;
         }
         inputStack.hide();
-        layout.setPanel(BorderPanel.CENTER, menuNavigator);
+        setPanel(BorderPanel.CENTER, menuNavigator);
     }
     
     private void handleSocketPathComplete(String newPath) {
@@ -446,7 +453,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
                 transitionTo(STATE_INSTALLER, STATE_DETECTING);
             });
 
-            layout.setPanel(BorderPanel.CENTER, installer);
+            setPanel(BorderPanel.CENTER, installer);
             menuNavigator.hide();
         });
      
@@ -455,7 +462,7 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     
     private void hideInstaller() {
         if (installer != null) {
-            layout.setPanel(BorderPanel.CENTER, menuNavigator);
+            setPanel(BorderPanel.CENTER, menuNavigator);
             installer = null;
         }
     }
@@ -508,9 +515,10 @@ public class SystemSetupScreen extends TerminalRenderable implements SystemUIInt
     }
 
     @Override
-    protected void onCleanup(){
+    protected void onRemovedFromLayout(){
         if(onDisposed != null){
             onDisposed.accept(this);
         }
+        destroy();
     }
 }

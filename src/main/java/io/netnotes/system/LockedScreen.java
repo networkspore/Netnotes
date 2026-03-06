@@ -7,9 +7,11 @@ import java.util.function.Consumer;
 import io.netnotes.terminal.TerminalCommands;
 import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.components.panels.TerminalVStack;
+import io.netnotes.terminal.components.panels.TerminalHStack.HAlignment;
 import io.netnotes.terminal.components.text.TerminalLabel;
 import io.netnotes.engine.io.input.ephemeralEvents.EphemeralKeyDownEvent;
 import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
+import io.netnotes.engine.ui.SizePreference;
 
 /**
  * LockedScreen - Shows when system is locked
@@ -26,8 +28,10 @@ class LockedScreen extends TerminalVStack implements SystemUIInterface {
 
     public LockedScreen(SystemApplication application) {
         super("system-locked-screen");
-
-        this.setAlignment(TerminalVStack.VAlignment.CENTER);
+        this.setWidthPreference(SizePreference.FILL);
+        this.setHeightPreference(SizePreference.FILL);
+        this.setVAlignment(VAlignment.CENTER);
+        this.setHAlignment(HAlignment.CENTER);
         this.setSpacing(2);
 
         // Create labels
@@ -71,9 +75,10 @@ class LockedScreen extends TerminalVStack implements SystemUIInterface {
      * Called when removed from the layout (Cannot be reused)    
      */
     @Override
-    protected void onCleanup(){
+    protected void onRemovedFromLayout(){
         if(onDisposed != null){
             onDisposed.accept(this);
         }
+        destroy();
     }
 }

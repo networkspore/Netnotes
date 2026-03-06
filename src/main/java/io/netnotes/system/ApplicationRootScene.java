@@ -2,6 +2,9 @@ package io.netnotes.system;
 
 
 import io.netnotes.engine.ui.BorderPanel;
+import io.netnotes.engine.ui.SizePreference;
+import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.terminal.components.input.PasswordPrompt;
 import io.netnotes.terminal.components.panels.TerminalBorderPanel;
 import io.netnotes.terminal.components.panels.TerminalScrollPanel;
@@ -14,7 +17,7 @@ import io.netnotes.terminal.components.panels.TerminalScrollPanel;
  * - Desktop: Process stack + context bar
  */
 public class ApplicationRootScene extends TerminalBorderPanel {
-    
+    private static final LogLevel LOG_LEVEL = LogLevel.IMPORTANT;
     private final SystemApplication application;
 
     private PasswordPrompt activePasswordPrompt;
@@ -28,10 +31,10 @@ public class ApplicationRootScene extends TerminalBorderPanel {
         super("system-root-scene");
         this.application = application;
         this.scrollPanel = new TerminalScrollPanel(name + "-scroll");
-       // this.contextBar = new ContextBar(name + "-context", this);
+        this.scrollPanel.setWidthPreference(SizePreference.FILL);
+        this.scrollPanel.setHeightPreference(SizePreference.FILL);
         
         setPanel(BorderPanel.CENTER, scrollPanel);
-      //  layout.setPanel(TerminalBorderPanel.Panel.BOTTOM, contextBar.getUI());
     }
     
     @Override
@@ -70,6 +73,7 @@ public class ApplicationRootScene extends TerminalBorderPanel {
         if (initProgress == null) {
             initProgress = new ApplicationRootInitProgress();
         }
+        Log.logMsg("[ApplicationRootScene] showing initProgress", LOG_LEVEL);
         initProgress.getProgressBar().reset();
         swapPanel(BorderPanel.CENTER, initProgress);
     }
@@ -77,6 +81,7 @@ public class ApplicationRootScene extends TerminalBorderPanel {
     
     public void updatePasswordInitProgress(double percent, String msg) {
         if (initProgress != null) {
+            Log.logMsg("[ApplicationRootScene] updating initProgress: " + msg + " " + percent + "%", LOG_LEVEL);
             initProgress.getProgressBar().updatePercent(percent * 100);
             initProgress.getProgressBar().setLabel(msg);
         }
@@ -84,18 +89,20 @@ public class ApplicationRootScene extends TerminalBorderPanel {
     
     public void showPasswordPrompt(PasswordPrompt prompt) {
         activePasswordPrompt = prompt;
-        if(initProgress != null){
+        if (initProgress != null) {
             removeFromPanel(BorderPanel.CENTER, initProgress);
             initProgress = null;
         }
+        Log.logMsg("[ApplicationRootScene] showing password prompt", LOG_LEVEL);
         swapPanel(BorderPanel.CENTER, prompt);
     }
     
     public void closePasswordPrompt() {
+        Log.logMsg("[ApplicationRootScene] closing password prompt", LOG_LEVEL);
         if (activePasswordPrompt != null) {
             removeFromPanel(BorderPanel.CENTER, activePasswordPrompt);
-            swapPanel(BorderPanel.CENTER, scrollPanel);
             activePasswordPrompt = null;
         }
+        swapPanel(BorderPanel.CENTER, scrollPanel);
     }
 }

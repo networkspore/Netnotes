@@ -32,6 +32,7 @@ import io.netnotes.noteBytes.processing.NoteBytesMetaData;
 import io.netnotes.noteBytes.processing.NoteBytesReader;
 
 import io.netnotes.engine.utils.LoggingHelpers.Log;
+import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.streams.StreamUtils;
 import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
 
@@ -358,7 +359,7 @@ public class NotePathFactory {
             availableSpace / (1024.0 * 1024.0),
             bufferSpace / (1024.0 * 1024.0),
             isValid ? "PASSED" : "FAILED"
-        ));
+        ), LogLevel.IMPORTANT);
         
         return new DiskSpaceValidation(
             isValid,
