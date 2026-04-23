@@ -34,7 +34,7 @@ import io.netnotes.noteBytes.processing.NoteBytesReader;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.streams.StreamUtils;
-import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
+import io.netnotes.engine.virtualExecutors.SerializedVirtualExecutor;
 
 /**
  * Factory for managing NoteFile operations with serialized access to the ledger file.

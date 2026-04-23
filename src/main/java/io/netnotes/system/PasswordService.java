@@ -10,7 +10,7 @@ import io.netnotes.noteBytes.NoteBytes;
 import io.netnotes.noteBytes.NoteBytesEphemeral;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 /**
  * PasswordService - Centralized password modal management
@@ -475,8 +475,12 @@ public class PasswordService {
     }
 
     private void updateInitProgress(double percent, String msg) {
-        VirtualExecutors.getUiExecutor().executeFireAndForget(() ->
-            application.getRootScene().updatePasswordInitProgress(percent, msg));
+        if(!VirtualExecutors.getUiExecutor().isCurrentThread()){
+            VirtualExecutors.getUiExecutor().runLater(()->updateInitProgress(percent, msg));
+            return;
+        }
+      
+        application.getRootScene().updatePasswordInitProgress(percent, msg);
     }
 
     private void showPasswordPrompt(boolean isHardwareKeyboard, Throwable ex) {

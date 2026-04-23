@@ -5,7 +5,7 @@ import java.util.concurrent.CompletionException;
 
 import io.netnotes.engine.io.ContextPath;
 import io.netnotes.noteBytes.processing.AsyncNoteBytesWriter;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 /**
  * ScopedAppDataInterface - Path-based access control

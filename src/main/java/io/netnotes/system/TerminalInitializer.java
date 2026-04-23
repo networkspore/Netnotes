@@ -3,7 +3,7 @@ package io.netnotes.system;
 import org.jline.terminal.Terminal;
 
 import io.netnotes.consoleRenderer.ConsoleRenderer;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 
 import org.jline.terminal.Attributes;
@@ -57,7 +57,6 @@ public class TerminalInitializer {
                 terminal.flush();
                 terminal.setAttributes(ORIGINAL_TERMINAL_ATTRIBUTES);
             }
-            renderer.shutdown();
         } catch (Exception e) {
             System.err.println("[ConsoleTerminalInitializer] Emergency restore failed: " + e.getMessage());
         }

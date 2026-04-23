@@ -31,8 +31,8 @@ import io.netnotes.noteBytes.processing.RandomService;
 import io.netnotes.engine.utils.JarHelpers;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
-import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.SerializedVirtualExecutor;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 public class SettingsData {
     private final static LogLevel LOG_LEVEL = LogLevel.IMPORTANT;

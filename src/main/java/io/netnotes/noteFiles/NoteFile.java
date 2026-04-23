@@ -27,7 +27,7 @@ import io.netnotes.engine.utils.CollectionHelpers;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 import io.netnotes.engine.utils.noteBytes.NoteUUID;
 import io.netnotes.engine.utils.streams.StreamUtils;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 /**
  * NoteFile - Handle to an encrypted file with automatic serialized access

@@ -18,13 +18,12 @@ import io.netnotes.terminal.TerminalContainerHandle;
 import io.netnotes.terminal.TerminalRectangle;
 import io.netnotes.terminal.layout.TerminalLayoutData;
 import io.netnotes.engine.state.ConcurrentBitFlagStateMachine;
-import io.netnotes.engine.ui.containers.Container;
 import io.netnotes.engine.ui.renderer.RenderingService;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.noteBytes.NoteUUID;
-import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.SerializedVirtualExecutor;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 /**
  * SystemApplication - Process-based terminal system with authentication
@@ -433,29 +432,36 @@ public class SystemApplication extends FlowProcess {
         if(deattachHandleFuture != null) return deattachHandleFuture;
         deattachHandleFuture = new CompletableFuture<>();
     
-        uiExecutor.executeFireAndForget(()->{
-            if(containerHandle != null){
-                TerminalContainerHandle oldHandle = containerHandle;
-                containerHandle = null;
-                passwordService.onHandleDetached()         
-                    .thenCompose(v -> oldHandle.close())
-                    .handle((v, ex) -> {
-                        if (ex != null) {
-                            Log.logError("[SystemApplication] Handle detached with error", ex);
-                        }
-                        deattachHandleFuture.complete(null);
-                        stateMachine.removeState(ATTACHED);
-                        return null;
-                    });
-            
-            }else{
-                if(stateMachine.hasState(ATTACHED)){
-                    stateMachine.removeState(ATTACHED); 
-                }
-                deattachHandleFuture.complete(null);
-            }
-        });
+        if(!uiExecutor.isCurrentThread()){
+           uiExecutor.runLater(this::detachHandleInternal);
+        }else{
+            detachHandleInternal();
+        }
+
         return deattachHandleFuture;
+    }
+
+    private void detachHandleInternal(){
+        if(containerHandle != null){
+            TerminalContainerHandle oldHandle = containerHandle;
+            containerHandle = null;
+            passwordService.onHandleDetached()         
+                .thenCompose(v -> oldHandle.close())
+                .handle((v, ex) -> {
+                    if (ex != null) {
+                        Log.logError("[SystemApplication] Handle detached with error", ex);
+                    }
+                    deattachHandleFuture.complete(null);
+                    stateMachine.removeState(ATTACHED);
+                    return null;
+                });
+        
+        }else{
+            if(stateMachine.hasState(ATTACHED)){
+                stateMachine.removeState(ATTACHED); 
+            }
+            deattachHandleFuture.complete(null);
+        }
     }
 
     private CompletableFuture<Void> attachHandle(TerminalContainerHandle handle) {
@@ -643,9 +649,6 @@ public class SystemApplication extends FlowProcess {
         return CompletableFuture.completedFuture(null);
     }
     
-
- 
-    
     
     /**
      * Show a scaffolding screen (pre-process bootstrap UI)
@@ -666,7 +669,7 @@ public class SystemApplication extends FlowProcess {
         SystemUIInterface screen = switch (screenId) {
             case "locked" -> new LockedScreen(this);
             case "login" -> new LoginScreen(this);
-            case "setup" -> new SystemSetupScreen(this);
+            case "setup" -> new SystemSetupWizardScreen(this);
             default -> {
                 Log.logError("[SystemApplication] Unknown scaffolding screen: " + screenId);
                 yield null;
@@ -674,6 +677,12 @@ public class SystemApplication extends FlowProcess {
         };
         
         if (screen != null) {
+            screen.setOnDisposed(disposed -> {
+                // ApplicationRootScene already nulls currentScaffolding during removeOldScaffolding(),
+                // but this closes the contract so external observers (e.g. diagnostics, future
+                // extension) get notification that the scaffolding screen has cleaned up.
+                Log.logMsg("[SystemApplication] Scaffolding disposed: " + screenId, LOG_LEVEL);
+            });
             rootScene.showScaffolding(screen);
         }
     }
@@ -743,7 +752,7 @@ public class SystemApplication extends FlowProcess {
         
         // Once authenticated, hide scaffolding
         if (stateMachine.hasState(AUTHENTICATED)) {
-   
+            rootScene.clearScaffolding();
             return;
         }
         
@@ -865,34 +874,54 @@ public class SystemApplication extends FlowProcess {
     public void shutdown() {
         if (shutdownInProgress) return;
         shutdownInProgress = true;
+        cancelAuthTimeout();
+        stateMachine.addState(SHUTTING_DOWN);
         
         Log.logMsg("[SystemApplication] Shutdown initiated...", LOG_LEVEL);
-        
-        detachHandle().orTimeout(3, TimeUnit.SECONDS)
-            .thenCompose((v)->{
-                return CompletableFuture.runAsync(()->{
-                    TerminalContainerHandle handle =  containerHandle;
-                    if(handle != null && !handle.getStateMachine().hasState(Container.STATE_DESTROYED)){
-                        //Kills process
-                        unregisterProcess(handle.getContextPath());
-                    }
-                    //Kills Process
-                    unregisterProcess(contextPath);
-                });
+
+        shutdownRuntime()
+            .thenCompose(v -> detachHandle().orTimeout(3, TimeUnit.SECONDS))
+            .handle((v, ex) -> {
+                if (ex != null) {
+                    Log.logError("[SystemApplication] Handle detach failed during shutdown", ex);
+                }
+                return null;
             })
-            .orTimeout(1, TimeUnit.SECONDS)
-            .whenComplete((v,ex)->TerminalInitializer.shutdown(uiRenderer))
-            .thenCompose(v->renderingService.shutdown());
-            /*.thenRun(()->{
-                shutdownFuture.complete(null);
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(500);
-                        System.exit(0);
-                    } catch (InterruptedException e) {
-                        System.exit(0);
+            .whenComplete((v, ex) -> {
+                try {
+                    processService.shutdown();
+                } catch (Exception shutdownEx) {
+                    Log.logError("[SystemApplication] Process service shutdown failed", shutdownEx);
+                    if (ex == null) {
+                        ex = shutdownEx;
                     }
-                }, "exit-thread").start();
-            });*/
+                }
+
+                TerminalInitializer.shutdown(uiRenderer);
+
+                if (ex != null) {
+                    Log.logError("[SystemApplication] Shutdown finalization failed", ex);
+                    shutdownFuture.completeExceptionally(ex);
+                    return;
+                }
+
+                stateMachine.addState(SHUTDOWN_READY);
+                shutdownFuture.complete(null);
+            });
+    }
+
+    private CompletableFuture<Void> shutdownRuntime() {
+        if (systemRuntime == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return systemRuntime.shutdown()
+            .orTimeout(5, TimeUnit.SECONDS)
+            .handle((v, ex) -> {
+                if (ex != null) {
+                    Log.logError("[SystemApplication] Runtime shutdown failed", ex);
+                }
+                return null;
+            });
     }
 }

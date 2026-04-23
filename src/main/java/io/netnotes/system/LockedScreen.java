@@ -7,7 +7,6 @@ import java.util.function.Consumer;
 import io.netnotes.terminal.TerminalCommands;
 import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.components.panels.TerminalVStack;
-import io.netnotes.terminal.components.panels.TerminalHStack.HAlignment;
 import io.netnotes.terminal.components.text.TerminalLabel;
 import io.netnotes.engine.io.input.ephemeralEvents.EphemeralKeyDownEvent;
 import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;

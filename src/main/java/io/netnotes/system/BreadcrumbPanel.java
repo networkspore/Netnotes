@@ -2,41 +2,30 @@ package io.netnotes.system;
 
 import io.netnotes.engine.io.ContextPath;
 import io.netnotes.engine.ui.SizePreference;
-import io.netnotes.terminal.TerminalBatchBuilder;
-import io.netnotes.terminal.TextStyle;
-import io.netnotes.terminal.components.TerminalRegion;
+import io.netnotes.terminal.components.text.TerminalLabel;
 
 /**
  * BreadcrumbPanel - Displays context/path/navigation
  */
-class BreadcrumbPanel extends TerminalRegion {
+class BreadcrumbPanel extends TerminalLabel {
     public static final int MAX_SEGMENT_LEN = 8;
 
 
-    private ContextPath path = ContextPath.ROOT;
-    private String displayString = "/";
-    private int len = 1;
-  
+    private ContextPath path = ContextPath.ROOT;;
 
     public BreadcrumbPanel(String name) {
-        super(name);
-        setHeightPreference(SizePreference.STATIC);
+        super(name, "/");
         setWidthPreference(SizePreference.FIT_CONTENT);
+        setMaxLines(1);
     }
     
     public void setPath(ContextPath path) {
         path = path == null ? ContextPath.ROOT : path;
         if (!this.path.equals(path)) {
             this.path = path;
-            displayString = getDisplayString();
-            len = displayString.length();
+            setText(getDisplayString());
             invalidate();
         }
-    }
-    
-    @Override
-    protected void renderSelf(TerminalBatchBuilder batch) {
-        printAt(batch, 0, 0, displayString, TextStyle.NORMAL);
     }
 
     public String getDisplayString() {
@@ -78,13 +67,6 @@ class BreadcrumbPanel extends TerminalRegion {
                 : segment;
     }
 
-    @Override
-    public int getMinWidth(){
-        return len;
-    }
 
-    @Override
-    public int getPreferredWidth(){
-        return Math.max(getMinWidth(), len + getInsets().getHorizontal());
-    }
+ 
 }

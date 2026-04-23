@@ -18,10 +18,9 @@ public class ApplicationRootInitProgress extends TerminalPanel {
         
         rightPanel = new TerminalPanel("app-init-right-panel");    
         rightPanel.setWidthPreference(SizePreference.FILL);
-
+        //TODO: add Label
         passwordInitProgress = TerminalProgressBar.builder()
                 .name("password-init-progress")
-                .label("Initializing secure keyboard...")
                 .style(TerminalProgressBar.Style.SMOOTH)
                 .bounds(0, 0, 36, 4)
                 .build();

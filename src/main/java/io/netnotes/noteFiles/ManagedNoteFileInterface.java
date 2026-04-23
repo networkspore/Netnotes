@@ -18,7 +18,7 @@ import io.netnotes.noteBytes.NoteStringArrayReadOnly;
 import io.netnotes.engine.utils.noteBytes.NoteUUID;
 import io.netnotes.noteBytes.processing.AsyncNoteBytesWriter;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
-import io.netnotes.engine.utils.virtualExecutors.SerializedVirtualExecutor;
+import io.netnotes.engine.virtualExecutors.SerializedVirtualExecutor;
 import io.netnotes.noteFiles.notePath.NoteFileService;
 
 /**

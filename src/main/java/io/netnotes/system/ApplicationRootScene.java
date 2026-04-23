@@ -52,10 +52,16 @@ public class ApplicationRootScene extends TerminalBorderPanel {
     }
 
 
-    private void removeOldScaffolding(){
-        if(isScaffoldingActive()){
-            scrollPanel.removeContent(currentScaffolding.getUI());
-        }
+    private void removeOldScaffolding() {
+        if (!isScaffoldingActive()) return;
+        SystemUIInterface old = currentScaffolding;
+        currentScaffolding = null; 
+        scrollPanel.removeContent(old.getUI());
+    }
+
+    public void clearScaffolding() {
+        removeOldScaffolding();
+        setContextBarVisible(true);
     }
 
 
@@ -82,8 +88,9 @@ public class ApplicationRootScene extends TerminalBorderPanel {
     public void updatePasswordInitProgress(double percent, String msg) {
         if (initProgress != null) {
             Log.logMsg("[ApplicationRootScene] updating initProgress: " + msg + " " + percent + "%", LOG_LEVEL);
-            initProgress.getProgressBar().updatePercent(percent * 100);
-            initProgress.getProgressBar().setLabel(msg);
+            initProgress.getProgressBar().updatePercentDouble(percent);
+            
+            //TODO: update label
         }
     }
     

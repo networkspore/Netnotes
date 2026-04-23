@@ -12,14 +12,12 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 import io.netnotes.terminal.TerminalRectangle;
 import io.netnotes.terminal.TextStyle;
-import io.netnotes.terminal.TextStyle.BoxStyle;
 
 
 import io.netnotes.terminal.components.TerminalProgressBar;
 import io.netnotes.terminal.components.TerminalRegion;
 import io.netnotes.terminal.components.text.ScrollableTextViewer;
 import io.netnotes.terminal.components.text.TerminalLabel;
-import io.netnotes.terminal.components.text.TerminalTextBox;
 import io.netnotes.terminal.layout.TerminalLayoutData;
 import io.netnotes.terminal.menus.MenuContext;
 import io.netnotes.terminal.menus.MenuNavigator;
@@ -54,7 +52,7 @@ public class IODaemonInstaller extends TerminalRegion {
 
     // UI components
     private final TerminalLabel headerLabel;
-    private final TerminalTextBox statusBox;
+    private final TerminalLabel statusBox;
     private final MenuNavigator menuNavigator;
     private final TerminalProgressBar progressBar;
     private final ScrollableTextViewer logViewer;
@@ -81,9 +79,8 @@ public class IODaemonInstaller extends TerminalRegion {
         headerLabel = new TerminalLabel("iod-header", "IODaemon Installer");
         headerLabel.setTextStyle(TextStyle.BOLD);
 
-        statusBox = new TerminalTextBox("iod-status");
-        statusBox.setBorderStyle(BoxStyle.SINGLE);
-        statusBox.setTitle("Status");
+        statusBox = new TerminalLabel("iod-status","Status");
+  
 
         menuNavigator = new MenuNavigator("iod-menu");
         progressBar = new TerminalProgressBar("iod-progress", TerminalProgressBar.Style.BLOCKS);
@@ -712,16 +709,24 @@ public class IODaemonInstaller extends TerminalRegion {
     }
 
     private void postProgress(String message, int step) {
-        double percent = (step * 100.0) / totalSteps;
-        application.getUiExecutor().executeFireAndForget(() -> {
-            progressBar.updatePercent(percent);
-            logViewer.addLine(String.format("[%d/%d] %s", step, totalSteps, message));
-        });
+        double percent = step / totalSteps;
         Log.logMsg("[Installer] " + message, LOG_LEVEL);
+        logViewer.addLine(String.format("[%d/%d] %s", step, totalSteps, message));
+        if(!uiExecutor.isCurrentThread()){
+            application.getUiExecutor().runLater(() -> progressBar.updatePercentDouble(percent));
+        }else{
+            progressBar.updatePercentDouble(percent);
+        }
+        
+        
     }
 
     private void postLog(String line) {
-        application.getUiExecutor().executeFireAndForget(() -> logViewer.addLine(line));
+        if(!uiExecutor.isCurrentThread()){
+            uiExecutor.runLater(() -> logViewer.addLine(line));
+        }else{
+            logViewer.addLine(line);
+        }
     }
 
     // ===== UTILITIES =====

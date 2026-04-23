@@ -4,9 +4,8 @@ import java.util.function.Consumer;
 
 import io.netnotes.terminal.TerminalRenderable;
 import io.netnotes.terminal.TextStyle;
-import io.netnotes.terminal.TextStyle.BoxStyle;
 import io.netnotes.terminal.components.panels.TerminalBorderPanel;
-import io.netnotes.terminal.components.text.TerminalTextBox;
+import io.netnotes.terminal.components.text.TerminalLabel;
 import io.netnotes.terminal.layout.TerminalLayoutData;
 import io.netnotes.engine.io.input.events.keyboardEvents.KeyDownEvent;
 import io.netnotes.noteBytes.NoteBytesReadOnly;
@@ -21,7 +20,7 @@ class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
 
     private final SystemApplication application;
     private final ConcurrentBitFlagStateMachine stateMachine;
-    private final TerminalTextBox errorBox;
+    private final TerminalLabel errorBox;
 
     private volatile String errorMessage = null;
     private volatile boolean timeoutError = false;
@@ -34,9 +33,8 @@ class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
         this.stateMachine = new ConcurrentBitFlagStateMachine("LoginScreen");
         this.stateMachine.setSerialExecutor(application.getUiExecutor());
 
-        errorBox = new TerminalTextBox("login-error");
-        errorBox.setBorderStyle(BoxStyle.DOUBLE);
-        errorBox.setTitle("Login Failed");
+        errorBox = new TerminalLabel("login-error");
+        errorBox.setText("Login Failed");
         errorBox.setTextStyle(TextStyle.ERROR);
 
         buildUI();
@@ -77,11 +75,8 @@ class LoginScreen extends TerminalBorderPanel implements SystemUIInterface {
                         if (errorMessage.contains("timeout")) {
                             timeoutError = true;
                         }
-                        application.getUiExecutor().submit(() -> {
-                            try { Thread.sleep(1000); } 
-                            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                        application.getUiExecutor().execute(() -> {
                             transitionTo(STATE_SHOWING_PROMPT, STATE_SHOWING_ERROR);
-                            return null;
                         });
                     }
                 });

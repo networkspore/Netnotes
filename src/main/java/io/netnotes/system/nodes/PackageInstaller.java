@@ -11,7 +11,7 @@ import io.netnotes.noteFiles.NoteFileServiceInterface;
 import io.netnotes.engine.utils.LoggingHelpers.Log;
 import io.netnotes.engine.utils.LoggingHelpers.LogLevel;
 import io.netnotes.engine.utils.streams.UrlStreamHelpers;
-import io.netnotes.engine.utils.virtualExecutors.VirtualExecutors;
+import io.netnotes.engine.virtualExecutors.VirtualExecutors;
 
 /**
  * PackageInstaller - Downloads and installs packages
